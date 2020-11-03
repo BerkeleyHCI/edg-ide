@@ -1,0 +1,16 @@
+<idea-plugin>
+  <id>edg_ide</id>
+  <name>EDG IDE</name>
+  <vendor>Quack quack quack</vendor>
+
+  <depends>com.intellij.modules.platform</depends>
+
+  <actions>
+    <action id="edg_ide.TestDialogAction" class="edg_ide.TestDialogAction"
+            text="Tested" description="Described"
+            icon="EdgIcons$.Test">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
+      <keyboard-shortcut first-keystroke="control alt A" second-keystroke="C" keymap="$default"/>
+    </action>
+  </actions>
+</idea-plugin>
