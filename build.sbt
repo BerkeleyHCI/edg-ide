@@ -9,18 +9,17 @@ libraryDependencies ++= Seq(
 )
 
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin
-intellijPluginName := "edg-ide"
+intellijPluginName in ThisBuild := "edg-ide"
+intellijBuild in ThisBuild := "2020.2.3"
 
 intellijPlugins += "com.intellij.properties".toPlugin
-intellijPlugins += "PythonCore".toPlugin
-
-intellijBuild in ThisBuild := "2020.2.3"
+intellijPlugins += "PythonCore:202.7660.27".toPlugin
 
 enablePlugins(SbtIdeaPlugin)
 
 patchPluginXml := pluginXmlOptions { xml =>
   xml.version           = version.value
-  xml.pluginDescription = "EDG IDE"
+  xml.pluginDescription = "EDG IDE Description"
   xml.sinceBuild        = (intellijBuild in ThisBuild).value
   xml.untilBuild        = "202.*"
 }
