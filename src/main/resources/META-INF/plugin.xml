@@ -13,4 +13,9 @@
       <keyboard-shortcut first-keystroke="control alt A" second-keystroke="C" keymap="$default"/>
     </action>
   </actions>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <fileType name="EDG" extensions="py" language="EDG"
+              implementationClass="edg_ide.lang.EdgFileType$" fieldName="INSTANCE"/>
+  </extensions>
 </idea-plugin>

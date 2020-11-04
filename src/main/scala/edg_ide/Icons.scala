@@ -5,5 +5,7 @@ import javax.swing._
 
 
 object EdgIcons {
-  val Test = IconLoader.getIcon("/icons/test.svg")
+  val Test: Icon = IconLoader.getIcon("/icons/test.svg")
+
+  val EdgFileIcon: Icon = IconLoader.getIcon("/icons/test.svg")
 }
