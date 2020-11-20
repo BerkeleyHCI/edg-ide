@@ -17,13 +17,10 @@ import org.jdom.Element
 
 
 object SplitFileEditorProviderUtils {
-  def getBuilderFromEditorProvider(provider: FileEditorProvider, project: Project, file: VirtualFile) = {
-    if (provider.isInstanceOf[AsyncFileEditorProvider]) {
-      provider.asInstanceOf[AsyncFileEditorProvider].createEditorAsync(project, file)
-    } else {
-      new AsyncFileEditorProvider.Builder() {
-        def build: FileEditor = provider.createEditor(project, file)
-      }
+  def getBuilderFromEditorProvider(provider: FileEditorProvider, project: Project, file: VirtualFile) = provider match {
+    case provider: AsyncFileEditorProvider => provider.createEditorAsync(project, file)
+    case _ => new AsyncFileEditorProvider.Builder() {
+      def build: FileEditor = provider.createEditor(project, file)
     }
   }
 }
@@ -44,31 +41,11 @@ class SplitFileEditorProvider extends AsyncFileEditorProvider with DumbAware {
   override def getPolicy = FileEditorPolicy.HIDE_DEFAULT_EDITOR
 
   override def createEditorAsync(project: Project, file: VirtualFile): AsyncFileEditorProvider.Builder = {
-    val documentManager = FileDocumentManager.getInstance
-    val mainDocument = documentManager.getDocument(file)
-    // TODO maybe clean up this line?
     val textBuilder = SplitFileEditorProviderUtils.getBuilderFromEditorProvider(textProvider, project, file)
 
-    return new AsyncFileEditorProvider.Builder() {
-      private var mainEditor: Option[Editor] = None
-
+    new AsyncFileEditorProvider.Builder() {
       def build: FileEditor = {
-        val disposable: Disposable = () => {}
-        EditorFactory.getInstance.addEditorFactoryListener(new EditorFactoryListener() {
-          // TODO is this even necessary since we're not intercepting the scrolling?
-          override def editorCreated(event: EditorFactoryEvent): Unit = {
-            val editor = event.getEditor
-            val document = editor.getDocument
-            require(mainEditor == None)
-            mainEditor = Some(editor)
-          }
-        }, disposable)
-
-        val editor = new SplitFileEditor(textBuilder.build(), file)
-
-        require(mainEditor != None)
-
-        editor
+        new SplitFileEditor(textBuilder.build(), file)
       }
     }
   }
