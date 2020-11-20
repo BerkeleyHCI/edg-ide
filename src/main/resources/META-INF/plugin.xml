@@ -5,7 +5,9 @@
 
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.python</depends>
-
+  <extensions defaultExtensionNs="com.intellij">
+    <fileEditorProvider implementation="edg_ide.SplitFileEditorProvider"/>
+  </extensions>
 
   <actions>
     <action id="edg_ide.TestDialogAction" class="edg_ide.TestDialogAction"
