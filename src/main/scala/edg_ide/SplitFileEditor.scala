@@ -3,25 +3,23 @@ package edg_ide
 import com.intellij.codeHighlighting.BackgroundEditorHighlighter
 import com.intellij.ide.structureView.StructureViewBuilder
 import com.intellij.openapi.actionSystem.DataContext
-import com.intellij.openapi.editor.Document
-import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor._
 import com.intellij.openapi.editor.colors.EditorFontType
 import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.fileEditor._
+import com.intellij.openapi.fileChooser._
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.util.Pair
 import com.intellij.openapi.util.UserDataHolderBase
-import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs._
 import com.intellij.pom.Navigatable
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.util.ui.ImageUtil
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
-
 import javax.imageio.ImageIO
 import javax.swing._
 import java.awt._
@@ -37,25 +35,65 @@ import java.io._
 import java.util._
 import java.util
 
+import com.intellij.openapi.ui.{TextFieldWithBrowseButton, TextBrowseFolderListener}
+
 
 class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)
     extends UserDataHolderBase with TextEditor {
   // Build GUI components
-  val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
-  splitter.setFirstComponent(textEditor.getComponent())
-
-  val visualization = new JPanel(new BorderLayout())
-  splitter.setSecondComponent(visualization)
-
-  val component = new JPanel(new BorderLayout())
-  component.add(splitter, BorderLayout.CENTER)
-
   textEditor.getComponent.setVisible(true)
 
-  // Abstract methods that need to be implemented
+  val mainSplitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
+  mainSplitter.setFirstComponent(textEditor.getComponent())
+
+  val ideSplitter = new JBSplitter(true, 0.5f)
+  ideSplitter.setHonorComponentsMinimumSize(true)
+  ideSplitter.setShowDividerControls(true)
+  ideSplitter.setBorder(BorderFactory.createLoweredBevelBorder())
+  mainSplitter.setSecondComponent(ideSplitter)
+
+  def makeGbc(gridx: Int, gridy: Int, fill: Int, xsize: Int = 1, ysize: Int = 1): GridBagConstraints = {
+    val gbc = new GridBagConstraints()
+    gbc.gridx = gridx
+    gbc.gridy = gridy
+    gbc.gridwidth = xsize
+    gbc.gridheight = ysize
+    gbc.fill = fill
+    gbc
+  }
+
+  //
+  //  Visualization Panel
+  //
+  val visualizationPanel = new JPanel(new GridBagLayout())
+  ideSplitter.setFirstComponent(visualizationPanel)
+
+
+  val fileBrowser = new TextFieldWithBrowseButton()
+  visualizationPanel.add(fileBrowser, makeGbc(0, 0, GridBagConstraints.HORIZONTAL))
+  val fileLabel = new JLabel("empty")
+  visualizationPanel.add(fileLabel, makeGbc(0, 1, GridBagConstraints.HORIZONTAL))
+
+  val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
+  fileBrowser.addBrowseFolderListener(new TextBrowseFolderListener(descriptor, null) {
+    override def onFileChosen(chosenFile: VirtualFile) {
+      val absolutePath = VfsUtilCore.virtualToIoFile(chosenFile).getAbsolutePath()
+      fileLabel.setText(absolutePath)
+    }
+  })
+
+  //
+  // Tree Panel
+  //
+  val treePanel = new JPanel(new BorderLayout())
+  ideSplitter.setSecondComponent(treePanel)
+
+  //
+  // Implementation for abstract TextEditor
+  //
   override def getName() = "PyCharm with EDG Live Visualization"
 
-  override def getComponent(): JComponent = component
+  override def getComponent(): JComponent = mainSplitter
   override def getPreferredFocusedComponent() = textEditor.getPreferredFocusedComponent()
 
   override def getState(level: FileEditorStateLevel) = new SplitFileEditorState(
