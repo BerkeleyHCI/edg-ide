@@ -49,16 +49,27 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   val ideSplitter = new JBSplitter(true, 0.5f)
   ideSplitter.setHonorComponentsMinimumSize(true)
   ideSplitter.setShowDividerControls(true)
-  ideSplitter.setBorder(BorderFactory.createLoweredBevelBorder())
   mainSplitter.setSecondComponent(ideSplitter)
 
-  def makeGbc(gridx: Int, gridy: Int, fill: Int, xsize: Int = 1, ysize: Int = 1): GridBagConstraints = {
+  def makeGbc(gridx: Int, gridy: Int, fill: Int = GridBagConstraints.NONE,
+              xsize: Int = 1, ysize: Int = 1,
+              xweight: Float = 0.0f, yweight: Float = 0.0f): GridBagConstraints = {
     val gbc = new GridBagConstraints()
     gbc.gridx = gridx
     gbc.gridy = gridy
+    gbc.fill = fill
+    if (xweight == 0 && (fill == GridBagConstraints.HORIZONTAL || fill == GridBagConstraints.BOTH)) {
+      gbc.weightx = 1  // default fill weight
+    } else {
+      gbc.weightx = xweight
+    }
+    if (yweight == 0 && (fill == GridBagConstraints.VERTICAL || fill == GridBagConstraints.BOTH)) {
+      gbc.weighty = 1
+    } else {
+      gbc.weighty = yweight
+    }
     gbc.gridwidth = xsize
     gbc.gridheight = ysize
-    gbc.fill = fill
     gbc
   }
 
@@ -66,6 +77,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   //  Visualization Panel
   //
   val visualizationPanel = new JPanel(new GridBagLayout())
+  visualizationPanel.setBorder(BorderFactory.createEtchedBorder())
   ideSplitter.setFirstComponent(visualizationPanel)
 
 
