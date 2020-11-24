@@ -1,0 +1,3 @@
+[submodule "PolymorphicBlocks"]
+	path = PolymorphicBlocks
+	url = https://github.com/BerkeleyHCI/PolymorphicBlocks.git

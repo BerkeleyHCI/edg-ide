@@ -40,6 +40,9 @@ import com.intellij.openapi.ui.{TextFieldWithBrowseButton, TextBrowseFolderListe
 
 class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)
     extends UserDataHolderBase with TextEditor {
+  // State
+  var edgFileAbsPath: Option[String] = None
+
   // Build GUI components
   textEditor.getComponent.setVisible(true)
 
@@ -47,8 +50,6 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   mainSplitter.setFirstComponent(textEditor.getComponent())
 
   val ideSplitter = new JBSplitter(true, 0.5f)
-  ideSplitter.setHonorComponentsMinimumSize(true)
-  ideSplitter.setShowDividerControls(true)
   mainSplitter.setSecondComponent(ideSplitter)
 
   def makeGbc(gridx: Int, gridy: Int, fill: Int = GridBagConstraints.NONE,
@@ -80,19 +81,43 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   visualizationPanel.setBorder(BorderFactory.createEtchedBorder())
   ideSplitter.setFirstComponent(visualizationPanel)
 
-
   val fileBrowser = new TextFieldWithBrowseButton()
   visualizationPanel.add(fileBrowser, makeGbc(0, 0, GridBagConstraints.HORIZONTAL))
-  val fileLabel = new JLabel("empty")
+  val fileLabel = new JLabel("No file")
   visualizationPanel.add(fileLabel, makeGbc(0, 1, GridBagConstraints.HORIZONTAL))
+
+  val visualization = new JTextArea("(empty)")
+  visualizationPanel.add(visualization, makeGbc(0, 2, GridBagConstraints.BOTH))
 
   val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
   fileBrowser.addBrowseFolderListener(new TextBrowseFolderListener(descriptor, null) {
     override def onFileChosen(chosenFile: VirtualFile) {
-      val absolutePath = VfsUtilCore.virtualToIoFile(chosenFile).getAbsolutePath()
-      fileLabel.setText(absolutePath)
+      val file = VfsUtilCore.virtualToIoFile(chosenFile)
+      openEdgFile(file)
     }
   })
+
+  def openEdgFile(file: File): Unit = {
+    val absolutePath = file.getAbsolutePath
+    fileBrowser.setText(absolutePath)
+
+    val fileInputStream = new FileInputStream(file)
+
+    import edg.schema.schema.Design
+    import edg.elem.elem.HierarchyBlock
+
+    val design = Design.parseFrom(fileInputStream)
+    design.contents match {
+      case Some(block) =>
+        edgFileAbsPath = Some(absolutePath)
+        fileLabel.setText(s"${block.getClass.toString}")
+        visualization.setText(s":${block.toString}")
+      case None =>
+        edgFileAbsPath = None
+        fileLabel.setText(s"Invalid file format: $absolutePath")
+    }
+    fileInputStream.close()
+  }
 
   //
   // Tree Panel
@@ -108,12 +133,14 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   override def getComponent(): JComponent = mainSplitter
   override def getPreferredFocusedComponent() = textEditor.getPreferredFocusedComponent()
 
-  override def getState(level: FileEditorStateLevel) = new SplitFileEditorState(
-    "",
-    textEditor.getState(level)
-  )
+  override def getState(level: FileEditorStateLevel) =
+    new SplitFileEditorState(
+      edgFileAbsPath,
+      textEditor.getState(level)
+    )
   override def setState(state: FileEditorState): Unit = state match {
     case state: SplitFileEditorState =>
+      state.edgFileAbsPath.map { absPath: String => openEdgFile(new File(absPath)) }
       textEditor.setState(state.textState)
     case _ =>  // discard state type
   }
@@ -144,7 +171,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
 
 
 // Container state around TextEditor
-class SplitFileEditorState(val splitLayout: String, val textState: FileEditorState)
+class SplitFileEditorState(val edgFileAbsPath: Option[String], val textState: FileEditorState)
     extends FileEditorState {
   override def canBeMergedWith(otherState: FileEditorState, level: FileEditorStateLevel): Boolean =
     otherState match {

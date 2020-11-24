@@ -8,6 +8,14 @@ libraryDependencies ++= Seq(
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
 )
 
+PB.protoSources in Compile := Seq(
+  baseDirectory.value / "PolymorphicBlocks/edgir",
+)
+
+PB.targets in Compile := Seq(
+  scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
+)
+
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin
 intellijPluginName in ThisBuild := "edg-ide"
 intellijBuild in ThisBuild := "2020.2.3"
