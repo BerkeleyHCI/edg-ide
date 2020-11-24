@@ -17,6 +17,7 @@ import com.intellij.openapi.vfs._
 import com.intellij.pom.Navigatable
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
+import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.ui.ImageUtil
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
@@ -34,6 +35,8 @@ import java.beans.PropertyChangeListener
 import java.io._
 import java.util._
 import java.util
+
+import edg.elem.elem.HierarchyBlock
 
 import com.intellij.openapi.ui.{TextFieldWithBrowseButton, TextBrowseFolderListener}
 
@@ -87,7 +90,10 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   visualizationPanel.add(fileLabel, makeGbc(0, 1, GridBagConstraints.HORIZONTAL))
 
   val visualization = new JTextArea("(empty)")
-  visualizationPanel.add(visualization, makeGbc(0, 2, GridBagConstraints.BOTH))
+  visualization.setLineWrap(true)
+  visualization.setWrapStyleWord(true)
+  val visualizationScrollPane = new JScrollPane(visualization)
+  visualizationPanel.add(visualizationScrollPane, makeGbc(0, 2, GridBagConstraints.BOTH))
 
   val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
   fileBrowser.addBrowseFolderListener(new TextBrowseFolderListener(descriptor, null) {
@@ -97,6 +103,19 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     }
   })
 
+  //
+  // Tree Panel
+  //
+  val treePanel = new JPanel(new GridBagLayout())
+  ideSplitter.setSecondComponent(treePanel)
+
+  val designTree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  designTree.setShowColumns(true)
+  treePanel.add(designTree, makeGbc(0, 0, GridBagConstraints.BOTH))
+
+  //
+  // Interaction Implementations
+  //
   def openEdgFile(file: File): Unit = {
     val absolutePath = file.getAbsolutePath
     fileBrowser.setText(absolutePath)
@@ -112,18 +131,13 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
         edgFileAbsPath = Some(absolutePath)
         fileLabel.setText(s"${block.getClass.toString}")
         visualization.setText(s":${block.toString}")
+        designTree.setModel(new EdgTreeTableModel(block))
       case None =>
         edgFileAbsPath = None
         fileLabel.setText(s"Invalid file format: $absolutePath")
     }
     fileInputStream.close()
   }
-
-  //
-  // Tree Panel
-  //
-  val treePanel = new JPanel(new BorderLayout())
-  ideSplitter.setSecondComponent(treePanel)
 
   //
   // Implementation for abstract TextEditor
