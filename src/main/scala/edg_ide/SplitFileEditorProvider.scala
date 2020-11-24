@@ -49,4 +49,31 @@ class SplitFileEditorProvider extends AsyncFileEditorProvider with DumbAware {
       }
     }
   }
+
+  // Editor state save / restore
+  val ELEMENT_TEXT_EDITOR = "TEXT_EDITOR"
+  val ELEMENT_EDG_FILE = "EDG_FILE"
+
+  override def readState(sourceElement: Element, project: Project, file: VirtualFile): SplitFileEditorState = {
+    val textState = sourceElement.getChild(ELEMENT_TEXT_EDITOR) match {
+      case null => null
+      case textStateChild => textProvider.readState(textStateChild, project, file)
+    }
+    val edgFileAbsPath = Option(sourceElement.getAttribute(ELEMENT_EDG_FILE)).map { _.getValue }
+
+    new SplitFileEditorState(edgFileAbsPath, textState)
+  }
+
+  override def writeState(state: FileEditorState, project: Project, targetElement: Element): Unit = state match {
+    case state: SplitFileEditorState =>
+      Option(state.textState).map { textState =>
+          val textChild = new Element(ELEMENT_TEXT_EDITOR)
+          textProvider.writeState(textState, project, textChild)
+          targetElement.addContent(textChild)
+      }
+      state.edgFileAbsPath.map { absPath =>
+        targetElement.setAttribute(ELEMENT_EDG_FILE, absPath)
+      }
+    case _ =>  // discard
+  }
 }
