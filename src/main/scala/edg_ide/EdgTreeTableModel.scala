@@ -40,11 +40,11 @@ class EdgTreeTableModel(root: HierarchyBlock) extends ParameterizedTreeTableMode
 
   // TreeView abstract methods
   //
-  override def getRoot: HierarchyBlockNode = rootNode
+  override def getRootNode: HierarchyBlockNode = rootNode
 
-  override def isLeaf(node: HierarchyBlockNode): Boolean = node.getChildren().isEmpty
-  override def getChildCount(node: HierarchyBlockNode): Int = node.getChildren().length
-  override def getChild(parent: HierarchyBlockNode, index: Int): HierarchyBlockNode = {
+  override def isNodeLeaf(node: HierarchyBlockNode): Boolean = node.getChildren().isEmpty
+  override def getNodeChildCount(node: HierarchyBlockNode): Int = node.getChildren().length
+  override def getNodeChild(parent: HierarchyBlockNode, index: Int): HierarchyBlockNode = {
     val children = parent.getChildren()
     if (index < children.size) {
       parent.getChildren()(index)
@@ -53,7 +53,7 @@ class EdgTreeTableModel(root: HierarchyBlock) extends ParameterizedTreeTableMode
     }
   }
 
-  override def getIndexOfChild(parent: HierarchyBlockNode, child: HierarchyBlockNode): Int =
+  override def getIndexOfNodeChild(parent: HierarchyBlockNode, child: HierarchyBlockNode): Int =
     parent.getChildren().indexOf(child)
 
   // These aren't relevant for trees that can't be edited
@@ -75,11 +75,11 @@ class EdgTreeTableModel(root: HierarchyBlock) extends ParameterizedTreeTableMode
     }
   }
 
-  override def getValueAt(node: HierarchyBlockNode, column: Int): Object = node.getColumns()(column)
+  override def getNodeValueAt(node: HierarchyBlockNode, column: Int): Object = node.getColumns()(column)
 
   // These aren't relevant for trees that can't be edited
-  override def isCellEditable(node: HierarchyBlockNode, column: Int): Boolean = false
-  override def setValueAt(aValue: Any, node: HierarchyBlockNode, column: Int): Unit = {}
+  override def isNodeCellEditable(node: HierarchyBlockNode, column: Int): Boolean = false
+  override def setNodeValueAt(aValue: Any, node: HierarchyBlockNode, column: Int): Unit = {}
 
   def setTree(tree: JTree): Unit = { }  // tree updates ignored
 }
