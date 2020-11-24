@@ -34,48 +34,27 @@ class HierarchyBlockNode(val name: String, val block: HierarchyBlock) {
 }
 
 
-class EdgTreeTableModel(root: HierarchyBlock) extends TreeTableModel {
-  val logger = Logger.getInstance(classOf[EdgTreeTableModel])
-  val rootNode = new HierarchyBlockNode("(design)", root)
+class EdgTreeTableModel(root: HierarchyBlock) extends ParameterizedTreeTableModel[HierarchyBlockNode] {
+  val rootNode: HierarchyBlockNode = new HierarchyBlockNode("(design)", root)
   val COLUMNS = Seq("Path", "Class")
 
   // TreeView abstract methods
   //
-  override def getRoot: Object = rootNode
+  override def getRoot: HierarchyBlockNode = rootNode
 
-  override def isLeaf(node: Object): Boolean = node match {
-    case node: HierarchyBlockNode => node.getChildren().isEmpty
-    case _ =>
-      logger.error(s"isLeaf got node of unexpected type ${node.getClass}")
-      true
-  }
-
-  override def getChildCount(node: Object): Int = node match {
-    case node: HierarchyBlockNode => node.getChildren().length
-    case _ =>
-      logger.error(s"getChildCount got node of unexpected type ${node.getClass}")
-      0
-  }
-
-  override def getChild(parent: Object, index: Int): Object = parent match {
-    case parent: HierarchyBlockNode =>
-      val children = parent.getChildren()
-      if (index < children.size) {
-        parent.getChildren()(index)
-      } else {
-        null
-      }
-    case _ =>
-      logger.error(s"getChild got parent of unexpected type ${parent.getClass}")
+  override def isLeaf(node: HierarchyBlockNode): Boolean = node.getChildren().isEmpty
+  override def getChildCount(node: HierarchyBlockNode): Int = node.getChildren().length
+  override def getChild(parent: HierarchyBlockNode, index: Int): HierarchyBlockNode = {
+    val children = parent.getChildren()
+    if (index < children.size) {
+      parent.getChildren()(index)
+    } else {
       null
+    }
   }
 
-  override def getIndexOfChild(parent: Object, child: Object): Int = parent match {
-    case parent: HierarchyBlockNode => parent.getChildren().indexOf(child)
-    case _ =>
-      logger.error(s"getIndexOfChild got parent of unexpected type ${parent.getClass}")
-      -1
-  }
+  override def getIndexOfChild(parent: HierarchyBlockNode, child: HierarchyBlockNode): Int =
+    parent.getChildren().indexOf(child)
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}
@@ -96,16 +75,11 @@ class EdgTreeTableModel(root: HierarchyBlock) extends TreeTableModel {
     }
   }
 
-  override def getValueAt(node: Object, column: Int): Object = node match {
-    case node: HierarchyBlockNode => node.getColumns()(column)
-    case _ =>
-      logger.error(s"getValueAt got node of unexpected type ${node.getClass}")
-      null
-  }
+  override def getValueAt(node: HierarchyBlockNode, column: Int): Object = node.getColumns()(column)
 
   // These aren't relevant for trees that can't be edited
-  override def isCellEditable(node: Object, column: Int): Boolean = false
-  override def setValueAt(aValue: Any, node: Object, column: Int): Unit = {}
+  override def isCellEditable(node: HierarchyBlockNode, column: Int): Boolean = false
+  override def setValueAt(aValue: Any, node: HierarchyBlockNode, column: Int): Unit = {}
 
-  def setTree(tree: JTree): Unit = { logger.warn(s"setTree $tree") }  // idk what this is
+  def setTree(tree: JTree): Unit = { }  // tree updates ignored
 }

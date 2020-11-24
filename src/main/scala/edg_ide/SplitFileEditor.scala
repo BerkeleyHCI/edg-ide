@@ -109,7 +109,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   val treePanel = new JPanel(new GridBagLayout())
   ideSplitter.setSecondComponent(treePanel)
 
-  val designTree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  val designTree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()).treeModel)
   designTree.setShowColumns(true)
   treePanel.add(designTree, makeGbc(0, 0, GridBagConstraints.BOTH))
 
@@ -131,7 +131,8 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
         edgFileAbsPath = Some(absolutePath)
         fileLabel.setText(s"${block.getClass.toString}")
         visualization.setText(s":${block.toString}")
-        designTree.setModel(new EdgTreeTableModel(block))
+        designTree.setModel(new EdgTreeTableModel(block).treeModel)
+        designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
       case None =>
         edgFileAbsPath = None
         fileLabel.setText(s"Invalid file format: $absolutePath")
