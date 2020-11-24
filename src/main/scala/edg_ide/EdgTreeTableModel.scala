@@ -34,7 +34,7 @@ class HierarchyBlockNode(val name: String, val block: HierarchyBlock) {
 }
 
 
-class EdgTreeTableModel(root: HierarchyBlock) extends ParameterizedTreeTableModel[HierarchyBlockNode] {
+class EdgTreeTableModel(root: HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
   val rootNode: HierarchyBlockNode = new HierarchyBlockNode("(design)", root)
   val COLUMNS = Seq("Path", "Class")
 
@@ -42,19 +42,7 @@ class EdgTreeTableModel(root: HierarchyBlock) extends ParameterizedTreeTableMode
   //
   override def getRootNode: HierarchyBlockNode = rootNode
 
-  override def isNodeLeaf(node: HierarchyBlockNode): Boolean = node.getChildren().isEmpty
-  override def getNodeChildCount(node: HierarchyBlockNode): Int = node.getChildren().length
-  override def getNodeChild(parent: HierarchyBlockNode, index: Int): HierarchyBlockNode = {
-    val children = parent.getChildren()
-    if (index < children.size) {
-      parent.getChildren()(index)
-    } else {
-      null
-    }
-  }
-
-  override def getIndexOfNodeChild(parent: HierarchyBlockNode, child: HierarchyBlockNode): Int =
-    parent.getChildren().indexOf(child)
+  override def getNodeChildren(node: HierarchyBlockNode): Seq[HierarchyBlockNode] = node.getChildren()
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}

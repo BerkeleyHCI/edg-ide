@@ -16,7 +16,7 @@ import javax.swing.JTree
  * @tparam NodeType
  */
 abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: ClassTag[NodeType])
-    extends TreeTableModel { outer =>
+    extends TreeTableModel {
   val logger = Logger.getInstance(classOf[EdgTreeTableModel])
 
   // TreeView abstract methods
@@ -37,7 +37,7 @@ abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: Cla
 
   def getNodeChildCount(node: NodeType): Int
   final override def getChildCount(node: Object): Int = node match {
-    case node: NodeType => outer.getNodeChildCount(node)
+    case node: NodeType => getNodeChildCount(node)
     case null =>
       logger.error(s"getChildCount got node of unexpected null")
       0
@@ -49,7 +49,7 @@ abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: Cla
   def getNodeChild(parent: NodeType, index: Int): NodeType
   final override def getChild(parent: Object, index: Int): Object = parent match {
     case parent: NodeType =>
-      outer.getNodeChild(parent, index)
+      getNodeChild(parent, index)
     case null =>
       logger.error(s"getChild got parent of unexpected null")
       null
@@ -101,4 +101,26 @@ abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: Cla
     case _ =>
       logger.error(s"setValueAt got node of unexpected type ${node.getClass}")
   }
+}
+
+/**
+ * TreeTable model where the children for each node is defined by a Seq. Also includes default (but overrideable)
+ * isLeaf implementation based on child counts.
+ */
+abstract class SeqTreeTableModel[NodeType <: Object](implicit tag: ClassTag[NodeType])
+    extends ParameterizedTreeTableModel[NodeType] {
+  def getNodeChildren(node: NodeType): Seq[NodeType]  // ordering must be stable!
+
+  override def isNodeLeaf(node: NodeType): Boolean = getNodeChildren(node).isEmpty
+  final override def getNodeChildCount(node: NodeType): Int = getNodeChildren(node).length
+  final override def getNodeChild(parent: NodeType, index: Int): NodeType = {
+    val children = getNodeChildren(parent)
+    if (index < children.size) {
+      children(index)
+    } else {
+      null.asInstanceOf[NodeType]
+    }
+  }
+  final override def getIndexOfNodeChild(parent: NodeType, child: NodeType): Int =
+    getNodeChildren(parent).indexOf(child)
 }
