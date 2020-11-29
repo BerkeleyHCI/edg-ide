@@ -15,4 +15,9 @@ object EdgirUtils {
       case None => "(LibraryPath with no target)"
     }
   }
+
+  def SimpleLibraryPathToString(path: LibraryPath): String = {
+    // TODO once namespaces are handled properly, this should use that instead of string ops
+    LibraryPathToString(path).split('.').last
+  }
 }

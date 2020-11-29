@@ -18,6 +18,7 @@ import com.intellij.openapi.vfs._
 import com.intellij.pom.Navigatable
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.ui.ImageUtil
 import org.jetbrains.annotations.NotNull
@@ -45,6 +46,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   // State
   var edgFileAbsPath: Option[String] = None
   var edgLibraryAbsPath: Option[String] = None
+  var library: Option[EdgirLibrary] = None
 
   // Build GUI components
   textEditor.getComponent.setVisible(true)
@@ -96,7 +98,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   val visualization = new JTextArea("(empty)")
   visualization.setLineWrap(true)
   visualization.setWrapStyleWord(true)
-  val visualizationScrollPane = new JScrollPane(visualization)
+  val visualizationScrollPane = new JBScrollPane(visualization)
   visualizationPanel.add(visualizationScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 
   val fileDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
@@ -121,7 +123,13 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
 
   val designTree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
   designTree.setShowColumns(true)
-  treePanel.add(designTree, makeGbc(0, 0, GridBagConstraints.BOTH))
+  val designTreeScrollPane = new JBScrollPane(designTree)
+  treePanel.add(designTreeScrollPane, makeGbc(0, 0, GridBagConstraints.BOTH))
+
+  val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(new EdgirLibrary(edg.schema.schema.Library())))
+  libraryTree.setShowColumns(true)
+  val libraryTreeScrollPane = new JBScrollPane(libraryTree)
+  treePanel.add(libraryTreeScrollPane, makeGbc(1, 0, GridBagConstraints.BOTH))
 
   //
   // Interaction Implementations
@@ -151,11 +159,14 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     libraryBrowser.setText(absolutePath)
 
     val fileInputStream = new FileInputStream(file)
-    val library: Library = Library.parseFrom(fileInputStream)
-    library.root match {
+    val libraryProto: Library = Library.parseFrom(fileInputStream)
+    libraryProto.root match {
       case Some(namespace) =>
         edgLibraryAbsPath = Some(absolutePath)
-        libraryLabel.setText(s"Library with ${namespace.members.keys.size} elements: $absolutePath")
+        library = Some(new EdgirLibrary(libraryProto))
+        libraryLabel.setText(s"Library with ${namespace.members.keys.size} elements")
+        libraryTree.setModel(new EdgirLibraryTreeTableModel(library.get))
+        libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
         // TODO: actual loading here
       case None =>
         edgLibraryAbsPath = None

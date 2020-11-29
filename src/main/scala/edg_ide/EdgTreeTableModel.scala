@@ -29,7 +29,7 @@ class HierarchyBlockNode(val name: String, val block: HierarchyBlock) {
 
   def getColumns(): Seq[String] = Seq(
     name,
-    block.superclasses.map { EdgirUtils.LibraryPathToString(_) }.mkString(", ")
+    block.superclasses.map(EdgirUtils.LibraryPathToString).mkString(", ")
   )
 }
 
@@ -55,12 +55,9 @@ class EdgTreeTableModel(root: HierarchyBlock) extends SeqTreeTableModel[Hierarch
 
   override def getColumnName(column: Int): String = COLUMNS(column)
 
-  override def getColumnClass(column: Int): Class[_] = {
-    if (column == 0) {
-      return classOf[TreeTableModel]
-    } else {
-      return classOf[String]
-    }
+  override def getColumnClass(column: Int): Class[_] = column match {
+    case 0 => classOf[TreeTableModel]
+    case _ => classOf[String]
   }
 
   override def getNodeValueAt(node: HierarchyBlockNode, column: Int): Object = node.getColumns()(column)
