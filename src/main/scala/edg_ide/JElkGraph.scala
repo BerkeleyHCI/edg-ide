@@ -1,19 +1,22 @@
 package edg_ide
 
 import scala.collection.JavaConverters._
+import java.awt.{Dimension, Graphics, Rectangle}
+import java.awt.event.{MouseEvent, MouseMotionListener}
 
-import java.awt.{Dimension, FontMetrics, Graphics}
-
-import javax.swing.JComponent
+import javax.swing.{JComponent, Scrollable}
 import org.eclipse.elk.graph._
 
 
-class JElkGraph(var rootNode: ElkNode) extends JComponent {
+class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with MouseMotionListener {
   setGraph(rootNode)
+
+  // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
+  setAutoscrolls(true)
+  addMouseMotionListener(this)
 
   def setGraph(newGraph: ElkNode): Unit = {
     rootNode = newGraph
-    setMinimumSize(new Dimension(rootNode.getWidth.toInt, rootNode.getHeight.toInt))
     validate()
     repaint()
   }
@@ -84,4 +87,25 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent {
       paintEdge(edge, rootNode.getX.toInt, rootNode.getY.toInt)
     }
   }
+
+  // Mouse drag handler
+  override def mouseMoved(e: MouseEvent): Unit = { }  // nothing happens on mouse motion
+  override def mouseDragged(e: MouseEvent): Unit = {
+    // TODO perhaps change to keep clicked viewport point on cursor?
+    val r = new Rectangle(e.getX, e.getY, 1, 1)
+    scrollRectToVisible(r)
+  }
+
+  // Scrollable APIs
+  //
+  override def getPreferredSize: Dimension =
+    new Dimension(rootNode.getWidth.toInt, rootNode.getHeight.toInt)
+
+  override def getPreferredScrollableViewportSize: Dimension = getPreferredSize
+
+  override def getScrollableBlockIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
+  override def getScrollableUnitIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
+
+  override def getScrollableTracksViewportWidth: Boolean = false
+  override def getScrollableTracksViewportHeight: Boolean = false
 }

@@ -80,7 +80,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   val graphScrollPane = new JBScrollPane(graph)
   visualizationPanel.add(graphScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 
-  val fileDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
+  val fileDescriptor: FileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
   fileBrowser.addBrowseFolderListener(new TextBrowseFolderListener(fileDescriptor, null) {
     override def onFileChosen(chosenFile: VirtualFile) {
       val file = VfsUtilCore.virtualToIoFile(chosenFile)
