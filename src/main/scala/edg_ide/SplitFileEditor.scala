@@ -2,40 +2,21 @@ package edg_ide
 
 import com.intellij.codeHighlighting.BackgroundEditorHighlighter
 import com.intellij.ide.structureView.StructureViewBuilder
-import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.editor._
-import com.intellij.openapi.editor.colors.EditorFontType
-import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.fileEditor._
 import com.intellij.openapi.fileChooser._
-import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextFieldWithBrowseButton, TextBrowseFolderListener}
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.util.Key
-import com.intellij.openapi.util.Pair
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs._
 import com.intellij.pom.Navigatable
-import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.intellij.util.ui.ImageUtil
-import org.jetbrains.annotations.NotNull
-import org.jetbrains.annotations.Nullable
-import javax.imageio.ImageIO
 import javax.swing._
 import java.awt._
-import java.awt.event.ComponentAdapter
-import java.awt.event.ComponentEvent
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
-import java.awt.geom.Rectangle2D
-import java.awt.image.BufferedImage
-import java.beans.PropertyChangeEvent
 import java.beans.PropertyChangeListener
 import java.io._
-import java.util._
 
 import edg.elem.elem.HierarchyBlock
 import edg.schema.schema.{Design, Library}
