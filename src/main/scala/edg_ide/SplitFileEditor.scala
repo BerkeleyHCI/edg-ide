@@ -141,8 +141,10 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     design.contents match {
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
-        fileLabel.setText(s"${block.getClass.toString}")
-        graph.setGraph(EdgirGraph.layout(EdgirGraph.hierarchyBlockToGraph(block)))
+        val layoutGraphRoot = EdgirGraph.layout(EdgirGraph.hierarchyBlockToGraph(block))
+        fileLabel.setText(s"${block.getClass.toString}, " +
+            s"automatic layout ${layoutGraphRoot.getWidth}*${layoutGraphRoot.getHeight}")
+        graph.setGraph(layoutGraphRoot)
         designTree.setModel(new EdgTreeTableModel(block))
         designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
       case None =>
