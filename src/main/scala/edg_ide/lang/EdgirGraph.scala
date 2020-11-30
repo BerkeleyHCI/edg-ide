@@ -1,6 +1,7 @@
 package edg_ide
 
 import edg.elem.elem.HierarchyBlock
+
 import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.util.ElkGraphUtil
 import org.eclipse.elk.core.options._
@@ -8,13 +9,17 @@ import org.eclipse.elk.core.data.LayoutMetaDataService
 import org.eclipse.elk.core.RecursiveGraphLayoutEngine
 import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
+import org.eclipse.elk.graph.json._
+import org.eclipse.elk.core.math.KVector
 
 
 object EdgirGraph {
+  LayoutMetaDataService.getInstance.registerLayoutMetaDataProviders(new LayeredMetaDataProvider)
+
   /**
     * Creates a new ELK graph root node, preconfigured for hierarchy block layout
     */
-  protected def makeGraphRoot(): ElkNode = {
+  def makeGraphRoot(): ElkNode = {
     val root = ElkGraphUtil.createGraph()
     root.setProperty(CoreOptions.ALGORITHM, "org.eclipse.elk.layered")
     root.setProperty(CoreOptions.HIERARCHY_HANDLING, HierarchyHandling.INCLUDE_CHILDREN)
@@ -36,6 +41,9 @@ object EdgirGraph {
     node.setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.insideTopCenter)
     node.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.INSIDE)
     node.setProperty(CoreOptions.PORT_LABELS_NEXT_TO_PORT_IF_POSSIBLE, new java.lang.Boolean(true))
+
+    node.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
+    node.setProperty(CoreOptions.NODE_SIZE_MINIMUM, new KVector(200, 20))
 
     ElkGraphUtil.createLabel(text, node)
 
@@ -63,15 +71,15 @@ object EdgirGraph {
     * Lays out the graph, in-place
     */
   def layout(root: ElkNode): ElkNode = {
-    LayoutMetaDataService.getInstance.registerLayoutMetaDataProviders(new LayeredMetaDataProvider)
-
     val engine = new RecursiveGraphLayoutEngine()
     engine.layout(root, new BasicProgressMonitor())
+
     root
   }
 
   def hierarchyBlockToGraph(block: HierarchyBlock): ElkNode = {
     val root = makeGraphRoot()
+    root.setIdentifier("root")
 
     // TODO actually implement this with conversion from block
     val b1 = addNode(root, "b1")

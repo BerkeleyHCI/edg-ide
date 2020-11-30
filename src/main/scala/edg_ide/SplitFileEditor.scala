@@ -95,11 +95,9 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   val libraryLabel = new JLabel("No library")
   visualizationPanel.add(libraryLabel, makeGbc(0, 3, GridBagConstraints.HORIZONTAL))
 
-  val visualization = new JTextArea("(empty)")
-  visualization.setLineWrap(true)
-  visualization.setWrapStyleWord(true)
-  val visualizationScrollPane = new JBScrollPane(visualization)
-  visualizationPanel.add(visualizationScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
+  val graph = new JElkGraph(EdgirGraph.makeGraphRoot())
+  val graphScrollPane = new JBScrollPane(graph)
+  visualizationPanel.add(graphScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 
   val fileDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
   fileBrowser.addBrowseFolderListener(new TextBrowseFolderListener(fileDescriptor, null) {
@@ -144,7 +142,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
         fileLabel.setText(s"${block.getClass.toString}")
-        visualization.setText(s":${block.toString}")
+        graph.setGraph(EdgirGraph.layout(EdgirGraph.hierarchyBlockToGraph(block)))
         designTree.setModel(new EdgTreeTableModel(block))
         designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
       case None =>
