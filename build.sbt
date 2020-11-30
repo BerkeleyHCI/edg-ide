@@ -6,6 +6,9 @@ scalaVersion := "2.12.10"
 
 libraryDependencies ++= Seq(
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
+
+  "org.eclipse.elk" % "org.eclipse.elk.alg.layered" % "0.5.0",
+  "org.eclipse.elk" % "org.eclipse.elk.graph.json" % "0.5.0",
 )
 
 PB.protoSources in Compile := Seq(
