@@ -2,7 +2,7 @@ package edg_ide
 
 import scala.collection.JavaConverters._
 
-import java.awt.{Dimension, Graphics}
+import java.awt.{Dimension, FontMetrics, Graphics}
 
 import javax.swing.JComponent
 import org.eclipse.elk.graph._
@@ -19,6 +19,8 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent {
   }
 
   override def paintComponent(g: Graphics): Unit = {
+    val fontMetrics = g.getFontMetrics(g.getFont)
+
     def paintBlock(node: ElkNode, parentX: Int, parentY: Int): Unit = {
       val nodeX = parentX + node.getX.toInt
       val nodeY = parentY + node.getY.toInt
@@ -26,16 +28,32 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent {
       g.drawRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
 
+      node.getLabels.asScala.foreach { label =>
+        // convert the center x, y to top left aligned coordinates
+        val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
+        val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
+
+        g.drawString(label.getText, labelX + nodeX, labelY + nodeY)
+      }
+
       node.getPorts.asScala.foreach { port =>
         g.drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
           port.getWidth.toInt, port.getHeight.toInt)
+
+        port.getLabels.asScala.foreach { label =>
+          // convert the center x, y to top left aligned coordinates
+          val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
+          val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
+
+          g.drawString(label.getText, labelX + nodeX + port.getX.toInt, labelY + nodeY + port.getY.toInt)
+        }
       }
 
       node.getChildren.asScala.foreach { childNode =>
         paintBlock(childNode, nodeX, nodeY)
       }
 
-      node.getContainedEdges.asScala.foreach{ edge =>
+      node.getContainedEdges.asScala.foreach { edge =>
         paintEdge(edge, parentX, parentY)
       }
     }
