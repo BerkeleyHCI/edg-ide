@@ -9,8 +9,8 @@ import javax.swing.JTree
 
 
 abstract class EdgirLibraryTreeNode {  // abstract base class for tree node model
-  val children: Seq[EdgirLibraryTreeNode]
-  def getChildren() = children
+  protected val children: Seq[EdgirLibraryTreeNode]
+  def getChildren: Seq[EdgirLibraryTreeNode] = children
 }
 
 abstract class LibraryElementNode(path: LibraryPath) extends EdgirLibraryTreeNode {
@@ -85,7 +85,7 @@ class EdgirLibraryTreeTableModel(library: EdgirLibrary) extends SeqTreeTableMode
   //
   override def getRootNode: EdgirLibraryTreeNode = rootNode
 
-  override def getNodeChildren(node: EdgirLibraryTreeNode): Seq[EdgirLibraryTreeNode] = node.getChildren()
+  override def getNodeChildren(node: EdgirLibraryTreeNode): Seq[EdgirLibraryTreeNode] = node.getChildren
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}

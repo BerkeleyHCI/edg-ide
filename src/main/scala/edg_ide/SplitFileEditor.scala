@@ -52,7 +52,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   textEditor.getComponent.setVisible(true)
 
   val mainSplitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
-  mainSplitter.setFirstComponent(textEditor.getComponent())
+  mainSplitter.setFirstComponent(textEditor.getComponent)
 
   val ideSplitter = new JBSplitter(true, 0.5f)
   mainSplitter.setSecondComponent(ideSplitter)
@@ -178,10 +178,10 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   //
   // Implementation for abstract TextEditor
   //
-  override def getName() = "PyCharm with EDG Live Visualization"
+  override def getName = "PyCharm with EDG Live Visualization"
 
-  override def getComponent(): JComponent = mainSplitter
-  override def getPreferredFocusedComponent() = textEditor.getPreferredFocusedComponent()
+  override def getComponent: JComponent = mainSplitter
+  override def getPreferredFocusedComponent: JComponent = textEditor.getPreferredFocusedComponent
 
   override def getState(level: FileEditorStateLevel) =
     new SplitFileEditorState(
@@ -191,14 +191,14 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     )
   override def setState(state: FileEditorState): Unit = state match {
     case state: SplitFileEditorState =>
-      state.edgFileAbsPath.map { absPath: String => openEdgFile(new File(absPath)) }
-      state.edgLibraryAbsPath.map { absPath: String => openEdgLibrary(new File(absPath)) }
+      state.edgFileAbsPath.foreach { absPath => openEdgFile(new File(absPath)) }
+      state.edgLibraryAbsPath.foreach { absPath => openEdgLibrary(new File(absPath)) }
       textEditor.setState(state.textState)
     case _ =>  // discard state type
   }
 
-  override def isModified() = textEditor.isModified()
-  override def isValid() = textEditor.isValid()
+  override def isModified: Boolean = textEditor.isModified
+  override def isValid: Boolean = textEditor.isValid
   override def selectNotify(): Unit = textEditor.selectNotify()
   override def deselectNotify(): Unit = textEditor.deselectNotify()
 
@@ -207,13 +207,13 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   override def removePropertyChangeListener(listener: PropertyChangeListener): Unit =
     textEditor.removePropertyChangeListener(listener)
 
-  override def getBackgroundHighlighter: BackgroundEditorHighlighter = textEditor.getBackgroundHighlighter()
-  override def getCurrentLocation(): FileEditorLocation = textEditor.getCurrentLocation()
-  override def getStructureViewBuilder: StructureViewBuilder = textEditor.getStructureViewBuilder()
+  override def getBackgroundHighlighter: BackgroundEditorHighlighter = textEditor.getBackgroundHighlighter
+  override def getCurrentLocation: FileEditorLocation = textEditor.getCurrentLocation
+  override def getStructureViewBuilder: StructureViewBuilder = textEditor.getStructureViewBuilder
 
   override def dispose(): Unit = Disposer.dispose(textEditor)
 
-  override def getEditor: Editor = textEditor.asInstanceOf[TextEditor].getEditor()
+  override def getEditor: Editor = textEditor.asInstanceOf[TextEditor].getEditor
 
   override def canNavigateTo(navigatable: Navigatable): Boolean =
     textEditor.asInstanceOf[TextEditor].canNavigateTo(navigatable)

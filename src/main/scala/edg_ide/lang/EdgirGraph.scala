@@ -9,7 +9,6 @@ import org.eclipse.elk.core.data.LayoutMetaDataService
 import org.eclipse.elk.core.RecursiveGraphLayoutEngine
 import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
-import org.eclipse.elk.graph.json._
 import org.eclipse.elk.core.math.KVector
 
 

@@ -12,22 +12,22 @@ import javax.swing.JTree
 class HierarchyBlockNode(val name: String, val block: HierarchyBlock) {
   import edg.elem.elem.BlockLike
 
-  lazy val children = block.blocks.map { case (name, subblock) =>
+  lazy protected val children: Seq[HierarchyBlockNode] = block.blocks.map { case (name, subblock) =>
     (name, subblock.`type`)
   }.collect {
     case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(name, subblock)
   }.toSeq
 
-  def getChildren(): Seq[HierarchyBlockNode] = children  // must be deterministic
+  def getChildren: Seq[HierarchyBlockNode] = children  // must be deterministic
 
   override def equals(other: Any): Boolean = other match {
     case other: HierarchyBlockNode => other.block == block
     case _ => false
   }
 
-  override def toString(): String = getColumns()(0)
+  override def toString: String = getColumns.head
 
-  def getColumns(): Seq[String] = Seq(
+  def getColumns: Seq[String] = Seq(
     name,
     block.superclasses.map(EdgirUtils.LibraryPathToString).mkString(", ")
   )
@@ -42,7 +42,7 @@ class EdgTreeTableModel(root: HierarchyBlock) extends SeqTreeTableModel[Hierarch
   //
   override def getRootNode: HierarchyBlockNode = rootNode
 
-  override def getNodeChildren(node: HierarchyBlockNode): Seq[HierarchyBlockNode] = node.getChildren()
+  override def getNodeChildren(node: HierarchyBlockNode): Seq[HierarchyBlockNode] = node.getChildren
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}
@@ -60,7 +60,7 @@ class EdgTreeTableModel(root: HierarchyBlock) extends SeqTreeTableModel[Hierarch
     case _ => classOf[String]
   }
 
-  override def getNodeValueAt(node: HierarchyBlockNode, column: Int): Object = node.getColumns()(column)
+  override def getNodeValueAt(node: HierarchyBlockNode, column: Int): Object = node.getColumns(column)
 
   // These aren't relevant for trees that can't be edited
   override def isNodeCellEditable(node: HierarchyBlockNode, column: Int): Boolean = false
