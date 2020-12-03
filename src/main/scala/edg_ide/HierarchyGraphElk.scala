@@ -13,6 +13,8 @@ import org.eclipse.elk.core.math.KVector
 object HierarchyGraphElk {
   LayoutMetaDataService.getInstance.registerLayoutMetaDataProviders(new LayeredMetaDataProvider)
 
+  val engine = new RecursiveGraphLayoutEngine()
+
   /**
     * Creates a new ELK graph root node, preconfigured for hierarchy block layout
     */
@@ -69,16 +71,6 @@ object HierarchyGraphElk {
   }
 
   /**
-    * Lays out the graph, in-place
-    */
-  def layout(root: ElkNode): ElkNode = {
-    val engine = new RecursiveGraphLayoutEngine()
-    engine.layout(root, new BasicProgressMonitor())
-
-    root
-  }
-
-  /**
     * Converts a HGraphNode to a ELK Node, and performs layout
     */
   def HGraphNodeToElk[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType]): ElkNode = {
@@ -95,6 +87,8 @@ object HierarchyGraphElk {
     val b2p1 = addPort(b2, "p1")
 
     val edge = addEdge(root, b1p2, b2p1)
+
+    engine.layout(root, new BasicProgressMonitor())
 
     root
   }
