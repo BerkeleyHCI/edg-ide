@@ -4,7 +4,7 @@ package edg_ide
 
 // TODO this really should be a union type instead of a trait, but because of limitations of Scala
 // this is where we are
-sealed trait HGraphNodeMember[NodeType, PortType, EdgeType] {
+sealed trait HGraphNodeMember[+NodeType, +PortType, +EdgeType] {
 }
 
 // TODO support undirected edges?
@@ -18,7 +18,7 @@ case class HGraphEdge[EdgeType](
 
 case class HGraphPort[PortType](
   data: PortType,
-)
+) extends HGraphNodeMember[Nothing, PortType, Nothing]
 
 case class HGraphNode[NodeType, PortType, EdgeType](
   data: NodeType,

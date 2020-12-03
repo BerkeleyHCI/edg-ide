@@ -22,8 +22,16 @@ object EdgirGraph {
   def blockLikeToNode(blockLike: elem.BlockLike, lib: EdgirLibrary): EdgirNode = {
     blockLike.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
-        val portMembers = block.ports.mapValues(port => portLikeToPort(port, lib))
-        val blockMembers = block.blocks.mapValues(subblock => blockLikeToNode(subblock, lib))
+        val portMembers: Map[String, EdgirNodeMember] =
+          block.ports.mapValues(port => portLikeToPort(port, lib))
+        val blockMembers: Map[String, EdgirNodeMember] =
+          block.blocks.mapValues(subblock => blockLikeToNode(subblock, lib))
+        (portMembers.toSeq ++ blockMembers.toSeq).groupBy(_._1).map { case (name, pairs) =>
+          pairs match {
+            case (_, value) :: Nil => value
+            case _ => throw new Exception(s"block contains conflicting members with name $name")
+          }
+        }
         val allMembers: Map[String, EdgirNodeMember] = Map()
         val edges: Seq[EdgirEdge] = Seq()  // TODO implement me
         EdgirNode(blockLike, allMembers, edges)
