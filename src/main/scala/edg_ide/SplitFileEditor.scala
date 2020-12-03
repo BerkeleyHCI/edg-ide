@@ -5,7 +5,7 @@ import com.intellij.ide.structureView.StructureViewBuilder
 import com.intellij.openapi.editor._
 import com.intellij.openapi.fileEditor._
 import com.intellij.openapi.fileChooser._
-import com.intellij.openapi.ui.{TextFieldWithBrowseButton, TextBrowseFolderListener}
+import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs._
@@ -13,13 +13,14 @@ import com.intellij.pom.Navigatable
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
+
 import javax.swing._
 import java.awt._
 import java.beans.PropertyChangeListener
 import java.io._
-
-import edg.elem.elem.HierarchyBlock
-import edg.schema.schema.{Design, Library}
+import edg.elem.elem
+import edg.schema.schema
+import edg.schema.schema.Library
 
 
 class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)
@@ -27,7 +28,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   // State
   var edgFileAbsPath: Option[String] = None
   var edgLibraryAbsPath: Option[String] = None
-  var library: Option[EdgirLibrary] = None
+  var library = new EdgirLibrary(schema.Library())
 
   // Build GUI components
   textEditor.getComponent.setVisible(true)
@@ -76,7 +77,8 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   val libraryLabel = new JLabel("No library")
   visualizationPanel.add(libraryLabel, makeGbc(0, 3, GridBagConstraints.HORIZONTAL))
 
-  val graph = new JElkGraph(EdgirGraph.makeGraphRoot())
+  val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
+    EdgirGraph.blockToNode(elem.HierarchyBlock(), library)))
   val graphScrollPane = new JBScrollPane(graph)
   visualizationPanel.add(graphScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 
@@ -118,11 +120,12 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     fileBrowser.setText(absolutePath)
 
     val fileInputStream = new FileInputStream(file)
-    val design: Design = Design.parseFrom(fileInputStream)
+    val design: schema.Design = schema.Design.parseFrom(fileInputStream)
     design.contents match {
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
-        val layoutGraphRoot = EdgirGraph.layout(EdgirGraph.hierarchyBlockToGraph(block))
+        val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
+          EdgirGraph.blockToNode(block, library))
         fileLabel.setText(s"${block.getClass.toString}, " +
             s"automatic layout ${layoutGraphRoot.getWidth}*${layoutGraphRoot.getHeight}")
         graph.setGraph(layoutGraphRoot)
@@ -140,18 +143,19 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     libraryBrowser.setText(absolutePath)
 
     val fileInputStream = new FileInputStream(file)
-    val libraryProto: Library = Library.parseFrom(fileInputStream)
+    val libraryProto: schema.Library = schema.Library.parseFrom(fileInputStream)
     libraryProto.root match {
       case Some(namespace) =>
         edgLibraryAbsPath = Some(absolutePath)
-        library = Some(new EdgirLibrary(libraryProto))
         libraryLabel.setText(s"Library with ${namespace.members.keys.size} elements")
-        libraryTree.setModel(new EdgirLibraryTreeTableModel(library.get))
+        library = new EdgirLibrary(libraryProto)
+        libraryTree.setModel(new EdgirLibraryTreeTableModel(library))
         libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
         // TODO: actual loading here
       case None =>
         edgLibraryAbsPath = None
         libraryLabel.setText(s"Invalid or empty library: $absolutePath")
+        library = new EdgirLibrary(schema.Library())
     }
     fileInputStream.close()
   }
