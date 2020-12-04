@@ -1,5 +1,6 @@
 package edg_ide
 
+import scala.collection.JavaConverters._
 import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
@@ -15,9 +16,13 @@ object EdgirGraph {
   type EdgirEdge = HGraphEdge[String]
   val EdgirEdge = HGraphEdge
 
+  /**
+    * Simple wrapper around blockLikeToNode that provides the blockLike wrapper around the block
+    */
   def blockToNode(block: elem.HierarchyBlock, lib: EdgirLibrary): EdgirNode = {
-    // TODO implement me
-    EdgirNode(elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)), Map(), Seq())
+    blockLikeToNode(
+      elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)),
+      lib)
   }
 
   def blockLikeToNode(blockLike: elem.BlockLike, lib: EdgirLibrary): EdgirNode = {
@@ -41,9 +46,18 @@ object EdgirGraph {
         val edges: Seq[EdgirEdge] = block.constraints.collect { case (name, constr) =>
           constr.expr match {
             case expr.ValueExpr.Expr.Connected(connect) =>
+              // in the loading pass, the source is the block side and the target is the link side
+              EdgirEdge(name,
+                source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
+                target=EdgirUtils.RefExprToSeqString(connect.linkPort.get))
             case expr.ValueExpr.Expr.Exported(export) =>
+              // in the loading pass, the source is the block side and the target is the external port
+              EdgirEdge(name,
+                source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
+                target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get))
+
           }
-        }
+        }.toSeq
         EdgirNode(blockLike, allMembers, edges)
       case elem.BlockLike.Type.LibElem(block) =>
         // TODO implement me
