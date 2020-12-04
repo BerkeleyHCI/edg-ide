@@ -5,6 +5,8 @@ version := "0.1-SNAPSHOT"
 scalaVersion := "2.12.10"
 
 libraryDependencies ++= Seq(
+  "org.scalatest" %% "scalatest" % "3.2.0" % "test",
+
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
 
   "org.eclipse.elk" % "org.eclipse.elk.alg.layered" % "0.5.0",

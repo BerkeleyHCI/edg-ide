@@ -9,11 +9,18 @@ import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
 import org.eclipse.elk.core.math.KVector
 
+import com.intellij.openapi.diagnostic.Logger
+
+
+class HierarchyGraphElk {
+}
+
 
 object HierarchyGraphElk {
   LayoutMetaDataService.getInstance.registerLayoutMetaDataProviders(new LayeredMetaDataProvider)
-
   val engine = new RecursiveGraphLayoutEngine()
+
+  private val logger = Logger.getInstance(classOf[HierarchyGraphElk])
 
   /**
     * Creates a new ELK graph root node, preconfigured for hierarchy block layout
@@ -70,6 +77,48 @@ object HierarchyGraphElk {
     edge
   }
 
+  // Internal functions for converting HGraph* to ELK objects
+  //
+
+  /**
+    * Converts a HGraphNode to a ELK node, returning a map of its ports
+    */
+  def HGraphNodeToElkNode[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType],
+                                                        name: String, parent: ElkNode):
+      Map[Seq[String], ElkConnectableShape] = {
+    val elkNode = addNode(parent, name)
+
+    // Create ELK objects for members (blocks and ports)
+    val myElkPorts = node.members.collect {
+      case (childName, childElt: HGraphPort[PortType]) =>
+        val childElkPort = addPort(elkNode, childName)
+        Seq(childName) -> childElkPort
+    }
+
+    val myElkChildren = node.members.collect {
+      // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
+      case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
+        val childConnectables = HGraphNodeToElkNode(childElt, name, elkNode)
+        // Add the outer element into the inner namespace path
+        childConnectables.map { case (childPath, childElk) =>
+          Seq(childName) ++ childPath -> childElk
+        }
+    }.flatten.toMap
+
+    // Create edges
+    val myElkElements = myElkPorts ++ myElkChildren  // unify namespace, data structure should prevent conflicts
+    node.edges.foreach { edge =>
+      (myElkElements.get(edge.source), myElkElements.get(edge.target)) match {
+        case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
+        case (None, _) => logger.warn(s"edge with invalid source ${edge.source}")
+        case (_, None) => logger.warn(s"edge with invalid target ${edge.target}")
+        case (Some(elkSource), Some(elkTarget)) => addEdge(elkNode, elkSource, elkTarget)
+      }
+    }
+
+    myElkPorts
+  }
+
   /**
     * Converts a HGraphNode to a ELK Node, and performs layout
     */
@@ -78,15 +127,7 @@ object HierarchyGraphElk {
     val root = makeGraphRoot()
     root.setIdentifier("root")
 
-    // TODO actually implement this with conversion from block
-    val b1 = addNode(root, "b1")
-    val b1p1 = addPort(b1, "p1")
-    val b1p2 = addPort(b1, "p2")
-
-    val b2 = addNode(root, "b2")
-    val b2p1 = addPort(b2, "p1")
-
-    val edge = addEdge(root, b1p2, b2p1)
+    HGraphNodeToElkNode(node, "design", root)
 
     engine.layout(root, new BasicProgressMonitor())
 
