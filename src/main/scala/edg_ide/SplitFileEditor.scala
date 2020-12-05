@@ -20,7 +20,7 @@ import java.beans.PropertyChangeListener
 import java.io._
 import edg.elem.elem
 import edg.schema.schema
-import edg.schema.schema.Library
+import edg_ide.edgir_graph.{EdgirGraph, HierarchyGraphElk}
 
 
 class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)

@@ -1,4 +1,4 @@
-package edg_ide.tests
+package edg_ide.edgir_graph.tests
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
@@ -6,7 +6,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.JavaConverters._
 import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.util.ElkGraphUtil
-import edg_ide.{HierarchyGraphElk, HGraphNodeMember, HGraphNode, HGraphPort, HGraphEdge}
+import edg_ide.edgir_graph.{HierarchyGraphElk, HGraphEdge, HGraphNode, HGraphNodeMember, HGraphPort}
 
 
 class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {

@@ -1,15 +1,14 @@
-package edg_ide
-
-import org.eclipse.elk.graph._
-import org.eclipse.elk.graph.util.ElkGraphUtil
-import org.eclipse.elk.core.options._
-import org.eclipse.elk.core.data.LayoutMetaDataService
-import org.eclipse.elk.core.RecursiveGraphLayoutEngine
-import org.eclipse.elk.core.util.BasicProgressMonitor
-import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
-import org.eclipse.elk.core.math.KVector
+package edg_ide.edgir_graph
 
 import com.intellij.openapi.diagnostic.Logger
+import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
+import org.eclipse.elk.core.RecursiveGraphLayoutEngine
+import org.eclipse.elk.core.data.LayoutMetaDataService
+import org.eclipse.elk.core.math.KVector
+import org.eclipse.elk.core.options._
+import org.eclipse.elk.core.util.BasicProgressMonitor
+import org.eclipse.elk.graph._
+import org.eclipse.elk.graph.util.ElkGraphUtil
 
 
 class HierarchyGraphElk {

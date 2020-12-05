@@ -1,4 +1,4 @@
-package edg_ide
+package edg_ide.edgir_graph
 
 // Hierarchy graph data type
 

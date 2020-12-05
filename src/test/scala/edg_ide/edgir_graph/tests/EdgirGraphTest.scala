@@ -1,12 +1,13 @@
-package edg_ide.tests
+package edg_ide.edgir_graph.tests
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
-import edg_ide.{BlockWrapper, EdgirGraph, EdgirLibrary, EdgirUtils, LinkWrapper}
+import edg_ide.{EdgirLibrary, EdgirUtils}
 import edg.elem.elem
 import edg.expr.expr
 import edg.schema.schema
-import edg_ide.EdgirGraph.EdgirNode
+import edg_ide.edgir_graph.{EdgirGraph, BlockWrapper, LinkWrapper}
+import edg_ide.edgir_graph.EdgirGraph.EdgirNode
 
 
 class EdgirGraphTest extends AnyFlatSpec with Matchers {

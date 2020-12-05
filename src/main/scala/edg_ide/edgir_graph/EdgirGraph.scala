@@ -1,7 +1,8 @@
-package edg_ide
+package edg_ide.edgir_graph
 
 import edg.elem.elem
 import edg.expr.expr
+import edg_ide.{EdgirLibrary, EdgirUtils}
 
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(
