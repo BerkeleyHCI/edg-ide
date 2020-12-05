@@ -9,36 +9,51 @@ import org.eclipse.elk.graph.util.ElkGraphUtil
 import edg_ide.{HierarchyGraphElk, HGraphNodeMember, HGraphNode, HGraphPort, HGraphEdge}
 
 class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
-  type SimpleNodeMember = HGraphNodeMember[Nothing, Nothing, Nothing]
-  type SimpleNode = HGraphNode[Nothing, Nothing, Nothing]
-  val SimpleNode = HGraphNode
-  type SimplePort = HGraphPort[Nothing]
-  val SimplePort = HGraphPort
-  type SimpleEdge = HGraphEdge[Nothing]
-  val SimpleEdge = HGraphEdge
+  sealed trait SimpleNodeMember extends HGraphNodeMember[Null, Null, Null] {
+  }
+
+  case class SimpleNode(
+    override val members: Map[String, SimpleNodeMember],
+    override val edges: Seq[HGraphEdge[Null]],
+  ) extends HGraphNode[Null, Null, Null] with SimpleNodeMember {
+    override val data: Null = null
+  }
+
+  case class SimplePort(
+  ) extends HGraphPort[Null] with SimpleNodeMember {
+    override val data: Null = null
+  }
+
+  case class SimpleEdge(
+    override val source: Seq[String],
+    override val target: Seq[String]
+  ) extends HGraphEdge[Null] {
+    override val data: Null = null
+  }
+
 
   behavior of "HGraphNodeToElkNode"
 
   def makeGraph(): (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
-    val simpleGraph = SimpleNode(None,
+    val simpleGraph = SimpleNode(
       members = Map(
-        "p1" -> SimplePort(None),
-        "n1" -> SimpleNode(None,
+        "p1" -> SimplePort(),
+        "n1" -> SimpleNode(
           members = Map(
-            "n1p1" -> SimplePort(None),
-            "n1p2" -> SimplePort(None),
+            "n1p1" -> SimplePort(),
+            "n1p2" -> SimplePort(),
           ),
           edges = Seq()
         ),
-        "n2" -> SimpleNode(None,
+        "n2" -> SimpleNode(
           members = Map(
-            "n2p1" -> SimplePort(None),
+            "n2p1" -> SimplePort(),
           ),
           edges = Seq()
         )
       ), edges = Seq(
-        SimpleEdge(None, source=Seq("p1"), target=Seq("n1", "n1p1")),
-        SimpleEdge(None, source=Seq("n1", "n1p1"), target=Seq("n2", "n2p1")),
+        SimpleEdge(source=Seq("p1"), target=Seq("n1", "n1p1")),
+        SimpleEdge(source=Seq("n1", "n1p1"), target=Seq("n2", "n2p1")),
       )
     )
     val root = ElkGraphUtil.createGraph()

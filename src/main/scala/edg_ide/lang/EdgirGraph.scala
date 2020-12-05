@@ -6,15 +6,41 @@ import edg.expr.expr
 import edg.ref.ref
 
 
+// Should be an union type, but not supported in Scala, so here's wrappers =(
+sealed trait NodeDataWrapper {
+}
+case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper
+case class LinkWrapper(linkLike: elem.LinkLike) extends NodeDataWrapper
+
+
 object EdgirGraph {
   // Edgir graph is a type parameterization of the HGraphNode
-  type EdgirNodeMember = HGraphNodeMember[elem.BlockLike, elem.PortLike, String]
-  type EdgirNode = HGraphNode[elem.BlockLike, elem.PortLike, String]
-  val EdgirNode = HGraphNode
-  type EdgirPort = HGraphPort[elem.PortLike]
-  val EdgirPort = HGraphPort
-  type EdgirEdge = HGraphEdge[String]
-  val EdgirEdge = HGraphEdge
+//  type EdgirNodeMember = HGraphNodeMember[NodeDataWrapper, elem.PortLike, String]
+//  type EdgirNode = HGraphNode[NodeDataWrapper, elem.PortLike, String]
+//  val EdgirNode = HGraphNode[NodeDataWrapper, elem.PortLike, String]
+//  type EdgirPort = HGraphPort[elem.PortLike]
+//  val EdgirPort = HGraphPort
+//  type EdgirEdge = HGraphEdge[String]
+//  val EdgirEdge = HGraphEdge
+
+  sealed trait EdgirNodeMember extends HGraphNodeMember[NodeDataWrapper, elem.PortLike, String] {
+  }
+
+  case class EdgirNode(
+    override val data: NodeDataWrapper,
+    override val members: Map[String, EdgirNodeMember],
+    override val edges: Seq[HGraphEdge[String]]
+  ) extends HGraphNode[NodeDataWrapper, elem.PortLike, String] with EdgirNodeMember {}
+
+  case class EdgirPort(
+    override val data: elem.PortLike
+  ) extends HGraphPort[elem.PortLike] with EdgirNodeMember {}
+
+  case class EdgirEdge(
+    override val data: String,
+    override val source: Seq[String],
+    override val target: Seq[String]
+  ) extends HGraphEdge[String]
 
   /**
     * Simple wrapper around blockLikeToNode that provides the blockLike wrapper around the block
@@ -38,7 +64,7 @@ object EdgirGraph {
         val allMembers = (portMembers.toSeq ++ blockMembers.toSeq).groupBy(_._1).map { case (name, pairs) =>
           pairs match {
             case (_, value) :: Nil => (name -> value)
-            case _ => throw new Exception(s"block contains conflicting members with name $name")
+            case values => throw new Exception(s"block contains conflicting members with name $name: $values")
           }
         }
 
@@ -58,12 +84,12 @@ object EdgirGraph {
 
           }
         }.toSeq
-        EdgirNode(blockLike, allMembers, edges)
+        EdgirNode(BlockWrapper(blockLike), allMembers, edges)
       case elem.BlockLike.Type.LibElem(block) =>
         // TODO implement me
-        EdgirNode(blockLike, Map(), Seq())
+        EdgirNode(BlockWrapper(blockLike), Map(), Seq())
       case _ =>  // create an empty error block
-        EdgirNode(blockLike, Map(), Seq())
+        EdgirNode(BlockWrapper(blockLike), Map(), Seq())
     }
   }
 

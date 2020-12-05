@@ -6,7 +6,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.JavaConverters._
 import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.util.ElkGraphUtil
-import edg_ide.{EdgirUtils, EdgirGraph, EdgirLibrary}
+import edg_ide.{EdgirUtils, EdgirGraph, EdgirLibrary, BlockWrapper, LinkWrapper}
 import edg.elem.elem
 import edg.expr.expr
 import edg.schema.schema
@@ -77,10 +77,10 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
     )
 
     val refGraph = EdgirGraph.EdgirNode(
-      data = blocklikeIr,
+      data = BlockWrapper(blocklikeIr),
       members = Map(
         "source" -> EdgirGraph.EdgirNode(
-          data = blockIr.blocks("source"),
+          data = BlockWrapper(blockIr.blocks("source")),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
               data = blockIr.blocks("source").`type`.hierarchy.get.ports("port")
@@ -89,7 +89,7 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           edges = Seq()
         ),
         "sink" -> EdgirGraph.EdgirNode(
-          data = blockIr.blocks("sink"),
+          data = BlockWrapper(blockIr.blocks("sink")),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
               data = blockIr.blocks("sink").`type`.hierarchy.get.ports("port")
@@ -97,18 +97,18 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           ),
           edges = Seq()
         ),
-//        "link" -> EdgirGraph.EdgirNode(
-//          data = blockIr.links("link"),
-//          members = Map(
-//            "source" -> EdgirGraph.EdgirPort(
-//              data = blockIr.links("link").`type`.link.get.ports("source")
-//            ),
-//            "sink" -> EdgirGraph.EdgirPort(
-//              data = blockIr.links("link").`type`.link.get.ports("sink")
-//            ),
-//          ),
-//          edges = Seq()
-//        ),
+        "link" -> EdgirGraph.EdgirNode(
+          data = null, //LinkWrapper(blockIr.links("link")),
+          members = Map(
+            "source" -> EdgirGraph.EdgirPort(
+              data = blockIr.links("link").`type`.link.get.ports("source")
+            ),
+            "sink" -> EdgirGraph.EdgirPort(
+              data = blockIr.links("link").`type`.link.get.ports("sink")
+            ),
+          ),
+          edges = Seq()
+        ),
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
