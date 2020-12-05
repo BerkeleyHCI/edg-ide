@@ -10,51 +10,51 @@ import edg_ide.edgir_graph.{HierarchyGraphElk, HGraphEdge, HGraphNode, HGraphNod
 
 
 class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
-  sealed trait SimpleNodeMember extends HGraphNodeMember[Null, Null, Null] {
+  sealed trait SimpleNodeMember extends HGraphNodeMember[String, String, String] {
   }
 
   case class SimpleNode(
+    override val data: String,
     override val members: Map[String, SimpleNodeMember],
-    override val edges: Seq[HGraphEdge[Null]],
-  ) extends HGraphNode[Null, Null, Null] with SimpleNodeMember {
-    override val data: Null = null
+    override val edges: Seq[HGraphEdge[String]],
+  ) extends HGraphNode[String, String, String] with SimpleNodeMember {
   }
 
   case class SimplePort(
-  ) extends HGraphPort[Null] with SimpleNodeMember {
-    override val data: Null = null
+    override val data: String,
+  ) extends HGraphPort[String] with SimpleNodeMember {
   }
 
   case class SimpleEdge(
+    override val data: String,
     override val source: Seq[String],
     override val target: Seq[String]
-  ) extends HGraphEdge[Null] {
-    override val data: Null = null
+  ) extends HGraphEdge[String] {
   }
 
 
   behavior of "HGraphNodeToElkNode"
 
   def makeGraph(): (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
-    val simpleGraph = SimpleNode(
+    val simpleGraph = SimpleNode("root",
       members = Map(
-        "p1" -> SimplePort(),
-        "n1" -> SimpleNode(
+        "p1" -> SimplePort("p1data"),
+        "n1" -> SimpleNode("n1data",
           members = Map(
-            "n1p1" -> SimplePort(),
-            "n1p2" -> SimplePort(),
+            "n1p1" -> SimplePort("n1p1data"),
+            "n1p2" -> SimplePort("n1p2data"),
           ),
           edges = Seq()
         ),
-        "n2" -> SimpleNode(
+        "n2" -> SimpleNode("n2data",
           members = Map(
-            "n2p1" -> SimplePort(),
+            "n2p1" -> SimplePort("n2p1data"),
           ),
           edges = Seq()
         )
       ), edges = Seq(
-        SimpleEdge(source=Seq("p1"), target=Seq("n1", "n1p1")),
-        SimpleEdge(source=Seq("n1", "n1p1"), target=Seq("n2", "n2p1")),
+        SimpleEdge("edge1", source=Seq("p1"), target=Seq("n1", "n1p1")),
+        SimpleEdge("edge2", source=Seq("n1", "n1p1"), target=Seq("n2", "n2p1")),
       )
     )
     val root = ElkGraphUtil.createGraph()
@@ -89,15 +89,15 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
     val graphNode = root.getChildren.asScala.head
 
     val p1 = graphNode.getPorts.asScala(0)
-    labelOfShape(p1) should equal("p1")
+    labelOfShape(p1) should equal("p1data")
 
     val n1 = graphNode.getChildren.asScala(0)
-    labelOfShape(n1) should equal("n1")
-    labelOfShape(n1.getPorts.asScala(0)) should equal("n1p1")
-    labelOfShape(n1.getPorts.asScala(1)) should equal("n1p2")
+    labelOfShape(n1) should equal("n1data")
+    labelOfShape(n1.getPorts.asScala(0)) should equal("n1p1data")
+    labelOfShape(n1.getPorts.asScala(1)) should equal("n1p2data")
 
     val n2 = graphNode.getChildren.asScala(1)
-    labelOfShape(n2) should equal("n2")
-    labelOfShape(n2.getPorts.asScala(0)) should equal("n2p1")
+    labelOfShape(n2) should equal("n2data")
+    labelOfShape(n2.getPorts.asScala(0)) should equal("n2p1data")
   }
 }

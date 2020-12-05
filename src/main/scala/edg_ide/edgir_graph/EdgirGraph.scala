@@ -11,21 +11,23 @@ sealed trait NodeDataWrapper {
 case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper
 case class LinkWrapper(linkLike: elem.LinkLike) extends NodeDataWrapper
 
+case class PortWrapper(portLike: elem.PortLike)
+
 
 object EdgirGraph {
   // These are type parameterization of the HGraphNode
-  sealed trait EdgirNodeMember extends HGraphNodeMember[NodeDataWrapper, elem.PortLike, String] {
+  sealed trait EdgirNodeMember extends HGraphNodeMember[NodeDataWrapper, PortWrapper, String] {
   }
 
   case class EdgirNode(
     override val data: NodeDataWrapper,
     override val members: Map[String, EdgirNodeMember],
     override val edges: Seq[HGraphEdge[String]]
-  ) extends HGraphNode[NodeDataWrapper, elem.PortLike, String] with EdgirNodeMember {}
+  ) extends HGraphNode[NodeDataWrapper, PortWrapper, String] with EdgirNodeMember {}
 
   case class EdgirPort(
-    override val data: elem.PortLike
-  ) extends HGraphPort[elem.PortLike] with EdgirNodeMember {}
+    override val data: PortWrapper
+  ) extends HGraphPort[PortWrapper] with EdgirNodeMember {}
 
   case class EdgirEdge(
     override val data: String,
@@ -36,9 +38,10 @@ object EdgirGraph {
   /**
     * Simple wrapper around blockLikeToNode that provides the blockLike wrapper around the block
     */
-  def blockToNode(block: elem.HierarchyBlock, lib: EdgirLibrary): EdgirNode = {
+  def blockToNode(block: elem.HierarchyBlock, name: String, lib: EdgirLibrary): EdgirNode = {
     blockLikeToNode(
       elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)),
+      name,
       lib)
   }
 
@@ -75,14 +78,14 @@ object EdgirGraph {
         }
   }
 
-  def blockLikeToNode(blockLike: elem.BlockLike, lib: EdgirLibrary): EdgirNode = {
+  def blockLikeToNode(blockLike: elem.BlockLike, name: String, lib: EdgirLibrary): EdgirNode = {
     blockLike.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(
-          block.ports.mapValues(port => portLikeToPort(port, lib)),
-          block.blocks.mapValues(subblock => blockLikeToNode(subblock, lib)),
-          block.links.mapValues(sublink => linkLikeToNode(sublink, lib))
+          block.ports.map { case (name, port) => name -> portLikeToPort(port, name, lib) },
+          block.blocks.map { case (name, subblock) => name -> blockLikeToNode(subblock, name, lib) },
+          block.links.map{ case (name, sublink) => name -> linkLikeToNode(sublink, name, lib) },
         )
 
         // Read edges from constraints
@@ -97,14 +100,14 @@ object EdgirGraph {
     }
   }
 
-  def linkLikeToNode(linkLike: elem.LinkLike, lib: EdgirLibrary): EdgirNode = {
+  def linkLikeToNode(linkLike: elem.LinkLike, name: String, lib: EdgirLibrary): EdgirNode = {
     // TODO dedup w/ blockLikeToNode
     linkLike.`type` match {
       case elem.LinkLike.Type.Link(link) =>
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(
-          link.ports.mapValues(port => portLikeToPort(port, lib)),
-          link.links.mapValues(sublink => linkLikeToNode(sublink, lib))
+          link.ports.map { case (name, port) => name -> portLikeToPort(port, name, lib) },
+          link.links.map{ case (name, sublink) => name -> linkLikeToNode(sublink, name, lib) },
         )
 
         // Read edges from constraints
@@ -119,8 +122,8 @@ object EdgirGraph {
     }
   }
 
-  def portLikeToPort(portLike: elem.PortLike, lib: EdgirLibrary): EdgirPort = {
+  def portLikeToPort(portLike: elem.PortLike, name: String, lib: EdgirLibrary): EdgirPort = {
     // TODO implement me
-    EdgirPort(portLike)
+    EdgirPort(PortWrapper(portLike))
   }
 }

@@ -78,7 +78,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   visualizationPanel.add(libraryLabel, makeGbc(0, 3, GridBagConstraints.HORIZONTAL))
 
   val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(elem.HierarchyBlock(), library)))
+    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library)))
   val graphScrollPane = new JBScrollPane(graph)
   visualizationPanel.add(graphScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 
@@ -125,7 +125,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
         val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
-          EdgirGraph.blockToNode(block, library))
+          EdgirGraph.blockToNode(block, "root", library))
         fileLabel.setText(s"${block.getClass.toString}, " +
             s"automatic layout ${layoutGraphRoot.getWidth}*${layoutGraphRoot.getHeight}")
         graph.setGraph(layoutGraphRoot)

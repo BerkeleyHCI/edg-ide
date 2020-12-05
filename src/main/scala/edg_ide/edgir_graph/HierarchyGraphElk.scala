@@ -85,12 +85,12 @@ object HierarchyGraphElk {
   def HGraphNodeToElkNode[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType],
                                                         name: String, parent: ElkNode):
       Map[Seq[String], ElkConnectableShape] = {
-    val elkNode = addNode(parent, name)
+    val elkNode = addNode(parent, node.data.toString)
 
     // Create ELK objects for members (blocks and ports)
     val myElkPorts = node.members.collect {
       case (childName, childElt: HGraphPort[PortType]) =>
-        val childElkPort = addPort(elkNode, childName)
+        val childElkPort = addPort(elkNode, childElt.data.toString)
         Seq(childName) -> childElkPort
     }
 
