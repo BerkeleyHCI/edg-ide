@@ -3,9 +3,6 @@ package edg_ide.tests
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-import scala.collection.JavaConverters._
-import org.eclipse.elk.graph._
-import org.eclipse.elk.graph.util.ElkGraphUtil
 import edg_ide.{EdgirUtils, EdgirGraph, EdgirLibrary, BlockWrapper, LinkWrapper}
 import edg.elem.elem
 import edg.expr.expr
@@ -128,11 +125,10 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
     edgirGraph.data should equal(refGraph.data)
     edgirGraph.members("source") should equal(refGraph.members("source"))
     edgirGraph.members("sink") should equal(refGraph.members("sink"))
-//    edgirGraph.members("link") should equal(refGraph.members("link"))
+    edgirGraph.members("link") should equal(refGraph.members("link"))
     edgirGraph.edges should equal(refGraph.edges)
 
     // The final catch-all check
     edgirGraph should equal(refGraph)
   }
-
 }

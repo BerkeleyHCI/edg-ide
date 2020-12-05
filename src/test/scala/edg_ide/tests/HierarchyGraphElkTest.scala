@@ -8,6 +8,7 @@ import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.util.ElkGraphUtil
 import edg_ide.{HierarchyGraphElk, HGraphNodeMember, HGraphNode, HGraphPort, HGraphEdge}
 
+
 class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
   sealed trait SimpleNodeMember extends HGraphNodeMember[Null, Null, Null] {
   }
