@@ -79,4 +79,25 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
     graphNode.getPorts.asScala should have size 1
     graphNode.getContainedEdges.asScala should have size 2
   }
+
+  it should "create correct ELK labels" in {
+    def labelOfShape(node: ElkShape): String = {
+      node.getLabels.asScala.head.getText
+    }
+
+    val (root, _) = makeGraph()
+    val graphNode = root.getChildren.asScala.head
+
+    val p1 = graphNode.getPorts.asScala(0)
+    labelOfShape(p1) should equal("p1")
+
+    val n1 = graphNode.getChildren.asScala(0)
+    labelOfShape(n1) should equal("n1")
+    labelOfShape(n1.getPorts.asScala(0)) should equal("n1p1")
+    labelOfShape(n1.getPorts.asScala(1)) should equal("n1p2")
+
+    val n2 = graphNode.getChildren.asScala(1)
+    labelOfShape(n2) should equal("n2")
+    labelOfShape(n2.getPorts.asScala(0)) should equal("n2p1")
+  }
 }

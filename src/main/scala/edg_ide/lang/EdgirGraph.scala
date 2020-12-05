@@ -45,18 +45,19 @@ object EdgirGraph {
     * For a list of constraints, returns the EdgirEdges of corresponding connect and exports
     */
   protected def constraintsToEdges(constraints: Map[String, expr.ValueExpr]): Seq[EdgirEdge] = {
-    constraints.collect { case (name, constr) =>
+    constraints.flatMap { case (name, constr) =>
       constr.expr match {
         case expr.ValueExpr.Expr.Connected(connect) =>
           // in the loading pass, the source is the block side and the target is the link side
-          EdgirEdge(name,
+          Some(EdgirEdge(name,
             source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
-            target=EdgirUtils.RefExprToSeqString(connect.linkPort.get))
+            target=EdgirUtils.RefExprToSeqString(connect.linkPort.get)))
         case expr.ValueExpr.Expr.Exported(export) =>
           // in the loading pass, the source is the block side and the target is the external port
-          EdgirEdge(name,
+          Some(EdgirEdge(name,
             source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
-            target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get))
+            target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get)))
+        case _ => None
       }
     }.toSeq
   }

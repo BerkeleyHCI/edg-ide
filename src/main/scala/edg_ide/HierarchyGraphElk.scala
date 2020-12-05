@@ -98,7 +98,7 @@ object HierarchyGraphElk {
     val myElkChildren = node.members.collect {
       // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
       case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
-        val childConnectables = HGraphNodeToElkNode(childElt, name, elkNode)
+        val childConnectables = HGraphNodeToElkNode(childElt, childName, elkNode)
         // Add the outer element into the inner namespace path
         childConnectables.map { case (childPath, childElk) =>
           Seq(childName) ++ childPath -> childElk

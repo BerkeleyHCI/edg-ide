@@ -35,9 +35,11 @@ object EdgirUtils {
     valueExpr.expr match {
       case expr.ValueExpr.Expr.Ref(refExpr) => refExpr.steps.map { step =>
         step.step match {
-          case ref.LocalStep.Step.ReservedParam(reservedParam) =>
-            throw new Exception(s"Expected path type without reserved_param $reservedParam for ValueExpr $valueExpr")
           case ref.LocalStep.Step.Name(name) => name
+          case ref.LocalStep.Step.ReservedParam(reservedParam) =>
+            throw new Exception(s"Expected path type, got unexpected reserved_param $reservedParam, in ValueExpr $valueExpr")
+          case other =>
+            throw new Exception(s"Expected path type, got unexpected step $other, in ValueExpr $valueExpr")
         }
       }
       case _ => throw new Exception(s"Expected path type for ValueExpr $valueExpr")
