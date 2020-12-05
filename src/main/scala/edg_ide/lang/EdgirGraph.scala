@@ -63,8 +63,8 @@ object EdgirGraph {
         // Unify the namespace into a member namespace
         val allMembers = (portMembers.toSeq ++ blockMembers.toSeq).groupBy(_._1).map { case (name, pairs) =>
           pairs match {
-            case (_, value) :: Nil => (name -> value)
-            case values => throw new Exception(s"block contains conflicting members with name $name: $values")
+            case Seq((_, value)) => name -> value
+            case values => throw new Exception(s"block contains ${values.length} conflicting members with name $name: $values")
           }
         }
 
