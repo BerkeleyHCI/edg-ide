@@ -81,23 +81,23 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
   }
 
   it should "create correct ELK labels" in {
-    def labelOfShape(node: ElkShape): String = {
-      node.getLabels.asScala.head.getText
+    def labelsOfShape(node: ElkShape): Seq[String] = {
+      node.getLabels.asScala.map(_.getText)
     }
 
     val (root, _) = makeGraph()
     val graphNode = root.getChildren.asScala.head
 
     val p1 = graphNode.getPorts.asScala(0)
-    labelOfShape(p1) should equal("p1data")
+    labelsOfShape(p1) should equal(Seq("p1"))
 
     val n1 = graphNode.getChildren.asScala(0)
-    labelOfShape(n1) should equal("n1data")
-    labelOfShape(n1.getPorts.asScala(0)) should equal("n1p1data")
-    labelOfShape(n1.getPorts.asScala(1)) should equal("n1p2data")
+    labelsOfShape(n1) should equal(Seq("n1", "n1data"))
+    labelsOfShape(n1.getPorts.asScala(0)) should equal(Seq("n1p1"))
+    labelsOfShape(n1.getPorts.asScala(1)) should equal(Seq("n1p2"))
 
     val n2 = graphNode.getChildren.asScala(1)
-    labelOfShape(n2) should equal("n2data")
-    labelOfShape(n2.getPorts.asScala(0)) should equal("n2p1data")
+    labelsOfShape(n2) should equal(Seq("n2", "n2data"))
+    labelsOfShape(n2.getPorts.asScala(0)) should equal(Seq("n2p1"))
   }
 }

@@ -26,6 +26,10 @@ object EdgirUtils {
     LibraryPathToString(path).split('.').last
   }
 
+  def SimpleSuperclassesToString(superclasses: Seq[ref.LibraryPath]): String = {
+    superclasses.map(SimpleLibraryPathToString).mkString(", ")
+  }
+
   /**
     * Converts a ValueExpr containing a LocalPath ref to a Seq[String] of the ref's components
     * Errors out with an exception if things aren't just right

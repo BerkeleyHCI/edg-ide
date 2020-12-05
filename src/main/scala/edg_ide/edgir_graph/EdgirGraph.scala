@@ -8,10 +8,28 @@ import edg_ide.{EdgirLibrary, EdgirUtils}
 // Should be an union type, but not supported in Scala, so here's wrappers =(
 sealed trait NodeDataWrapper {
 }
-case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper
-case class LinkWrapper(linkLike: elem.LinkLike) extends NodeDataWrapper
+case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper {
+  override def toString: String = blockLike.`type` match {
+    case elem.BlockLike.Type.Hierarchy(block) =>
+      EdgirUtils.SimpleSuperclassesToString(block.superclasses)
+    case elem.BlockLike.Type.LibElem(lib) =>
+      s"lib: ${EdgirUtils.LibraryPathToString(lib)}"
+    case other => other.getClass.getName
+  }
+}
+case class LinkWrapper(linkLike: elem.LinkLike) extends NodeDataWrapper {
+  override def toString: String = linkLike.`type` match {
+    case elem.LinkLike.Type.Link(link) =>
+      EdgirUtils.SimpleSuperclassesToString(link.superclasses)
+    case elem.LinkLike.Type.LibElem(lib) =>
+      s"lib: ${EdgirUtils.LibraryPathToString(lib)}"
+    case other => other.getClass.getName
+  }
+}
 
-case class PortWrapper(portLike: elem.PortLike)
+case class PortWrapper(portLike: elem.PortLike) {
+  override def toString: String = ""  // don't print port types
+}
 
 
 object EdgirGraph {
@@ -23,7 +41,7 @@ object EdgirGraph {
     override val data: NodeDataWrapper,
     override val members: Map[String, EdgirNodeMember],
     override val edges: Seq[HGraphEdge[String]]
-  ) extends HGraphNode[NodeDataWrapper, PortWrapper, String] with EdgirNodeMember {}
+  ) extends HGraphNode[NodeDataWrapper, PortWrapper, String] with EdgirNodeMember {  }
 
   case class EdgirPort(
     override val data: PortWrapper
