@@ -41,41 +41,51 @@ object EdgirGraph {
       lib)
   }
 
+  /**
+    * For a list of constraints, returns the EdgirEdges of corresponding connect and exports
+    */
+  protected def constraintsToEdges(constraints: Map[String, expr.ValueExpr]): Seq[EdgirEdge] = {
+    constraints.collect { case (name, constr) =>
+      constr.expr match {
+        case expr.ValueExpr.Expr.Connected(connect) =>
+          // in the loading pass, the source is the block side and the target is the link side
+          EdgirEdge(name,
+            source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
+            target=EdgirUtils.RefExprToSeqString(connect.linkPort.get))
+        case expr.ValueExpr.Expr.Exported(export) =>
+          // in the loading pass, the source is the block side and the target is the external port
+          EdgirEdge(name,
+            source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
+            target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get))
+      }
+    }.toSeq
+  }
+
+  /**
+    * Merges the argument maps, erroring out if there are duplicate names
+    */
+  protected def mergeMapSafe[T](maps: Map[String, T]*): Map[String, T] = {
+    maps.flatMap(_.toSeq)  // to a list of pairs in the maps
+        .groupBy(_._1)  // sort by name
+        .map {
+          case (name, Seq((_, value))) => name -> value
+          case (name, values) => throw new Exception(s"block contains ${values.length} conflicting members with name $name: $values")
+        }
+  }
+
   def blockLikeToNode(blockLike: elem.BlockLike, lib: EdgirLibrary): EdgirNode = {
     blockLike.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
-        // Convert contained ports and blocks to HGraph/Edgir* objects
-        val portMembers: Map[String, EdgirNodeMember] =
-          block.ports.mapValues(port => portLikeToPort(port, lib))
-        val blockMembers: Map[String, EdgirNodeMember] =
-          block.blocks.mapValues(subblock => blockLikeToNode(subblock, lib))
-        val linkMembers: Map[String, EdgirNodeMember] =
+        // Create sub-nodes and a unified member namespace
+        val allMembers = mergeMapSafe(
+          block.ports.mapValues(port => portLikeToPort(port, lib)),
+          block.blocks.mapValues(subblock => blockLikeToNode(subblock, lib)),
           block.links.mapValues(sublink => linkLikeToNode(sublink, lib))
-
-        // Unify the namespace into a member namespace
-        val allMembers = (portMembers.toSeq ++ blockMembers.toSeq ++ linkMembers.toSeq)
-            .groupBy(_._1)  // sort by name in block
-            .map {
-              case (name, Seq((_, value))) => name -> value
-              case (name, values) => throw new Exception(s"block contains ${values.length} conflicting members with name $name: $values")
-            }
+        )
 
         // Read edges from constraints
-        val edges: Seq[EdgirEdge] = block.constraints.collect { case (name, constr) =>
-          constr.expr match {
-            case expr.ValueExpr.Expr.Connected(connect) =>
-              // in the loading pass, the source is the block side and the target is the link side
-              EdgirEdge(name,
-                source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
-                target=EdgirUtils.RefExprToSeqString(connect.linkPort.get))
-            case expr.ValueExpr.Expr.Exported(export) =>
-              // in the loading pass, the source is the block side and the target is the external port
-              EdgirEdge(name,
-                source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
-                target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get))
+        val edges: Seq[EdgirEdge] = constraintsToEdges(block.constraints)
 
-          }
-        }.toSeq
         EdgirNode(BlockWrapper(blockLike), allMembers, edges)
       case elem.BlockLike.Type.LibElem(block) =>
         // TODO implement me
@@ -89,36 +99,15 @@ object EdgirGraph {
     // TODO dedup w/ blockLikeToNode
     linkLike.`type` match {
       case elem.LinkLike.Type.Link(link) =>
-        // Convert contained ports and blocks to HGraph/Edgir* objects
-        val portMembers: Map[String, EdgirNodeMember] =
-          link.ports.mapValues(port => portLikeToPort(port, lib))
-        val linkMembers: Map[String, EdgirNodeMember] =
+        // Create sub-nodes and a unified member namespace
+        val allMembers = mergeMapSafe(
+          link.ports.mapValues(port => portLikeToPort(port, lib)),
           link.links.mapValues(sublink => linkLikeToNode(sublink, lib))
-
-        // Unify the namespace into a member namespace
-        val allMembers = (portMembers.toSeq ++ linkMembers.toSeq)
-            .groupBy(_._1)  // sort by name in block
-            .map {
-              case (name, Seq((_, value))) => name -> value
-              case (name, values) => throw new Exception(s"block contains ${values.length} conflicting members with name $name: $values")
-            }
+        )
 
         // Read edges from constraints
-        val edges: Seq[EdgirEdge] = link.constraints.collect { case (name, constr) =>
-          constr.expr match {
-            case expr.ValueExpr.Expr.Connected(connect) =>
-              // in the loading pass, the source is the block side and the target is the link side
-              EdgirEdge(name,
-                source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
-                target=EdgirUtils.RefExprToSeqString(connect.linkPort.get))
-            case expr.ValueExpr.Expr.Exported(export) =>
-              // in the loading pass, the source is the block side and the target is the external port
-              EdgirEdge(name,
-                source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
-                target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get))
+        val edges: Seq[EdgirEdge] = constraintsToEdges(link.constraints)
 
-          }
-        }.toSeq
         EdgirNode(LinkWrapper(linkLike), allMembers, edges)
       case elem.LinkLike.Type.LibElem(link) =>
         // TODO implement me
