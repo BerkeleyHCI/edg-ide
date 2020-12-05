@@ -98,7 +98,7 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           edges = Seq()
         ),
         "link" -> EdgirGraph.EdgirNode(
-          data = null, //LinkWrapper(blockIr.links("link")),
+          data = LinkWrapper(blockIr.links("link")),
           members = Map(
             "source" -> EdgirGraph.EdgirPort(
               data = blockIr.links("link").`type`.link.get.ports("source")
@@ -124,6 +124,14 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
       )
     )
 
+    // These checks allow better error localization
+    edgirGraph.data should equal(refGraph.data)
+    edgirGraph.members("source") should equal(refGraph.members("source"))
+    edgirGraph.members("sink") should equal(refGraph.members("sink"))
+//    edgirGraph.members("link") should equal(refGraph.members("link"))
+    edgirGraph.edges should equal(refGraph.edges)
+
+    // The final catch-all check
     edgirGraph should equal(refGraph)
   }
 
