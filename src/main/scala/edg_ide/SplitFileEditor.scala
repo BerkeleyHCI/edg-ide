@@ -20,7 +20,8 @@ import java.beans.PropertyChangeListener
 import java.io._
 import edg.elem.elem
 import edg.schema.schema
-import edg_ide.edgir_graph.{EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, SimplifyPortTransform}
+import edg_ide.edgir_graph.{EdgirGraph, HierarchyGraphElk,
+  CollapseLinkTransform, InferEdgeDirectionTransform, SimplifyPortTransform}
 
 
 class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)
@@ -126,7 +127,8 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
         edgFileAbsPath = Some(absolutePath)
         val edgirGraph = EdgirGraph.blockToNode(block, "root", library)
         val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
-          InferEdgeDirectionTransform(SimplifyPortTransform(edgirGraph)))
+          CollapseLinkTransform(
+            InferEdgeDirectionTransform(SimplifyPortTransform(edgirGraph))))
         fileLabel.setText(s"${block.getClass.toString}, " +
             s"automatic layout ${layoutGraphRoot.getWidth}*${layoutGraphRoot.getHeight}")
         graph.setGraph(layoutGraphRoot)
