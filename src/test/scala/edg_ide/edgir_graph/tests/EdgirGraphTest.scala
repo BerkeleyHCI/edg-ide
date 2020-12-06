@@ -11,15 +11,6 @@ import edg_ide.edgir_graph.EdgirGraph.EdgirNode
 
 
 class EdgirGraphTest extends AnyFlatSpec with Matchers {
-  // Some definitions that need to be kept consistent with the Python HDL / frontend
-  object Ports {
-    val PowerSource = EdgirUtils.StringToLibraryPath("electronics_model.ElectricalPorts.ElectricalSource")
-    val PowerSink = EdgirUtils.StringToLibraryPath("electronics_model.ElectricalPorts.ElectricalSink")
-  }
-  object Links {
-    val Power = EdgirUtils.StringToLibraryPath("electronics_model.ElectricalPorts.ElectricalLink")
-  }
-
   behavior of "EdgirGraph"
 
   it should "work on a flat source-to-sink design" in {
@@ -28,27 +19,27 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         "source" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports=Map(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(Ports.PowerSource)
+              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
             ))),
           ),
         ))),
         "sink" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports=Map(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(Ports.PowerSink)
+              superclasses=Seq(EdgirTestUtils.Ports.PowerSink)
             ))),
           ),
         ))),
       ),
       links=Map(
         "link" -> elem.LinkLike(`type`=elem.LinkLike.Type.Link(elem.Link(
-          superclasses=Seq(Links.Power),
+          superclasses=Seq(EdgirTestUtils.Links.Power),
           ports=Map(
             "source" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(Ports.PowerSource)
+              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
             ))),
             "sink" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(Ports.PowerSource)
+              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
             ))),
           ),
         ))),
@@ -136,14 +127,14 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         "outer" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports=Map(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(Ports.PowerSource)
+              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
             ))),
           ),
           blocks=Map(
             "inner" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
               ports=Map(
                 "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-                  superclasses=Seq(Ports.PowerSource)
+                  superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
                 ))),
               ),
             ))),
