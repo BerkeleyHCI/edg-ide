@@ -57,7 +57,7 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with M
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
-        paintEdge(edge, parentX, parentY)
+        paintEdge(edge, nodeX, nodeY)
       }
     }
 
