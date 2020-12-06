@@ -10,55 +10,7 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
   behavior of "InferEdgeDirectionTransform"
 
   it should "properly direction flat graphs" in {
-    val testGraph = EdgirGraph.EdgirNode(
-      data = EdgirTestUtils.Dummy.BlockWrapper,
-      members = Map(
-        "source" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper,
-          members = Map(
-            "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-          ),
-          edges = Seq()
-        ),
-        "sink" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper,
-          members = Map(
-            "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-          ),
-          edges = Seq()
-        ),
-        "link" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.LinkWrapper,
-          members = Map(
-            "source" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-            "sinks" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-          ),
-          edges = Seq()
-        ),
-      ),
-      edges = Seq(
-        EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
-          source = Seq("source", "port"),
-          target = Seq("link", "source")
-        ),
-        EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
-          source = Seq("sink", "port"),
-          target = Seq("link", "sinks")
-        ),
-      )
-    )
-
-    val transformed = InferEdgeDirectionTransform(testGraph)
+    val transformed = InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph)
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
@@ -75,85 +27,7 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
   }
 
   it should "properly direction hierarchical exports" in {
-    val testGraph = EdgirGraph.EdgirNode(
-      data = EdgirTestUtils.Dummy.BlockWrapper,
-      members = Map(
-        "source" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper,
-          members = Map(
-            "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-            "inner" -> EdgirGraph.EdgirNode(
-              data = EdgirTestUtils.Dummy.BlockWrapper,
-              members = Map(
-                "port" -> EdgirGraph.EdgirPort(
-                  data = EdgirTestUtils.Dummy.PortWrapper
-                ),
-              ),
-              edges = Seq()
-            ),
-          ),
-          edges = Seq(
-            EdgirGraph.EdgirEdge(
-              data = EdgirTestUtils.Dummy.ConnectWrapper("export_inner"),
-              source = Seq("inner", "port"),
-              target = Seq("port")
-            )
-          )
-        ),
-        "sink" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper,
-          members = Map(
-            "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-            "inner" -> EdgirGraph.EdgirNode(
-              data = EdgirTestUtils.Dummy.BlockWrapper,
-              members = Map(
-                "port" -> EdgirGraph.EdgirPort(
-                  data = EdgirTestUtils.Dummy.PortWrapper
-                ),
-              ),
-              edges = Seq()
-            ),
-          ),
-          edges = Seq(
-            EdgirGraph.EdgirEdge(
-              data = EdgirTestUtils.Dummy.ConnectWrapper("export_inner"),
-              source = Seq("inner", "port"),
-              target = Seq("port")
-            )
-          )
-        ),
-        "link" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.LinkWrapper,
-          members = Map(
-            "source" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-            "sinks" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper
-            ),
-          ),
-          edges = Seq()
-        ),
-      ),
-      edges = Seq(
-        EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
-          source = Seq("source", "port"),
-          target = Seq("link", "source")
-        ),
-        EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
-          source = Seq("sink", "port"),
-          target = Seq("link", "sinks")
-        ),
-      )
-    )
-
-    val transformed = InferEdgeDirectionTransform(testGraph)
+    val transformed = InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.hierarchyGraph)
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(

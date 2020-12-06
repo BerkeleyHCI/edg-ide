@@ -2,7 +2,7 @@ package edg_ide.edgir_graph
 
 
 /**
-  * Simple transform tht collapses all links
+  * Simple transform that collapses all links
   */
 object CollapseLinkTransform extends CollapseNodeTransform {
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
