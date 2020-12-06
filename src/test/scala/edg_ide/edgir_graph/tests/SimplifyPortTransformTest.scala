@@ -45,12 +45,12 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = "connect_source",
+          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
           source = Seq("source", "port", "subport"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = "connect_sink",
+          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
           source = Seq("sink", "port"),
           target = Seq("link", "sinks", "subport")
         ),
@@ -61,12 +61,12 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = "connect_source",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
         source = Seq("source", "port"),
         target = Seq("link", "source")
       ),
       EdgirGraph.EdgirEdge(
-        data = "connect_sink",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
         source = Seq("sink", "port"),
         target = Seq("link", "sinks")
       ),

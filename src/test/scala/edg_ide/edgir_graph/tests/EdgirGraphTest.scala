@@ -6,7 +6,7 @@ import edg_ide.{EdgirLibrary, EdgirUtils}
 import edg.elem.elem
 import edg.expr.expr
 import edg.schema.schema
-import edg_ide.edgir_graph.{EdgirGraph, BlockWrapper, LinkWrapper, PortWrapper}
+import edg_ide.edgir_graph.{EdgirGraph, BlockWrapper, LinkWrapper, PortWrapper, ConnectWrapper}
 import edg_ide.edgir_graph.EdgirGraph.EdgirNode
 
 
@@ -98,12 +98,12 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = "connect_source",
+          data = ConnectWrapper("connect_source", blockIr.constraints("connect_source")),
           source = Seq("source", "port"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = "connect_sink",
+          data = ConnectWrapper("connect_sink", blockIr.constraints("connect_sink")),
           source = Seq("sink", "port"),
           target = Seq("link", "sink")
         ),
@@ -157,6 +157,8 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
       new EdgirLibrary(schema.Library())
     )
 
+    val outerBlockIr = blockIr.blocks("outer").`type`.hierarchy.get
+
     val refGraph = EdgirGraph.EdgirNode(
       data = BlockWrapper(blocklikeIr),
       members = Map(
@@ -164,14 +166,13 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           data = BlockWrapper(blockIr.blocks("outer")),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = PortWrapper(blockIr.blocks("outer").`type`.hierarchy.get.ports("port"))
+              data = PortWrapper(outerBlockIr.ports("port"))
             ),
             "inner" -> EdgirGraph.EdgirNode(
-              data = BlockWrapper(blockIr.blocks("outer").`type`.hierarchy.get.blocks("inner")),
+              data = BlockWrapper(outerBlockIr.blocks("inner")),
               members = Map(
                 "port" -> EdgirGraph.EdgirPort(
-                  data = PortWrapper(blockIr.blocks("outer").`type`.hierarchy.get
-                      .blocks("inner").`type`.hierarchy.get.ports("port"))
+                  data = PortWrapper(outerBlockIr.blocks("inner").`type`.hierarchy.get.ports("port"))
                 ),
               ),
               edges = Seq()
@@ -179,7 +180,7 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           ),
           edges = Seq(
             EdgirGraph.EdgirEdge(
-              data = "export",
+              data = ConnectWrapper("export", outerBlockIr.constraints("export")),
               source = Seq("inner", "port"),
               target = Seq("port")
             ),

@@ -8,6 +8,7 @@ import edg_ide.{EdgirLibrary, EdgirUtils}
 // Should be an union type, but not supported in Scala, so here's wrappers =(
 sealed trait NodeDataWrapper {
 }
+
 case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper {
   override def toString: String = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) =>
@@ -17,6 +18,7 @@ case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper {
     case other => other.getClass.getName
   }
 }
+
 case class LinkWrapper(linkLike: elem.LinkLike) extends NodeDataWrapper {
   override def toString: String = linkLike.`type` match {
     case elem.LinkLike.Type.Link(link) =>
@@ -32,26 +34,32 @@ case class PortWrapper(portLike: elem.PortLike) {
 }
 
 
+sealed trait EdgeWrapper {
+}
+
+case class ConnectWrapper(name: String, constraint: expr.ValueExpr) extends EdgeWrapper
+
+
 object EdgirGraph {
   // These are type parameterization of the HGraphNode
-  sealed trait EdgirNodeMember extends HGraphNodeMember[NodeDataWrapper, PortWrapper, String] {
+  sealed trait EdgirNodeMember extends HGraphNodeMember[NodeDataWrapper, PortWrapper, EdgeWrapper] {
   }
 
   case class EdgirNode(
     override val data: NodeDataWrapper,
     override val members: Map[String, EdgirNodeMember],
-    override val edges: Seq[HGraphEdge[String]]
-  ) extends HGraphNode[NodeDataWrapper, PortWrapper, String] with EdgirNodeMember {  }
+    override val edges: Seq[HGraphEdge[EdgeWrapper]]
+  ) extends HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper] with EdgirNodeMember {  }
 
   case class EdgirPort(
     override val data: PortWrapper
   ) extends HGraphPort[PortWrapper] with EdgirNodeMember {}
 
   case class EdgirEdge(
-    override val data: String,
+    override val data: EdgeWrapper,
     override val source: Seq[String],
     override val target: Seq[String]
-  ) extends HGraphEdge[String]
+  ) extends HGraphEdge[EdgeWrapper]
 
   /**
     * Simple wrapper around blockLikeToNode that provides the blockLike wrapper around the block
@@ -71,12 +79,12 @@ object EdgirGraph {
       constr.expr match {
         case expr.ValueExpr.Expr.Connected(connect) =>
           // in the loading pass, the source is the block side and the target is the link side
-          Some(EdgirEdge(name,
+          Some(EdgirEdge(ConnectWrapper(name, constr),
             source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
             target=EdgirUtils.RefExprToSeqString(connect.linkPort.get)))
         case expr.ValueExpr.Expr.Exported(export) =>
           // in the loading pass, the source is the block side and the target is the external port
-          Some(EdgirEdge(name,
+          Some(EdgirEdge(ConnectWrapper(name, constr),
             source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
             target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get)))
         case _ => None

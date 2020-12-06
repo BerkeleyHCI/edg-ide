@@ -2,6 +2,7 @@ package edg_ide.edgir_graph.tests
 
 import edg_ide.EdgirUtils
 import edg.elem.elem
+import edg.expr.expr
 import edg_ide.edgir_graph
 
 
@@ -28,5 +29,8 @@ object EdgirTestUtils {
     val Port = elem.Port()
     val PortWrapper = edgir_graph.PortWrapper(
       elem.PortLike(is=elem.PortLike.Is.Port(Port)))
+
+    def ConnectWrapper(name: String) = edgir_graph.ConnectWrapper(
+      name, expr.ValueExpr())
   }
 }

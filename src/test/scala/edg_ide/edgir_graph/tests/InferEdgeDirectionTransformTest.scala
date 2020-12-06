@@ -46,12 +46,12 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = "connect_source",
+          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
           source = Seq("source", "port"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = "connect_sink",
+          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
           source = Seq("sink", "port"),
           target = Seq("link", "sinks")
         ),
@@ -62,12 +62,12 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = "connect_source",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
         source = Seq("source", "port"),
         target = Seq("link", "source")
       ),
       EdgirGraph.EdgirEdge(
-        data = "connect_sink",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
         source = Seq("link", "sinks"),
         target = Seq("sink", "port")
       ),
@@ -96,7 +96,7 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
           ),
           edges = Seq(
             EdgirGraph.EdgirEdge(
-              data = "export_inner",
+              data = EdgirTestUtils.Dummy.ConnectWrapper("export_inner"),
               source = Seq("inner", "port"),
               target = Seq("port")
             )
@@ -120,7 +120,7 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
           ),
           edges = Seq(
             EdgirGraph.EdgirEdge(
-              data = "export_inner",
+              data = EdgirTestUtils.Dummy.ConnectWrapper("export_inner"),
               source = Seq("inner", "port"),
               target = Seq("port")
             )
@@ -141,12 +141,12 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = "connect_source",
+          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
           source = Seq("source", "port"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = "connect_sink",
+          data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
           source = Seq("sink", "port"),
           target = Seq("link", "sinks")
         ),
@@ -157,12 +157,12 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = "connect_source",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source"),
         source = Seq("source", "port"),
         target = Seq("link", "source")
       ),
       EdgirGraph.EdgirEdge(
-        data = "connect_sink",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("connect_sink"),
         source = Seq("link", "sinks"),
         target = Seq("sink", "port")
       ),
@@ -170,14 +170,14 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.members("source").asInstanceOf[EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = "export_inner",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("export_inner"),
         source = Seq("inner", "port"),
         target = Seq("port")
       )
     ))
     transformed.members("sink").asInstanceOf[EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = "export_inner",
+        data = EdgirTestUtils.Dummy.ConnectWrapper("export_inner"),
         source = Seq("port"),
         target = Seq("inner", "port")
       )
