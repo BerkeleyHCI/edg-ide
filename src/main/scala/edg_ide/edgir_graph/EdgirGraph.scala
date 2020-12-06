@@ -38,6 +38,7 @@ sealed trait EdgeWrapper {
 }
 
 case class ConnectWrapper(name: String, constraint: expr.ValueExpr) extends EdgeWrapper
+case class EdgeLinkWrapper(name: String, linkLike: elem.LinkLike) extends EdgeWrapper
 
 
 object EdgirGraph {
