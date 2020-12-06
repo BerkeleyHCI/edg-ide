@@ -84,8 +84,23 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
             "port" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper
             ),
+            "inner" -> EdgirGraph.EdgirNode(
+              data = EdgirTestUtils.Dummy.BlockWrapper,
+              members = Map(
+                "port" -> EdgirGraph.EdgirPort(
+                  data = EdgirTestUtils.Dummy.PortWrapper
+                ),
+              ),
+              edges = Seq()
+            ),
           ),
-          edges = Seq()
+          edges = Seq(
+            EdgirGraph.EdgirEdge(
+              data = "export_inner",
+              source = Seq("inner", "port"),
+              target = Seq("port")
+            )
+          )
         ),
         "sink" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper,
@@ -153,6 +168,13 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
       ),
     ))
 
+    transformed.members("source").asInstanceOf[EdgirNode].edges should equal(Seq(
+      EdgirGraph.EdgirEdge(
+        data = "export_inner",
+        source = Seq("inner", "port"),
+        target = Seq("port")
+      )
+    ))
     transformed.members("sink").asInstanceOf[EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = "export_inner",

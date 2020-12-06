@@ -23,12 +23,6 @@ class InferEdgeDirectionTransform {  // dummy class for logger
 object InferEdgeDirectionTransform {
   val logger = Logger.getInstance(classOf[InferEdgeDirectionTransform])
 
-  object Direction extends Enumeration {
-    type Type = Value
-    val Source, Sink, Bidir = Value
-  }
-
-
   // For a link and connected ports (my top port -> set of block paths), return the set of
   // block paths that are sources (considered from the block side)
   def sourcePorts(link: LinkWrapper, ports: Map[String, Seq[Seq[String]]]): Set[Seq[String]] = {
@@ -73,7 +67,7 @@ object InferEdgeDirectionTransform {
     }
   }
 
-  def apply(node: EdgirGraph.EdgirNode, parentDirs: Map[String, Direction.Type] = Map()): EdgirGraph.EdgirNode = {
+  def apply(node: EdgirGraph.EdgirNode, mySourcePorts: Set[String] = Set()): EdgirGraph.EdgirNode = {
     // Aggregate connected block ports by link and link port
     val linkConnectedPorts: Map[String, Map[String, Seq[Seq[String]]]] = node.edges.flatMap { edge =>
       val edgeTargetTop = edge.target.head
@@ -106,12 +100,23 @@ object InferEdgeDirectionTransform {
           EdgirGraph.EdgirEdge(edge.data, edge.target, edge.source)  // invert edge direction
         }
       } else {  // is (probably?) a hierarchy port
-        edge  // TODO handle this
+        require(edge.target.length == 1)
+        val edgeBlockPort = edge.target.head
+        if (mySourcePorts.contains(edgeBlockPort)) {  // correct is (port is target from inside)
+          edge
+        } else {
+          EdgirGraph.EdgirEdge(edge.data, edge.target, edge.source)
+        }
       }
     }
-    val newMembers = node.members.mapValues {  // recurse into child nodes
-      case member: EdgirGraph.EdgirNode => apply(member)
-      case member: EdgirGraph.EdgirPort => member
+    val newMembers = node.members.map {  // recurse into child nodes
+      case (name, member: EdgirGraph.EdgirNode) =>
+        val memberSourcePorts = blockSourcePorts.collect { case path if path.head == name =>
+          require(path.tail.length == 1)
+          path.tail.head
+        }
+        name -> apply(member, memberSourcePorts)
+      case (name, member: EdgirGraph.EdgirPort) => name -> member
     }
     EdgirGraph.EdgirNode(node.data, newMembers, newEdges)
   }
