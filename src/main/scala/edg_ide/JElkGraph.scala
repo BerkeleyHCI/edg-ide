@@ -3,6 +3,7 @@ package edg_ide
 import scala.collection.JavaConverters._
 import java.awt.{Dimension, Graphics, Rectangle}
 import java.awt.event.{MouseEvent, MouseMotionListener}
+import com.intellij.util.ui.UIUtil
 
 import javax.swing.{JComponent, Scrollable}
 import org.eclipse.elk.graph._
@@ -27,6 +28,11 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with M
     def paintBlock(node: ElkNode, parentX: Int, parentY: Int): Unit = {
       val nodeX = parentX + node.getX.toInt
       val nodeY = parentY + node.getY.toInt
+
+      val rectG = g.create()
+      rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.15))
+      rectG.fillRect(nodeX, nodeY,
+        node.getWidth.toInt, node.getHeight.toInt)
 
       g.drawRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
