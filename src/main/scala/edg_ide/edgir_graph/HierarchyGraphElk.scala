@@ -10,6 +10,8 @@ import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.util.ElkGraphUtil
 
+import java.util
+
 
 class HierarchyGraphElk {
 }
@@ -33,7 +35,7 @@ object HierarchyGraphElk {
     root.setProperty(LayeredOptions.HIERARCHY_HANDLING, HierarchyHandling.INCLUDE_CHILDREN)
     root.setProperty(LayeredOptions.THOROUGHNESS, new java.lang.Integer(7))
 
-    root.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.INSIDE)
+    root.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.inside())
     root.setProperty(CoreOptions.PORT_LABELS_NEXT_TO_PORT_IF_POSSIBLE, new java.lang.Boolean(true))
     root.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
 
@@ -46,7 +48,7 @@ object HierarchyGraphElk {
     val node = ElkGraphUtil.createNode(parent)
 
     // TODO: maybe the layout options should be elsewhere?
-    node.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.INSIDE)
+    node.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.inside())
     node.setProperty(CoreOptions.PORT_LABELS_NEXT_TO_PORT_IF_POSSIBLE, new java.lang.Boolean(true))
 
     node.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
