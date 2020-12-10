@@ -11,21 +11,14 @@ import org.eclipse.elk.graph._
 import java.awt.geom.AffineTransform
 
 
-trait Zoomable {
-  /**
-    * Sets the zoom level of this component. 1 is default.
-    * Origin should stay constant across zoom levels.
-    */
-  def setZoom(zoom: Float): Unit
-}
-
-
-class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with MouseMotionListener with Zoomable {
+class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Zoomable
+    with MouseMotionListener {
   var zoomLevel: Float = 1.0f
 
   override def setZoom(zoom: Float): Unit = {
     zoomLevel = zoom
   }
+  override def getZoom = zoomLevel
 
 
   setGraph(rootNode)

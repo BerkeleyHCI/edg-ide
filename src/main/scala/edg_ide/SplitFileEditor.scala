@@ -81,7 +81,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
 
   val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library)))
-  val graphScrollPane = new JBScrollPane(graph)
+  val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
   visualizationPanel.add(graphScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 
   val fileDescriptor: FileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
