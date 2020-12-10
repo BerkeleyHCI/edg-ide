@@ -2,7 +2,7 @@ package edg_ide
 
 import scala.collection.JavaConverters._
 import java.awt.{BasicStroke, Dimension, Graphics, Graphics2D, Rectangle}
-import java.awt.event.{MouseEvent, MouseMotionListener}
+import java.awt.event.{MouseAdapter, MouseEvent}
 import com.intellij.util.ui.UIUtil
 
 import javax.swing.{JComponent, Scrollable}
@@ -11,8 +11,7 @@ import org.eclipse.elk.graph._
 import java.awt.geom.AffineTransform
 
 
-class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Zoomable
-    with MouseMotionListener {
+class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Zoomable {
   var zoomLevel: Float = 1.0f
 
   override def setZoom(zoom: Float): Unit = {
@@ -22,10 +21,6 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
 
 
   setGraph(rootNode)
-
-  // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
-  setAutoscrolls(true)
-  addMouseMotionListener(this)
 
   def setGraph(newGraph: ElkNode): Unit = {
     rootNode = newGraph
@@ -116,13 +111,15 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
     }
   }
 
-  // Mouse drag handler
-  override def mouseMoved(e: MouseEvent): Unit = { }  // nothing happens on mouse motion
-  override def mouseDragged(e: MouseEvent): Unit = {
-    // TODO perhaps change to keep clicked viewport point on cursor?
-    val r = new Rectangle(e.getX, e.getY, 1, 1)
-    scrollRectToVisible(r)
-  }
+  // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
+  setAutoscrolls(true)
+  // TODO proper drag support
+
+  addMouseListener(new MouseAdapter() {
+    override def mouseClicked(e: MouseEvent) {
+      println(e.getPoint.toString)
+    }
+  })
 
   // Scrollable APIs
   //
