@@ -1,15 +1,33 @@
 package edg_ide
 
 import scala.collection.JavaConverters._
-import java.awt.{Dimension, Graphics, Rectangle}
+import java.awt.{BasicStroke, Dimension, Graphics, Graphics2D, Rectangle}
 import java.awt.event.{MouseEvent, MouseMotionListener}
 import com.intellij.util.ui.UIUtil
 
 import javax.swing.{JComponent, Scrollable}
 import org.eclipse.elk.graph._
 
+import java.awt.geom.AffineTransform
 
-class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with MouseMotionListener {
+
+trait Zoomable {
+  /**
+    * Sets the zoom level of this component. 1 is default.
+    * Origin should stay constant across zoom levels.
+    */
+  def setZoom(zoom: Float): Unit
+}
+
+
+class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with MouseMotionListener with Zoomable {
+  var zoomLevel: Float = 1.0f
+
+  override def setZoom(zoom: Float): Unit = {
+    zoomLevel = zoom
+  }
+
+
   setGraph(rootNode)
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
@@ -22,7 +40,18 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with M
     repaint()
   }
 
-  override def paintComponent(g: Graphics): Unit = {
+  override def paintComponent(paintGraphics: Graphics): Unit = {
+    val scaling = new AffineTransform()
+    scaling.scale(zoomLevel, zoomLevel)
+    val g = paintGraphics.create().asInstanceOf[Graphics2D]
+    g.transform(scaling)
+    g.setStroke(new BasicStroke(1/zoomLevel))  // keep stroke at 1px
+
+    // Keep the real font size constant, regardless of zoom
+    val currentFont = g.getFont
+    val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
+    g.setFont(newFont)
+
     val fontMetrics = g.getFontMetrics(g.getFont)
 
     def paintBlock(node: ElkNode, parentX: Int, parentY: Int): Unit = {
@@ -105,7 +134,7 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with M
   // Scrollable APIs
   //
   override def getPreferredSize: Dimension =
-    new Dimension(rootNode.getWidth.toInt, rootNode.getHeight.toInt)
+    new Dimension((rootNode.getWidth * zoomLevel).toInt, (rootNode.getHeight * zoomLevel).toInt)
 
   override def getPreferredScrollableViewportSize: Dimension = getPreferredSize
 

@@ -36,11 +36,11 @@ object InferEdgeDirectionTransform {
     val sinks = Set(
       "sinks",
       "crystal",
-      "device",  // SWD, USB, SPI
+      "device", "devices",  // SWD, USB, SPI
       "transceiver",  // CAN logic
     )
     val bidirs = Set(
-      "bidirs", "passives",
+      "bidirs", "passive", "passives",
       "a", "b",  // UART
       "node",  // CAN diff
     )
