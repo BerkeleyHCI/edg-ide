@@ -117,9 +117,44 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
 
   addMouseListener(new MouseAdapter() {
     override def mouseClicked(e: MouseEvent) {
-      println(e.getPoint.toString)
+      def shapeContainsPoint(shape: ElkShape, point: (Float, Float)): Boolean = {
+        (shape.getX <= point._1 && point._1 <= shape.getX + shape.getWidth) &&
+          (shape.getY <= point._2 && point._2 <= shape.getY + shape.getHeight)
+      }
+
+      // Tests the clicked point against a node, returning either a sub-node, port, or edge
+      def intersectNode(node: ElkNode, point: (Float, Float)): Option[ElkGraphElement] = {
+        // Ports can be outside the main shape and can't be gated by the node shape test
+        val nodePoint = (point._1 - node.getX.toFloat, point._2 - node.getY.toFloat)  // transform to node space
+        val containedPorts = node.getPorts.asScala.collect {
+          case port if shapeContainsPoint(port, nodePoint) => port
+        }
+
+        // Test node, and if within node, recurse into children
+        val containedNodes = if (shapeContainsPoint(node, point)) {
+          val containedNodes = node.getChildren.asScala.flatMap(intersectNode(_, nodePoint))
+          // TODO handle edges
+
+          containedNodes ++ Seq(node)
+        } else {
+          Seq()
+        }
+
+        (containedPorts ++ containedNodes).headOption
+      }
+
+      val elkPoint = (e.getX / zoomLevel, e.getY / zoomLevel)  // transform points to elk-space
+      val clickedNode = intersectNode(rootNode, elkPoint)
+
+      clickedNode.foreach { onNodeSelected }
+
+      println(s"${e.getPoint.toString}  $clickedNode")
     }
   })
+
+  def onNodeSelected(node: ElkGraphElement): Unit = {
+
+  }
 
   // Scrollable APIs
   //
