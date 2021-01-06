@@ -11,12 +11,20 @@ class NavigateToBlockAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.navigate_to_block")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
-    val (editor, psiFile) = (event.getData(CommonDataKeys.EDITOR), event.getData(CommonDataKeys.PSI_FILE)) match {
-      case (null, _) | (null, _) => notificationGroup
-          .createNotification("No editor", NotificationType.WARNING)
+    val editor = Option(event.getData(CommonDataKeys.EDITOR)).getOrElse {
+      notificationGroup.createNotification("No editor", NotificationType.WARNING)
           .notify(event.getProject)
-        return
-      case (editor, psiFile) => (editor, psiFile)
+      return
+    }
+    val psiFile = Option(event.getData(CommonDataKeys.PSI_FILE)).getOrElse {
+      notificationGroup.createNotification("No PSI file", NotificationType.WARNING)
+          .notify(event.getProject)
+      return
+    }
+    val splitFileEditor = SplitFileEditor.fromTextEditor(editor).getOrElse {
+      notificationGroup.createNotification(s"HDL editor not found", NotificationType.WARNING)
+          .notify(event.getProject)
+      return
     }
 
     val offset = editor.getCaretModel.getOffset
@@ -26,24 +34,19 @@ class NavigateToBlockAction() extends AnAction() {
       case element => element
     }
 
-    val notification: Notification = notificationGroup.createNotification(
-      s"PsiTest", s"$element at $offset",
-      s"$editor\r\n" +
-          s"1) ${editor.getComponent.getParent}\r\n" +
-          s"2) ${editor.getComponent.getParent.getParent}\r\n" +
-          s"3) ${editor.getComponent.getParent.getParent.getParent}\r\n" +
-          s"4) ${editor.getComponent.getParent.getParent.getParent.getParent}\r\n" +
-          s"5) ${editor.getComponent.getParent.getParent.getParent.getParent.getParent}\r\n" +
-          s"6) ${editor.getComponent.getParent.getParent.getParent.getParent.getParent.getParent}\r\n" +
-          s"7) ${editor.getComponent.getParent.getParent.getParent.getParent.getParent.getParent.getParent}\r\n" +
-          "",
+    // TODO actually implement the action
+    notificationGroup.createNotification(
+      s"TODO: NavigateToBlockAction", s"", s"selected PSI $element, found $splitFileEditor",
       NotificationType.INFORMATION)
-
-    notification.notify(event.getProject)
+        .notify(event.getProject)
   }
 
-  override def update(e: AnActionEvent): Unit = {
-    // TODO only enabled when SplitFileEditor is open
-    e.getPresentation.setEnabledAndVisible(true)
+  override def update(event: AnActionEvent): Unit = {
+    // Menu item is only visible when a SplitFileEditor is open
+    val editor = Option(event.getData(CommonDataKeys.EDITOR)).getOrElse {
+      event.getPresentation.setEnabledAndVisible(false)
+      return
+    }
+    event.getPresentation.setEnabledAndVisible(SplitFileEditor.fromTextEditor(editor).isDefined)
   }
 }

@@ -26,7 +26,7 @@ import edg_ide.edgir_graph.{EdgirGraph, HierarchyGraphElk,
 
 
 class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)
-    extends UserDataHolderBase with TextEditor {
+    extends UserDataHolderBase with FileEditor {
   // State
   var edgFileAbsPath: Option[String] = None
   var edgLibraryAbsPath: Option[String] = None
@@ -202,13 +202,6 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   override def getStructureViewBuilder: StructureViewBuilder = textEditor.getStructureViewBuilder
 
   override def dispose(): Unit = Disposer.dispose(textEditor)
-
-  override def getEditor: Editor = textEditor.asInstanceOf[TextEditor].getEditor
-
-  override def canNavigateTo(navigatable: Navigatable): Boolean =
-    textEditor.asInstanceOf[TextEditor].canNavigateTo(navigatable)
-  override def navigateTo(navigatable: Navigatable): Unit =
-    textEditor.asInstanceOf[TextEditor].navigateTo(navigatable)
 }
 
 
@@ -221,4 +214,23 @@ class SplitFileEditorState(val edgFileAbsPath: Option[String], val edgLibraryAbs
       case otherState: SplitFileEditorState => textState.canBeMergedWith(otherState.textState, level)
       case _ => false
     }
+}
+
+
+object SplitFileEditor {
+  /** Given a TextEditor, return the SplitFileEditor instance containing it.
+    */
+  def fromTextEditor(editor: Editor): Option[SplitFileEditor] = {
+    val project = Option(editor.getProject)
+    val document = editor.getDocument
+    val file = Option(FileDocumentManager.getInstance().getFile(document))
+    (project, file) match {
+      case (None, _) | (_, None) => None
+      case (Some(project), Some(file)) =>
+        FileEditorManager.getInstance(project).getSelectedEditor(file) match {
+          case editor: SplitFileEditor => Some(editor)
+          case _ => None
+        }
+    }
+  }
 }
