@@ -10,8 +10,8 @@
   </extensions>
 
   <actions>
-    <action id="edg_ide.TestDialogAction" class="edg_ide.TestDialogAction"
-            text="Tested" description="Described"
+    <action id="edg_ide.NavigateToBlockAction" class="edg_ide.NavigateToBlockAction"
+            text="Navigate To Block" description="Select the block in the block diagram view of the element at the caret in the code view"
             icon="EdgIcons$.Test">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt A" second-keystroke="C" keymap="$default"/>
