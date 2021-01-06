@@ -8,7 +8,7 @@ import com.intellij.notification.{NotificationGroup, NotificationType, Notificat
 
 
 class NavigateToBlockAction() extends AnAction() {
-  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("my.group.id")
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.navigate_to_block")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
     val (editor, psiFile) = (event.getData(CommonDataKeys.EDITOR), event.getData(CommonDataKeys.PSI_FILE)) match {
@@ -27,7 +27,16 @@ class NavigateToBlockAction() extends AnAction() {
     }
 
     val notification: Notification = notificationGroup.createNotification(
-      s"PsiTest", s"$element at $offset", "Content",
+      s"PsiTest", s"$element at $offset",
+      s"$editor\r\n" +
+          s"1) ${editor.getComponent.getParent}\r\n" +
+          s"2) ${editor.getComponent.getParent.getParent}\r\n" +
+          s"3) ${editor.getComponent.getParent.getParent.getParent}\r\n" +
+          s"4) ${editor.getComponent.getParent.getParent.getParent.getParent}\r\n" +
+          s"5) ${editor.getComponent.getParent.getParent.getParent.getParent.getParent}\r\n" +
+          s"6) ${editor.getComponent.getParent.getParent.getParent.getParent.getParent.getParent}\r\n" +
+          s"7) ${editor.getComponent.getParent.getParent.getParent.getParent.getParent.getParent.getParent}\r\n" +
+          "",
       NotificationType.INFORMATION)
 
     notification.notify(event.getProject)
