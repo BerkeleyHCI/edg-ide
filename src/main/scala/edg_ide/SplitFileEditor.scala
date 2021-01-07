@@ -12,9 +12,11 @@ import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs._
 import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
+import com.jetbrains.python.psi.{LanguageLevel, PyClass, PyElementGenerator, PyReferenceExpression, PyTargetExpression}
 
 import javax.swing._
 import java.awt._
@@ -167,12 +169,97 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
     fileInputStream.close()
   }
 
+  val psiElementGenerator = PyElementGenerator.getInstance(getEditor.getProject)
+
+  // Return all siblings (including itself) of a PsiElement
+  def psiSiblings(element: PsiElement): Seq[PsiElement] = element match {
+    case element: PsiElement => Seq(element) ++ psiSiblings(element.getNextSibling)
+    case _ => Seq()  // null case
+  }
+
+  // Returns whether the two Seq of PsiElements produce text matches (individual element-wise)
+  def psiTextMatches(seq1: Seq[PsiElement], seq2: Seq[PsiElement]): Boolean = {  // TODO better match impl?
+    seq1.lengthCompare(seq2.length) == 0 && (seq1.zip(seq2).map { case (val1, val2) =>
+      val1.textMatches(val2)
+    }.forall(x => x))
+  }
+
+  /**
+    * For a PyReferenceExpression of the form self.something, return Some("something"), or None
+    */
+  def psiSelfReference(element: PyReferenceExpression): Option[String] = element match {
+    case element: PyReferenceExpression =>
+      val refElement = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(element),
+        "self.placeholder"
+      ).asInstanceOf[PyReferenceExpression]
+
+      val elemSiblings = psiSiblings(element.getChildren()(0))
+      val refSiblings = psiSiblings(refElement.getChildren()(0))
+
+      if (psiTextMatches(elemSiblings.slice(0, elemSiblings.length - 1),
+        refSiblings.slice(0, refSiblings.length - 1))) {
+        Some(elemSiblings.last.getText)
+      } else {
+        None
+      }
+    case _ => None
+  }
+
+  /**
+    * For a PyTargetExpression of the form self.something, return Some("something"), or None
+    */
+  def psiSelfTarget(element: PyTargetExpression): Option[String] = element match {
+    case element: PyTargetExpression =>
+      val refElement = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(element),
+        "self.placeholder"  // TODO: should actually use an assignment so this is a PyTargetExpression?
+      ).asInstanceOf[PyReferenceExpression]
+
+      val elemSiblings = psiSiblings(element.getChildren()(0))
+      val refSiblings = psiSiblings(refElement.getChildren()(0))
+
+      if (psiTextMatches(elemSiblings.slice(0, elemSiblings.length - 1),
+        refSiblings.slice(0, refSiblings.length - 1))) {
+        Some(elemSiblings.last.getText)
+      } else {
+        None
+      }
+    case _ =>
+      None
+  }
+
   /**
     * Selects the block diagram element associated with the PSI element, in both the block diagram and tree views.
     */
   def selectFromPsi(element: PsiElement) {
+    val containingClass = PsiTreeUtil.getParentOfType(element, classOf[PyClass]) match {
+      case null =>
+        notificationGroup.createNotification(
+          s"No encapsulating class of selection",
+          NotificationType.WARNING)
+            .notify(getEditor.getProject)
+        return
+      case pyClass: PyClass => pyClass.getNameIdentifier.getText
+    }
+
+    val referenceOpt = PsiTreeUtil.getParentOfType(element, classOf[PyReferenceExpression]) match {
+      case expr: PyReferenceExpression => psiSelfReference(expr)
+      case _ => None
+    }
+    val targetOpt = PsiTreeUtil.getParentOfType(element, classOf[PyTargetExpression]) match {
+      case expr: PyTargetExpression => psiSelfTarget(expr)
+      case _ => None
+    }
+
+    val name = referenceOpt.getOrElse(targetOpt.getOrElse {
+        s"No reference of form self.(element) selected",
+        NotificationType.WARNING)
+          .notify(getEditor.getProject)
+      return
+    } )
+
+    // TODO IMPLEMENT ME
     notificationGroup.createNotification(
-      s"SelectFromPsi", s"at $this", s"selected PSI $element",
+      s"SelectFromPsi", s"", s"selected PSI $containingClass  $name",
       NotificationType.INFORMATION)
         .notify(getEditor.getProject)
   }
