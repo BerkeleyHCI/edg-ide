@@ -251,6 +251,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
     }
 
     val name = referenceOpt.getOrElse(targetOpt.getOrElse {
+      notificationGroup.createNotification(
         s"No reference of form self.(element) selected",
         NotificationType.WARNING)
           .notify(getEditor.getProject)
