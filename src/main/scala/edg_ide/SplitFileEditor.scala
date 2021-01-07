@@ -2,6 +2,7 @@ package edg_ide
 
 import com.intellij.codeHighlighting.BackgroundEditorHighlighter
 import com.intellij.ide.structureView.StructureViewBuilder
+import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.editor._
 import com.intellij.openapi.fileEditor._
 import com.intellij.openapi.fileChooser._
@@ -10,6 +11,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs._
 import com.intellij.pom.Navigatable
+import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -20,13 +22,11 @@ import java.beans.PropertyChangeListener
 import java.io._
 import edg.elem.elem
 import edg.schema.schema
-import edg_ide.edgir_graph.{EdgirGraph, HierarchyGraphElk,
-  CollapseBridgeTransform, CollapseLinkTransform, InferEdgeDirectionTransform, SimplifyPortTransform,
-  PruneDepthTransform}
+import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 
 
-class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)
-    extends UserDataHolderBase with FileEditor {
+class SplitFileEditor(private val textEditor: TextEditor, private val file: VirtualFile)
+    extends UserDataHolderBase with TextEditor {
   // State
   var edgFileAbsPath: Option[String] = None
   var edgLibraryAbsPath: Option[String] = None
@@ -117,6 +117,8 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   //
   // Interaction Implementations
   //
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.SplitFileEditor")
+
   def openEdgFile(file: File): Unit = {
     val absolutePath = file.getAbsolutePath
     fileBrowser.setText(absolutePath)
@@ -165,6 +167,16 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     fileInputStream.close()
   }
 
+  /**
+    * Selects the block diagram element associated with the PSI element, in both the block diagram and tree views.
+    */
+  def selectFromPsi(element: PsiElement) {
+    notificationGroup.createNotification(
+      s"SelectFromPsi", s"at $this", s"selected PSI $element",
+      NotificationType.INFORMATION)
+        .notify(getEditor.getProject)
+  }
+
   //
   // Implementation for abstract TextEditor
   //
@@ -202,6 +214,10 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   override def getStructureViewBuilder: StructureViewBuilder = textEditor.getStructureViewBuilder
 
   override def dispose(): Unit = Disposer.dispose(textEditor)
+
+  override def getEditor: Editor = textEditor.getEditor
+  override def canNavigateTo(navigatable: Navigatable): Boolean = textEditor.canNavigateTo(navigatable)
+  override def navigateTo(navigatable: Navigatable): Unit = textEditor.navigateTo(navigatable)
 }
 
 

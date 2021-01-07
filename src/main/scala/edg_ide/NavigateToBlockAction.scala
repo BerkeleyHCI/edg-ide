@@ -4,11 +4,11 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 
-import com.intellij.notification.{NotificationGroup, NotificationType, Notification}
+import com.intellij.notification.{NotificationGroup, NotificationType}
 
 
 class NavigateToBlockAction() extends AnAction() {
-  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.navigate_to_block")
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.NavigateToBlockAction")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
     val editor = Option(event.getData(CommonDataKeys.EDITOR)).getOrElse {
@@ -28,17 +28,14 @@ class NavigateToBlockAction() extends AnAction() {
     }
 
     val offset = editor.getCaretModel.getOffset
-    val element = psiFile.findElementAt(offset) match {
-      case null => notificationGroup.createNotification("No element at code", NotificationType.WARNING)
+    val element = Option(psiFile.findElementAt(offset)) match {
+      case None => notificationGroup.createNotification("No element at code", NotificationType.WARNING)
           .notify(event.getProject)
-      case element => element
+        return
+      case Some(element) => element
     }
 
-    // TODO actually implement the action
-    notificationGroup.createNotification(
-      s"TODO: NavigateToBlockAction", s"", s"selected PSI $element, found $splitFileEditor",
-      NotificationType.INFORMATION)
-        .notify(event.getProject)
+    splitFileEditor.selectFromPsi(element)
   }
 
   override def update(event: AnActionEvent): Unit = {
