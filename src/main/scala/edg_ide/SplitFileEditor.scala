@@ -38,7 +38,8 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
 
   // GUI-facing state
   //
-  var selectedPath: Seq[String] = Seq()  // empty means no selection
+  var selectedPath: Seq[String] = Seq()  // root implicitly selected by default
+  var design = schema.Design()
 
   // Build GUI components
   //
@@ -140,7 +141,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
     fileBrowser.setText(absolutePath)
 
     val fileInputStream = new FileInputStream(file)
-    val design: schema.Design = schema.Design.parseFrom(fileInputStream)
+    design = schema.Design.parseFrom(fileInputStream)
     design.contents match {
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
@@ -215,10 +216,24 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
     } )
 
     // TODO IMPLEMENT ME
-    notificationGroup.createNotification(
-      s"SelectFromPsi", s"", s"selected PSI $containingClass  $name",
-      NotificationType.INFORMATION)
-        .notify(getEditor.getProject)
+    if (design.contents.isDefined) {
+      val startingBlock = EdgirUtils.ResolvePath(design.contents.get, selectedPath) match {
+        case Some(startingBlock: elem.HierarchyBlock) => startingBlock
+        case startingBlock =>
+          println(s"Failed to resolve current path $selectedPath, got $startingBlock")  // TODO use logging infra
+          return
+      }
+
+      val startingSuperclass = EdgirUtils.SimpleSuperclassesToString(startingBlock.superclasses)
+      if (startingSuperclass == containingClass) {
+        
+      }
+
+      notificationGroup.createNotification(
+        s"SelectFromPsi", s"$startingSuperclass", s"selected PSI $containingClass  $name",
+        NotificationType.INFORMATION)
+          .notify(getEditor.getProject)
+    }
   }
 
   //
