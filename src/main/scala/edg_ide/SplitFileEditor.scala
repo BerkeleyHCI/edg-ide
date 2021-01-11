@@ -2,6 +2,7 @@ package edg_ide
 
 import com.intellij.codeHighlighting.BackgroundEditorHighlighter
 import com.intellij.ide.structureView.StructureViewBuilder
+import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.editor._
 import com.intellij.openapi.fileEditor._
 import com.intellij.openapi.fileChooser._
@@ -10,9 +11,12 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs._
 import com.intellij.pom.Navigatable
+import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
+import com.jetbrains.python.psi.{LanguageLevel, PyClass, PyElementGenerator, PyReferenceExpression, PyTargetExpression}
 import javax.swing._
 import java.awt._
 import java.awt.event.{ActionEvent, ActionListener}
@@ -26,16 +30,24 @@ import edg.schema.schema
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 
 import scala.sys.process._
+import org.eclipse.elk.graph.ElkGraphElement
 
 
-class SplitFileEditor(private val textEditor: FileEditor, private val file: VirtualFile)
+class SplitFileEditor(private val textEditor: TextEditor, private val file: VirtualFile)
     extends UserDataHolderBase with TextEditor {
   // State
+  //
   var edgFileAbsPath: Option[String] = None
   var edgLibraryAbsPath: Option[String] = None
   var library = new EdgirLibrary(schema.Library())
 
+  // GUI-facing state
+  //
+  var selectedPath: Seq[String] = Seq()  // root implicitly selected by default
+  var design = schema.Design()
+
   // Build GUI components
+  //
   textEditor.getComponent.setVisible(true)
   val mainSplitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
   mainSplitter.setFirstComponent(textEditor.getComponent)
@@ -91,7 +103,15 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   })
 
   val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library)))
+    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library))) {
+    override def onSelected(node: ElkGraphElement): Unit = {
+      selectedPath = getSelectedByPath
+      selectedPath = selectedPath.slice(1, selectedPath.length)  // TODO this prunes the prefixing 'design' elt
+      notificationGroup.createNotification(
+        s"selected path $selectedPath", NotificationType.WARNING)
+          .notify(getEditor.getProject)
+    }
+  }
   val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
   visualizationPanel.add(graphScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 
@@ -129,11 +149,13 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   //
   // Interaction Implementations
   //
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.SplitFileEditor")
+
   def openEdgFile(file: File): Unit = {
     val absolutePath = file.getAbsolutePath
 
     val fileInputStream = new FileInputStream(file)
-    val design: schema.Design = schema.Design.parseFrom(fileInputStream)
+    design = schema.Design.parseFrom(fileInputStream)
     design.contents match {
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
@@ -169,6 +191,87 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
         library = new EdgirLibrary(schema.Library())
     }
     fileInputStream.close()
+  }
+
+  /**
+    * Selects the block diagram element associated with the PSI element, in both the block diagram and tree views.
+    */
+  def selectFromPsi(element: PsiElement) {
+    val containingClass = PsiTreeUtil.getParentOfType(element, classOf[PyClass]) match {
+      case null =>
+        notificationGroup.createNotification(
+          s"No encapsulating class of selection",
+          NotificationType.WARNING)
+            .notify(getEditor.getProject)
+        return
+      case pyClass: PyClass => pyClass.getNameIdentifier.getText
+    }
+
+    val referenceOpt = PsiTreeUtil.getParentOfType(element, classOf[PyReferenceExpression]) match {
+      case expr: PyReferenceExpression => PsiUtils.psiSelfReference(getEditor.getProject, expr)
+      case _ => None
+    }
+    val targetOpt = PsiTreeUtil.getParentOfType(element, classOf[PyTargetExpression]) match {
+      case expr: PyTargetExpression => PsiUtils.psiSelfTarget(getEditor.getProject, expr)
+      case _ => None
+    }
+
+    val name = referenceOpt.getOrElse(targetOpt.getOrElse {
+      notificationGroup.createNotification(
+        s"No reference of form self.(element) selected",
+        NotificationType.WARNING)
+          .notify(getEditor.getProject)
+      return
+    } )
+
+    if (design.contents.isDefined) {
+      // First, try searching for the selected element in the currently selected block
+      val startingBlock = EdgirUtils.ResolvePath(design.contents.get, selectedPath) match {
+        case Some(startingBlock: elem.HierarchyBlock) => startingBlock
+        case startingBlock =>
+          println(s"Failed to resolve current path $selectedPath, got $startingBlock")  // TODO use logging infra
+          return
+      }
+
+      val startingSuperclass = EdgirUtils.SimpleSuperclassesToString(startingBlock.superclasses)
+      if (startingSuperclass == containingClass) {
+        if (startingBlock.blocks.contains(name) || startingBlock.ports.contains(name)) {
+          selectByPath(selectedPath ++ Seq(name))
+          return
+        } else {
+          println(s"Failed to resolve selected PSI $name at selected path $selectedPath")  // TODO use logging infra
+          return
+        }
+      }
+
+      // Next, try searching for the selected element in the parent block, to support multiple navigation operations
+      // which need sibling-level search
+      if (selectedPath.nonEmpty) {
+        val parentPath = selectedPath.slice(0, selectedPath.length - 1)
+        val parentBlock = EdgirUtils.ResolvePath(design.contents.get, parentPath) match {
+          case Some(parentBlock: elem.HierarchyBlock) => parentBlock
+          case parentBlock =>
+            println(s"Failed to resolve current parent path $parentPath, got $parentBlock")  // TODO use logging infra
+            return
+        }
+
+        val parentSuperclass = EdgirUtils.SimpleSuperclassesToString(parentBlock.superclasses)
+        if (parentSuperclass == containingClass) {  // first try searching in the selected block
+          if (parentBlock.blocks.contains(name) || parentBlock.ports.contains(name)) {
+            selectByPath(parentPath ++ Seq(name))
+            return
+          } else {
+            println(s"Failed to resolve selected PSI $name at parent path $selectedPath")  // TODO use logging infra
+            return
+          }
+        }
+      }
+    }
+  }
+
+  def selectByPath(path: Seq[String]): Unit = {
+    selectedPath = path
+    graph.setSelectedByPath(Seq("design") ++ selectedPath)  // note, this will also set selectedPath
   }
 
   //
@@ -208,12 +311,9 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
 
   override def dispose(): Unit = Disposer.dispose(textEditor)
 
-  override def getEditor: Editor = textEditor.asInstanceOf[TextEditor].getEditor
-
-  override def canNavigateTo(navigatable: Navigatable): Boolean =
-    textEditor.asInstanceOf[TextEditor].canNavigateTo(navigatable)
-  override def navigateTo(navigatable: Navigatable): Unit =
-    textEditor.asInstanceOf[TextEditor].navigateTo(navigatable)
+  override def getEditor: Editor = textEditor.getEditor
+  override def canNavigateTo(navigatable: Navigatable): Boolean = textEditor.canNavigateTo(navigatable)
+  override def navigateTo(navigatable: Navigatable): Unit = textEditor.navigateTo(navigatable)
 }
 
 
@@ -226,4 +326,23 @@ class SplitFileEditorState(val edgFileAbsPath: Option[String], val edgLibraryAbs
       case otherState: SplitFileEditorState => textState.canBeMergedWith(otherState.textState, level)
       case _ => false
     }
+}
+
+
+object SplitFileEditor {
+  /** Given a TextEditor, return the SplitFileEditor instance containing it.
+    */
+  def fromTextEditor(editor: Editor): Option[SplitFileEditor] = {
+    val project = Option(editor.getProject)
+    val document = editor.getDocument
+    val file = Option(FileDocumentManager.getInstance().getFile(document))
+    (project, file) match {
+      case (None, _) | (_, None) => None
+      case (Some(project), Some(file)) =>
+        FileEditorManager.getInstance(project).getSelectedEditor(file) match {
+          case editor: SplitFileEditor => Some(editor)
+          case _ => None
+        }
+    }
+  }
 }

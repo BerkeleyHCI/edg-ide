@@ -10,8 +10,6 @@ import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.util.ElkGraphUtil
 
-import java.util
-
 
 class HierarchyGraphElk {
 }
@@ -44,8 +42,9 @@ object HierarchyGraphElk {
 
   // Various helper functions to simplify graph building
   //
-  protected def addNode(parent: ElkNode): ElkNode = {
+  protected def addNode(parent: ElkNode, name: String): ElkNode = {
     val node = ElkGraphUtil.createNode(parent)
+    node.setIdentifier(name)
 
     // TODO: maybe the layout options should be elsewhere?
     node.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.inside())
@@ -57,8 +56,9 @@ object HierarchyGraphElk {
     node
   }
 
-  protected def addPort(parent: ElkNode): ElkPort = {
+  protected def addPort(parent: ElkNode, name: String): ElkPort = {
     val port = ElkGraphUtil.createPort(parent)
+    port.setIdentifier(name)
 
     port.setDimensions(10, 10)  // TODO make configurable?
 
@@ -66,6 +66,7 @@ object HierarchyGraphElk {
   }
 
   protected def addEdge(parent: ElkNode, source: ElkConnectableShape, target: ElkConnectableShape): ElkEdge = {
+    // TODO some kind of naming?
     val edge = ElkGraphUtil.createEdge(parent)
     edge.getSources.add(source)
     edge.getTargets.add(target)
@@ -82,7 +83,7 @@ object HierarchyGraphElk {
   def HGraphNodeToElkNode[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType],
                                                         name: String, parent: ElkNode):
       Map[Seq[String], ElkConnectableShape] = {
-    val elkNode = addNode(parent)
+    val elkNode = addNode(parent, name)
 
     ElkGraphUtil.createLabel(name, elkNode)
         .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopCenter())
@@ -92,7 +93,7 @@ object HierarchyGraphElk {
     // Create ELK objects for members (blocks and ports)
     val myElkPorts = node.members.collect {
       case (childName, childElt: HGraphPort[PortType]) =>
-        val childElkPort = addPort(elkNode)
+        val childElkPort = addPort(elkNode, name)
         ElkGraphUtil.createLabel(childName, childElkPort)
         // TODO: currently only name label is displayed. Is there a sane way to display additional data?
         // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)

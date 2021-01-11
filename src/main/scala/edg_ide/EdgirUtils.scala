@@ -1,5 +1,6 @@
 package edg_ide
 
+import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
 
@@ -62,5 +63,24 @@ object EdgirUtils {
         }
       ))
     )
+  }
+
+  def ResolvePath(start: elem.HierarchyBlock, path: Seq[String]): Option[Any] = path match {  // TODO should be Union
+    case Seq(head, tail@_*) =>
+      start.blocks.get(head) match {
+        case Some(child) => child.`type` match {
+          case elem.BlockLike.Type.Hierarchy(child) => return ResolvePath(child, tail)
+        }
+        case _ =>  // fall through
+      }
+      start.ports.get(head) match {
+        case Some(child) => child.is match {
+          case elem.PortLike.Is.Port(child) if tail.isEmpty => return Some(child)
+          // fail noisily - shouldn't happen
+        }
+        case _ =>  // fall through
+      }
+      None
+    case Seq() => Some(start)
   }
 }

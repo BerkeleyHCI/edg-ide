@@ -42,6 +42,16 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
     repaint()
   }
 
+  def paintEdge(g: Graphics2D, edge: ElkEdge, parentX: Int, parentY: Int): Unit = {
+    edge.getSections.asScala.foreach { section =>
+      edgeSectionPairs(section).foreach { case (line1, line2) =>
+        g.drawLine(line1._1.toInt + parentX, line1._2.toInt + parentY,
+          line2._1.toInt + parentX, line2._2.toInt + parentY
+        )
+      }
+    }
+  }
+
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val scaling = new AffineTransform()
     scaling.scale(zoomLevel, zoomLevel)
@@ -61,11 +71,18 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       val nodeY = parentY + node.getY.toInt
 
       val rectG = g.create()
+      if (selected.orNull eq node) {  // emphasis for selected element
+        // TODO different color?
+      }
       rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.15))
       rectG.fillRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
 
-      g.drawRect(nodeX, nodeY,
+      val rectStrokeG = g.create().asInstanceOf[Graphics2D]
+      if (selected.orNull eq node) {  // emphasis for selected element
+        rectStrokeG.setStroke(new BasicStroke(3/zoomLevel))  // TODO: maybe should be based off the current stroke?
+      }
+      rectStrokeG.drawRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
 
       node.getLabels.asScala.foreach { label =>
@@ -77,7 +94,11 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       }
 
       node.getPorts.asScala.foreach { port =>
-        g.drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
+        val portStrokeG = g.create().asInstanceOf[Graphics2D]
+        if (selected.orNull eq port) {  // emphasis for selected element
+          portStrokeG.setStroke(new BasicStroke(3))
+        }
+        portStrokeG.drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
           port.getWidth.toInt, port.getHeight.toInt)
 
         port.getLabels.asScala.foreach { label =>
@@ -94,17 +115,11 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
-        paintEdge(edge, nodeX, nodeY)
-      }
-    }
-
-    def paintEdge(edge: ElkEdge, parentX: Int, parentY: Int): Unit = {
-      edge.getSections.asScala.foreach { section =>
-        edgeSectionPairs(section).foreach { case (line1, line2) =>
-          g.drawLine(line1._1.toInt + parentX, line1._2.toInt + parentY,
-            line2._1.toInt + parentX, line2._2.toInt + parentY
-          )
+        val edgeStrokeG = g.create().asInstanceOf[Graphics2D]
+        if (selected.orNull eq edge) {  // emphasis for selected element
+          edgeStrokeG.setStroke(new BasicStroke(3))
         }
+        paintEdge(edgeStrokeG, edge, nodeX, nodeY)
       }
     }
 
@@ -113,7 +128,11 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       paintBlock(childNode, rootNode.getX.toInt, rootNode.getY.toInt)
     }
     rootNode.getContainedEdges.asScala.foreach{ edge =>
-      paintEdge(edge, rootNode.getX.toInt, rootNode.getY.toInt)
+      val edgeStrokeG = g.create().asInstanceOf[Graphics2D]
+      if (selected.orNull eq edge) {  // emphasis for selected element
+        edgeStrokeG.setStroke(new BasicStroke(3))
+      }
+      paintEdge(edgeStrokeG, edge, rootNode.getX.toInt, rootNode.getY.toInt)
     }
   }
 
@@ -184,12 +203,58 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       val elkPoint = (e.getX / zoomLevel.toDouble, e.getY / zoomLevel.toDouble)  // transform points to elk-space
       val clickedNode = intersectNode(rootNode, elkPoint)
 
-      clickedNode.foreach { onNodeSelected }
+      clickedNode.foreach { node =>  // foreach as an Option gate
+        setSelected(node)  // TODO handle multi select?
+        onSelected(node)  // happens after setSelected, so onSelected can reference eg getSelectedByPath
+      }
     }
   })
 
-  def onNodeSelected(node: ElkGraphElement): Unit = {
-    println(s"Selected: $node")
+  def onSelected(node: ElkGraphElement): Unit = {  // to be overridden by the user
+  }
+
+  // Selection operations
+  //
+  var selected: Option[ElkGraphElement] = None
+  def setSelected(elt: ElkGraphElement): Unit = {
+    selected = Some(elt)
+    validate()
+    repaint()
+  }
+
+  def getSelectedByPath: Seq[String] = {
+    def pathToNode(node: ElkGraphElement): Seq[String] = node match {
+      case node if node == rootNode => Seq()
+      case node: ElkNode => pathToNode(node.getParent) ++ Seq(node.getIdentifier)
+    }
+    selected match {
+      case Some(selected) => pathToNode(selected)
+      case _ => Seq()
+    }
+  }
+
+  // TODO how to select edges?
+  def setSelectedByPath(path: Seq[String]): Unit = { // TODO: is this a good API?
+    def resolvePath(pathSuffix: Seq[String], node: ElkNode): Option[ElkGraphElement] = pathSuffix match {
+      case Seq(head, suffixTail@_*) =>
+        // check children
+        val matchingChild = node.getChildren.asScala.filter(_.getIdentifier == head)
+        val matchingPorts = node.getPorts.asScala.filter(_.getIdentifier == head)
+        if (matchingChild.length == 1 && matchingPorts.isEmpty) {
+          resolvePath(suffixTail, matchingChild.head)
+        } else if (matchingChild.isEmpty && matchingPorts.length == 1) {
+          Some(matchingPorts.head)
+        } else {
+          // TODO proper logging
+          println(s"failed to resolve element $head with suffix $suffixTail, " +
+            s"got ${matchingChild.length} children and ${matchingPorts.length} ports")
+          None
+        }
+      case Seq() => Some(node)
+    }
+    selected = resolvePath(path, rootNode)
+    validate()  // TODO dedup repaint logic w/ setSelected?
+    repaint()
   }
 
   // Scrollable APIs

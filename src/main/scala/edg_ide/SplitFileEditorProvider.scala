@@ -45,7 +45,7 @@ class SplitFileEditorProvider extends AsyncFileEditorProvider with DumbAware {
 
     new AsyncFileEditorProvider.Builder() {
       def build: FileEditor = {
-        new SplitFileEditor(textBuilder.build(), file)
+        new SplitFileEditor(textBuilder.build().asInstanceOf[TextEditor], file)
       }
     }
   }
