@@ -253,6 +253,8 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       case Seq() => Some(node)
     }
     selected = resolvePath(path, rootNode)
+    validate()  // TODO dedup repaint logic w/ setSelected?
+    repaint()
   }
 
   // Scrollable APIs

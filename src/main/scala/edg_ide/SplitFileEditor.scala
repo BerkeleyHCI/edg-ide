@@ -93,6 +93,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
     EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library))) {
     override def onSelected(node: ElkGraphElement): Unit = {
       selectedPath = getSelectedByPath
+      selectedPath = selectedPath.slice(1, selectedPath.length)  // TODO this prunes the prefixing 'design' elt
       notificationGroup.createNotification(
         s"selected path $selectedPath", NotificationType.WARNING)
           .notify(getEditor.getProject)
@@ -215,8 +216,8 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
       return
     } )
 
-    // TODO IMPLEMENT ME
     if (design.contents.isDefined) {
+      // First, try searching for the selected element in the currently selected block
       val startingBlock = EdgirUtils.ResolvePath(design.contents.get, selectedPath) match {
         case Some(startingBlock: elem.HierarchyBlock) => startingBlock
         case startingBlock =>
@@ -226,14 +227,43 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
 
       val startingSuperclass = EdgirUtils.SimpleSuperclassesToString(startingBlock.superclasses)
       if (startingSuperclass == containingClass) {
-        
+        if (startingBlock.blocks.contains(name) || startingBlock.ports.contains(name)) {
+          selectByPath(selectedPath ++ Seq(name))
+          return
+        } else {
+          println(s"Failed to resolve selected PSI $name at selected path $selectedPath")  // TODO use logging infra
+          return
+        }
       }
 
-      notificationGroup.createNotification(
-        s"SelectFromPsi", s"$startingSuperclass", s"selected PSI $containingClass  $name",
-        NotificationType.INFORMATION)
-          .notify(getEditor.getProject)
+      // Next, try searching for the selected element in the parent block, to support multiple navigation operations
+      // which need sibling-level search
+      if (selectedPath.nonEmpty) {
+        val parentPath = selectedPath.slice(0, selectedPath.length - 1)
+        val parentBlock = EdgirUtils.ResolvePath(design.contents.get, parentPath) match {
+          case Some(parentBlock: elem.HierarchyBlock) => parentBlock
+          case parentBlock =>
+            println(s"Failed to resolve current parent path $parentPath, got $parentBlock")  // TODO use logging infra
+            return
+        }
+
+        val parentSuperclass = EdgirUtils.SimpleSuperclassesToString(parentBlock.superclasses)
+        if (parentSuperclass == containingClass) {  // first try searching in the selected block
+          if (parentBlock.blocks.contains(name) || parentBlock.ports.contains(name)) {
+            selectByPath(parentPath ++ Seq(name))
+            return
+          } else {
+            println(s"Failed to resolve selected PSI $name at parent path $selectedPath")  // TODO use logging infra
+            return
+          }
+        }
+      }
     }
+  }
+
+  def selectByPath(path: Seq[String]): Unit = {
+    selectedPath = path
+    graph.setSelectedByPath(Seq("design") ++ selectedPath)  // note, this will also set selectedPath
   }
 
   //
