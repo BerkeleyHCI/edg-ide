@@ -43,6 +43,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   val ideSplitter = new JBSplitter(true, 0.5f)
   mainSplitter.setSecondComponent(ideSplitter)
 
+
   def makeGbc(gridx: Int, gridy: Int, fill: Int = GridBagConstraints.NONE,
               xsize: Int = 1, ysize: Int = 1,
               xweight: Float = 0.0f, yweight: Float = 0.0f): GridBagConstraints = {
@@ -88,16 +89,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
       openEdgLibrary(new File(path + "/" + blockTextField.getText() + "/lib.lib"))
     }
   })
-/*
-  val fileBrowser = new TextFieldWithBrowseButton()
-  visualizationPanel.add(fileBrowser, makeGbc(0, 0, GridBagConstraints.HORIZONTAL))
-  val fileLabel = new JLabel("No file")
-  visualizationPanel.add(fileLabel, makeGbc(0, 1, GridBagConstraints.HORIZONTAL))
-  val libraryBrowser = new TextFieldWithBrowseButton()
-  visualizationPanel.add(libraryBrowser, makeGbc(0, 2, GridBagConstraints.HORIZONTAL))
-  val libraryLabel = new JLabel("No library")
-  visualizationPanel.add(libraryLabel, makeGbc(0, 3, GridBagConstraints.HORIZONTAL))
-*/
+
   val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library)))
   val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
@@ -105,27 +97,19 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
 
   def compileAndLoad(block: String) = {
     println(VfsUtilCore.virtualToIoFile(textEditor.getFile).getAbsolutePath())
+    clearCompiled()
     var cmd = "python3 compile.py --module " + textEditor.getFile.getPath() + " --block " + block + " --output_dir " + textEditor.getFile.getParent().getCanonicalPath() + "/compiled/" + block
     Process(cmd, new File(textEditor.getFile.getParent().getCanonicalPath())).!!
   }
 
+  def clearCompiled() = {
+    var children = textEditor.getFile.getParent.findChild("compiled").getChildren
+    for (c <- children) c.delete(this)
+  }
+
 
   val fileDescriptor: FileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
-  /*
-  fileBrowser.addBrowseFolderListener(new TextBrowseFolderListener(fileDescriptor, null) {
-    override def onFileChosen(chosenFile: VirtualFile) {
-      val file = VfsUtilCore.virtualToIoFile(chosenFile)
-      compileAndLoad("")
-      openEdgFile(file)
-    }
-  })
-  libraryBrowser.addBrowseFolderListener(new TextBrowseFolderListener(fileDescriptor, null) {
-    override def onFileChosen(chosenFile: VirtualFile) {
-      val file = VfsUtilCore.virtualToIoFile(chosenFile)
-      openEdgLibrary(file)
-    }
-  })
-*/
+
   //
   // Tree Panel
   //
@@ -147,7 +131,6 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
   //
   def openEdgFile(file: File): Unit = {
     val absolutePath = file.getAbsolutePath
-    //fileBrowser.setText(absolutePath)
 
     val fileInputStream = new FileInputStream(file)
     val design: schema.Design = schema.Design.parseFrom(fileInputStream)
@@ -159,8 +142,6 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
           CollapseBridgeTransform(CollapseLinkTransform(
             InferEdgeDirectionTransform(SimplifyPortTransform(
               PruneDepthTransform(edgirGraph, 2))))))  // TODO configurable depth
-        /*fileLabel.setText(s"${block.getClass.toString}, " +
-            s"automatic layout ${layoutGraphRoot.getWidth}*${layoutGraphRoot.getHeight}")*/
         graph.setGraph(layoutGraphRoot)
         designTree.setModel(new EdgTreeTableModel(block))
         designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
@@ -173,21 +154,18 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
 
   def openEdgLibrary(file: File): Unit = {
     val absolutePath = file.getAbsolutePath
-    //libraryBrowser.setText(absolutePath)
 
     val fileInputStream = new FileInputStream(file)
     val libraryProto: schema.Library = schema.Library.parseFrom(fileInputStream)
     libraryProto.root match {
       case Some(namespace) =>
         edgLibraryAbsPath = Some(absolutePath)
-        //libraryLabel.setText(s"Library with ${namespace.members.keys.size} elements")
         library = new EdgirLibrary(libraryProto)
         libraryTree.setModel(new EdgirLibraryTreeTableModel(library))
         libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
         // TODO: actual loading here
       case None =>
         edgLibraryAbsPath = None
-        //libraryLabel.setText(s"Invalid or empty library: $absolutePath")
         library = new EdgirLibrary(schema.Library())
     }
     fileInputStream.close()
@@ -209,10 +187,7 @@ class SplitFileEditor(private val textEditor: FileEditor, private val file: Virt
     )
   override def setState(state: FileEditorState): Unit = state match {
     case state: SplitFileEditorState =>
-      // TODO: guard this code with the existance of the .edg files and library files
-      /*state.edgFileAbsPath.foreach { absPath => openEdgFile(new File(absPath)) }
-      state.edgLibraryAbsPath.foreach { absPath => openEdgLibrary(new File(absPath)) }
-      */
+      // TODO: Fill visualization if there are already .edg files and library files
       textEditor.setState(state.textState)
     case _ =>  // discard state type
   }
