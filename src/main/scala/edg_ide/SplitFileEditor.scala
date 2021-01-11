@@ -25,16 +25,23 @@ import java.io._
 import edg.elem.elem
 import edg.schema.schema
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
+import org.eclipse.elk.graph.ElkGraphElement
 
 
 class SplitFileEditor(private val textEditor: TextEditor, private val file: VirtualFile)
     extends UserDataHolderBase with TextEditor {
   // State
+  //
   var edgFileAbsPath: Option[String] = None
   var edgLibraryAbsPath: Option[String] = None
   var library = new EdgirLibrary(schema.Library())
 
+  // GUI-facing state
+  //
+  var selectedPath: Seq[String] = Seq()  // empty means no selection
+
   // Build GUI components
+  //
   textEditor.getComponent.setVisible(true)
 
   val mainSplitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
@@ -82,7 +89,14 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
   visualizationPanel.add(libraryLabel, makeGbc(0, 3, GridBagConstraints.HORIZONTAL))
 
   val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library)))
+    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library))) {
+    override def onSelected(node: ElkGraphElement): Unit = {
+      selectedPath = getSelectedByPath
+      notificationGroup.createNotification(
+        s"selected path $selectedPath", NotificationType.WARNING)
+          .notify(getEditor.getProject)
+    }
+  }
   val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
   visualizationPanel.add(graphScrollPane, makeGbc(0, 4, GridBagConstraints.BOTH))
 

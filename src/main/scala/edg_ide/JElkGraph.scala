@@ -80,7 +80,7 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
 
       val rectStrokeG = g.create().asInstanceOf[Graphics2D]
       if (selected.orNull eq node) {  // emphasis for selected element
-        rectStrokeG.setStroke(new BasicStroke(3))
+        rectStrokeG.setStroke(new BasicStroke(3/zoomLevel))  // TODO: maybe should be based off the current stroke?
       }
       rectStrokeG.drawRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
@@ -203,9 +203,9 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       val elkPoint = (e.getX / zoomLevel.toDouble, e.getY / zoomLevel.toDouble)  // transform points to elk-space
       val clickedNode = intersectNode(rootNode, elkPoint)
 
-      clickedNode.foreach { node =>
-        onSelected(node)
+      clickedNode.foreach { node =>  // foreach as an Option gate
         setSelected(node)  // TODO handle multi select?
+        onSelected(node)  // happens after setSelected, so onSelected can reference eg getSelectedByPath
       }
     }
   })
@@ -220,6 +220,39 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
     selected = Some(elt)
     validate()
     repaint()
+  }
+
+  def getSelectedByPath: Seq[String] = {
+    def pathToNode(node: ElkGraphElement): Seq[String] = node match {
+      case node if node == rootNode => Seq()
+      case node: ElkNode => pathToNode(node.getParent) ++ Seq(node.getIdentifier)
+    }
+    selected match {
+      case Some(selected) => pathToNode(selected)
+      case _ => Seq()
+    }
+  }
+
+  // TODO how to select edges?
+  def setSelectedByPath(path: Seq[String]): Unit = { // TODO: is this a good API?
+    def resolvePath(pathSuffix: Seq[String], node: ElkNode): Option[ElkGraphElement] = pathSuffix match {
+      case Seq(head, suffixTail@_*) =>
+        // check children
+        val matchingChild = node.getChildren.asScala.filter(_.getIdentifier == head)
+        val matchingPorts = node.getPorts.asScala.filter(_.getIdentifier == head)
+        if (matchingChild.length == 1 && matchingPorts.isEmpty) {
+          resolvePath(suffixTail, matchingChild.head)
+        } else if (matchingChild.isEmpty && matchingPorts.length == 1) {
+          Some(matchingPorts.head)
+        } else {
+          // TODO proper logging
+          println(s"failed to resolve element $head with suffix $suffixTail, " +
+            s"got ${matchingChild.length} children and ${matchingPorts.length} ports")
+          None
+        }
+      case Seq() => Some(node)
+    }
+    selected = resolvePath(path, rootNode)
   }
 
   // Scrollable APIs
