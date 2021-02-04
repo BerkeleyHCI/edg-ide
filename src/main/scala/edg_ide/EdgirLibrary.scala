@@ -37,7 +37,7 @@ class EdgirLibrary(ir: schema.Library) {
           }
       }.flatten  // pairs of (superclass, child class)
       .groupBy { case (superclassPath, eltPath) => superclassPath }  // superclass -> Seq[(superclass, child class)]
-      .mapValues( superclassPairs => superclassPairs.map(_._2).toSet)
+      .mapValues( superclassPairs => superclassPairs.map(_._2).toSet).toMap
 
   val reachableBlocks = childrenRecursive(rootPath, blockChildren)
   val unreachableBlocks = blockChildren.keys.toSet -- reachableBlocks -- Set(rootPath)

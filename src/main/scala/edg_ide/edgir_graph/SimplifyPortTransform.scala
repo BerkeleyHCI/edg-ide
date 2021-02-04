@@ -25,7 +25,7 @@ object SimplifyPortTransform {
     val newMembers = node.members.mapValues {
       case member: EdgirGraph.EdgirNode => apply(member)
       case member: EdgirGraph.EdgirPort => member
-    }
+    }.toMap
     EdgirGraph.EdgirNode(node.data, newMembers, newEdges)
   }
 }

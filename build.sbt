@@ -1,13 +1,17 @@
+import scalapb.compiler.Version.{grpcJavaVersion, scalapbVersion}
+
 name := "edg-ide"
 
 version := "0.1-SNAPSHOT"
 
-scalaVersion := "2.12.10"
+scalaVersion := "2.13.4"
 
 libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.2.0" % "test",
 
-  "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
+  "com.thesamet.scalapb" %% "scalapb-runtime" % scalapbVersion % "protobuf",
+  "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapbVersion,
+  "io.grpc" % "grpc-netty" % grpcJavaVersion,
 
   "org.eclipse.elk" % "org.eclipse.elk.alg.layered" % "0.7.0",
   "org.eclipse.elk" % "org.eclipse.elk.graph.json" % "0.7.0",
@@ -36,3 +40,7 @@ patchPluginXml := pluginXmlOptions { xml =>
   xml.sinceBuild        = (intellijBuild in ThisBuild).value
   xml.untilBuild        = "202.*"
 }
+
+lazy val compiler = project in file("PolymorphicBlocks/compiler")
+lazy val root = (project in file("."))
+  .dependsOn(compiler)

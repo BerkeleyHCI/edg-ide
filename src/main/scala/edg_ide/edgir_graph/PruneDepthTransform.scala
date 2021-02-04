@@ -18,7 +18,7 @@ object PruneDepthTransform extends CollapseNodeTransform {
       val mappedMembers = node.members.mapValues {
         case member: EdgirGraph.EdgirPort => member
         case member: EdgirGraph.EdgirNode => apply(member, depth - 1)
-      }
+      }.toMap
       EdgirGraph.EdgirNode(node.data, mappedMembers, node.edges)
     }
 
