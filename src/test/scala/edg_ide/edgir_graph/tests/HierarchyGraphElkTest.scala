@@ -82,7 +82,7 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
 
   it should "create correct ELK labels" in {
     def labelsOfShape(node: ElkShape): Seq[String] = {
-      node.getLabels.asScala.map(_.getText)
+      node.getLabels.asScala.map(_.getText).toSeq
     }
 
     val (root, _) = makeGraph()
