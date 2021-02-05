@@ -1,14 +1,12 @@
-package edg_ide
-
-import com.intellij.openapi.actionSystem.AnAction
-import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.CommonDataKeys
+package edg_ide.actions
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
+import edg_ide.SplitFileEditor
 
 
 class NavigateToBlockAction() extends AnAction() {
-  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.NavigateToBlockAction")
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.NavigateToBlockAction")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
     val editor = Option(event.getData(CommonDataKeys.EDITOR)).getOrElse {

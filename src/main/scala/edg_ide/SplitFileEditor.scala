@@ -118,7 +118,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
   def compileAndLoad(block: String) = {
     println(VfsUtilCore.virtualToIoFile(textEditor.getFile).getAbsolutePath())
     clearCompiled()
-    var cmd = "python3 compile.py --module " + textEditor.getFile.getPath() + " --block " + block + " --output_dir " + textEditor.getFile.getParent().getCanonicalPath() + "/compiled/" + block
+    var cmd = "python compile.py --module " + textEditor.getFile.getPath() + " --block " + block + " --output_dir " + textEditor.getFile.getParent().getCanonicalPath() + "/compiled/" + block
     Process(cmd, new File(textEditor.getFile.getParent().getCanonicalPath())).!!
   }
 

@@ -6,15 +6,27 @@
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.python</depends>
   <extensions defaultExtensionNs="com.intellij">
+    <!-- TODO REMOVE ME, DEPRECATED -->
     <fileEditorProvider implementation="edg_ide.SplitFileEditorProvider"/>
+
+    <toolWindow id="BlockVisualizer" icon="/icons/test.svg" anchor="right"
+                factoryClass="edg_ide.ui.BlockVisualizerFactory"/>
+    <projectService serviceImplementation="edg_ide.ui.BlockVisualizerService"/>
   </extensions>
 
   <actions>
-    <action id="edg_ide.NavigateToBlockAction" class="edg_ide.NavigateToBlockAction"
+    <action id="edg_ide.action.NavigateToBlockAction" class="edg_ide.actions.NavigateToBlockAction"
             text="Navigate To Block" description="Select the block in the block diagram view of the element at the caret in the code view"
-            icon="EdgIcons$.Test">
+            icon="edg_ide.EdgIcons$.Test">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt A" second-keystroke="C" keymap="$default"/>
+    </action>
+
+    <action id="edg_ide.action.BlockVisualizationAction" class="edg_ide.actions.BlockVisualizationAction"
+            text="Open Block Visualizer" description="Open the block visualizer at the currently selected class"
+            icon="edg_ide.EdgIcons$.Test">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
+      <keyboard-shortcut first-keystroke="control alt A" second-keystroke="V" keymap="$default"/>
     </action>
   </actions>
 </idea-plugin>
