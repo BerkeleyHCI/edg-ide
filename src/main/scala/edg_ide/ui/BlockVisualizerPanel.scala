@@ -112,7 +112,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   })
 
-  private val status = new JLabel("TODO Status here")
+  private val status = new JLabel("Ready")
   visualizationPanel.add(status, Gbc(0, 2, GridBagConstraints.HORIZONTAL, xsize=4))
 
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
@@ -203,7 +203,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
     state.panelBlockFile = blockFile.getText
-    state.panelBlockModule = blockName.getText()
+    state.panelBlockModule = blockModule.getText()
     state.panelBlockName = blockName.getText()
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
