@@ -6,12 +6,9 @@
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.python</depends>
   <extensions defaultExtensionNs="com.intellij">
-    <!-- TODO REMOVE ME, DEPRECATED -->
-    <fileEditorProvider implementation="edg_ide.SplitFileEditorProvider"/>
-
     <toolWindow id="BlockVisualizer" icon="/icons/test.svg" anchor="right"
                 factoryClass="edg_ide.ui.BlockVisualizerFactory"/>
-    <projectService serviceImplementation="edg_ide.ui.BlockVisualizerService"/>
+    <projectService serviceImplementation="edg_ide.ui.BlockVisualizerServiceWrapper"/>
   </extensions>
 
   <actions>

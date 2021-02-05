@@ -35,13 +35,4 @@ class NavigateToBlockAction() extends AnAction() {
 
     splitFileEditor.selectFromPsi(element)
   }
-
-  override def update(event: AnActionEvent): Unit = {
-    // Menu item is only visible when a SplitFileEditor is open
-    val editor = Option(event.getData(CommonDataKeys.EDITOR)).getOrElse {
-      event.getPresentation.setEnabledAndVisible(false)
-      return
-    }
-    event.getPresentation.setEnabledAndVisible(SplitFileEditor.fromTextEditor(editor).isDefined)
-  }
 }
