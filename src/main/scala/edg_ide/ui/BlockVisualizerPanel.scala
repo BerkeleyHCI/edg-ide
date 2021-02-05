@@ -8,8 +8,11 @@ import com.intellij.openapi.vfs.{VfsUtilCore, VirtualFile}
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
+import edg.compiler.{PythonInterface, PythonInterfaceLibrary, Compiler}
 import edg.elem.elem
 import edg.schema.schema
+import edg.ElemBuilder
+import edg.util.timeExec
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.{EdgTreeTableModel, EdgirLibrary, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
 import org.eclipse.elk.graph.ElkGraphElement
@@ -59,6 +62,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private var library = new EdgirLibrary(schema.Library())
   private var design = schema.Design()
 
+  private val pyLib = new PythonInterfaceLibrary(new PythonInterface())
+
   // GUI-facing state
   //
   private var selectedPath: Seq[String] = Seq()  // root implicitly selected by default
@@ -103,7 +108,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   visualizationPanel.add(button, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
   button.addActionListener(new ActionListener() {
     override def actionPerformed(e: ActionEvent) {
-      // TODO IMPLEMENT ME
+      update()
     }
   })
 
@@ -151,10 +156,31 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // Actions
   //
-  def setFileBlock(file: VirtualFile, module: String, block: String) = {
+  def update(): Unit = {
+    status.setText(s"Compiling")
+    pyLib.setModules(Seq(blockModule.getText()))
+    try {
+      val fullName = blockModule.getText() + "." + blockName.getText()
+      val block = pyLib.getBlock(ElemBuilder.LibraryPath(fullName))
+      val design = schema.Design(contents = Some(block))
+      val compiler = new Compiler(design, pyLib)
+      val (compiled, time) = timeExec {
+        compiler.compile()
+      }
+      status.setText(s"Compiled ($time ms)")
+      setDesign(compiled)
+    } catch {
+      case e: Throwable =>
+        status.setText(s"Failed: ${e.toString}")
+        // TODO staleness indicator
+    }
+  }
+
+  def setFileBlock(file: VirtualFile, module: String, block: String): Unit = {
     blockFile.setText(file.getCanonicalPath)
     blockModule.setText(module)
     blockName.setText(block)
+    update()
   }
 
   def setDesign(design: schema.Design): Unit = design.contents match {
