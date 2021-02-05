@@ -8,7 +8,6 @@ import com.intellij.openapi.vfs.{VfsUtilCore, VirtualFile}
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.intellij.util.FileContentUtil
 import edg.elem.elem
 import edg.schema.schema
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
@@ -17,8 +16,8 @@ import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
-import java.io.{File, FileInputStream}
-import javax.swing.{BorderFactory, JButton, JLabel, JPanel, JTextField}
+import java.io.FileInputStream
+import javax.swing.{JButton, JLabel, JPanel, JTextField}
 
 
 object Gbc {
@@ -46,8 +45,16 @@ object Gbc {
 }
 
 
+class BlockVisualzierPanelConfig (
+  var filename: String,
+  var blockName: String,
+  var mainSplitterPos: Float,
+  var bottomSplitterPos: Float,
+)
+
+
 class BlockVisualizerPanel(val project: Project) extends JPanel {
-  // State
+  // Internal State
   //
   private var library = new EdgirLibrary(schema.Library())
   private var design = schema.Design()
@@ -151,6 +158,24 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   }
 
   def setLibrary(library: schema.Library): Unit = libraryPanel.setLibrary(library)
+
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+    state.panelBlockFile = blockFile.getText
+    state.panelBlockName = blockName.getText()
+    state.panelMainSplitterPos = mainSplitter.getProportion
+    state.panelBottomSplitterPos = bottomSplitter.getProportion
+    libraryPanel.saveState(state)
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
+    blockFile.setText(state.panelBlockFile)
+    blockName.setText(state.panelBlockName)
+    mainSplitter.setProportion(state.panelMainSplitterPos)
+    bottomSplitter.setProportion(state.panelBottomSplitterPos)
+    libraryPanel.loadState(state)
+  }
 }
 
 
@@ -166,7 +191,7 @@ class LibraryPanel() extends JPanel {
   private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(new EdgirLibrary(edg.schema.schema.Library())))
   libraryTree.setShowColumns(true)
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
-  splitter.setSecondComponent(libraryTreeScrollPane)
+  splitter.setFirstComponent(libraryTreeScrollPane)
 
   private val visualizer = new JLabel("TODO Library Visualizer here")
   splitter.setSecondComponent(visualizer)
@@ -184,5 +209,15 @@ class LibraryPanel() extends JPanel {
     // TODO: actual loading here
     case None =>
       this.library = new EdgirLibrary(schema.Library())
+  }
+
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+    state.panelLibrarySplitterPos = splitter.getProportion
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
+    splitter.setProportion(state.panelLibrarySplitterPos)
   }
 }
