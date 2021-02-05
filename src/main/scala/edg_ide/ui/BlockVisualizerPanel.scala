@@ -6,7 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
 import com.intellij.openapi.vfs.{VfsUtilCore, VirtualFile}
 import com.intellij.ui.JBSplitter
-import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.elem.elem
 import edg.schema.schema
@@ -17,7 +17,7 @@ import org.eclipse.elk.graph.ElkGraphElement
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.FileInputStream
-import javax.swing.{JButton, JLabel, JPanel, JTextField}
+import javax.swing.{JButton, JLabel, JPanel, JTabbedPane, JTextField}
 
 
 object Gbc {
@@ -130,8 +130,16 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
 
+  // Task Tabs
+  //
+  private val tabbedPane = new JBTabbedPane()
+  bottomSplitter.setSecondComponent(tabbedPane)
+
   private val libraryPanel = new LibraryPanel()
-  bottomSplitter.setSecondComponent(libraryPanel)
+  tabbedPane.addTab("Library", libraryPanel)
+
+  private val detailPanel = new DetailPanel()
+  tabbedPane.addTab("Detail", detailPanel)
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -166,6 +174,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     state.panelBlockName = blockName.getText()
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
+    state.panelTabIndex = tabbedPane.getSelectedIndex
     libraryPanel.saveState(state)
   }
 
@@ -174,6 +183,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     blockName.setText(state.panelBlockName)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
+    tabbedPane.setSelectedIndex(state.panelTabIndex)
     libraryPanel.loadState(state)
   }
 }
@@ -188,7 +198,7 @@ class LibraryPanel() extends JPanel {
   //
   private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
 
-  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(new EdgirLibrary(edg.schema.schema.Library())))
+  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
   libraryTree.setShowColumns(true)
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   splitter.setFirstComponent(libraryTreeScrollPane)
@@ -219,5 +229,29 @@ class LibraryPanel() extends JPanel {
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
     splitter.setProportion(state.panelLibrarySplitterPos)
+  }
+}
+
+
+class DetailPanel extends JPanel {
+  private val tree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  tree.setShowColumns(true)
+  private val treeScrollPane = new JBScrollPane(tree)
+
+  setLayout(new BorderLayout())
+  add(treeScrollPane)
+
+  // Actions
+  //
+  def setLoaded(): Unit = {
+    // TODO IMPLEMENT ME
+  }
+
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
   }
 }

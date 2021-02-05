@@ -13,6 +13,7 @@ class BlockVisualizerServiceState {
   public float panelMainSplitterPos = 0.5f;
   public float panelBottomSplitterPos = 0.33f;
   public float panelLibrarySplitterPos = 0.5f;
+  public int panelTabIndex = 0;
 }
 
 
