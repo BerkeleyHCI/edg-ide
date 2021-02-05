@@ -2,37 +2,31 @@ package edg_ide.actions
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
-import edg_ide.SplitFileEditor
+import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.python.psi.PyClass
+import edg_ide.ui.BlockVisualizerService
+import edg_ide.util.Errorable
 
 
 class NavigateToBlockAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.NavigateToBlockAction")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
-    val editor = Option(event.getData(CommonDataKeys.EDITOR)).getOrElse {
-      notificationGroup.createNotification("No editor", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
-    }
-    val psiFile = Option(event.getData(CommonDataKeys.PSI_FILE)).getOrElse {
-      notificationGroup.createNotification("No PSI file", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
-    }
-    val splitFileEditor = SplitFileEditor.fromTextEditor(editor).getOrElse {
-      notificationGroup.createNotification(s"HDL editor not found", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
-    }
+    val visualizer = Errorable(BlockVisualizerService.getInstance(event.getProject).visualizerPanelOption,
+      "No visualizer panel")
 
-    val offset = editor.getCaretModel.getOffset
-    val element = Option(psiFile.findElementAt(offset)) match {
-      case None => notificationGroup.createNotification("No element at code", NotificationType.WARNING)
-          .notify(event.getProject)
-        return
-      case Some(element) => element
-    }
+    val editor = Errorable(event.getData(CommonDataKeys.EDITOR), "No editor")
+    val offset = editor.map { _.getCaretModel.getOffset }
+    val psiFile = Errorable(event.getData(CommonDataKeys.PSI_FILE), "No PSI file")
+    val containingClass = (psiFile + offset).map("No element") {
+      case (psiFile, offset) => psiFile.findElementAt(offset)
+    }.map("No containing class") { PsiTreeUtil.getParentOfType(_, classOf[PyClass]) }
 
-    splitFileEditor.selectFromPsi(element)
+    visualizer + (psiFile + containingClass) match {
+      case Errorable.Success((visualizer, (psiFile, containingClass))) =>
+        ???
+      case Errorable.Error(msg) =>
+        notificationGroup.createNotification(msg, NotificationType.WARNING).notify(event.getProject)
+    }
   }
 }

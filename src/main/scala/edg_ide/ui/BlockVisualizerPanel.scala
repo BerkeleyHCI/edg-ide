@@ -69,7 +69,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
 
-  // Top half (status and block visualization)
+  // GUI: Top half (status and block visualization)
   //
   private val visualizationPanel = new JPanel(new GridBagLayout())
   mainSplitter.setFirstComponent(visualizationPanel)
@@ -89,13 +89,18 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   })
 
+  private val blockModuleLabel = new JLabel("Block Module")
+  visualizationPanel.add(blockModuleLabel, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
+  private val blockModule = new JTextField()
+  visualizationPanel.add(blockModule, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+
   private val blockNameLabel = new JLabel("Block Name")
-  visualizationPanel.add(blockNameLabel, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(blockNameLabel, Gbc(2, 0, GridBagConstraints.HORIZONTAL))
   private val blockName = new JTextField()
-  visualizationPanel.add(blockName, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(blockName, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
 
   private val button = new JButton("Update")
-  visualizationPanel.add(button, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(button, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
   button.addActionListener(new ActionListener() {
     override def actionPerformed(e: ActionEvent) {
       // TODO IMPLEMENT ME
@@ -103,7 +108,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   })
 
   private val status = new JLabel("TODO Status here")
-  visualizationPanel.add(status, Gbc(0, 2, GridBagConstraints.HORIZONTAL, xsize=3))
+  visualizationPanel.add(status, Gbc(0, 2, GridBagConstraints.HORIZONTAL, xsize=4))
 
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library))
@@ -118,9 +123,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   }
   private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
-  visualizationPanel.add(graphScrollPane, Gbc(0, 3, GridBagConstraints.BOTH, xsize=3))
+  visualizationPanel.add(graphScrollPane, Gbc(0, 3, GridBagConstraints.BOTH, xsize=4))
 
-  // Bottom half (design tree and task tabs)
+  // GUI: Bottom half (design tree and task tabs)
   //
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
   mainSplitter.setSecondComponent(bottomSplitter)
@@ -130,7 +135,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
 
-  // Task Tabs
+  // GUI: Task Tabs
   //
   private val tabbedPane = new JBTabbedPane()
   bottomSplitter.setSecondComponent(tabbedPane)
@@ -146,8 +151,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // Actions
   //
-  def setFileBlock(file: VirtualFile, block: String) = {
+  def setFileBlock(file: VirtualFile, module: String, block: String) = {
     blockFile.setText(file.getCanonicalPath)
+    blockModule.setText(module)
     blockName.setText(block)
   }
 
@@ -171,6 +177,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
     state.panelBlockFile = blockFile.getText
+    state.panelBlockModule = blockName.getText()
     state.panelBlockName = blockName.getText()
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
@@ -180,6 +187,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
     blockFile.setText(state.panelBlockFile)
+    blockModule.setText(state.panelBlockModule)
     blockName.setText(state.panelBlockName)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)

@@ -13,6 +13,16 @@ sealed trait Errorable[+T] {
   // This map doesn't check for result failure, but will propagate parent errors
   def map[V](fn: T => V): Errorable[V]
 
+  // Convenience wrapper for options
+  def mapOption[V](errMsg: => String)(fn: T => Option[V]): Errorable[V] = {
+    map[V](errMsg, null.asInstanceOf[V]) {
+      fn(_) match {
+        case Some(result) => result
+        case None => null.asInstanceOf[V]
+      }
+    }
+  }
+
   def +[T2](other: Errorable[T2]): Errorable[(T, T2)] = {
     (this, other) match {
       case (Errorable.Success(thisVal), Errorable.Success(otherVal)) =>

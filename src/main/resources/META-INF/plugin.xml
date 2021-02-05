@@ -23,7 +23,7 @@
             text="Open Block Visualizer" description="Open the block visualizer at the currently selected class"
             icon="edg_ide.EdgIcons$.Test">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
-      <keyboard-shortcut first-keystroke="control alt A" second-keystroke="V" keymap="$default"/>
+      <keyboard-shortcut first-keystroke="control alt W" keymap="$default"/>
     </action>
   </actions>
 </idea-plugin>
