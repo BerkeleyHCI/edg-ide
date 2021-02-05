@@ -5,41 +5,28 @@ import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKey
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyClass
 import edg_ide.ui.BlockVisualizerService
+import edg_ide.util.Errorable
 
 
 class BlockVisualizationAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.BlockVisualizationAction")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
-    val visualizer = BlockVisualizerService.getInstance(event.getProject).visualizerPanelOption.getOrElse {
-      notificationGroup.createNotification("No visualizer panel", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
-    }
+    val visualizer = Errorable(BlockVisualizerService.getInstance(event.getProject).visualizerPanelOption,
+      "No visualizer panel")
 
-    val editor = Option(event.getData(CommonDataKeys.EDITOR)).getOrElse {
-      notificationGroup.createNotification("No editor", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
-    }
-    val psiFile = Option(event.getData(CommonDataKeys.PSI_FILE)).getOrElse {
-      notificationGroup.createNotification("No PSI file", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
-    }
-    val offset = editor.getCaretModel.getOffset
-    val element = Option(psiFile.findElementAt(offset)).getOrElse {
-      notificationGroup.createNotification("No element at code", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
-    }
+    val editor = Errorable(event.getData(CommonDataKeys.EDITOR), "No editor")
+    val offset = editor.map { _.getCaretModel.getOffset }
+    val psiFile = Errorable(event.getData(CommonDataKeys.PSI_FILE), "No PSI file")
+    val containingClass = (psiFile + offset).map("No element") {
+      case (psiFile, offset) => psiFile.findElementAt(offset)
+    }.map("No containing class") { PsiTreeUtil.getParentOfType(_, classOf[PyClass]) }
 
-    val containingClass = Option(PsiTreeUtil.getParentOfType(element, classOf[PyClass])).getOrElse {
-      notificationGroup.createNotification(s"No encapsulating class of selection", NotificationType.WARNING)
-          .notify(event.getProject)
-      return
+    visualizer + (psiFile + containingClass) match {
+      case Errorable.Success((visualizer, (psiFile, containingClass))) =>
+        visualizer.setFileBlock(psiFile.getVirtualFile, containingClass.getNameIdentifier.getText)
+      case Errorable.Error(msg) =>
+        notificationGroup.createNotification(msg, NotificationType.WARNING).notify(event.getProject)
     }
-
-    visualizer.setFileBlock(psiFile.getVirtualFile, containingClass.getNameIdentifier.getText)
   }
 }
