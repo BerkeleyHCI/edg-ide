@@ -17,17 +17,18 @@ import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.jetbrains.python.psi.{LanguageLevel, PyClass, PyElementGenerator, PyReferenceExpression, PyTargetExpression}
+
 import javax.swing._
 import java.awt._
 import java.awt.event.{ActionEvent, ActionListener}
 import java.beans.PropertyChangeListener
 import java.io._
-
 import com.intellij.execution.runners.{ExecutionEnvironment, ProgramRunner}
 import com.intellij.util.FileContentUtil
 import edg.elem.elem
 import edg.schema.schema
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
+import edg_ide.swing.{EdgTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
 
 import scala.sys.process._
 import org.eclipse.elk.graph.ElkGraphElement
@@ -98,7 +99,6 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
       //TODO: Move the compiled directory to the IDE
       var path = textEditor.getFile.getParent().getCanonicalPath() + "/compiled/"
       openEdgFile(new File(path + "/" + blockTextField.getText() + "/design.edg"))
-      openEdgLibrary(new File(path + "/" + blockTextField.getText() + "/lib.lib"))
     }
   })
 
@@ -141,11 +141,6 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
   val designTreeScrollPane = new JBScrollPane(designTree)
   treePanel.add(designTreeScrollPane, makeGbc(0, 0, GridBagConstraints.BOTH))
 
-  val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(new EdgirLibrary(edg.schema.schema.Library())))
-  libraryTree.setShowColumns(true)
-  val libraryTreeScrollPane = new JBScrollPane(libraryTree)
-  treePanel.add(libraryTreeScrollPane, makeGbc(1, 0, GridBagConstraints.BOTH))
-
   //
   // Interaction Implementations
   //
@@ -170,25 +165,6 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
       case None =>
         edgFileAbsPath = None
         //fileLabel.setText(s"Invalid file format: $absolutePath")
-    }
-    fileInputStream.close()
-  }
-
-  def openEdgLibrary(file: File): Unit = {
-    val absolutePath = file.getAbsolutePath
-
-    val fileInputStream = new FileInputStream(file)
-    val libraryProto: schema.Library = schema.Library.parseFrom(fileInputStream)
-    libraryProto.root match {
-      case Some(namespace) =>
-        edgLibraryAbsPath = Some(absolutePath)
-        library = new EdgirLibrary(libraryProto)
-        libraryTree.setModel(new EdgirLibraryTreeTableModel(library))
-        libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
-        // TODO: actual loading here
-      case None =>
-        edgLibraryAbsPath = None
-        library = new EdgirLibrary(schema.Library())
     }
     fileInputStream.close()
   }

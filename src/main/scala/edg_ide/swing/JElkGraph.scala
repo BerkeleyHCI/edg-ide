@@ -1,14 +1,13 @@
-package edg_ide
+package edg_ide.swing
 
-import scala.collection.JavaConverters._
-import java.awt.{BasicStroke, Dimension, Graphics, Graphics2D, Rectangle}
-import java.awt.event.{MouseAdapter, MouseEvent}
 import com.intellij.util.ui.UIUtil
-
-import javax.swing.{JComponent, Scrollable}
 import org.eclipse.elk.graph._
 
+import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.geom.AffineTransform
+import java.awt._
+import javax.swing.{JComponent, Scrollable}
+import scala.collection.JavaConverters._
 
 
 class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Zoomable {

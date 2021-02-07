@@ -1,9 +1,9 @@
-package edg_ide
+package edg_ide.swing
 
 import com.intellij.ui.components.JBScrollPane
 
-import java.awt.event.MouseWheelEvent
 import java.awt.Point
+import java.awt.event.MouseWheelEvent
 import javax.swing.JComponent
 
 

@@ -8,19 +8,21 @@ import com.intellij.openapi.vfs.{VfsUtilCore, VirtualFile}
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{PythonInterface, PythonInterfaceLibrary, Compiler}
+import edg.compiler.{Compiler, DesignStructuralValidate, PythonInterface, PythonInterfaceLibrary}
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
 import edg.util.timeExec
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.{EdgTreeTableModel, EdgirLibrary, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
+import edg_ide.swing.{EdgTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
+import edg_ide.EdgirLibrary
+import edg.wir
 import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.FileInputStream
-import javax.swing.{JButton, JLabel, JPanel, JTabbedPane, JTextField}
+import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField}
 
 
 object Gbc {
@@ -48,18 +50,9 @@ object Gbc {
 }
 
 
-class BlockVisualzierPanelConfig (
-  var filename: String,
-  var blockName: String,
-  var mainSplitterPos: Float,
-  var bottomSplitterPos: Float,
-)
-
-
 class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Internal State
   //
-  private var library = new EdgirLibrary(schema.Library())
   private var design = schema.Design()
 
   private val pyLib = new PythonInterfaceLibrary(new PythonInterface())
@@ -115,16 +108,14 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val status = new JLabel("Ready")
   visualizationPanel.add(status, Gbc(0, 2, GridBagConstraints.HORIZONTAL, xsize=4))
 
+  // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library))
+    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", new EdgirLibrary(schema.Library())))
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
       selectedPath = getSelectedByPath
       selectedPath = selectedPath.slice(1, selectedPath.length)  // TODO this prunes the prefixing 'design' elt
-      notificationGroup.createNotification(
-        s"selected path $selectedPath", NotificationType.WARNING)
-          .notify(project)
     }
   }
   private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
@@ -151,6 +142,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val detailPanel = new DetailPanel()
   tabbedPane.addTab("Detail", detailPanel)
 
+  private val errorPanel = new ErrorPanel()
+  tabbedPane.addTab("Errors", errorPanel)
+
   setLayout(new BorderLayout())
   add(mainSplitter)
 
@@ -167,10 +161,21 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       val (compiled, time) = timeExec {
         compiler.compile()
       }
-      status.setText(s"Compiled ($time ms)")
+      val checker = new DesignStructuralValidate()
+      val errors = compiler.getErrors() ++ checker.map(compiled)
+      if (errors.isEmpty) {
+        status.setText(s"Compiled ($time ms)")
+      } else {
+        status.setText(s"Compiled, with ${errors.length} errors ($time ms)")
+      }
       setDesign(compiled)
+      libraryPanel.setLibrary(pyLib)
     } catch {
       case e: Throwable =>
+        import java.io.PrintWriter
+        import java.io.StringWriter
+        val sw = new StringWriter
+        e.printStackTrace(new PrintWriter(sw))
         status.setText(s"Failed: ${e.toString}")
         // TODO staleness indicator
     }
@@ -186,7 +191,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   def setDesign(design: schema.Design): Unit = design.contents match {
     case Some(block) =>
       this.design = design
-      val edgirGraph = EdgirGraph.blockToNode(block, "root", library)
+      // TODO remove EdgirLibrary requirement
+      val edgirGraph = EdgirGraph.blockToNode(block, "root", new EdgirLibrary(schema.Library()))
       val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
         CollapseBridgeTransform(CollapseLinkTransform(
           InferEdgeDirectionTransform(SimplifyPortTransform(
@@ -196,8 +202,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
     case None => graph.setGraph(emptyHGraph)
   }
-
-  def setLibrary(library: schema.Library): Unit = libraryPanel.setLibrary(library)
 
   // Configuration State
   //
@@ -226,7 +230,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 class LibraryPanel() extends JPanel {
   // State
   //
-  private var library = new EdgirLibrary(schema.Library())
+  private var library: wir.Library = new wir.EdgirLibrary(schema.Library())
 
   // GUI Components
   //
@@ -245,14 +249,10 @@ class LibraryPanel() extends JPanel {
 
   // Actions
   //
-  def setLibrary(library: schema.Library): Unit = library.root match {
-    case Some(namespace) =>
-      this.library = new EdgirLibrary(library)
-      libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
-      libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
-    // TODO: actual loading here
-    case None =>
-      this.library = new EdgirLibrary(schema.Library())
+  def setLibrary(library: wir.Library): Unit = {
+    this.library = library
+    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
+    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
   }
 
   // Configuration State
@@ -268,6 +268,30 @@ class LibraryPanel() extends JPanel {
 
 
 class DetailPanel extends JPanel {
+  private val tree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  tree.setShowColumns(true)
+  private val treeScrollPane = new JBScrollPane(tree)
+
+  setLayout(new BorderLayout())
+  add(treeScrollPane)
+
+  // Actions
+  //
+  def setLoaded(): Unit = {
+    // TODO IMPLEMENT ME
+  }
+
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
+  }
+}
+
+
+class ErrorPanel extends JPanel {
   private val tree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)

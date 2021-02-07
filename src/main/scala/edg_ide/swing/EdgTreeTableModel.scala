@@ -1,12 +1,12 @@
-package edg_ide
+package edg_ide.swing
 
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg.elem.elem.{BlockLike, HierarchyBlock}
+import edg.elem.elem.HierarchyBlock
+import edg_ide.EdgirUtils
 
-import javax.swing.tree._
-import javax.swing.event.TreeModelListener
 import javax.swing.JTree
+import javax.swing.event.TreeModelListener
+import javax.swing.tree._
 
 
 class HierarchyBlockNode(val name: String, val block: HierarchyBlock) {

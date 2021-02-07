@@ -1,13 +1,9 @@
-package edg_ide
-
-import scala.reflect.ClassTag
+package edg_ide.swing
 
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 
-import javax.swing.tree._
-import javax.swing.event.TreeModelListener
-import javax.swing.JTree
+import scala.reflect.ClassTag
 
 
 /**
