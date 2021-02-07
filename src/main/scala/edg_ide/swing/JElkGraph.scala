@@ -10,7 +10,8 @@ import javax.swing.{JComponent, Scrollable}
 import scala.collection.JavaConverters._
 
 
-class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Zoomable {
+class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
+    extends JComponent with Scrollable with Zoomable {
   var zoomLevel: Float = 1.0f
 
   override def setZoom(zoom: Float): Unit = {
@@ -108,6 +109,12 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
           g.drawString(label.getText, labelX + nodeX + port.getX.toInt, labelY + nodeY + port.getY.toInt)
         }
       }
+      paintBlockContents(node, parentX, parentY)
+    }
+
+    def paintBlockContents(node: ElkNode, parentX: Int, parentY: Int): Unit = {
+      val nodeX = parentX + node.getX.toInt
+      val nodeY = parentY + node.getY.toInt
 
       node.getChildren.asScala.foreach { childNode =>
         paintBlock(childNode, nodeX, nodeY)
@@ -122,16 +129,10 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
       }
     }
 
-    // we don't just call paintBlock on the root because we don't want the containing frame
-    rootNode.getChildren.asScala.foreach { childNode =>
-      paintBlock(childNode, rootNode.getX.toInt, rootNode.getY.toInt)
-    }
-    rootNode.getContainedEdges.asScala.foreach{ edge =>
-      val edgeStrokeG = g.create().asInstanceOf[Graphics2D]
-      if (selected.orNull eq edge) {  // emphasis for selected element
-        edgeStrokeG.setStroke(new BasicStroke(3))
-      }
-      paintEdge(edgeStrokeG, edge, rootNode.getX.toInt, rootNode.getY.toInt)
+    if (showTop) {
+      paintBlock(rootNode, 0, 0)
+    } else {
+      paintBlockContents(rootNode, 0, 0)
     }
   }
 

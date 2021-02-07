@@ -81,9 +81,12 @@ object HierarchyGraphElk {
     * Converts a HGraphNode to a ELK node, returning a map of its ports
     */
   def HGraphNodeToElkNode[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType],
-                                                        name: String, parent: ElkNode):
-      Map[Seq[String], ElkConnectableShape] = {
-    val elkNode = addNode(parent, name)
+                                                        name: String, parent: Option[ElkNode]):
+      (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
+    val elkNode = parent match {
+      case Some(parent) => addNode(parent, name)
+      case None => makeGraphRoot()
+    }
 
     ElkGraphUtil.createLabel(name, elkNode)
         .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopCenter())
@@ -103,7 +106,7 @@ object HierarchyGraphElk {
     val myElkChildren = node.members.collect {
       // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
       case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
-        val childConnectables = HGraphNodeToElkNode(childElt, childName, elkNode)
+        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName, Some(elkNode))
         // Add the outer element into the inner namespace path
         childConnectables.map { case (childPath, childElk) =>
           Seq(childName) ++ childPath -> childElk
@@ -121,21 +124,15 @@ object HierarchyGraphElk {
       }
     }
 
-    myElkPorts
+    (elkNode, myElkPorts)
   }
 
   /**
     * Converts a HGraphNode to a ELK Node, and performs layout
     */
   def HGraphNodeToElk[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType]): ElkNode = {
-    // TODO implement me and get rid of this dummy graph
-    val root = makeGraphRoot()
-    root.setIdentifier("root")
-
-    HGraphNodeToElkNode(node, "design", root)
-
+    val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None)
     engine.layout(root, new BasicProgressMonitor())
-
     root
   }
 }
