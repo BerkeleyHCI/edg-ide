@@ -9,13 +9,13 @@ import javax.swing.tree.TreePath
 
 
 trait CompilerErrorNode {
-  def getChildren: Seq[CompilerErrorNode]
+  val children: Seq[CompilerErrorNode]
   def getColumns(index: Int): String
 }
 
 object CompilerErrorNode {
   class CompilerErrorTopNode(errs: Seq[CompilerError]) extends CompilerErrorNode {
-    def getChildren: Seq[CompilerErrorNode] = errs.map {
+    override lazy val children: Seq[CompilerErrorNode] = errs.map {
       new CompilerErrorLeafNode(_)
     }
 
@@ -26,7 +26,7 @@ object CompilerErrorNode {
 
 
   class CompilerErrorLeafNode(err: CompilerError) extends CompilerErrorNode {
-    def getChildren: Seq[CompilerErrorNode] = Seq()
+    override lazy val children: Seq[CompilerErrorNode] = Seq()
 
     def getColumns(index: Int): String = err match {
       case CompilerError.Unelaborated(ElaborateRecord.Block(path), deps) => path.toString
@@ -52,7 +52,7 @@ class CompilerErrorTreeTableModel(errs: Seq[CompilerError]) extends SeqTreeTable
   //
   override def getRootNode: CompilerErrorNode = rootNode
 
-  override def getNodeChildren(node: CompilerErrorNode): Seq[CompilerErrorNode] = node.getChildren
+  override def getNodeChildren(node: CompilerErrorNode): Seq[CompilerErrorNode] = node.children
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}

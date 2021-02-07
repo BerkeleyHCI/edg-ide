@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.NotificationGroup
+import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
@@ -22,7 +22,8 @@ import org.eclipse.elk.graph.ElkGraphElement
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.FileInputStream
-import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField}
+import javax.swing.event.ListSelectionEvent
+import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField, ListSelectionModel}
 
 
 object Gbc {
@@ -54,8 +55,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Internal State
   //
   private var design = schema.Design()
-
   private val pyLib = new PythonInterfaceLibrary(new PythonInterface())
+  private var compiler = new Compiler(design, pyLib)
 
   // GUI-facing state
   //
@@ -79,11 +80,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val fileDescriptor: FileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
   blockFile.addBrowseFolderListener(new TextBrowseFolderListener(fileDescriptor, null) {
     override def onFileChosen(chosenFile: VirtualFile) {
-      val file = VfsUtilCore.virtualToIoFile(chosenFile)
-      val fileInputStream = new FileInputStream(file)
-      val design = schema.Design.parseFrom(fileInputStream)
-      setDesign(design)
-      fileInputStream.close()
+      super.onFileChosen(chosenFile)  // TODO implement me
     }
   })
 
@@ -126,8 +123,21 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
   mainSplitter.setSecondComponent(bottomSplitter)
 
-  private val designTree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  private val designTree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock())) {
+    override def valueChanged(e: ListSelectionEvent) {
+      import edg_ide.swing.HierarchyBlockNode
+      super.valueChanged(e)
+      println(s"row=$getSelectedRow, col=$getSelectedColumn, val=${getValueAt(getSelectedRow, 0).getClass}")
+      getValueAt(getSelectedRow, 0) match {
+        case node: HierarchyBlockNode => detailPanel.setLoaded(node.path, design, compiler)
+        case value => notificationGroup.createNotification(
+          s"Unknown selection $value", NotificationType.WARNING)
+            .notify(project)
+      }
+    }
+  }
   designTree.setShowColumns(true)
+  designTree.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
 
@@ -176,7 +186,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
         tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
       }
-      setDesign(compiled)
+      setDesign(compiled, compiler)
       libraryPanel.setLibrary(pyLib)
       errorPanel.setErrors(errors)
     } catch {
@@ -197,9 +207,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     update()
   }
 
-  def setDesign(design: schema.Design): Unit = design.contents match {
+  def setDesign(design: schema.Design, compiler: Compiler): Unit = design.contents match {
     case Some(block) =>
       this.design = design
+      this.compiler = compiler
       // TODO remove EdgirLibrary requirement
       val edgirGraph = EdgirGraph.blockToNode(DesignPath.root, block)
       val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
@@ -281,6 +292,8 @@ class LibraryPanel() extends JPanel {
 
 
 class DetailPanel extends JPanel {
+  import edg_ide.swing.ElementDetailTreeModel
+
   private val tree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
@@ -290,8 +303,8 @@ class DetailPanel extends JPanel {
 
   // Actions
   //
-  def setLoaded(): Unit = {
-    // TODO IMPLEMENT ME
+  def setLoaded(path: DesignPath, root: schema.Design, compiler: Compiler): Unit = {
+    tree.setModel(new ElementDetailTreeModel(path, root, compiler))
   }
 
   // Configuration State

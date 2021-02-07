@@ -14,19 +14,19 @@ import javax.swing.tree._
 
 
 trait ElementDetailNode {
-  def getChildren: Seq[ElementDetailNode]
+  val children: Seq[ElementDetailNode]
   def getColumns(index: Int): String = ""
 }
 
 
 object ElementDetailNode {
   class Dummy(text: String) extends ElementDetailNode {
-    override def getChildren: Seq[ElementDetailNode] = Seq()
+    override val children: Seq[ElementDetailNode] = Seq()
     override def toString: String = text
   }
 
   class PortNode(path: DesignPath, port: elem.PortLike, compiler: Compiler) extends ElementDetailNode {
-    override def getChildren: Seq[ElementDetailNode] = port.is match {
+    override lazy val children: Seq[ElementDetailNode] = port.is match {
         // TODO add CONNECTED_LINK
       case elem.PortLike.Is.Port(port) =>
         port.params.map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)}
@@ -55,7 +55,7 @@ object ElementDetailNode {
   }
 
   class BlockNode(path: DesignPath, block: elem.BlockLike, compiler: Compiler) extends ElementDetailNode {
-    override def getChildren: Seq[ElementDetailNode] = block.`type` match {
+    override lazy val children: Seq[ElementDetailNode] = block.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
         (block.ports.map { case (name, port) => new PortNode(path + name, port, compiler) } ++
             block.links.map { case (name, sublink) =>
@@ -76,7 +76,7 @@ object ElementDetailNode {
 
   class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkLike, compiler: Compiler)
       extends ElementDetailNode {
-    override def getChildren: Seq[ElementDetailNode] = link.`type` match {
+    override lazy val children: Seq[ElementDetailNode] = link.`type` match {
       case elem.LinkLike.Type.Link(link) =>
         val portNodes = if (IndirectDesignPath.fromDesignPath(path) != relpath) {
           // Don't display ports if this is a CONNECTED_LINK
@@ -108,7 +108,7 @@ object ElementDetailNode {
   }
 
   class ParamNode(path: IndirectDesignPath, param: init.ValInit, compiler: Compiler) extends ElementDetailNode {
-    override def getChildren: Seq[ElementDetailNode] = Seq()
+    override lazy val children: Seq[ElementDetailNode] = Seq()
 
     override def toString: String = path.steps.last.toString
 
@@ -152,7 +152,7 @@ class ElementDetailTreeModel(path: DesignPath, root: schema.Design, compiler: Co
   //
   override def getRootNode: ElementDetailNode = rootNode
 
-  override def getNodeChildren(node: ElementDetailNode): Seq[ElementDetailNode] = node.getChildren
+  override def getNodeChildren(node: ElementDetailNode): Seq[ElementDetailNode] = node.children
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}

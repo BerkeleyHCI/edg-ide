@@ -1,7 +1,8 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg.elem.elem.HierarchyBlock
+import edg.elem.elem
+import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 
 import javax.swing.JTree
@@ -9,40 +10,39 @@ import javax.swing.event.TreeModelListener
 import javax.swing.tree._
 
 
-class HierarchyBlockNode(val name: String, val block: HierarchyBlock) {
+class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
   import edg.elem.elem.BlockLike
 
-  lazy protected val children: Seq[HierarchyBlockNode] = block.blocks.map { case (name, subblock) =>
+  lazy val children: Seq[HierarchyBlockNode] = block.blocks.map { case (name, subblock) =>
     (name, subblock.`type`)
   }.collect {
-    case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(name, subblock)
+    case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(path + name, subblock)
   }.toSeq
-
-  def getChildren: Seq[HierarchyBlockNode] = children  // must be deterministic
 
   override def equals(other: Any): Boolean = other match {
     case other: HierarchyBlockNode => other.block == block
     case _ => false
   }
 
-  override def toString: String = getColumns.head
+  override def toString: String = if (path == DesignPath.root) {
+    "(root)"
+  } else {
+    path.steps.last
+  }
 
-  def getColumns: Seq[String] = Seq(
-    name,
-    block.superclasses.map(EdgirUtils.LibraryPathToString).mkString(", ")
-  )
+  def getColumns(index: Int): String = block.superclasses.map(EdgirUtils.LibraryPathToString).mkString(", ")
 }
 
 
-class BlockTreeTableModel(root: HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
-  val rootNode: HierarchyBlockNode = new HierarchyBlockNode("(design)", root)
+class BlockTreeTableModel(root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
+  val rootNode: HierarchyBlockNode = new HierarchyBlockNode(DesignPath.root, root)
   val COLUMNS = Seq("Path", "Class")
 
   // TreeView abstract methods
   //
   override def getRootNode: HierarchyBlockNode = rootNode
 
-  override def getNodeChildren(node: HierarchyBlockNode): Seq[HierarchyBlockNode] = node.getChildren
+  override def getNodeChildren(node: HierarchyBlockNode): Seq[HierarchyBlockNode] = node.children
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}
