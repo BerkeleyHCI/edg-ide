@@ -18,7 +18,7 @@ trait EdgirLibraryTreeNode {  // abstract base class for tree node model
 
 object EdgirLibraryTreeNode {
   abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryTreeNode {
-    override def toString: String = EdgirUtils.SimpleLibraryPathToString(path)
+    override def toString: String = EdgirUtils.SimpleLibraryPath(path)
   }
 
 

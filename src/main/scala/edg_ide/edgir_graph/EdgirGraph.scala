@@ -13,7 +13,7 @@ sealed trait NodeDataWrapper {
 case class BlockWrapper(path: DesignPath, blockLike: elem.BlockLike) extends NodeDataWrapper {
   override def toString: String = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) =>
-      EdgirUtils.SimpleSuperclassesToString(block.superclasses)
+      EdgirUtils.SimpleSuperclass(block.superclasses)
     case elem.BlockLike.Type.LibElem(lib) =>
       s"lib: ${EdgirUtils.LibraryPathToString(lib)}"
     case other => other.getClass.getName
@@ -23,7 +23,7 @@ case class BlockWrapper(path: DesignPath, blockLike: elem.BlockLike) extends Nod
 case class LinkWrapper(path: DesignPath, linkLike: elem.LinkLike) extends NodeDataWrapper {
   override def toString: String = linkLike.`type` match {
     case elem.LinkLike.Type.Link(link) =>
-      EdgirUtils.SimpleSuperclassesToString(link.superclasses)
+      EdgirUtils.SimpleSuperclass(link.superclasses)
     case elem.LinkLike.Type.LibElem(lib) =>
       s"lib: ${EdgirUtils.LibraryPathToString(lib)}"
     case other => other.getClass.getName

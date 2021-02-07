@@ -209,7 +209,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
           return
       }
 
-      val startingSuperclass = EdgirUtils.SimpleSuperclassesToString(startingBlock.superclasses)
+      val startingSuperclass = EdgirUtils.SimpleSuperclass(startingBlock.superclasses)
       if (startingSuperclass == containingClass) {
         if (startingBlock.blocks.contains(name) || startingBlock.ports.contains(name)) {
           selectByPath(selectedPath ++ Seq(name))
@@ -231,7 +231,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
             return
         }
 
-        val parentSuperclass = EdgirUtils.SimpleSuperclassesToString(parentBlock.superclasses)
+        val parentSuperclass = EdgirUtils.SimpleSuperclass(parentBlock.superclasses)
         if (parentSuperclass == containingClass) {  // first try searching in the selected block
           if (parentBlock.blocks.contains(name) || parentBlock.ports.contains(name)) {
             selectByPath(parentPath ++ Seq(name))

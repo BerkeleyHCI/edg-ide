@@ -3,13 +3,18 @@ package edg_ide
 import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
+import edg.wir.DesignPath
+
+import scala.annotation.tailrec
 
 
 object EdgirUtils {
+  @deprecated("use ExprBuilder")
   def StringToLibraryPath(path: String): ref.LibraryPath = {
     ref.LibraryPath(target=Some(ref.LocalStep(step=ref.LocalStep.Step.Name(path))))
   }
 
+  @deprecated("use ExprBuilder or similar?")
   def LibraryPathToString(path: ref.LibraryPath): String = {
     // TODO handle LibraryName and Namespace
     path.target match {
@@ -22,13 +27,13 @@ object EdgirUtils {
     }
   }
 
-  def SimpleLibraryPathToString(path: ref.LibraryPath): String = {
+  def SimpleLibraryPath(path: ref.LibraryPath): String = {
     // TODO once namespaces are handled properly, this should use that instead of string ops
     LibraryPathToString(path).split('.').last
   }
 
-  def SimpleSuperclassesToString(superclasses: Seq[ref.LibraryPath]): String = {
-    superclasses.map(SimpleLibraryPathToString).mkString(", ")
+  def SimpleSuperclass(superclasses: Seq[ref.LibraryPath]): String = {
+    superclasses.map(SimpleLibraryPath).mkString(", ")
   }
 
   /**
@@ -36,6 +41,7 @@ object EdgirUtils {
     * Errors out with an exception if things aren't just right
     * TODO: cleaner error handling?
     */
+  @deprecated("use ExprBuilder / unapply")
   def RefExprToSeqString(valueExpr: expr.ValueExpr): Seq[String] = {
     valueExpr.expr match {
       case expr.ValueExpr.Expr.Ref(refExpr) => refExpr.steps.map { step =>
@@ -55,6 +61,7 @@ object EdgirUtils {
     * Converts a Seq[String] to a LocalPath ValueExpr, where each element in the input seq is
     * treated as a discrete LocalStep
     */
+  @deprecated("use ExprBuilder")
   def SeqStringToRefExpr(path: Seq[String]): expr.ValueExpr = {
     expr.ValueExpr(
       expr=expr.ValueExpr.Expr.Ref(ref.LocalPath(
@@ -65,6 +72,7 @@ object EdgirUtils {
     )
   }
 
+  @deprecated("Use resolveFrom*Like")
   def ResolvePath(start: elem.HierarchyBlock, path: Seq[String]): Option[Any] = path match {  // TODO should be Union
     case Seq(head, tail@_*) =>
       start.blocks.get(head) match {
@@ -83,4 +91,60 @@ object EdgirUtils {
       None
     case Seq() => Some(start)
   }
+
+  // Resolves to a *Like from a Block. If path is root, this creates a dummy top-level BlockLike.
+  def resolveFromBlock(path: DesignPath, block: elem.HierarchyBlock): Option[Any] = {
+    resolveFromBlockLike(path.steps, elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)))
+  }
+
+  @tailrec
+  private def resolveFromBlockLike(path: Seq[String], blockLike: elem.BlockLike): Option[Any] = (path, blockLike.`type`) match {
+    case (Seq(), _) => Some(blockLike)
+    case (Seq(head, tail@_*), elem.BlockLike.Type.Hierarchy(block)) =>
+      if (block.ports.contains(head)) {
+        resolveFromPortLike(tail, block.ports(head))
+      } else if (block.blocks.contains(head)) {
+        resolveFromBlockLike(tail, block.blocks(head))
+      } else if (block.links.contains(head)) {
+        resolveFromLinkLike(tail, block.links(head))
+      } else {
+        None
+      }
+    case _ => None
+  }
+
+  @tailrec
+  private def resolveFromPortLike(path: Seq[String], portLike: elem.PortLike): Option[Any] = (path, portLike.is) match {
+    case (Seq(), _) => Some(portLike)
+    case (Seq(head, tail@_*), elem.PortLike.Is.Port(port)) =>
+      None
+    case (Seq(head, tail@_*), elem.PortLike.Is.Bundle(port)) =>
+      if (port.ports.contains(head)) {
+        resolveFromPortLike(tail, port.ports(head))
+      } else {
+        None
+      }
+    case (Seq(head, tail@_*), elem.PortLike.Is.Array(port)) =>
+      if (port.ports.contains(head)) {
+        resolveFromPortLike(tail, port.ports(head))
+      } else {
+        None
+      }
+    case _ => None
+  }
+
+  @tailrec
+  private def resolveFromLinkLike(path: Seq[String], linkLike: elem.LinkLike): Option[Any] = (path, linkLike.`type`) match {
+    case (Seq(), _) => Some(linkLike)
+    case (Seq(head, tail@_*), elem.LinkLike.Type.Link(link)) =>
+      if (link.ports.contains(head)) {
+        resolveFromPortLike(tail, link.ports(head))
+      } else if (link.links.contains(head)) {
+        resolveFromLinkLike(tail, link.links(head))
+      } else {
+        None
+      }
+    case _ => None
+  }
 }
+
