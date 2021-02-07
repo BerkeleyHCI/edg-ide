@@ -29,19 +29,25 @@ object ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = port.is match {
         // TODO add CONNECTED_LINK
       case elem.PortLike.Is.Port(port) =>
-        port.params.map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)}
+        val nameOrder = ProtoUtil.getNameOrder(port.meta)
+        MapSort(port.params, nameOrder).map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)}
             .toSeq
       case elem.PortLike.Is.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
-        (   port.ports.map { case (name, subport) => new PortNode(path + name, subport, compiler) } ++
-            port.params.map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)}
+        val nameOrder = ProtoUtil.getNameOrder(port.meta)
+        (   MapSort(port.ports, nameOrder).map { case (name, subport) => new PortNode(path + name, subport, compiler) } ++
+            MapSort(port.params, nameOrder).map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)}
         ).toSeq
       case elem.PortLike.Is.Array(port) =>
-        port.ports.map { case (name, subport) => new PortNode(path + name, subport, compiler) }
+        val nameOrder = ProtoUtil.getNameOrder(port.meta)
+        MapSort(port.ports, nameOrder).map { case (name, subport) => new PortNode(path + name, subport, compiler) }
             .toSeq
       case _ => Seq()
     }
 
-    override def toString: String = path.steps.last
+    override def toString: String = path.steps match {
+      case Seq() => "(root)"
+      case steps => steps.last
+    }
 
     override def getColumns(index: Int): String = port.is match {
       case elem.PortLike.Is.Port(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
@@ -57,15 +63,19 @@ object ElementDetailNode {
   class BlockNode(path: DesignPath, block: elem.BlockLike, compiler: Compiler) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = block.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
-        (block.ports.map { case (name, port) => new PortNode(path + name, port, compiler) } ++
-            block.links.map { case (name, sublink) =>
+        val nameOrder = ProtoUtil.getNameOrder(block.meta)
+        (MapSort(block.ports, nameOrder).map { case (name, port) => new PortNode(path + name, port, compiler) } ++
+            MapSort(block.links, nameOrder).map { case (name, sublink) =>
               new LinkNode(path + name, IndirectDesignPath.fromDesignPath(path) + name, sublink, compiler) } ++
-            block.params.map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler) }
+            MapSort(block.params, nameOrder).map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler) }
             ).toSeq
       case _ => Seq()
     }
 
-    override def toString: String = path.steps.last
+    override def toString: String = path.steps match {
+      case Seq() => "(root)"
+      case steps => steps.last
+    }
 
     override def getColumns(index: Int): String = block.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) => block.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
@@ -78,20 +88,24 @@ object ElementDetailNode {
       extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = link.`type` match {
       case elem.LinkLike.Type.Link(link) =>
+        val nameOrder = ProtoUtil.getNameOrder(link.meta)
         val portNodes = if (IndirectDesignPath.fromDesignPath(path) != relpath) {
           // Don't display ports if this is a CONNECTED_LINK
           Seq()
         } else {
-          link.ports.map { case (name, port) => new PortNode(path + name, port, compiler) }
+          MapSort(link.ports, nameOrder).map { case (name, port) => new PortNode(path + name, port, compiler) }
         }
         (portNodes ++
-            link.links.map { case (name, sublink) => new LinkNode(path + name, relpath + name, sublink, compiler) } ++
-            link.params.map { case (name, param) => new ParamNode(relpath + name, param, compiler) }
+            MapSort(link.links, nameOrder).map { case (name, sublink) => new LinkNode(path + name, relpath + name, sublink, compiler) } ++
+            MapSort(link.params, nameOrder).map { case (name, param) => new ParamNode(relpath + name, param, compiler) }
             ).toSeq
       case _ => Seq()
     }
 
-    override def toString: String = path.steps.last
+    override def toString: String = path.steps match {
+      case Seq() => ""
+      case steps => steps.last
+    }
 
     override def getColumns(index: Int): String = {
       val className = link.`type` match {
@@ -110,7 +124,10 @@ object ElementDetailNode {
   class ParamNode(path: IndirectDesignPath, param: init.ValInit, compiler: Compiler) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = Seq()
 
-    override def toString: String = path.steps.last.toString
+    override def toString: String = path.steps match {
+      case Seq() => ""
+      case steps => steps.last.toString
+    }
 
     override def getColumns(index: Int): String = {
       import edg.compiler.{FloatValue, BooleanValue, IntValue, RangeValue, TextValue}

@@ -22,7 +22,7 @@ import org.eclipse.elk.graph.ElkGraphElement
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.FileInputStream
-import javax.swing.event.ListSelectionEvent
+import javax.swing.event.{ListSelectionEvent, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField, ListSelectionModel}
 
 
@@ -123,21 +123,26 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
   mainSplitter.setSecondComponent(bottomSplitter)
 
-  private val designTree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock())) {
-    override def valueChanged(e: ListSelectionEvent) {
+  private val designTree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
+    override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
-      super.valueChanged(e)
-      println(s"row=$getSelectedRow, col=$getSelectedColumn, val=${getValueAt(getSelectedRow, 0).getClass}")
-      getValueAt(getSelectedRow, 0) match {
-        case node: HierarchyBlockNode => detailPanel.setLoaded(node.path, design, compiler)
+      e.getPath.getLastPathComponent match {
+        case node: HierarchyBlockNode =>
+          if (node.path == DesignPath.root) {
+            tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (root)")
+          } else {
+            tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${node.path.steps.last})")
+          }
+          detailPanel.setLoaded(node.path, design, compiler)
         case value => notificationGroup.createNotification(
           s"Unknown selection $value", NotificationType.WARNING)
             .notify(project)
       }
     }
   }
+  designTree.getTree.addTreeSelectionListener(designTreeListener)
   designTree.setShowColumns(true)
-  designTree.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
 
@@ -220,6 +225,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       graph.setGraph(layoutGraphRoot)
       designTree.setModel(new BlockTreeTableModel(block))
       designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
+      designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
     case None => graph.setGraph(emptyHGraph)
   }
 

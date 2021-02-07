@@ -2,7 +2,7 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.elem.elem
-import edg.wir.DesignPath
+import edg.wir.{DesignPath, MapSort, ProtoUtil}
 import edg_ide.EdgirUtils
 
 import javax.swing.JTree
@@ -13,9 +13,10 @@ import javax.swing.tree._
 class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
   import edg.elem.elem.BlockLike
 
-  lazy val children: Seq[HierarchyBlockNode] = block.blocks.map { case (name, subblock) =>
+  lazy private val nameOrder = ProtoUtil.getNameOrder(block.meta)
+  lazy val children: Seq[HierarchyBlockNode] = MapSort(block.blocks.map { case (name, subblock) =>
     (name, subblock.`type`)
-  }.collect {
+  }, nameOrder).collect {
     case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(path + name, subblock)
   }.toSeq
 
@@ -24,10 +25,9 @@ class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
     case _ => false
   }
 
-  override def toString: String = if (path == DesignPath.root) {
-    "(root)"
-  } else {
-    path.steps.last
+  override def toString: String = path.steps match {
+    case Seq() => ""
+    case steps => steps.last
   }
 
   def getColumns(index: Int): String = block.superclasses.map(EdgirUtils.LibraryPathToString).mkString(", ")
