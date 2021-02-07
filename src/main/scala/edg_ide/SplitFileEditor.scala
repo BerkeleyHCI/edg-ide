@@ -40,7 +40,6 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
   //
   var edgFileAbsPath: Option[String] = None
   var edgLibraryAbsPath: Option[String] = None
-  var library = new EdgirLibrary(schema.Library())
 
   // GUI-facing state
   //
@@ -103,7 +102,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
   })
 
   val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", library))) {
+    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty"))) {
     override def onSelected(node: ElkGraphElement): Unit = {
       selectedPath = getSelectedByPath
       selectedPath = selectedPath.slice(1, selectedPath.length)  // TODO this prunes the prefixing 'design' elt
@@ -154,7 +153,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
     design.contents match {
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
-        val edgirGraph = EdgirGraph.blockToNode(block, "root", library)
+        val edgirGraph = EdgirGraph.blockToNode(block, "root")
         val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
           CollapseBridgeTransform(CollapseLinkTransform(
             InferEdgeDirectionTransform(SimplifyPortTransform(

@@ -3,8 +3,7 @@ package edg_ide.swing
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.ref.ref
 import edg.elem.elem
-import edg_ide.{EdgirLibrary, EdgirUtils}
-import edg.wir
+import edg_ide.EdgirUtils
 import edg.IrPort
 
 import javax.swing.JTree

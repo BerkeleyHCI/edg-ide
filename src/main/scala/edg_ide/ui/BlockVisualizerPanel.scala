@@ -15,7 +15,6 @@ import edg.ElemBuilder
 import edg.util.timeExec
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{EdgTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
-import edg_ide.EdgirLibrary
 import edg.wir
 import org.eclipse.elk.graph.ElkGraphElement
 
@@ -110,7 +109,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty", new EdgirLibrary(schema.Library())))
+    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty"))
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
@@ -192,7 +191,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     case Some(block) =>
       this.design = design
       // TODO remove EdgirLibrary requirement
-      val edgirGraph = EdgirGraph.blockToNode(block, "root", new EdgirLibrary(schema.Library()))
+      val edgirGraph = EdgirGraph.blockToNode(block, "root")
       val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
         CollapseBridgeTransform(CollapseLinkTransform(
           InferEdgeDirectionTransform(SimplifyPortTransform(
