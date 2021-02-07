@@ -37,7 +37,7 @@ class JElkGraph(var rootNode: ElkNode) extends JComponent with Scrollable with Z
 
   def setGraph(newGraph: ElkNode): Unit = {
     rootNode = newGraph
-    validate()
+    revalidate()
     repaint()
   }
 
