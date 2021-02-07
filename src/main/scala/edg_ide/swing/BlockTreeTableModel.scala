@@ -34,7 +34,7 @@ class HierarchyBlockNode(val name: String, val block: HierarchyBlock) {
 }
 
 
-class EdgTreeTableModel(root: HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
+class BlockTreeTableModel(root: HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
   val rootNode: HierarchyBlockNode = new HierarchyBlockNode("(design)", root)
   val COLUMNS = Seq("Path", "Class")
 

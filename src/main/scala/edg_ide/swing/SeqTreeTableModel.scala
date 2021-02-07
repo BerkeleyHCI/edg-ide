@@ -13,7 +13,7 @@ import scala.reflect.ClassTag
  */
 abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: ClassTag[NodeType])
     extends TreeTableModel {
-  val logger = Logger.getInstance(classOf[EdgTreeTableModel])
+  val logger = Logger.getInstance(classOf[BlockTreeTableModel])
 
   // TreeView abstract methods
   //

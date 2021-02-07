@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
@@ -8,13 +8,13 @@ import com.intellij.openapi.vfs.{VfsUtilCore, VirtualFile}
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{Compiler, DesignStructuralValidate, PythonInterface, PythonInterfaceLibrary}
+import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterface, PythonInterfaceLibrary}
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
 import edg.util.timeExec
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{EdgTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
+import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
 import edg.wir
 import org.eclipse.elk.graph.ElkGraphElement
 
@@ -125,7 +125,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
   mainSplitter.setSecondComponent(bottomSplitter)
 
-  private val designTree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  private val designTree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
   designTree.setShowColumns(true)
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
@@ -169,6 +169,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       }
       setDesign(compiled)
       libraryPanel.setLibrary(pyLib)
+      errorPanel.setErrors(errors)
     } catch {
       case e: Throwable =>
         import java.io.PrintWriter
@@ -197,7 +198,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           InferEdgeDirectionTransform(SimplifyPortTransform(
             PruneDepthTransform(edgirGraph, 2))))))  // TODO configurable depth
       graph.setGraph(layoutGraphRoot)
-      designTree.setModel(new EdgTreeTableModel(block))
+      designTree.setModel(new BlockTreeTableModel(block))
       designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
     case None => graph.setGraph(emptyHGraph)
   }
@@ -212,6 +213,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
     libraryPanel.saveState(state)
+    detailPanel.saveState(state)
+    errorPanel.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
@@ -222,6 +225,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)
     libraryPanel.loadState(state)
+    detailPanel.loadState(state)
+    errorPanel.loadState(state)
   }
 }
 
@@ -267,7 +272,7 @@ class LibraryPanel() extends JPanel {
 
 
 class DetailPanel extends JPanel {
-  private val tree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  private val tree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
 
@@ -291,7 +296,7 @@ class DetailPanel extends JPanel {
 
 
 class ErrorPanel extends JPanel {
-  private val tree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
 
@@ -300,8 +305,8 @@ class ErrorPanel extends JPanel {
 
   // Actions
   //
-  def setLoaded(): Unit = {
-    // TODO IMPLEMENT ME
+  def setErrors(errs: Seq[CompilerError]): Unit = {
+    tree.setModel(new CompilerErrorTreeTableModel(errs))
   }
 
   // Configuration State

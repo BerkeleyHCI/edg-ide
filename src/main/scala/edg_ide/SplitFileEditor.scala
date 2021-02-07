@@ -28,7 +28,7 @@ import com.intellij.util.FileContentUtil
 import edg.elem.elem
 import edg.schema.schema
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{EdgTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
+import edg_ide.swing.{BlockTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
 
 import scala.sys.process._
 import org.eclipse.elk.graph.ElkGraphElement
@@ -135,7 +135,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
   val treePanel = new JPanel(new GridBagLayout())
   ideSplitter.setSecondComponent(treePanel)
 
-  val designTree = new TreeTable(new EdgTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  val designTree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
   designTree.setShowColumns(true)
   val designTreeScrollPane = new JBScrollPane(designTree)
   treePanel.add(designTreeScrollPane, makeGbc(0, 0, GridBagConstraints.BOTH))
@@ -159,7 +159,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
             InferEdgeDirectionTransform(SimplifyPortTransform(
               PruneDepthTransform(edgirGraph, 2))))))  // TODO configurable depth
         graph.setGraph(layoutGraphRoot)
-        designTree.setModel(new EdgTreeTableModel(block))
+        designTree.setModel(new BlockTreeTableModel(block))
         designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
       case None =>
         edgFileAbsPath = None
