@@ -137,12 +137,16 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private val libraryPanel = new LibraryPanel()
   tabbedPane.addTab("Library", libraryPanel)
+  val TAB_INDEX_LIBRARY = 0
 
   private val detailPanel = new DetailPanel()
   tabbedPane.addTab("Detail", detailPanel)
+  val TAB_INDEX_DETAIL = 1
 
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
+  val TAB_INDEX_ERRORS = 2
+  tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)  // no errors by default
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -164,8 +168,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       val errors = compiler.getErrors() ++ checker.map(compiled)
       if (errors.isEmpty) {
         status.setText(s"Compiled ($time ms)")
+        tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)
+        tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
       } else {
         status.setText(s"Compiled, with ${errors.length} errors ($time ms)")
+        tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
+        tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
       }
       setDesign(compiled)
       libraryPanel.setLibrary(pyLib)
@@ -307,6 +315,7 @@ class ErrorPanel extends JPanel {
   //
   def setErrors(errs: Seq[CompilerError]): Unit = {
     tree.setModel(new CompilerErrorTreeTableModel(errs))
+    tree.setRootVisible(false)
   }
 
   // Configuration State
