@@ -12,46 +12,58 @@ import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree._
 
+
 trait ElementDetailNode {
   def getChildren: Seq[ElementDetailNode]
   def getColumns(index: Int): String = ""
 }
 
 
-class PortNode(path: DesignPath, port: IrPort, compiler: Compiler) extends ElementDetailNode {
-  override def getColumns(index: Int): String = port match {
-    case IrPort.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
-    case IrPort.Port(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
-    case _ => s"Unknown"
+object ElementDetailNode {
+  class PortNode(path: DesignPath, port: IrPort, compiler: Compiler) extends ElementDetailNode {
+    override def getChildren: Seq[ElementDetailNode] = ???
+
+    override def getColumns(index: Int): String = port match {
+      case IrPort.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
+      case IrPort.Port(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
+      case _ => s"Unknown"
+    }
   }
-}
 
-class BlockNode(path: DesignPath, block: elem.HierarchyBlock, compiler: Compiler) extends ElementDetailNode {
-  override def getColumns(index: Int): String = {
-    block.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
+  class BlockNode(path: DesignPath, block: elem.HierarchyBlock, compiler: Compiler) extends ElementDetailNode {
+    override def getChildren: Seq[ElementDetailNode] = ???
+
+    override def getColumns(index: Int): String = {
+      block.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
+    }
   }
-}
 
-class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.Link, compiler: Compiler)
-    extends ElementDetailNode {
-  override def getColumns(index: Int): String = {
-    link.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
+  class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.Link, compiler: Compiler)
+      extends ElementDetailNode {
+    override def getChildren: Seq[ElementDetailNode] = ???
+
+    override def getColumns(index: Int): String = {
+      val className = link.superclasses.map(EdgirUtils.SimpleLibraryPathToString).mkString(", ")
+      if (IndirectDesignPath.fromDesignPath(path) != relpath) {
+        s"$className @ ${path}"  // show the path for CONNECTED_LINKS
+      } else {
+        className
+      }
+    }
   }
-  override def getColumns(index: Int): String = path.toString
-}
 
+  class ParamNode(path: IndirectDesignPath, param: init.ValInit, compiler: Compiler) extends ElementDetailNode {
+    override def getChildren: Seq[ElementDetailNode] = Seq()
 
-class ParamNode(path: IndirectDesignPath, param: init.ValInit, compiler: Compiler) extends ElementDetailNode {
-  override def getChildren: Seq[ElementDetailNode] = Seq()
+    override def toString: String = path.steps.last.toString
 
-  override def toString: String = path.steps.last.toString
-
-  override def getColumns(index: Int): String = "TODO VALUE"
+    override def getColumns(index: Int): String = "TODO VALUE"
+  }
 }
 
 
 class ElementDetailTreeModel(root: DesignPath, compiler: Compiler) extends SeqTreeTableModel[ElementDetailNode] {
-  val rootNode: ElementDetailNode = new HierarchyBlockNode("(design)", root)
+  val rootNode: ElementDetailNode = ???
   val COLUMNS = Seq("Item", "Value")
 
   // TreeView abstract methods

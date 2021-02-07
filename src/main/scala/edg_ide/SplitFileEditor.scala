@@ -29,6 +29,7 @@ import edg.elem.elem
 import edg.schema.schema
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
+import edg.wir.DesignPath
 
 import scala.sys.process._
 import org.eclipse.elk.graph.ElkGraphElement
@@ -102,7 +103,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
   })
 
   val graph = new JElkGraph(HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(elem.HierarchyBlock(), "empty"))) {
+    EdgirGraph.blockToNode(DesignPath.root, elem.HierarchyBlock()))) {
     override def onSelected(node: ElkGraphElement): Unit = {
       selectedPath = getSelectedByPath
       selectedPath = selectedPath.slice(1, selectedPath.length)  // TODO this prunes the prefixing 'design' elt
@@ -153,7 +154,7 @@ class SplitFileEditor(private val textEditor: TextEditor, private val file: Virt
     design.contents match {
       case Some(block) =>
         edgFileAbsPath = Some(absolutePath)
-        val edgirGraph = EdgirGraph.blockToNode(block, "root")
+        val edgirGraph = EdgirGraph.blockToNode(DesignPath.root, block)
         val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
           CollapseBridgeTransform(CollapseLinkTransform(
             InferEdgeDirectionTransform(SimplifyPortTransform(

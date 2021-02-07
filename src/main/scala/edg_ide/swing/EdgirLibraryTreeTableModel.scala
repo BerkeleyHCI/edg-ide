@@ -11,93 +11,95 @@ import javax.swing.event.TreeModelListener
 import javax.swing.tree._
 
 
-abstract class EdgirLibraryTreeNode {  // abstract base class for tree node model
+trait EdgirLibraryTreeNode {  // abstract base class for tree node model
   protected val children: Seq[EdgirLibraryTreeNode]
   def getChildren: Seq[EdgirLibraryTreeNode] = children
 }
 
-abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryTreeNode {
-  override def toString: String = EdgirUtils.SimpleLibraryPathToString(path)
-}
-
-
-class BlockUnreachableRootNode(paths: Seq[ref.LibraryPath], root: BlockRootNode) extends EdgirLibraryTreeNode {
-  override def toString: String = "(unreachable from root)"
-
-  lazy val children: Seq[EdgirLibraryTreeNode] = {
-    paths.map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
+object EdgirLibraryTreeNode {
+  abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryTreeNode {
+    override def toString: String = EdgirUtils.SimpleLibraryPathToString(path)
   }
-}
 
-class BlockNode(path: ref.LibraryPath, block: elem.HierarchyBlock, root: BlockRootNode)
-    extends LibraryElementNode(path) {
-  lazy val children: Seq[EdgirLibraryTreeNode] = {
-    root.childMap.getOrElse(path, Seq())
-        .map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
-        .sortBy(_.toString)
+
+  class BlockUnreachableRootNode(paths: Seq[ref.LibraryPath], root: BlockRootNode) extends EdgirLibraryTreeNode {
+    override def toString: String = "(unreachable from root)"
+
+    lazy val children: Seq[EdgirLibraryTreeNode] = {
+      paths.map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
+    }
   }
-}
 
-class BlockRootNode(val blocks: Map[ref.LibraryPath, elem.HierarchyBlock]) extends EdgirLibraryTreeNode {
-  override def toString: String = "All Blocks"
+  class BlockNode(path: ref.LibraryPath, block: elem.HierarchyBlock, root: BlockRootNode)
+      extends LibraryElementNode(path) {
+    lazy val children: Seq[EdgirLibraryTreeNode] = {
+      root.childMap.getOrElse(path, Seq())
+          .map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
+          .sortBy(_.toString)
+    }
+  }
 
-  // Returns the reachable set from a node, including the starting if it is present in the graph
-  def graphReachable[T](graph: Map[T, Seq[T]], from: T): Seq[T] = {
-    if (graph.contains(from)) {
-      val reachable = graph.getOrElse(from, Seq()).flatMap { childElt =>
-        graphReachable(graph, childElt)
+  class BlockRootNode(val blocks: Map[ref.LibraryPath, elem.HierarchyBlock]) extends EdgirLibraryTreeNode {
+    override def toString: String = "All Blocks"
+
+    // Returns the reachable set from a node, including the starting if it is present in the graph
+    def graphReachable[T](graph: Map[T, Seq[T]], from: T): Seq[T] = {
+      if (graph.contains(from)) {
+        val reachable = graph.getOrElse(from, Seq()).flatMap { childElt =>
+          graphReachable(graph, childElt)
+        }
+        Seq(from) ++ reachable
+      } else {
+        Seq()
       }
-      Seq(from) ++ reachable
-    } else {
-      Seq()
+    }
+
+    private val rootPath = ref.LibraryPath(target=None)
+    val childMap: Map[ref.LibraryPath, Seq[ref.LibraryPath]] = blocks.flatMap { case (path, block) =>
+      block.superclasses match {  // for each block, generate all pairs (superclass path, path)
+        case Nil => Seq((rootPath, path))
+        case superclasses => superclasses.map(superclassPath => (superclassPath, path))
+      }
+    }   .groupBy { case (superclassPath, path) => superclassPath }
+        .mapValues { superclassPairs => superclassPairs.map(_._2).toSeq }.toMap
+
+    private val rootReachable = graphReachable(childMap, rootPath)
+    private val unreachableBlocks = blocks.keys.toSet -- rootReachable
+
+    lazy val children: Seq[EdgirLibraryTreeNode] = {
+      val rootChildren = childMap.getOrElse(rootPath, Set())
+          .map { childPath => new BlockNode(childPath, blocks(childPath), this) }
+          .toSeq
+          .sortBy(_.toString)
+      rootChildren ++ Seq(new BlockUnreachableRootNode(unreachableBlocks.toSeq, this))
     }
   }
 
-  private val rootPath = ref.LibraryPath(target=None)
-  val childMap: Map[ref.LibraryPath, Seq[ref.LibraryPath]] = blocks.flatMap { case (path, block) =>
-    block.superclasses match {  // for each block, generate all pairs (superclass path, path)
-      case Nil => Seq((rootPath, path))
-      case superclasses => superclasses.map(superclassPath => (superclassPath, path))
-    }
-  }   .groupBy { case (superclassPath, path) => superclassPath }
-      .mapValues { superclassPairs => superclassPairs.map(_._2).toSeq }.toMap
 
-  private val rootReachable = graphReachable(childMap, rootPath)
-  private val unreachableBlocks = blocks.keys.toSet -- rootReachable
-
-  lazy val children: Seq[EdgirLibraryTreeNode] = {
-    val rootChildren = childMap.getOrElse(rootPath, Set())
-        .map { childPath => new BlockNode(childPath, blocks(childPath), this) }
-        .toSeq
-        .sortBy(_.toString)
-    rootChildren ++ Seq(new BlockUnreachableRootNode(unreachableBlocks.toSeq, this))
+  class PortNode(path: ref.LibraryPath, port: IrPort) extends LibraryElementNode(path) {
+    val children: Seq[EdgirLibraryTreeNode] = Seq()
   }
-}
+
+  class PortRootNode(ports: Map[ref.LibraryPath, IrPort]) extends EdgirLibraryTreeNode {
+    override def toString: String = "All Ports"
+
+    lazy val children: Seq[EdgirLibraryTreeNode] = {
+      ports.map { case (path, port) => new PortNode(path, port) }
+    }.toSeq.sortBy { _.toString }
+  }
 
 
-class PortNode(path: ref.LibraryPath, port: IrPort) extends LibraryElementNode(path) {
-  val children: Seq[EdgirLibraryTreeNode] = Seq()
-}
+  class LinkNode(path: ref.LibraryPath, link: elem.Link) extends LibraryElementNode(path) {
+    val children: Seq[EdgirLibraryTreeNode] = Seq()
+  }
 
-class PortRootNode(ports: Map[ref.LibraryPath, IrPort]) extends EdgirLibraryTreeNode {
-  override def toString: String = "All Ports"
+  class LinkRootNode(links: Map[ref.LibraryPath, elem.Link]) extends EdgirLibraryTreeNode {
+    override def toString: String = "All Links"
 
-  lazy val children: Seq[EdgirLibraryTreeNode] = {
-    ports.map { case (path, port) => new PortNode(path, port) }
-  }.toSeq.sortBy { _.toString }
-}
-
-
-class LinkNode(path: ref.LibraryPath, link: elem.Link) extends LibraryElementNode(path) {
-  val children: Seq[EdgirLibraryTreeNode] = Seq()
-}
-
-class LinkRootNode(links: Map[ref.LibraryPath, elem.Link]) extends EdgirLibraryTreeNode {
-  override def toString: String = "All Links"
-
-  lazy val children: Seq[EdgirLibraryTreeNode] = {
-    links.map { case (path, link) => new LinkNode(path, link) }
-  }.toSeq.sortBy { _.toString }
+    lazy val children: Seq[EdgirLibraryTreeNode] = {
+      links.map { case (path, link) => new LinkNode(path, link) }
+    }.toSeq.sortBy { _.toString }
+  }
 }
 
 
@@ -108,9 +110,9 @@ class EdgirLibraryTreeTableModel(library: edg.wir.Library) extends SeqTreeTableM
     override def toString: String = "(root)"
 
     lazy val children: Seq[EdgirLibraryTreeNode] = Seq(
-      new BlockRootNode(library.allBlocks),
-      new PortRootNode(library.allPorts),
-      new LinkRootNode(library.allLinks),
+      new EdgirLibraryTreeNode.BlockRootNode(library.allBlocks),
+      new EdgirLibraryTreeNode.PortRootNode(library.allPorts),
+      new EdgirLibraryTreeNode.LinkRootNode(library.allLinks),
     )
   }
 

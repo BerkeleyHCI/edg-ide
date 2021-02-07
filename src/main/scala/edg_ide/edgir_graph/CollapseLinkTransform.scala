@@ -12,7 +12,7 @@ object CollapseLinkTransform extends CollapseNodeTransform {
     }
 
     val newNode = linkNameDatas.foldLeft(node) { case (prevNode, (linkName, linkData)) =>
-      val edgeData = EdgeLinkWrapper(linkName, linkData.linkLike)
+      val edgeData = EdgeLinkWrapper(linkData.path, linkData.linkLike)
       collapse(prevNode, linkName, _ => edgeData)
     }
 

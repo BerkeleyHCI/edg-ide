@@ -3,13 +3,14 @@ package edg_ide.edgir_graph
 import edg.elem.elem
 import edg.expr.expr
 import edg_ide.EdgirUtils
+import edg.wir.DesignPath
 
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(
 sealed trait NodeDataWrapper {
 }
 
-case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper {
+case class BlockWrapper(path: DesignPath, blockLike: elem.BlockLike) extends NodeDataWrapper {
   override def toString: String = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) =>
       EdgirUtils.SimpleSuperclassesToString(block.superclasses)
@@ -19,7 +20,7 @@ case class BlockWrapper(blockLike: elem.BlockLike) extends NodeDataWrapper {
   }
 }
 
-case class LinkWrapper(linkLike: elem.LinkLike) extends NodeDataWrapper {
+case class LinkWrapper(path: DesignPath, linkLike: elem.LinkLike) extends NodeDataWrapper {
   override def toString: String = linkLike.`type` match {
     case elem.LinkLike.Type.Link(link) =>
       EdgirUtils.SimpleSuperclassesToString(link.superclasses)
@@ -29,7 +30,7 @@ case class LinkWrapper(linkLike: elem.LinkLike) extends NodeDataWrapper {
   }
 }
 
-case class PortWrapper(portLike: elem.PortLike) {
+case class PortWrapper(path: DesignPath, portLike: elem.PortLike) {
   override def toString: String = ""  // don't print port types
 }
 
@@ -37,8 +38,8 @@ case class PortWrapper(portLike: elem.PortLike) {
 sealed trait EdgeWrapper {
 }
 
-case class ConnectWrapper(name: String, constraint: expr.ValueExpr) extends EdgeWrapper
-case class EdgeLinkWrapper(name: String, linkLike: elem.LinkLike) extends EdgeWrapper
+case class ConnectWrapper(path: DesignPath, constraint: expr.ValueExpr) extends EdgeWrapper
+case class EdgeLinkWrapper(path: DesignPath, linkLike: elem.LinkLike) extends EdgeWrapper
 
 
 object EdgirGraph {
@@ -65,26 +66,25 @@ object EdgirGraph {
   /**
     * Simple wrapper around blockLikeToNode that provides the blockLike wrapper around the block
     */
-  def blockToNode(block: elem.HierarchyBlock, name: String): EdgirNode = {
-    blockLikeToNode(
-      elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)),
-      name)
+  def blockToNode(path: DesignPath, block: elem.HierarchyBlock): EdgirNode = {
+    blockLikeToNode(path,
+      elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)))
   }
 
   /**
     * For a list of constraints, returns the EdgirEdges of corresponding connect and exports
     */
-  protected def constraintsToEdges(constraints: Map[String, expr.ValueExpr]): Seq[EdgirEdge] = {
+  protected def constraintsToEdges(path: DesignPath, constraints: Map[String, expr.ValueExpr]): Seq[EdgirEdge] = {
     constraints.flatMap { case (name, constr) =>
       constr.expr match {
         case expr.ValueExpr.Expr.Connected(connect) =>
           // in the loading pass, the source is the block side and the target is the link side
-          Some(EdgirEdge(ConnectWrapper(name, constr),
+          Some(EdgirEdge(ConnectWrapper(path + name, constr),
             source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
             target=EdgirUtils.RefExprToSeqString(connect.linkPort.get)))
         case expr.ValueExpr.Expr.Exported(export) =>
           // in the loading pass, the source is the block side and the target is the external port
-          Some(EdgirEdge(ConnectWrapper(name, constr),
+          Some(EdgirEdge(ConnectWrapper(path + name, constr),
             source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
             target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get)))
         case _ => None
@@ -104,52 +104,52 @@ object EdgirGraph {
         }
   }
 
-  def blockLikeToNode(blockLike: elem.BlockLike, name: String): EdgirNode = {
+  def blockLikeToNode(path: DesignPath, blockLike: elem.BlockLike): EdgirNode = {
     blockLike.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(
-          block.ports.map { case (name, port) => name -> portLikeToPort(port, name) },
-          block.blocks.map { case (name, subblock) => name -> blockLikeToNode(subblock, name) },
-          block.links.map{ case (name, sublink) => name -> linkLikeToNode(sublink, name) },
+          block.ports.map { case (name, port) => name -> portLikeToPort(path + name, port) },
+          block.blocks.map { case (name, subblock) => name -> blockLikeToNode(path + name, subblock) },
+          block.links.map{ case (name, sublink) => name -> linkLikeToNode(path + name, sublink) },
         )
 
         // Read edges from constraints
-        val edges: Seq[EdgirEdge] = constraintsToEdges(block.constraints)
+        val edges: Seq[EdgirEdge] = constraintsToEdges(path, block.constraints)
 
-        EdgirNode(BlockWrapper(blockLike), allMembers, edges)
+        EdgirNode(BlockWrapper(path, blockLike), allMembers, edges)
       case elem.BlockLike.Type.LibElem(block) =>
         // TODO implement me
-        EdgirNode(BlockWrapper(blockLike), Map(), Seq())
+        EdgirNode(BlockWrapper(path, blockLike), Map(), Seq())
       case _ =>  // create an empty error block
-        EdgirNode(BlockWrapper(blockLike), Map(), Seq())
+        EdgirNode(BlockWrapper(path, blockLike), Map(), Seq())
     }
   }
 
-  def linkLikeToNode(linkLike: elem.LinkLike, name: String): EdgirNode = {
+  def linkLikeToNode(path: DesignPath, linkLike: elem.LinkLike): EdgirNode = {
     // TODO dedup w/ blockLikeToNode
     linkLike.`type` match {
       case elem.LinkLike.Type.Link(link) =>
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(
-          link.ports.map { case (name, port) => name -> portLikeToPort(port, name) },
-          link.links.map{ case (name, sublink) => name -> linkLikeToNode(sublink, name) },
+          link.ports.map { case (name, port) => name -> portLikeToPort(path + name, port) },
+          link.links.map{ case (name, sublink) => name -> linkLikeToNode(path + name, sublink) },
         )
 
         // Read edges from constraints
-        val edges: Seq[EdgirEdge] = constraintsToEdges(link.constraints)
+        val edges: Seq[EdgirEdge] = constraintsToEdges(path, link.constraints)
 
-        EdgirNode(LinkWrapper(linkLike), allMembers, edges)
+        EdgirNode(LinkWrapper(path, linkLike), allMembers, edges)
       case elem.LinkLike.Type.LibElem(link) =>
         // TODO implement me
-        EdgirNode(LinkWrapper(linkLike), Map(), Seq())
+        EdgirNode(LinkWrapper(path, linkLike), Map(), Seq())
       case _ =>  // create an empty error block
-        EdgirNode(LinkWrapper(linkLike), Map(), Seq())
+        EdgirNode(LinkWrapper(path, linkLike), Map(), Seq())
     }
   }
 
-  def portLikeToPort(portLike: elem.PortLike, name: String): EdgirPort = {
+  def portLikeToPort(path: DesignPath, portLike: elem.PortLike): EdgirPort = {
     // TODO implement me
-    EdgirPort(PortWrapper(portLike))
+    EdgirPort(PortWrapper(path, portLike))
   }
 }
