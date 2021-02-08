@@ -14,7 +14,7 @@ sealed trait Errorable[+T] {
   def map[V](fn: T => V): Errorable[V]
 
   // Convenience wrapper for options
-  def mapOption[V](errMsg: => String)(fn: T => Option[V]): Errorable[V] = {
+  def flatMap[V](errMsg: => String)(fn: T => Option[V]): Errorable[V] = {
     map[V](errMsg, null.asInstanceOf[V]) {
       fn(_) match {
         case Some(result) => result
