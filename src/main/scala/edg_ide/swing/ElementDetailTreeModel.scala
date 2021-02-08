@@ -2,15 +2,19 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.elem.elem
+import edg.expr.expr
 import edg.init.init
 import edg.schema.schema
 import edg_ide.EdgirUtils
 import edg.wir._
-import edg.compiler.{Compiler, ExprValue}
+import edg.util.SeqMapSortableFrom._
+import edg.compiler.{Compiler, ExprToString, ExprValue}
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree._
+import scala.:+
+import scala.collection.SeqMap
 
 
 trait ElementDetailNode {
@@ -48,19 +52,24 @@ object ElementDetailNode {
         case elem.PortLike.Is.Port(port) =>
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
           connectedNode ++
-              MapSort(port.params, nameOrder).map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler) }
-              .toSeq
+              port.params.sortKeysFrom(nameOrder).map {
+                case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)
+              }.toSeq
         case elem.PortLike.Is.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
           (connectedNode ++
-              MapSort(port.ports, nameOrder).map { case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink) } ++
-              MapSort(port.params, nameOrder).map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler) }
-              ).toSeq
+              port.ports.sortKeysFrom(nameOrder).map {
+                case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
+              } ++
+              port.params.sortKeysFrom(nameOrder).map {
+                case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)
+              }).toSeq
         case elem.PortLike.Is.Array(port) =>
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
           connectedNode ++
-              MapSort(port.ports, nameOrder).map { case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink) }
-              .toSeq
+              port.ports.sortKeysFrom(nameOrder).map {
+                case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
+              }.toSeq
         case _ => Seq()
       }
     }
@@ -98,11 +107,14 @@ object ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = block.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>  // don't recurse into blocks here
         val nameOrder = ProtoUtil.getNameOrder(block.meta)
-        (MapSort(block.ports, nameOrder).map { case (name, port) => new PortNode(path + name, port, root, compiler) } ++
-            MapSort(block.links, nameOrder).map { case (name, sublink) =>
-              new LinkNode(path + name, IndirectDesignPath.fromDesignPath(path) + name, sublink, root, compiler) } ++
-            MapSort(block.params, nameOrder).map { case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler) }
-            ).toSeq
+        (((block.ports.sortKeysFrom(nameOrder).map {
+          case (name, port) => new PortNode(path + name, port, root, compiler)
+        } ++ block.links.sortKeysFrom(nameOrder).map { case (name, sublink) =>
+              new LinkNode(path + name, IndirectDesignPath.fromDesignPath(path) + name, sublink, root, compiler)
+        }).toSeq :+ new ConstraintsNode(path, block.constraints.sortKeysFrom(nameOrder))
+        ) ++ block.params.sortKeysFrom(nameOrder).map {
+          case (name, param) => new ParamNode(IndirectDesignPath.fromDesignPath(path) + name, param, compiler)
+        }).toSeq
       case _ => Seq()
     }
 
@@ -127,12 +139,17 @@ object ElementDetailNode {
           // Don't display ports if this is a CONNECTED_LINK
           Seq()
         } else {
-          MapSort(link.ports, nameOrder).map { case (name, port) => new PortNode(path + name, port, root, compiler, true) }
+          link.ports.sortKeysFrom(nameOrder).map {
+            case (name, port) => new PortNode(path + name, port, root, compiler, true)
+          }
         }
-        (portNodes ++
-            MapSort(link.links, nameOrder).map { case (name, sublink) => new LinkNode(path + name, relpath + name, sublink, root, compiler) } ++
-            MapSort(link.params, nameOrder).map { case (name, param) => new ParamNode(relpath + name, param, compiler) }
-            ).toSeq
+        (((portNodes ++
+            link.links.sortKeysFrom(nameOrder).map {
+              case (name, sublink) => new LinkNode(path + name, relpath + name, sublink, root, compiler)
+            }).toSeq :+ new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder))
+            ) ++ link.params.sortKeysFrom(nameOrder).map {
+              case (name, param) => new ParamNode(relpath + name, param, compiler)
+        }).toSeq
       case _ => Seq()
     }
 
@@ -174,14 +191,32 @@ object ElementDetailNode {
       }
       val value = compiler.getAllSolved.get(path) match {
         case Some(FloatValue(value)) => value  // TODO better formatting using SI prefixes
+        case Some(BooleanValue(value)) => value
         case Some(IntValue(value)) => value
         case Some(RangeValue(lower, upper)) => s"($lower, $upper)"
         case Some(TextValue(value)) => value
-        case Some(value) => value
+        case Some(value) => s"unknown ${value.getClass} $value"
         case None => "Unsolved"
       }
       s"$value ($typeName)"
     }
+  }
+
+  class ConstraintsNode(root: DesignPath, constraints: SeqMap[String, expr.ValueExpr]) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = constraints.map { case (name, value) =>
+      new ConstraintNode(root, name, value) }.toSeq
+
+    override def toString: String = "Constraints"
+
+    override def getColumns(index: Int): String = constraints.size.toString
+  }
+
+  class ConstraintNode(root: DesignPath, name: String, constraint: expr.ValueExpr) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = Seq()
+
+    override def toString: String = name
+
+    override def getColumns(index: Int): String = ExprToString(constraint)
   }
 }
 

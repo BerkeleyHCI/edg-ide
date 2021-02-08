@@ -2,7 +2,8 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.elem.elem
-import edg.wir.{DesignPath, MapSort, ProtoUtil}
+import edg.wir.{DesignPath, ProtoUtil}
+import edg.util.SeqMapSortableFrom._
 import edg_ide.EdgirUtils
 
 import javax.swing.JTree
@@ -14,9 +15,10 @@ class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
   import edg.elem.elem.BlockLike
 
   lazy private val nameOrder = ProtoUtil.getNameOrder(block.meta)
-  lazy val children: Seq[HierarchyBlockNode] = MapSort(block.blocks.map { case (name, subblock) =>
+  lazy val children: Seq[HierarchyBlockNode] = block.blocks.map { case (name, subblock) =>
     (name, subblock.`type`)
-  }, nameOrder).collect {
+  }   .sortKeysFrom(nameOrder)
+      .collect {
     case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(path + name, subblock)
   }.toSeq
 
