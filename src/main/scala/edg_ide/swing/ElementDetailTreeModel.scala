@@ -65,9 +65,21 @@ object ElementDetailNode {
       }
     }
 
-    override def toString: String = path.steps match {
-      case Seq() => "(root)"
-      case steps => steps.last
+    override def toString: String = {
+      // TODO this should instead be replaced with a rendering thing
+      val thisName = path.steps match {
+        case Seq() => "(root)"
+        case steps => steps.last
+      }
+
+      if (!fromLink) {
+        compiler.getConnectedLink(path) match {
+          case Some(linkPath) => s"$thisName @ $linkPath"
+          case None => thisName
+        }
+      } else {
+        thisName
+      }
     }
 
     override def getColumns(index: Int): String = port.is match {
