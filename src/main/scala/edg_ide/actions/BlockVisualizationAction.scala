@@ -2,12 +2,10 @@ package edg_ide.actions
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyClass
 import edg_ide.ui.BlockVisualizerService
 import edg_ide.util.Errorable
-import scala.collection.mutable
 
 
 class BlockVisualizationAction() extends AnAction() {
