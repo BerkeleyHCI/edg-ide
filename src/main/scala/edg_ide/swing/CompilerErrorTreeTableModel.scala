@@ -1,58 +1,76 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg.compiler.{CompilerError, ElaborateRecord}
+import edg.compiler.{CompilerError, ElaborateRecord, ExprToString}
+import edg.wir.DesignPath
+import edg_ide.EdgirUtils
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 
 
-trait CompilerErrorNode {
-  val children: Seq[CompilerErrorNode]
+trait CompilerErrorNodeBase {
+  val children: Seq[CompilerErrorNodeBase]
   def getColumns(index: Int): String
 }
 
-object CompilerErrorNode {
-  class CompilerErrorTopNode(errs: Seq[CompilerError]) extends CompilerErrorNode {
-    override lazy val children: Seq[CompilerErrorNode] = errs.map {
-      new CompilerErrorLeafNode(_)
+object CompilerErrorNodeBase {
+  class CompilerErrorTopNode(errs: Seq[CompilerError]) extends CompilerErrorNodeBase {
+    override lazy val children: Seq[CompilerErrorNodeBase] = errs.map {
+      new CompilerErrorNode(_)
     }
 
-    def getColumns(index: Int): String = ""
+    override def getColumns(index: Int): String = ""
 
     override def toString: String = "All Errors"
   }
 
+  // Freeform node with arbitrary text and path
+  class CompilerErrorDetailNode(text: String, path: String) extends CompilerErrorNodeBase {
+    override lazy val children = Seq()
+    override def getColumns(index: Int): String = path
+    override def toString: String = text
+  }
 
-  class CompilerErrorLeafNode(err: CompilerError) extends CompilerErrorNode {
-    override lazy val children: Seq[CompilerErrorNode] = Seq()
-
-    def getColumns(index: Int): String = err match {
-      case CompilerError.Unelaborated(ElaborateRecord.Block(path), deps) => path.toString
-      case CompilerError.Unelaborated(ElaborateRecord.Link(path), deps) => path.toString
-      case CompilerError.Unelaborated(ElaborateRecord.Param(path), deps) => path.toString
-      case CompilerError.Unelaborated(ElaborateRecord.Generator(path, fnName), deps) => path.toString
-      case CompilerError.LibraryElement(path, target) => path.toString
-      case CompilerError.Generator(path, targets, fn) => path.toString
-      case CompilerError.ConflictingAssign(target, oldAssign, newAssign) => target.toString
-      case _ => ""
+  // Error node defining text, path, and children for a compiler error
+  class CompilerErrorNode(err: CompilerError) extends CompilerErrorNodeBase {
+    lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
+      case CompilerError.Unelaborated(ElaborateRecord.Block(path), deps) =>
+        ("Unelaborated Block", path.toString, Seq())
+      case CompilerError.Unelaborated(ElaborateRecord.Link(path), deps) =>
+        ("Unelaborated Link", path.toString, Seq())
+      case CompilerError.Unelaborated(ElaborateRecord.Param(path), deps) =>
+        ("Unelaborated Param", path.toString, Seq())
+      case CompilerError.Unelaborated(ElaborateRecord.Generator(path, fnName), deps) =>
+        (s"Unelaborated Generator, function $fnName", path.toString, Seq())
+      case CompilerError.LibraryElement(path, target) =>
+        (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
+      case CompilerError.Generator(path, targets, fnName) =>
+        (s"Generator not ready, ${EdgirUtils.SimpleSuperclass(targets)}:$fnName", path.toString, Seq())
+      case CompilerError.ConflictingAssign(target, oldAssign, newAssign) =>
+        ("Conflicting assign", target.toString, Seq(
+          new CompilerErrorDetailNode(ExprToString(oldAssign._3), s"${oldAssign._1}:${oldAssign._2}"),
+          new CompilerErrorDetailNode(ExprToString(newAssign._3), s"${newAssign._1}:${newAssign._2}"),
+        ))
     }
 
-    override def toString: String = err.toString
+    override lazy val children: Seq[CompilerErrorNodeBase] = all._3
+    override def getColumns(index: Int): String = all._2
+    override def toString: String = all._1
   }
 }
 
 
-class CompilerErrorTreeTableModel(errs: Seq[CompilerError]) extends SeqTreeTableModel[CompilerErrorNode] {
-  val rootNode: CompilerErrorNode = new CompilerErrorNode.CompilerErrorTopNode(errs)
+class CompilerErrorTreeTableModel(errs: Seq[CompilerError]) extends SeqTreeTableModel[CompilerErrorNodeBase] {
+  val rootNode: CompilerErrorNodeBase = new CompilerErrorNodeBase.CompilerErrorTopNode(errs)
   val COLUMNS = Seq("Error", "Path")
 
   // TreeView abstract methods
   //
-  override def getRootNode: CompilerErrorNode = rootNode
+  override def getRootNode: CompilerErrorNodeBase = rootNode
 
-  override def getNodeChildren(node: CompilerErrorNode): Seq[CompilerErrorNode] = node.children
+  override def getNodeChildren(node: CompilerErrorNodeBase): Seq[CompilerErrorNodeBase] = node.children
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}
@@ -70,11 +88,11 @@ class CompilerErrorTreeTableModel(errs: Seq[CompilerError]) extends SeqTreeTable
     case _ => classOf[String]
   }
 
-  override def getNodeValueAt(node: CompilerErrorNode, column: Int): Object = node.getColumns(column)
+  override def getNodeValueAt(node: CompilerErrorNodeBase, column: Int): Object = node.getColumns(column)
 
   // These aren't relevant for trees that can't be edited
-  override def isNodeCellEditable(node: CompilerErrorNode, column: Int): Boolean = false
-  override def setNodeValueAt(aValue: Any, node: CompilerErrorNode, column: Int): Unit = {}
+  override def isNodeCellEditable(node: CompilerErrorNodeBase, column: Int): Boolean = false
+  override def setNodeValueAt(aValue: Any, node: CompilerErrorNodeBase, column: Int): Unit = {}
 
   def setTree(tree: JTree): Unit = { }  // tree updates ignored
 }
