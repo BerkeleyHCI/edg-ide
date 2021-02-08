@@ -5,6 +5,8 @@
 /project/target
 /project/project
 /target/
+/.bsp
 
 .idea
 .project
+*.iml
