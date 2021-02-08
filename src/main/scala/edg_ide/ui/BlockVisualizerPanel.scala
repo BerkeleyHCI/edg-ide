@@ -224,7 +224,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
             PruneDepthTransform(edgirGraph, 2))))))  // TODO configurable depth
       graph.setGraph(layoutGraphRoot)
       designTree.setModel(new BlockTreeTableModel(block))
-      designTree.setRootVisible(false)  // this seems to get overridden when the model is updated
       designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
     case None => graph.setGraph(emptyHGraph)
   }
