@@ -8,7 +8,6 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.2.0" % "test",
 
   "org.eclipse.elk" % "org.eclipse.elk.alg.layered" % "0.7.0",
-  "org.eclipse.elk" % "org.eclipse.elk.graph.json" % "0.7.0",
 )
 
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin

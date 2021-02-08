@@ -9,6 +9,10 @@ Try this instead:
 1. Set up a sbt Task run configuration, with the command `compile`
 1. Set up another sbt Task run configuration, with the command `runIDE`, and with a dependency on the `compile` configuration
 
+## Command line SBT notes
+- `runIDE` may fail to re-compile dependencies. `clean; runIDE` is safe.
+- Per [sbt-idea-plugin](https://github.com/JetBrains/sbt-idea-plugin), `packageArtifactZip` generates a .zip file which can be installed into IntelliJ.
+  The file is dumped in the `target/` folder.
 
 ## Resources
 
