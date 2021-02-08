@@ -3,6 +3,7 @@ package edg_ide.edgir_graph.tests
 import edg_ide.EdgirUtils
 import edg.elem.elem
 import edg.expr.expr
+import edg.wir.DesignPath
 import edg_ide.edgir_graph
 import edg_ide.edgir_graph.EdgirGraph
 

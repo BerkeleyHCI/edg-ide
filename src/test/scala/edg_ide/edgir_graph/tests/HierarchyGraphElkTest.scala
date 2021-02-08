@@ -57,8 +57,7 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
         SimpleEdge("edge2", source=Seq("n1", "n1p1"), target=Seq("n2", "n2p1")),
       )
     )
-    val root = ElkGraphUtil.createGraph()
-    val elkElementsMap = HierarchyGraphElk.HGraphNodeToElkNode(simpleGraph, "", root)
+    val (root, elkElementsMap) = HierarchyGraphElk.HGraphNodeToElkNode(simpleGraph, "", None)
 
     (root, elkElementsMap)
   }
@@ -73,11 +72,9 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
   it should "create ELK elements" in {
     val (root, _) = makeGraph()
 
-    root.getChildren.asScala should have size 1
-    val graphNode = root.getChildren.asScala.head
-    graphNode.getChildren.asScala should have size 2
-    graphNode.getPorts.asScala should have size 1
-    graphNode.getContainedEdges.asScala should have size 2
+    root.getChildren.asScala should have size 2
+    root.getPorts.asScala should have size 1
+    root.getContainedEdges.asScala should have size 2
   }
 
   it should "create correct ELK labels" in {
@@ -86,17 +83,16 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
     }
 
     val (root, _) = makeGraph()
-    val graphNode = root.getChildren.asScala.head
 
-    val p1 = graphNode.getPorts.asScala(0)
+    val p1 = root.getPorts.asScala(0)
     labelsOfShape(p1) should equal(Seq("p1"))
 
-    val n1 = graphNode.getChildren.asScala(0)
+    val n1 = root.getChildren.asScala(0)
     labelsOfShape(n1) should equal(Seq("n1", "n1data"))
     labelsOfShape(n1.getPorts.asScala(0)) should equal(Seq("n1p1"))
     labelsOfShape(n1.getPorts.asScala(1)) should equal(Seq("n1p2"))
 
-    val n2 = graphNode.getChildren.asScala(1)
+    val n2 = root.getChildren.asScala(1)
     labelsOfShape(n2) should equal(Seq("n2", "n2data"))
     labelsOfShape(n2.getPorts.asScala(0)) should equal(Seq("n2p1"))
   }
