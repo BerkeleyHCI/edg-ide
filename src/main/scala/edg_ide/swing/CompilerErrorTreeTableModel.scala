@@ -35,15 +35,31 @@ object CompilerErrorNodeBase {
 
   // Error node defining text, path, and children for a compiler error
   class CompilerErrorNode(err: CompilerError) extends CompilerErrorNodeBase {
+    def elaborateRecordToDetailNode(rec: ElaborateRecord): CompilerErrorDetailNode = rec match {
+      case rec @ (ElaborateRecord.Block(_) | ElaborateRecord.Link(_) |
+          ElaborateRecord.Param(_) |  ElaborateRecord.Generator(_, _) |
+          ElaborateRecord.Connect(_, _)) =>
+        new CompilerErrorDetailNode(s"Unexpected Missing Record $rec", "")
+      case ElaborateRecord.ConnectedLink(path) =>
+        new CompilerErrorDetailNode("Missing Connected Link at Port", path.toString)
+      case ElaborateRecord.ParamValue(path) =>
+        new CompilerErrorDetailNode("Missing Param Value", path.toString)
+    }
+
     lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
       case CompilerError.Unelaborated(ElaborateRecord.Block(path), deps) =>
-        ("Unelaborated Block", path.toString, Seq())
+        ("Unelaborated Block", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Link(path), deps) =>
-        ("Unelaborated Link", path.toString, Seq())
+        ("Unelaborated Link", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Param(path), deps) =>
-        ("Unelaborated Param", path.toString, Seq())
+        ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Generator(path, fnName), deps) =>
-        (s"Unelaborated Generator, function $fnName", path.toString, Seq())
+        (s"Unelaborated Generator", s"${path.toString}:$fnName", deps.toSeq.map(elaborateRecordToDetailNode))
+      case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath), deps) =>
+        (s"Unelaborated Connect", "", Seq(
+          new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
+          new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString),
+        ) ++ deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.LibraryElement(path, target) =>
         (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>
