@@ -5,7 +5,7 @@ import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKey
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyClass
 import edg_ide.ui.BlockVisualizerService
-import edg_ide.util.Errorable
+import edg_ide.util.ErrorableNotify._
 
 
 class NavigateToBlockAction() extends AnAction() {

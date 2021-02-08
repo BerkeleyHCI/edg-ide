@@ -1,16 +1,13 @@
 package edg_ide.actions
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyClass
 import edg_ide.ui.BlockVisualizerService
-import edg_ide.util.Errorable
+import edg_ide.util.ErrorableNotify._
 
 
 class BlockVisualizationAction() extends AnAction() {
-  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.BlockVisualizationAction")
-
   override def actionPerformed(event: AnActionEvent): Unit = {
     val visualizer = Errorable(BlockVisualizerService(event.getProject).visualizerPanelOption,
       "No visualizer panel")
@@ -25,12 +22,11 @@ class BlockVisualizationAction() extends AnAction() {
       ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile)
     }
 
-    visualizer + ((psiFile + module) + containingClass) match {
-      case Errorable.Success((visualizer, ((psiFile, module), containingClass))) =>
+    (visualizer + ((psiFile + module) + containingClass)).mapOrNotify(
+      this.getClass.getCanonicalName, event.getProject) {
+      case (visualizer, ((psiFile, module), containingClass)) =>
         visualizer.setFileBlock(psiFile.getVirtualFile,
           module.mkString("."), containingClass.getNameIdentifier.getText)
-      case Errorable.Error(msg) =>
-        notificationGroup.createNotification(msg, NotificationType.WARNING).notify(event.getProject)
     }
   }
 }
