@@ -1,5 +1,6 @@
 package edg_ide.edgir_graph.tests
 
+import edg.wir.DesignPath
 import edg_ide.edgir_graph.{CollapseNodeTransform, ConnectWrapper, EdgirGraph, InferEdgeDirectionTransform}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -13,11 +14,11 @@ class CollapseNodeTransformTest extends AnyFlatSpec with Matchers {
     val transformed = collapse.collapse(InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
       "link",
       edges => EdgirTestUtils.Dummy.ConnectWrapper(
-        edges.map{_.asInstanceOf[ConnectWrapper].name}.mkString(", ")))
+        DesignPath.root + "merged"))
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper("connect_source, connect_sink"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "merged"),
         source = Seq("source", "port"),
         target = Seq("sink", "port")
       ),

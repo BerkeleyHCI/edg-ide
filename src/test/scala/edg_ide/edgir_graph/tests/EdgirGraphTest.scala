@@ -2,11 +2,12 @@ package edg_ide.edgir_graph.tests
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
-import edg_ide.{EdgirLibrary, EdgirUtils}
+import edg_ide.EdgirUtils
 import edg.elem.elem
 import edg.expr.expr
 import edg.schema.schema
-import edg_ide.edgir_graph.{EdgirGraph, BlockWrapper, LinkWrapper, PortWrapper, ConnectWrapper}
+import edg.wir.DesignPath
+import edg_ide.edgir_graph.{BlockWrapper, ConnectWrapper, EdgirGraph, LinkWrapper, PortWrapper}
 import edg_ide.edgir_graph.EdgirGraph.EdgirNode
 
 
@@ -57,40 +58,43 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
     )
     val blocklikeIr = elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(blockIr))
     val edgirGraph = EdgirGraph.blockLikeToNode(
-      blocklikeIr,
-      "root",
-      new EdgirLibrary(schema.Library())
+      DesignPath.root,
+      blocklikeIr
     )
 
     val refGraph = EdgirGraph.EdgirNode(
-      data = BlockWrapper(blocklikeIr),
+      data = BlockWrapper(DesignPath.root, blocklikeIr),
       members = Map(
         "source" -> EdgirGraph.EdgirNode(
-          data = BlockWrapper(blockIr.blocks("source")),
+          data = BlockWrapper(DesignPath.root + "source", blockIr.blocks("source")),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = PortWrapper(blockIr.blocks("source").`type`.hierarchy.get.ports("port"))
+              data = PortWrapper(DesignPath.root + "source" + "port",
+                blockIr.blocks("source").`type`.hierarchy.get.ports("port"))
             ),
           ),
           edges = Seq()
         ),
         "sink" -> EdgirGraph.EdgirNode(
-          data = BlockWrapper(blockIr.blocks("sink")),
+          data = BlockWrapper(DesignPath.root + "sink", blockIr.blocks("sink")),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = PortWrapper(blockIr.blocks("sink").`type`.hierarchy.get.ports("port"))
+              data = PortWrapper(DesignPath.root + "sink" + "port",
+                blockIr.blocks("sink").`type`.hierarchy.get.ports("port"))
             ),
           ),
           edges = Seq()
         ),
         "link" -> EdgirGraph.EdgirNode(
-          data = LinkWrapper(blockIr.links("link")),
+          data = LinkWrapper(DesignPath.root + "link", blockIr.links("link")),
           members = Map(
             "source" -> EdgirGraph.EdgirPort(
-              data = PortWrapper(blockIr.links("link").`type`.link.get.ports("source"))
+              data = PortWrapper(DesignPath.root + "link" + "source",
+                blockIr.links("link").`type`.link.get.ports("source"))
             ),
             "sink" -> EdgirGraph.EdgirPort(
-              data = PortWrapper(blockIr.links("link").`type`.link.get.ports("sink"))
+              data = PortWrapper(DesignPath.root + "link" + "sink",
+                blockIr.links("link").`type`.link.get.ports("sink"))
             ),
           ),
           edges = Seq()
@@ -98,12 +102,12 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = ConnectWrapper("connect_source", blockIr.constraints("connect_source")),
+          data = ConnectWrapper(DesignPath.root + "connect_source", blockIr.constraints("connect_source")),
           source = Seq("source", "port"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = ConnectWrapper("connect_sink", blockIr.constraints("connect_sink")),
+          data = ConnectWrapper(DesignPath.root + "connect_sink", blockIr.constraints("connect_sink")),
           source = Seq("sink", "port"),
           target = Seq("link", "sink")
         ),
@@ -152,27 +156,27 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
     )
     val blocklikeIr = elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(blockIr))
     val edgirGraph = EdgirGraph.blockLikeToNode(
-      blocklikeIr,
-      "root",
-      new EdgirLibrary(schema.Library())
+      DesignPath.root,
+      blocklikeIr
     )
 
     val outerBlockIr = blockIr.blocks("outer").`type`.hierarchy.get
 
     val refGraph = EdgirGraph.EdgirNode(
-      data = BlockWrapper(blocklikeIr),
+      data = BlockWrapper(DesignPath.root, blocklikeIr),
       members = Map(
         "outer" -> EdgirGraph.EdgirNode(
-          data = BlockWrapper(blockIr.blocks("outer")),
+          data = BlockWrapper(DesignPath.root + "outer", blockIr.blocks("outer")),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = PortWrapper(outerBlockIr.ports("port"))
+              data = PortWrapper(DesignPath.root + "outer" + "port", outerBlockIr.ports("port"))
             ),
             "inner" -> EdgirGraph.EdgirNode(
-              data = BlockWrapper(outerBlockIr.blocks("inner")),
+              data = BlockWrapper(DesignPath.root + "outer" + "inner", outerBlockIr.blocks("inner")),
               members = Map(
                 "port" -> EdgirGraph.EdgirPort(
-                  data = PortWrapper(outerBlockIr.blocks("inner").`type`.hierarchy.get.ports("port"))
+                  data = PortWrapper(DesignPath.root + "outer" + "inner" + "port",
+                    outerBlockIr.blocks("inner").`type`.hierarchy.get.ports("port"))
                 ),
               ),
               edges = Seq()
@@ -180,7 +184,7 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           ),
           edges = Seq(
             EdgirGraph.EdgirEdge(
-              data = ConnectWrapper("export", outerBlockIr.constraints("export")),
+              data = ConnectWrapper(DesignPath.root + "outer" + "export", outerBlockIr.constraints("export")),
               source = Seq("inner", "port"),
               target = Seq("port")
             ),
