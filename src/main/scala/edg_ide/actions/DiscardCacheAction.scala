@@ -12,7 +12,7 @@ class DiscardCacheAction() extends AnAction() {
 
   override def actionPerformed(event: AnActionEvent): Unit = {
     val psiFile = Errorable(event.getData(CommonDataKeys.PSI_FILE), "No PSI file")
-    val module = psiFile.mapOption(s"PSI File $psiFile not in project ${event.getProject.getBaseDir}") { psiFile =>
+    val module = psiFile.flatMap(s"PSI File $psiFile not in project ${event.getProject.getBaseDir}") { psiFile =>
       ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile)
     }
 

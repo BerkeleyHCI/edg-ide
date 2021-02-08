@@ -18,7 +18,7 @@ class BlockVisualizationAction() extends AnAction() {
     val containingClass = (psiFile + offset).map("No element") {
       case (psiFile, offset) => psiFile.findElementAt(offset)
     }.map("No containing class") { PsiTreeUtil.getParentOfType(_, classOf[PyClass]) }
-    val module = psiFile.mapOption(s"PSI File $psiFile not in project ${event.getProject.getBaseDir}") { psiFile =>
+    val module = psiFile.flatMap(s"PSI File $psiFile not in project ${event.getProject.getBaseDir}") { psiFile =>
       ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile)
     }
 

@@ -6,7 +6,7 @@
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.python</depends>
   <extensions defaultExtensionNs="com.intellij">
-    <toolWindow id="BlockVisualizer" icon="/icons/test.svg" anchor="right"
+    <toolWindow id="BlockVisualizer" icon="AllIcons.Toolwindows.ToolWindowHierarchy" anchor="right"
                 factoryClass="edg_ide.ui.BlockVisualizerFactory"/>
     <projectService serviceImplementation="edg_ide.ui.BlockVisualizerServiceWrapper"/>
     <projectService serviceImplementation="edg_ide.ui.EdgCompilerServiceWrapper"/>
@@ -14,29 +14,27 @@
 
   <actions>
     <action id="edg_ide.action.NavigateToBlockAction" class="edg_ide.actions.NavigateToBlockAction"
-            text="Navigate To Block" description="Select the block in the block diagram view of the element at the caret in the code view"
-            icon="edg_ide.EdgIcons$.Test">
+            text="Navigate To Block" description="Select the block in the block diagram view of the element at the caret in the code view">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt A" second-keystroke="C" keymap="$default"/>
     </action>
 
     <action id="edg_ide.action.BlockVisualizationAction" class="edg_ide.actions.BlockVisualizationAction"
             text="Open Block Visualizer" description="Open the block visualizer at the currently selected class"
-            icon="edg_ide.EdgIcons$.Test">
+            icon="AllIcons.Toolwindows.ToolWindowHierarchy">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt T" keymap="$default"/>
     </action>
 
     <action id="edg_ide.actions.DiscardCacheAction" class="edg_ide.actions.DiscardCacheAction"
-            text="Discard Module" description="Discard the currently opened Python module (file) from the cache"
-            icon="edg_ide.EdgIcons$.Test">
+            text="Discard Module" description="Discard the currently opened Python module (file) from the cache">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt Q" keymap="$default"/>
     </action>
 
     <action id="edg_ide.actions.RefreshFileAction" class="edg_ide.actions.RefreshFileAction"
             text="Refresh File" description="Refreshes the visualization, discarding the currently opened Python module (file) from the cache"
-            icon="edg_ide.EdgIcons$.Test">
+            icon="AllIcons.Actions.Rerun">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt W" keymap="$default"/>
     </action>
