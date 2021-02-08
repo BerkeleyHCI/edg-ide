@@ -8,7 +8,7 @@ import com.intellij.openapi.project.Project
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
 // because IntelliJ doesn't seem to like the Scala class.
 object BlockVisualizerService {
-  def getInstance(project: Project): BlockVisualizerService = {
+  def apply(project: Project): BlockVisualizerService = {
     project.getService(classOf[BlockVisualizerServiceWrapper]).asInstanceOf[BlockVisualizerService]
   }
 }

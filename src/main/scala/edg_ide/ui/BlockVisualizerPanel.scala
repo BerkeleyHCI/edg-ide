@@ -55,8 +55,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Internal State
   //
   private var design = schema.Design()
-  private val pyLib = new PythonInterfaceLibrary(new PythonInterface())
-  private var compiler = new Compiler(design, pyLib)
+  private var compiler = new Compiler(design, EdgCompilerService(project).pyLib)
 
   // GUI-facing state
   //
@@ -171,15 +170,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   //
   def update(): Unit = {
     status.setText(s"Compiling")
-    pyLib.setModules(Seq(blockModule.getText()))
+    EdgCompilerService(project).pyLib.setModules(Seq(blockModule.getText()))
     try {
       val fullName = blockModule.getText() + "." + blockName.getText()
-      val block = pyLib.getBlock(ElemBuilder.LibraryPath(fullName))
+      val block = EdgCompilerService(project).pyLib.getBlock(ElemBuilder.LibraryPath(fullName))
       val design = schema.Design(contents = Some(block))
-      val compiler = new Compiler(design, pyLib)
-      val (compiled, time) = timeExec {
-        compiler.compile()
-      }
+      val (compiled, compiler, time) = EdgCompilerService(project).compile(design)
       val checker = new DesignStructuralValidate()
       val errors = compiler.getErrors() ++ checker.map(compiled)
       if (errors.isEmpty) {
@@ -192,7 +188,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
       }
       setDesign(compiled, compiler)
-      libraryPanel.setLibrary(pyLib)
+      libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
       errorPanel.setErrors(errors)
     } catch {
       case e: Throwable =>

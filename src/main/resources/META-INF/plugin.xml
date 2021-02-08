@@ -9,6 +9,7 @@
     <toolWindow id="BlockVisualizer" icon="/icons/test.svg" anchor="right"
                 factoryClass="edg_ide.ui.BlockVisualizerFactory"/>
     <projectService serviceImplementation="edg_ide.ui.BlockVisualizerServiceWrapper"/>
+    <projectService serviceImplementation="edg_ide.ui.EdgCompilerServiceWrapper"/>
   </extensions>
 
   <actions>
@@ -24,6 +25,13 @@
             icon="edg_ide.EdgIcons$.Test">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt W" keymap="$default"/>
+    </action>
+
+    <action id="edg_ide.actions.DiscardCacheAction" class="edg_ide.actions.DiscardCacheAction"
+            text="Discard Module" description="Discard the currently opened Python module (file) from the cache"
+            icon="edg_ide.EdgIcons$.Test">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
+      <keyboard-shortcut first-keystroke="control alt Q" keymap="$default"/>
     </action>
   </actions>
 </idea-plugin>

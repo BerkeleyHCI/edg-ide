@@ -13,21 +13,8 @@ import scala.collection.mutable
 class BlockVisualizationAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.BlockVisualizationAction")
 
-  def moduleFrom(base: VirtualFile, file: VirtualFile): Option[Seq[String]] = {
-    val pathBuilder = mutable.ListBuffer(file.getNameWithoutExtension)
-    var fileDir = file.getParent
-    while (fileDir.exists()) {
-      if (fileDir == base) {
-        return Some(pathBuilder.toSeq.reverse)
-      }
-      pathBuilder += fileDir.getName
-      fileDir = fileDir.getParent
-    }
-    None
-  }
-
   override def actionPerformed(event: AnActionEvent): Unit = {
-    val visualizer = Errorable(BlockVisualizerService.getInstance(event.getProject).visualizerPanelOption,
+    val visualizer = Errorable(BlockVisualizerService(event.getProject).visualizerPanelOption,
       "No visualizer panel")
 
     val editor = Errorable(event.getData(CommonDataKeys.EDITOR), "No editor")
@@ -37,7 +24,7 @@ class BlockVisualizationAction() extends AnAction() {
       case (psiFile, offset) => psiFile.findElementAt(offset)
     }.map("No containing class") { PsiTreeUtil.getParentOfType(_, classOf[PyClass]) }
     val module = psiFile.mapOption(s"PSI File $psiFile not in project ${event.getProject.getBaseDir}") { psiFile =>
-      moduleFrom(event.getProject.getBaseDir, psiFile.getVirtualFile)
+      ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile)
     }
 
     visualizer + ((psiFile + module) + containingClass) match {

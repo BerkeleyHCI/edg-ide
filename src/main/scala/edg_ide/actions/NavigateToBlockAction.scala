@@ -12,7 +12,7 @@ class NavigateToBlockAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.NavigateToBlockAction")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
-    val visualizer = Errorable(BlockVisualizerService.getInstance(event.getProject).visualizerPanelOption,
+    val visualizer = Errorable(BlockVisualizerService.apply(event.getProject).visualizerPanelOption,
       "No visualizer panel")
 
     val editor = Errorable(event.getData(CommonDataKeys.EDITOR), "No editor")
