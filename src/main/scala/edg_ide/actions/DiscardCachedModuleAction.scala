@@ -7,8 +7,8 @@ import edg_ide.ui.EdgCompilerService
 import edg_ide.util.ErrorableNotify._
 
 
-class DiscardCacheAction() extends AnAction() {
-  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.DiscaradCacheAction")
+class DiscardCachedModuleAction() extends AnAction() {
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.DiscardCachedModuleAction")
 
   override def actionPerformed(event: AnActionEvent): Unit = {
     val psiFile = Errorable(event.getData(CommonDataKeys.PSI_FILE), "No PSI file")
@@ -16,7 +16,7 @@ class DiscardCacheAction() extends AnAction() {
       ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile)
     }
 
-    module.mapOrNotify("edg_ide.actions.DiscaradCacheAction", event.getProject) { module =>
+    module.mapOrNotify("edg_ide.actions.DiscardCachedModuleAction", event.getProject) { module =>
       val moduleName = module.mkString(".")
       val discarded = EdgCompilerService(event.getProject).pyLib.clearCache(moduleName)
       if (discarded.nonEmpty) {

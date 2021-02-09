@@ -26,10 +26,15 @@
       <keyboard-shortcut first-keystroke="control alt T" keymap="$default"/>
     </action>
 
-    <action id="edg_ide.actions.DiscardCacheAction" class="edg_ide.actions.DiscardCacheAction"
-            text="Discard Module" description="Discard the currently opened Python module (file) from the cache">
+    <action id="edg_ide.actions.EmptyCacheAction" class="edg_ide.actions.EmptyCacheAction"
+            text="Empty IDE Cache" description="Empty the IDE cache only (does not affect the Python cache)">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt Q" keymap="$default"/>
+    </action>
+
+    <action id="edg_ide.actions.DiscardCachedModuleAction" class="edg_ide.actions.DiscardCachedModuleAction"
+            text="Discard Cached Module" description="Discard the currently opened Python module (file) from the cache">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
     </action>
 
     <action id="edg_ide.actions.RefreshFileAction" class="edg_ide.actions.RefreshFileAction"

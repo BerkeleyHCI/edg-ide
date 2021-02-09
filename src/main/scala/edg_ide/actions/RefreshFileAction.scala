@@ -17,7 +17,7 @@ class RefreshFileAction() extends AnAction() {
     (document + visualizer).mapOrNotify("edg_ide.actions.RefreshFileAction", event.getProject) { case (document, visualizer) =>
       val documentManager = FileDocumentManager.getInstance()
       documentManager.saveDocument(document)
-      new DiscardCacheAction().actionPerformed(event)  // TODO this could integrate better by inlining
+      new DiscardCachedModuleAction().actionPerformed(event)  // TODO this could integrate better by inlining
       visualizer.update()
     }
   }
