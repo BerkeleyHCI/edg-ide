@@ -87,8 +87,8 @@ object HierarchyGraphElk {
   /**
     * Converts a HGraphNode to a ELK node, returning a map of its ports
     */
-  def HGraphNodeToElkNode[NodeType, PortType, EdgeType, PropType]
-      (node: HGraphNode[NodeType, PortType, EdgeType], name: String, parent: Option[ElkNode],
+  def HGraphNodeToElkNode[NodeType, PortType, EdgeType, PropType](
+      node: HGraphNode[NodeType, PortType, EdgeType], name: String, parent: Option[ElkNode],
       mapper: Option[PropertyMapper[NodeType, PortType, EdgeType, PropType]] = None):
       (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
     val elkNode = parent match {
@@ -148,14 +148,11 @@ object HierarchyGraphElk {
   /**
     * Converts a HGraphNode to a ELK Node, and performs layout
     */
-  def HGraphNodeToElk[NodeType, PortType, EdgeType, PropType](node: HGraphNode[NodeType, PortType, EdgeType],
-                                                              property: Option[IProperty[PropType]] = None,
-                                                              nodeConv: Option[NodeType => PropType] = None,
-                                                              portConv: Option[PortType => PropType] = None,
-                                                              edgeConv: Option[EdgeType => PropType] = None): ElkNode = {
+  def HGraphNodeToElk[NodeType, PortType, EdgeType, PropType](
+      node: HGraphNode[NodeType, PortType, EdgeType],
+      mapper: Option[PropertyMapper[NodeType, PortType, EdgeType, PropType]] = None): ElkNode = {
     // TODO avoid passing through this 4 parameter nightmare
-    val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None,
-      property, nodeConv, portConv, edgeConv)
+    val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None, mapper)
     engine.layout(root, new BasicProgressMonitor())
     root
   }

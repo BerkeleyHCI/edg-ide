@@ -63,9 +63,9 @@ object DesignPathElkMapper
 
   override val property: IProperty[DesignPath] = DesignPathProperty
 
-  override def nodeConv(node: NodeDataWrapper): IProperty[DesignPath] = node.path
-  override def portConv(port: PortWrapper): IProperty[DesignPath] = port.path
-  override def edgeConv(edge: EdgeWrapper): IProperty[DesignPath] = edge.path
+  override def nodeConv(node: NodeDataWrapper): DesignPath = node.path
+  override def portConv(port: PortWrapper): DesignPath = port.path
+  override def edgeConv(edge: EdgeWrapper): DesignPath = edge.path
 }
 
 
@@ -128,7 +128,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
-      println(node.getProperty(DesignPathProperty))
+      println(node.getProperty(DesignPathElkMapper.property))
     }
   }
   private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
@@ -234,9 +234,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
         InferEdgeDirectionTransform(SimplifyPortTransform(
           PruneDepthTransform(edgirGraph, 2)))))  // TODO configurable depth
-      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,  // TODO super ugly code =(
-        Some(DesignPathProperty), Some({x: NodeDataWrapper => x.path}),
-        Some({x: PortWrapper => x.path}), Some({x: EdgeWrapper => x.path}))
+      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph, Some(DesignPathElkMapper))
       graph.setGraph(layoutGraphRoot)
       designTree.setModel(new BlockTreeTableModel(block))
       designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
