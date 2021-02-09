@@ -61,7 +61,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // GUI-facing state
   //
-  private var selectedPath: Seq[String] = Seq()  // root implicitly selected by default
+  private var selectedPath: DesignPath = DesignPath.root  // root implicitly selected by default
   // This hack ignores actions when programmatically synchronizing the design tree and graph
   // TODO refactor w/ shared model eg https://docs.oracle.com/javase/tutorial/uiswing/examples/components/index.html#SharedModelDemo
   private var ignoreActions: Boolean = false
@@ -181,6 +181,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.steps.last})")
     }
     detailPanel.setLoaded(path, design, compiler)
+    selectedPath = path
 
     ignoreActions = true
 
@@ -251,6 +252,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       designTreeModel = new BlockTreeTableModel(block)
       designTree.setModel(designTreeModel)
       designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+
+      // TODO this should resolve as far as possible here, instead of passing a newly invalid path
+      select(selectedPath)  // reload previous selection to the extent possible
     case None => graph.setGraph(emptyHGraph)
   }
 
