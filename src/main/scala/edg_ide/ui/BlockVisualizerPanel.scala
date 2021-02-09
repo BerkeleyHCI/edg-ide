@@ -19,11 +19,13 @@ import edg.wir
 import edg.wir.DesignPath
 import org.eclipse.elk.graph.ElkGraphElement
 
+import scala.jdk.CollectionConverters._
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.FileInputStream
 import javax.swing.event.{ListSelectionEvent, TreeSelectionEvent, TreeSelectionListener}
-import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField, ListSelectionModel}
+import javax.swing.tree.TreePath
+import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField, ListSelectionModel, SwingUtilities}
 
 
 object Gbc {
@@ -60,6 +62,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // GUI-facing state
   //
   private var selectedPath: Seq[String] = Seq()  // root implicitly selected by default
+  // This hack ignores actions when programmatically synchronizing the design tree and graph
+  // TODO refactor w/ shared model eg https://docs.oracle.com/javase/tutorial/uiswing/examples/components/index.html#SharedModelDemo
+  private var ignoreActions: Boolean = false
 
   // GUI Components
   //
@@ -110,6 +115,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
+      if (ignoreActions) {
+        return
+      }
       Option(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)).foreach(select)
     }
   }
@@ -121,12 +129,17 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
   mainSplitter.setSecondComponent(bottomSplitter)
 
-  private val designTree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  private var designTreeModel = new BlockTreeTableModel(edg.elem.elem.HierarchyBlock())
+  private val designTree = new TreeTable(designTreeModel)
   private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
+      if (ignoreActions) {
+        return
+      }
       e.getPath.getLastPathComponent match {
         case node: HierarchyBlockNode => select(node.path)
+          println(s"ValueChanged ${e.getPath}")
         case value => notificationGroup.createNotification(
           s"Unknown selection $value", NotificationType.WARNING)
             .notify(project)
@@ -169,8 +182,17 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
     detailPanel.setLoaded(path, design, compiler)
 
+    ignoreActions = true
+
     val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
     graph.setSelected(targetElkPrefix.last)
+
+    val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
+    designTree.clearSelection()
+    val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) { _.pathByAddingChild(_) }
+    designTree.addSelectedPath(treePath)
+
+    ignoreActions = false
   }
 
   def update(): Unit = {
@@ -226,7 +248,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         Some(ElkEdgirGraphUtils.DesignPathMapper))
 
       graph.setGraph(layoutGraphRoot)
-      designTree.setModel(new BlockTreeTableModel(block))
+      designTreeModel = new BlockTreeTableModel(block)
+      designTree.setModel(designTreeModel)
       designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
     case None => graph.setGraph(emptyHGraph)
   }

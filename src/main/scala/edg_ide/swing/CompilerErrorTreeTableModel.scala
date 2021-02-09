@@ -60,6 +60,8 @@ object CompilerErrorNodeBase {
           new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
           new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString),
         ) ++ deps.toSeq.map(elaborateRecordToDetailNode))
+      case CompilerError.Unelaborated(unelaborated, deps) =>
+        (s"Unknown unelaborated $unelaborated", "", deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.LibraryElement(path, target) =>
         (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>

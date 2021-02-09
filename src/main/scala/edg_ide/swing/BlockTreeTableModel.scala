@@ -36,6 +36,28 @@ class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
 }
 
 
+object BlockTreeTableModel {
+  def follow(path: DesignPath, model: BlockTreeTableModel): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
+
+    def inner(nodePrefix: Seq[HierarchyBlockNode], node: HierarchyBlockNode): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
+      if (node.path == path) {
+        (nodePrefix :+ node, Some(node))
+      } else {
+        val nextChildNodes = node.children.filter { node => path.steps.startsWith(node.path.steps) }
+        nextChildNodes match {
+          case Seq() => (nodePrefix :+ node, None)  // no further steps possible
+          case Seq(childNode) => inner(nodePrefix :+ node, childNode)  // exactly one next step
+          case Seq(childNode, _) => inner(nodePrefix :+ node, childNode)  // multiple possible, just pick one
+            // TODO maybe this should error or warn
+        }
+      }
+    }
+
+    inner(Seq(), model.rootNode)
+  }
+}
+
+
 class BlockTreeTableModel(root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
   val rootNode: HierarchyBlockNode = new HierarchyBlockNode(DesignPath.root, root)
   val COLUMNS = Seq("Path", "Class")
