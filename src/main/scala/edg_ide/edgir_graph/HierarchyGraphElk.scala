@@ -8,6 +8,7 @@ import org.eclipse.elk.core.math.KVector
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.graph._
+import org.eclipse.elk.graph.properties.IProperty
 import org.eclipse.elk.graph.util.ElkGraphUtil
 
 
@@ -76,16 +77,26 @@ object HierarchyGraphElk {
 
   // Internal functions for converting HGraph* to ELK objects
   //
+  trait PropertyMapper[NodeType, PortType, EdgeType, PropType] {
+    val property: IProperty[PropType]
+    def nodeConv(node: NodeType): PropType
+    def portConv(port: PortType): PropType
+    def edgeConv(edge: EdgeType): PropType
+  }
 
   /**
     * Converts a HGraphNode to a ELK node, returning a map of its ports
     */
-  def HGraphNodeToElkNode[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType],
-                                                        name: String, parent: Option[ElkNode]):
+  def HGraphNodeToElkNode[NodeType, PortType, EdgeType, PropType]
+      (node: HGraphNode[NodeType, PortType, EdgeType], name: String, parent: Option[ElkNode],
+      mapper: Option[PropertyMapper[NodeType, PortType, EdgeType, PropType]] = None):
       (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
     val elkNode = parent match {
       case Some(parent) => addNode(parent, name)
       case None => makeGraphRoot()
+    }
+    mapper.foreach { mapper =>
+      elkNode.setProperty(mapper.property, mapper.nodeConv(node.data))
     }
 
     ElkGraphUtil.createLabel(name, elkNode)
@@ -97,6 +108,9 @@ object HierarchyGraphElk {
     val myElkPorts = node.members.collect {
       case (childName, childElt: HGraphPort[PortType]) =>
         val childElkPort = addPort(elkNode, name)
+        mapper.foreach { mapper =>
+          childElkPort.setProperty(mapper.property, mapper.portConv(childElt.data))
+        }
         ElkGraphUtil.createLabel(childName, childElkPort)
         // TODO: currently only name label is displayed. Is there a sane way to display additional data?
         // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)
@@ -106,7 +120,7 @@ object HierarchyGraphElk {
     val myElkChildren = node.members.collect {
       // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
       case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
-        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName, Some(elkNode))
+        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName, Some(elkNode), mapper)
         // Add the outer element into the inner namespace path
         childConnectables.map { case (childPath, childElk) =>
           Seq(childName) ++ childPath -> childElk
@@ -120,7 +134,11 @@ object HierarchyGraphElk {
         case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
         case (None, _) => logger.warn(s"edge with invalid source ${edge.source}")
         case (_, None) => logger.warn(s"edge with invalid target ${edge.target}")
-        case (Some(elkSource), Some(elkTarget)) => addEdge(elkNode, elkSource, elkTarget)
+        case (Some(elkSource), Some(elkTarget)) =>
+          val childEdge = addEdge(elkNode, elkSource, elkTarget)
+          mapper.foreach { mapper =>
+            childEdge.setProperty(mapper.property, mapper.edgeConv(edge.data))
+          }
       }
     }
 
@@ -130,8 +148,14 @@ object HierarchyGraphElk {
   /**
     * Converts a HGraphNode to a ELK Node, and performs layout
     */
-  def HGraphNodeToElk[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType]): ElkNode = {
-    val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None)
+  def HGraphNodeToElk[NodeType, PortType, EdgeType, PropType](node: HGraphNode[NodeType, PortType, EdgeType],
+                                                              property: Option[IProperty[PropType]] = None,
+                                                              nodeConv: Option[NodeType => PropType] = None,
+                                                              portConv: Option[PortType => PropType] = None,
+                                                              edgeConv: Option[EdgeType => PropType] = None): ElkNode = {
+    // TODO avoid passing through this 4 parameter nightmare
+    val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None,
+      property, nodeConv, portConv, edgeConv)
     engine.layout(root, new BasicProgressMonitor())
     root
   }

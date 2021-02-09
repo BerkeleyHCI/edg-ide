@@ -8,6 +8,7 @@ import edg.wir.DesignPath
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(
 sealed trait NodeDataWrapper {
+  def path: DesignPath
 }
 
 case class BlockWrapper(path: DesignPath, blockLike: elem.BlockLike) extends NodeDataWrapper {
@@ -36,6 +37,7 @@ case class PortWrapper(path: DesignPath, portLike: elem.PortLike) {
 
 
 sealed trait EdgeWrapper {
+  def path: DesignPath
 }
 
 case class ConnectWrapper(path: DesignPath, constraint: expr.ValueExpr) extends EdgeWrapper

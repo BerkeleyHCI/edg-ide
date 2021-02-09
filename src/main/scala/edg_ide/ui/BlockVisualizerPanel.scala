@@ -13,7 +13,7 @@ import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
 import edg.util.timeExec
-import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
+import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgeWrapper, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
 import edg.wir
 import edg.wir.DesignPath
@@ -48,6 +48,24 @@ object Gbc {
     gbc.gridheight = ysize
     gbc
   }
+}
+
+
+import org.eclipse.elk.graph.properties.IProperty
+object DesignPathElkMapper
+    extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper, DesignPath] {
+  object DesignPathProperty extends IProperty[DesignPath] {
+    override def getDefault: DesignPath = null
+    override def getId: String = "DesignPath"
+    override def getLowerBound: Comparable[_ >: DesignPath] = null
+    override def getUpperBound: Comparable[_ >: DesignPath] = null
+  }
+
+  override val property: IProperty[DesignPath] = DesignPathProperty
+
+  override def nodeConv(node: NodeDataWrapper): IProperty[DesignPath] = node.path
+  override def portConv(port: PortWrapper): IProperty[DesignPath] = port.path
+  override def edgeConv(edge: EdgeWrapper): IProperty[DesignPath] = edge.path
 }
 
 
@@ -110,8 +128,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
-      selectedPath = getSelectedByPath
-      selectedPath = selectedPath.slice(1, selectedPath.length)  // TODO this prunes the prefixing 'design' elt
+      println(node.getProperty(DesignPathProperty))
     }
   }
   private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
@@ -214,10 +231,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       this.compiler = compiler
       // TODO remove EdgirLibrary requirement
       val edgirGraph = EdgirGraph.blockToNode(DesignPath.root, block)
-      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
-        CollapseBridgeTransform(CollapseLinkTransform(
-          InferEdgeDirectionTransform(SimplifyPortTransform(
-            PruneDepthTransform(edgirGraph, 2))))))  // TODO configurable depth
+      val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
+        InferEdgeDirectionTransform(SimplifyPortTransform(
+          PruneDepthTransform(edgirGraph, 2)))))  // TODO configurable depth
+      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,  // TODO super ugly code =(
+        Some(DesignPathProperty), Some({x: NodeDataWrapper => x.path}),
+        Some({x: PortWrapper => x.path}), Some({x: EdgeWrapper => x.path}))
       graph.setGraph(layoutGraphRoot)
       designTree.setModel(new BlockTreeTableModel(block))
       designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
