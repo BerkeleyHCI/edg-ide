@@ -139,7 +139,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       }
       e.getPath.getLastPathComponent match {
         case node: HierarchyBlockNode => select(node.path)
-          println(s"ValueChanged ${e.getPath}")
         case value => notificationGroup.createNotification(
           s"Unknown selection $value", NotificationType.WARNING)
             .notify(project)
