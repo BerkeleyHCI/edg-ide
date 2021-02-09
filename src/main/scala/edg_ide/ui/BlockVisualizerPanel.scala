@@ -61,7 +61,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // GUI-facing state
   //
-  private var selectedPath: DesignPath = DesignPath.root  // root implicitly selected by default
+  private var selectedPath: DesignPath = DesignPath()  // root implicitly selected by default
   // This hack ignores actions when programmatically synchronizing the design tree and graph
   // TODO refactor w/ shared model eg https://docs.oracle.com/javase/tutorial/uiswing/examples/components/index.html#SharedModelDemo
   private var ignoreActions: Boolean = false
@@ -111,7 +111,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(DesignPath.root, elem.HierarchyBlock()))
+    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()))
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
@@ -174,7 +174,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Actions
   //
   def select(path: DesignPath): Unit = {
-    if (path == DesignPath.root) {
+    if (path == DesignPath()) {
       tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (root)")
     } else {
       tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.steps.last})")
@@ -240,7 +240,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       this.design = design
       this.compiler = compiler
 
-      val edgirGraph = EdgirGraph.blockToNode(DesignPath.root, block)
+      val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
       val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
         InferEdgeDirectionTransform(SimplifyPortTransform(
           PruneDepthTransform(edgirGraph, 2)))))  // TODO configurable depth

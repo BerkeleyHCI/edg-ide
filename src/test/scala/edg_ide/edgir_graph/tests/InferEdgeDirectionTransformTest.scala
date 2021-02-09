@@ -15,12 +15,12 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_source"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
         source = Seq("source", "port"),
         target = Seq("link", "source")
       ),
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_sink"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
         source = Seq("link", "sinks"),
         target = Seq("sink", "port")
       ),
@@ -32,12 +32,12 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_source"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
         source = Seq("source", "port"),
         target = Seq("link", "source")
       ),
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_sink"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
         source = Seq("link", "sinks"),
         target = Seq("sink", "port")
       ),
@@ -45,14 +45,14 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.members("source").asInstanceOf[EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "source" + "export_inner"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "source" + "export_inner"),
         source = Seq("inner", "port"),
         target = Seq("port")
       )
     ))
     transformed.members("sink").asInstanceOf[EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "sink" + "export_inner"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "sink" + "export_inner"),
         source = Seq("port"),
         target = Seq("inner", "port")
       )

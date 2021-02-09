@@ -14,7 +14,7 @@ class CollapseLinkTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgeLinkWrapper(DesignPath.root + "link", EdgirTestUtils.Dummy.LinkLike),
+        data = EdgeLinkWrapper(DesignPath() + "link", EdgirTestUtils.Dummy.LinkLike),
         source = Seq("source", "port"),
         target = Seq("sink", "port")
       ),

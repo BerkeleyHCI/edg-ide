@@ -14,11 +14,11 @@ class CollapseNodeTransformTest extends AnyFlatSpec with Matchers {
     val transformed = collapse.collapse(InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
       "link",
       edges => EdgirTestUtils.Dummy.ConnectWrapper(
-        DesignPath.root + "merged"))
+        DesignPath() + "merged"))
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "merged"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "merged"),
         source = Seq("source", "port"),
         target = Seq("sink", "port")
       ),

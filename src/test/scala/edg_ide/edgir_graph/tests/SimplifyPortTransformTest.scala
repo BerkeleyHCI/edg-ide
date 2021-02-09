@@ -11,34 +11,34 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
 
   it should "work on a flat source-to-sink design" in {
     val testGraph = EdgirGraph.EdgirNode(
-      data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root),
+      data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
       members = Map(
         "source" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "source"),
+          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source"),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "source" + "port")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "port")
             ),
           ),
           edges = Seq()
         ),
         "sink" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "sink"),
+          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink"),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "sink" + "port")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "port")
             ),
           ),
           edges = Seq()
         ),
         "link" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath.root + "link"),
+          data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath() + "link"),
           members = Map(
             "source" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "link" + "source")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "source")
             ),
             "sinks" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "link" + "sinks")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks")
             ),
           ),
           edges = Seq()
@@ -46,12 +46,12 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_source"),
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
           source = Seq("source", "port", "subport"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_sink"),
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
           source = Seq("sink", "port"),
           target = Seq("link", "sinks", "subport")
         ),
@@ -62,12 +62,12 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_source"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
         source = Seq("source", "port"),
         target = Seq("link", "source")
       ),
       EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_sink"),
+        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
         source = Seq("sink", "port"),
         target = Seq("link", "sinks")
       ),

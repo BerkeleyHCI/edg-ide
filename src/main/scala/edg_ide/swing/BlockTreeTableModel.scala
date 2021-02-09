@@ -59,7 +59,7 @@ object BlockTreeTableModel {
 
 
 class BlockTreeTableModel(root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
-  val rootNode: HierarchyBlockNode = new HierarchyBlockNode(DesignPath.root, root)
+  val rootNode: HierarchyBlockNode = new HierarchyBlockNode(DesignPath(), root)
   val COLUMNS = Seq("Path", "Class")
 
   // TreeView abstract methods

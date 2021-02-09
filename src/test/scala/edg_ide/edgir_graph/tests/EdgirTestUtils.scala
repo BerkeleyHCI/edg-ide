@@ -42,34 +42,34 @@ object EdgirTestUtils {
       * Test graph containing a source connected to a sink through a link
       */
     val flatGraph = EdgirGraph.EdgirNode(
-      data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root),
+      data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
       members = Map(
         "source" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "source"),
+          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source"),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "source" + "port")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "port")
             ),
           ),
           edges = Seq()
         ),
         "sink" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "sink"),
+          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink"),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "sink" + "port")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "port")
             ),
           ),
           edges = Seq()
         ),
         "link" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath.root + "link"),
+          data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath() + "link"),
           members = Map(
             "source" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "link" + "source")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "source")
             ),
             "sinks" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "link" + "sinks")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks")
             ),
           ),
           edges = Seq()
@@ -77,12 +77,12 @@ object EdgirTestUtils {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_source"),
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
           source = Seq("source", "port"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_sink"),
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
           source = Seq("sink", "port"),
           target = Seq("link", "sinks")
         ),
@@ -94,19 +94,19 @@ object EdgirTestUtils {
       * but with both the source and sink containing an inner export
       */
     val hierarchyGraph = EdgirGraph.EdgirNode(
-      data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root),
+      data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
       members = Map(
         "source" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "source"),
+          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source"),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "source" + "port")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "port")
             ),
             "inner" -> EdgirGraph.EdgirNode(
-              data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "source" + "inner"),
+              data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source" + "inner"),
               members = Map(
                 "port" -> EdgirGraph.EdgirPort(
-                  data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "source" + "inner" + "port")
+                  data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "inner" + "port")
                 ),
               ),
               edges = Seq()
@@ -114,23 +114,23 @@ object EdgirTestUtils {
           ),
           edges = Seq(
             EdgirGraph.EdgirEdge(
-              data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "source" + "export_inner"),
+              data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "source" + "export_inner"),
               source = Seq("inner", "port"),
               target = Seq("port")
             )
           )
         ),
         "sink" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "sink"),
+          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink"),
           members = Map(
             "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "sink" + "port")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "port")
             ),
             "inner" -> EdgirGraph.EdgirNode(
-              data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath.root + "sink" + "inner"),
+              data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink" + "inner"),
               members = Map(
                 "port" -> EdgirGraph.EdgirPort(
-                  data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "sink" + "inner" + "port")
+                  data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "inner" + "port")
                 ),
               ),
               edges = Seq()
@@ -138,20 +138,20 @@ object EdgirTestUtils {
           ),
           edges = Seq(
             EdgirGraph.EdgirEdge(
-              data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "sink" + "export_inner"),
+              data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "sink" + "export_inner"),
               source = Seq("inner", "port"),
               target = Seq("port")
             )
           )
         ),
         "link" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath.root + "link"),
+          data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath() + "link"),
           members = Map(
             "source" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "link" + "source")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "source")
             ),
             "sinks" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath.root + "link" + "sinks")
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks")
             ),
           ),
           edges = Seq()
@@ -159,12 +159,12 @@ object EdgirTestUtils {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_source"),
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
           source = Seq("source", "port"),
           target = Seq("link", "source")
         ),
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath.root + "connect_sink"),
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
           source = Seq("sink", "port"),
           target = Seq("link", "sinks")
         ),
