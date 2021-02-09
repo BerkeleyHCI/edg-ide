@@ -42,6 +42,8 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     repaint()
   }
 
+  def getGraph: ElkNode = rootNode
+
   def paintEdge(g: Graphics2D, edge: ElkEdge, parentX: Int, parentY: Int): Unit = {
     edge.getSections.asScala.foreach { section =>
       edgeSectionPairs(section).foreach { case (line1, line2) =>

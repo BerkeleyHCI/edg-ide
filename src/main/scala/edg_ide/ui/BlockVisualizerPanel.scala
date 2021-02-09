@@ -13,7 +13,7 @@ import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
 import edg.util.timeExec
-import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgeWrapper, EdgirGraph, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
+import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgeWrapper, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
 import edg.wir
 import edg.wir.DesignPath
@@ -48,24 +48,6 @@ object Gbc {
     gbc.gridheight = ysize
     gbc
   }
-}
-
-
-import org.eclipse.elk.graph.properties.IProperty
-object DesignPathElkMapper
-    extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper, DesignPath] {
-  object DesignPathProperty extends IProperty[DesignPath] {
-    override def getDefault: DesignPath = null
-    override def getId: String = "DesignPath"
-    override def getLowerBound: Comparable[_ >: DesignPath] = null
-    override def getUpperBound: Comparable[_ >: DesignPath] = null
-  }
-
-  override val property: IProperty[DesignPath] = DesignPathProperty
-
-  override def nodeConv(node: NodeDataWrapper): DesignPath = node.path
-  override def portConv(port: PortWrapper): DesignPath = port.path
-  override def edgeConv(edge: EdgeWrapper): DesignPath = edge.path
 }
 
 
@@ -128,7 +110,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
-      println(node.getProperty(DesignPathElkMapper.property))
+      Option(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)).foreach(select)
     }
   }
   private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
@@ -144,13 +126,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
       e.getPath.getLastPathComponent match {
-        case node: HierarchyBlockNode =>
-          if (node.path == DesignPath.root) {
-            tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (root)")
-          } else {
-            tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${node.path.steps.last})")
-          }
-          detailPanel.setLoaded(node.path, design, compiler)
+        case node: HierarchyBlockNode => select(node.path)
         case value => notificationGroup.createNotification(
           s"Unknown selection $value", NotificationType.WARNING)
             .notify(project)
@@ -185,6 +161,18 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // Actions
   //
+  def select(path: DesignPath): Unit = {
+    if (path == DesignPath.root) {
+      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (root)")
+    } else {
+      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.steps.last})")
+    }
+    detailPanel.setLoaded(path, design, compiler)
+
+    val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
+    graph.setSelected(targetElkPrefix.last)
+  }
+
   def update(): Unit = {
     status.setText(s"Compiling")
     EdgCompilerService(project).pyLib.setModules(Seq(blockModule.getText()))
@@ -229,12 +217,14 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     case Some(block) =>
       this.design = design
       this.compiler = compiler
-      // TODO remove EdgirLibrary requirement
+
       val edgirGraph = EdgirGraph.blockToNode(DesignPath.root, block)
       val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
         InferEdgeDirectionTransform(SimplifyPortTransform(
           PruneDepthTransform(edgirGraph, 2)))))  // TODO configurable depth
-      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph, Some(DesignPathElkMapper))
+      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+        Some(ElkEdgirGraphUtils.DesignPathMapper))
+
       graph.setGraph(layoutGraphRoot)
       designTree.setModel(new BlockTreeTableModel(block))
       designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
