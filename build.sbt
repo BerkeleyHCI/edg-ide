@@ -26,6 +26,14 @@ patchPluginXml := pluginXmlOptions { xml =>
   xml.untilBuild        = "202.*"
 }
 
+
+enablePlugins(BuildInfoPlugin)
+
+buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion)
+buildInfoOptions += BuildInfoOption.BuildTime
+buildInfoPackage := "edg_ide.build"
+
+
 lazy val compiler = project in file("PolymorphicBlocks/compiler")  // proto imported transitively
 lazy val root = (project in file("."))
   .dependsOn(compiler)

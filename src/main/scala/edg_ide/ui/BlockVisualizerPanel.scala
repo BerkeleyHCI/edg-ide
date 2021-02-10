@@ -1,34 +1,31 @@
 package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
-import com.intellij.openapi.vfs.{VfsUtilCore, VirtualFile}
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterface, PythonInterfaceLibrary}
+import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate}
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
-import edg.util.timeExec
-import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgeWrapper, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
+import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
 import edg.wir
 import edg.wir.DesignPath
+import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
 
-import scala.jdk.CollectionConverters._
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
-import java.io.FileInputStream
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.swing.event.{ListSelectionEvent, TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.event.{ TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField, ListSelectionModel, SwingUtilities}
+import javax.swing.{JButton, JLabel, JPanel, JTextField}
 
 
 object Gbc {
@@ -110,7 +107,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   })
 
-  private val status = new JLabel("Ready")
+  private val status = new JLabel(s"Ready " +
+      s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
+      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
+  )
   visualizationPanel.add(status, Gbc(0, 2, GridBagConstraints.HORIZONTAL, xsize=4))
 
   // TODO remove library requirement
