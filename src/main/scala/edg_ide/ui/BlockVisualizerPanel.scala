@@ -1,7 +1,9 @@
 package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
+import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
 import com.intellij.openapi.vfs.{VfsUtilCore, VirtualFile}
@@ -23,6 +25,7 @@ import scala.jdk.CollectionConverters._
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.FileInputStream
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ListSelectionEvent, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JPanel, JTextArea, JTextField, ListSelectionModel, SwingUtilities}
@@ -65,6 +68,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // This hack ignores actions when programmatically synchronizing the design tree and graph
   // TODO refactor w/ shared model eg https://docs.oracle.com/javase/tutorial/uiswing/examples/components/index.html#SharedModelDemo
   private var ignoreActions: Boolean = false
+  private var compilerRunning = new AtomicBoolean(false)
 
   // GUI Components
   //
@@ -196,36 +200,59 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   }
 
   def update(): Unit = {
-    status.setText(s"Compiling")
-    EdgCompilerService(project).pyLib.setModules(Seq(blockModule.getText()))
-    try {
-      val fullName = blockModule.getText() + "." + blockName.getText()
-      val block = EdgCompilerService(project).pyLib.getBlock(ElemBuilder.LibraryPath(fullName))
-      val design = schema.Design(contents = Some(block))
-      val (compiled, compiler, time) = EdgCompilerService(project).compile(design)
-      val checker = new DesignStructuralValidate()
-      val errors = compiler.getErrors() ++ checker.map(compiled)
-      if (errors.isEmpty) {
-        status.setText(s"Compiled ($time ms)")
-        tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)
-        tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
-      } else {
-        status.setText(s"Compiled, with ${errors.length} errors ($time ms)")
-        tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
-        tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
-      }
-      setDesign(compiled, compiler)
-      libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
-      errorPanel.setErrors(errors)
-    } catch {
-      case e: Throwable =>
-        import java.io.PrintWriter
-        import java.io.StringWriter
-        val sw = new StringWriter
-        e.printStackTrace(new PrintWriter(sw))
-        status.setText(s"Failed: ${e.toString}")
-        // TODO staleness indicator
+    if (!compilerRunning.compareAndSet(false, true)) {
+      notificationGroup.createNotification(
+        s"Compiler already running", NotificationType.WARNING)
+          .notify(project)
+      return
     }
+
+    ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
+      override def run(indicator: ProgressIndicator): Unit = {
+        status.setText(s"Compiling")
+        indicator.setIndeterminate(true)
+
+        EdgCompilerService(project).pyLib.setModules(Seq(blockModule.getText()))
+        try {
+
+          val fullName = blockModule.getText() + "." + blockName.getText()
+          val block = EdgCompilerService(project).pyLib.getBlock(ElemBuilder.LibraryPath(fullName))
+          val design = schema.Design(contents = Some(block))
+          val (compiled, compiler, time) = EdgCompilerService(project).compile(design)
+          val checker = new DesignStructuralValidate()
+          val errors = compiler.getErrors() ++ checker.map(compiled)
+          if (errors.isEmpty) {
+            status.setText(s"Compiled ($time ms)")
+            tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)
+            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
+          } else {
+            status.setText(s"Compiled, with ${errors.length} errors ($time ms)")
+            tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
+            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
+          }
+          setDesign(compiled, compiler)
+          libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
+          errorPanel.setErrors(errors)
+        } catch {
+          case e: Throwable =>
+            import java.io.PrintWriter
+            import java.io.StringWriter
+            val sw = new StringWriter
+            e.printStackTrace(new PrintWriter(sw))
+            status.setText(s"Compiler error: ${e.toString}")
+            notificationGroup.createNotification(
+              s"Compiler error", s"${e.toString}",
+              s"${sw.toString}",
+              NotificationType.WARNING)
+                .notify(project)
+          // TODO staleness indicator for graph / design tree
+        }
+
+        indicator.setFraction(1.0)
+        compilerRunning.set(false)
+      }
+    })
+
   }
 
   def setFileBlock(file: VirtualFile, module: String, block: String): Unit = {
