@@ -66,11 +66,13 @@ object CompilerErrorNodeBase {
         (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>
         (s"Generator not ready, ${EdgirUtils.SimpleSuperclass(targets)}:$fnName", path.toString, Seq())
-      case CompilerError.ConflictingAssign(target, oldAssign, newAssign) =>
-        ("Conflicting assign", target.toString, Seq(
-          new CompilerErrorDetailNode(ExprToString(oldAssign._3), s"${oldAssign._1}:${oldAssign._2}"),
-          new CompilerErrorDetailNode(ExprToString(newAssign._3), s"${newAssign._1}:${newAssign._2}"),
-        ))
+      case CompilerError.OverAssign(target, assigns, equals) =>
+        ("Conflicting assign", target.toString,
+            assigns.map { case (root, constrName, constr) =>
+              new CompilerErrorDetailNode(ExprToString(constr), s"$root:$constrName")
+            } ++ equals.map { src =>
+              new CompilerErrorDetailNode(src.toString, s"(equality)")
+            })
     }
 
     override lazy val children: Seq[CompilerErrorNodeBase] = all._3
