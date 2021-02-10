@@ -8,7 +8,7 @@ import edg.schema.schema
 import edg_ide.EdgirUtils
 import edg.wir._
 import edg.util.SeqMapSortableFrom._
-import edg.compiler.{Compiler, ExprToString, ExprValue}
+import edg.compiler.{Compiler, ExprRef, ExprResult, ExprToString, ExprValue}
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -111,7 +111,7 @@ object ElementDetailNode {
           case (name, port) => new PortNode(path + name, port, root, compiler)
         } ++ block.links.sortKeysFrom(nameOrder).map { case (name, sublink) =>
               new LinkNode(path + name, path.asIndirect + name, sublink, root, compiler)
-        }).toSeq :+ new ConstraintsNode(path, block.constraints.sortKeysFrom(nameOrder))
+        }).toSeq :+ new ConstraintsNode(path, block.constraints.sortKeysFrom(nameOrder), compiler)
         ) ++ block.params.sortKeysFrom(nameOrder).map {
           case (name, param) => new ParamNode(path.asIndirect + name, param, compiler)
         }).toSeq
@@ -146,7 +146,7 @@ object ElementDetailNode {
         (((portNodes ++
             link.links.sortKeysFrom(nameOrder).map {
               case (name, sublink) => new LinkNode(path + name, relpath + name, sublink, root, compiler)
-            }).toSeq :+ new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder))
+            }).toSeq :+ new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder), compiler)
             ) ++ link.params.sortKeysFrom(nameOrder).map {
               case (name, param) => new ParamNode(relpath + name, param, compiler)
         }).toSeq
@@ -180,7 +180,6 @@ object ElementDetailNode {
     }
 
     override def getColumns(index: Int): String = {
-      import edg.compiler.{FloatValue, BooleanValue, IntValue, RangeValue, TextValue}
       val typeName = param.`val` match {
         case init.ValInit.Val.Floating(_) => "float"
         case init.ValInit.Val.Boolean(_) => "boolean"
@@ -189,34 +188,56 @@ object ElementDetailNode {
         case init.ValInit.Val.Text(_) => "text"
         case param => s"unknown ${param.getClass}"
       }
-      val value = compiler.getAllSolved.get(path) match {
-        case Some(FloatValue(value)) => value  // TODO better formatting using SI prefixes
-        case Some(BooleanValue(value)) => value
-        case Some(IntValue(value)) => value
-        case Some(RangeValue(lower, upper)) => s"($lower, $upper)"
-        case Some(TextValue(value)) => value
-        case Some(value) => s"unknown ${value.getClass} $value"
+      val value = compiler.getParamValue(path) match {
+        case Some(value) => value.toStringValue
         case None => "Unsolved"
       }
       s"$value ($typeName)"
     }
   }
 
-  class ConstraintsNode(root: DesignPath, constraints: SeqMap[String, expr.ValueExpr]) extends ElementDetailNode {
+  class ConstraintsNode(root: DesignPath, constraints: SeqMap[String, expr.ValueExpr], compiler: Compiler)
+      extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = constraints.map { case (name, value) =>
-      new ConstraintNode(root, name, value) }.toSeq
+      new ConstraintNode(root, name, value, compiler) }.toSeq
 
     override def toString: String = "Constraints"
 
     override def getColumns(index: Int): String = constraints.size.toString
   }
 
-  class ConstraintNode(root: DesignPath, name: String, constraint: expr.ValueExpr) extends ElementDetailNode {
+  class ConstraintDetailNode(desc: String, path: IndirectDesignPath) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = Seq()
 
-    override def toString: String = name
+    override def toString: String = desc
 
-    override def getColumns(index: Int): String = ExprToString(constraint)
+    override def getColumns(index: Int): String = path.toString
+  }
+
+  class ConstraintNode(root: DesignPath, name: String, constraint: expr.ValueExpr, compiler: Compiler)
+      extends ElementDetailNode {
+    private lazy val nameDescChildren: (String, String, Seq[ConstraintDetailNode]) = {
+      val constraintStr = ExprToString(constraint)
+      constraint.expr match {
+        case expr.ValueExpr.Expr.Assign(constraint) =>  // special case for assign: show final value and missing
+          compiler.evaluateExpr(root, constraint.getSrc) match {
+            case ExprResult.Result(result) =>
+              (s"$name ⇐ ${result.toStringValue}", constraintStr, Seq())
+            case ExprResult.Missing(missing) =>
+              (s"$name ⇐ unknown", constraintStr, missing.toSeq.map {
+                case ExprRef.Param(param) => new ConstraintDetailNode("Missing param", param)
+                case ExprRef.Array(array) => new ConstraintDetailNode("Missing array", array.asIndirect)
+              })
+          }
+        case _ => (name, constraintStr, Seq())
+      }
+    }
+
+    override lazy val children: Seq[ElementDetailNode] = nameDescChildren._3
+
+    override def toString: String = nameDescChildren._1
+
+    override def getColumns(index: Int): String = nameDescChildren._2
   }
 }
 

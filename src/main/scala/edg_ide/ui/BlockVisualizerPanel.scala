@@ -248,7 +248,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           // TODO staleness indicator for graph / design tree
         }
 
-        indicator.setFraction(1.0)
         compilerRunning.set(false)
       }
     })

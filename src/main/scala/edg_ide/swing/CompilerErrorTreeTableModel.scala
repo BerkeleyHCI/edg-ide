@@ -46,7 +46,7 @@ object CompilerErrorNodeBase {
         new CompilerErrorDetailNode("Missing Param Value", path.toString)
     }
 
-    lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
+    private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
       case CompilerError.Unelaborated(ElaborateRecord.Block(path), deps) =>
         ("Unelaborated Block", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Link(path), deps) =>
