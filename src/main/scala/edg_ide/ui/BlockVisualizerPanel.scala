@@ -6,7 +6,7 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.ui.JBSplitter
+import com.intellij.ui.{JBIntSpinner, JBSplitter}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate}
@@ -23,7 +23,7 @@ import org.eclipse.elk.graph.ElkGraphElement
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.swing.event.{ TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JPanel, JTextField}
 
@@ -100,12 +100,17 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   visualizationPanel.add(blockName, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
 
   private val button = new JButton("Update")
-  visualizationPanel.add(button, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(button, Gbc(3, 0, GridBagConstraints.HORIZONTAL))
   button.addActionListener(new ActionListener() {
     override def actionPerformed(e: ActionEvent) {
       update()
     }
   })
+
+  // TODO max value based on depth of tree?
+  private val depthSpinner = new JBIntSpinner(1, 1, 100)
+  // TODO update visualization on change?
+  visualizationPanel.add(depthSpinner, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
 
   private val status = new JLabel(s"Ready " +
       s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
@@ -266,10 +271,11 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       this.design = design
       this.compiler = compiler
 
+      // TODO layout happens in background task?
       val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
       val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
         InferEdgeDirectionTransform(SimplifyPortTransform(
-          PruneDepthTransform(edgirGraph, 2)))))  // TODO configurable depth
+          PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
       val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
         Some(ElkEdgirGraphUtils.DesignPathMapper))
 
@@ -289,6 +295,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     state.panelBlockFile = blockFile.getText
     state.panelBlockModule = blockModule.getText()
     state.panelBlockName = blockName.getText()
+    state.depthSpinner = depthSpinner.getNumber
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
@@ -301,6 +308,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     blockFile.setText(state.panelBlockFile)
     blockModule.setText(state.panelBlockModule)
     blockName.setText(state.panelBlockName)
+    depthSpinner.setNumber(state.depthSpinner)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)

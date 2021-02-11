@@ -11,6 +11,7 @@ class BlockVisualizerServiceState {
   public String panelBlockFile = "";
   public String panelBlockModule = "";
   public String panelBlockName = "";
+  public int depthSpinner = 1;
   public float panelMainSplitterPos = 0.5f;
   public float panelBottomSplitterPos = 0.33f;
   public float panelLibrarySplitterPos = 0.5f;
