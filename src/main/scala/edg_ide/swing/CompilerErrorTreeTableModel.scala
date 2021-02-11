@@ -1,7 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg.compiler.{CompilerError, ElaborateRecord, ExprToString}
+import edg.compiler.{CompilerError, ElaborateRecord, ExprRef, ExprToString}
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 
@@ -74,6 +74,15 @@ object CompilerErrorNodeBase {
               case CompilerError.OverAssignCause.Equal(target, source) =>
                 new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
             })
+      case CompilerError.FailedAssertion(root, constrName, value, result) =>
+        (s"Failed assertion", s"$root:$constrName", Seq(
+          new CompilerErrorDetailNode(ExprToString(value),result.toStringValue)
+        ))
+      case CompilerError.MissingAssertion(root, constrName, value, missing) =>
+        (s"Missing assertion", s"$root:$constrName", missing.toSeq.map {
+          case ExprRef.Param(param) => new CompilerErrorDetailNode("Missing param", param.toString)
+          case ExprRef.Array(array) => new CompilerErrorDetailNode("Missing array", array.toString)
+        })
     }
 
     override lazy val children: Seq[CompilerErrorNodeBase] = all._3
