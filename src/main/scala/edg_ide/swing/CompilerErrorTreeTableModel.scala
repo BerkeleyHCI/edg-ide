@@ -66,12 +66,13 @@ object CompilerErrorNodeBase {
         (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>
         (s"Generator not ready, ${EdgirUtils.SimpleSuperclass(targets)}:$fnName", path.toString, Seq())
-      case CompilerError.OverAssign(target, assigns, equals) =>
+      case CompilerError.OverAssign(target, causes) =>
         ("Conflicting assign", target.toString,
-            assigns.map { case (root, constrName, constr) =>
-              new CompilerErrorDetailNode(ExprToString(constr), s"$root:$constrName")
-            } ++ equals.map { src =>
-              new CompilerErrorDetailNode(src.toString, s"(equality)")
+            causes.map {
+              case CompilerError.OverAssignCause.Assign(target, root, constrName, value) =>
+                new CompilerErrorDetailNode(s"$target ⇐ ${ExprToString(value)}", s"$root:$constrName")
+              case CompilerError.OverAssignCause.Equal(target, source) =>
+                new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
             })
     }
 
