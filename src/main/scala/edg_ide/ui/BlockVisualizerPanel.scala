@@ -370,6 +370,7 @@ class LibraryPanel() extends JPanel {
 class RefinementsPanel extends JPanel {
   private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
   tree.setShowColumns(true)
+  tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
 
   setLayout(new BorderLayout())
@@ -421,6 +422,7 @@ class DetailPanel extends JPanel {
 class ErrorPanel extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
   tree.setShowColumns(true)
+  tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
 
   setLayout(new BorderLayout())
