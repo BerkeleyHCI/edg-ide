@@ -44,6 +44,8 @@ object CompilerErrorNodeBase {
         new CompilerErrorDetailNode("Missing Connected Link at Port", path.toString)
       case ElaborateRecord.ParamValue(path) =>
         new CompilerErrorDetailNode("Missing Param Value", path.toString)
+      case ElaborateRecord.FullConnectedPort(path) =>
+        new CompilerErrorDetailNode("Missing Resolved Connected Port", path.toString)
     }
 
     private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
@@ -62,12 +64,21 @@ object CompilerErrorNodeBase {
         ) ++ deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(unelaborated, deps) =>
         (s"Unknown unelaborated $unelaborated", "", deps.toSeq.map(elaborateRecordToDetailNode))
+
       case CompilerError.LibraryElement(path, target) =>
         (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>
         (s"Generator not ready, ${EdgirUtils.SimpleSuperclass(targets)}:$fnName", path.toString, Seq())
-      case CompilerError.AbstractBlock(path, superclasses) =>
-        (s"Abstract block, ${EdgirUtils.SimpleSuperclass(superclasses)}", path.toString, Seq())
+
+      case CompilerError.LibraryError(path, target, err) =>
+        (s"Library error, ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq(
+          new CompilerErrorDetailNode(err, "")
+        ))
+      case CompilerError.GeneratorError(path, target, fnName, err) =>
+        (s"Generator error, ${EdgirUtils.SimpleLibraryPath(target)}:$fnName", path.toString, Seq(
+          new CompilerErrorDetailNode(err, "")
+        ))
+
       case CompilerError.OverAssign(target, causes) =>
         ("Conflicting assign", target.toString,
             causes.map {
@@ -76,6 +87,9 @@ object CompilerErrorNodeBase {
               case CompilerError.OverAssignCause.Equal(target, source) =>
                 new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
             })
+
+      case CompilerError.AbstractBlock(path, superclasses) =>
+        (s"Abstract block, ${EdgirUtils.SimpleSuperclass(superclasses)}", path.toString, Seq())
       case CompilerError.FailedAssertion(root, constrName, value, result) =>
         (s"Failed assertion", s"$root:$constrName", Seq(
           new CompilerErrorDetailNode(ExprToString(value),result.toStringValue)
