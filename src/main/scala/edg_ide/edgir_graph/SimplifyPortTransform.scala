@@ -6,21 +6,31 @@ package edg_ide.edgir_graph
   * since those aren't supported by ELK
   */
 object SimplifyPortTransform {
-  def simplify(path: Seq[String], context: EdgirGraph.EdgirNode): Seq[String] = {
+  def simplify(path: Seq[String], context: EdgirGraph.EdgirNode): Option[Seq[String]] = {
     path match {
-      case Seq() => Seq()
-      case Seq(head, tail@_*) => context.members(head) match {
-        case subnode: EdgirGraph.EdgirNode => Seq(head) ++ simplify(tail, subnode)
-        case _: EdgirGraph.EdgirPort => Seq(head)
+      case Seq() => Some(Seq())
+      case Seq(head, tail@_*) => context.members.get(head) match {
+        case Some(subnode: EdgirGraph.EdgirNode) =>
+          simplify(tail, subnode) match {
+            case Some(recursiveSuffix) => Some(Seq(head) ++ recursiveSuffix)
+            case None => None
+          }
+        case Some(_: EdgirGraph.EdgirPort) => Some(Seq(head))
+        case None => None
       }
     }
   }
 
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
-    val newEdges = node.edges.map { edge =>
+    val newEdges = node.edges.flatMap { edge =>
       val sourceSimplified = simplify(edge.source, node)
       val targetSimplified = simplify(edge.target, node)
-      EdgirGraph.EdgirEdge(edge.data, sourceSimplified, targetSimplified)
+      (sourceSimplified, targetSimplified) match {
+        case (Some(sourceSimplified), Some(targetSimplified)) => Some(
+          EdgirGraph.EdgirEdge(edge.data, sourceSimplified, targetSimplified)
+        )
+        case _ => None
+      }
     }
     val newMembers = node.members.mapValues {
       case member: EdgirGraph.EdgirNode => apply(member)
