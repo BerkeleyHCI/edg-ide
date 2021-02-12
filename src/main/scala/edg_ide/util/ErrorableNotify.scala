@@ -2,12 +2,13 @@ package edg_ide.util
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.project.Project
+import edg.util.Errorable
 
 import scala.language.implicitConversions
 
 
 object ErrorableNotify {
-  val Errorable = edg_ide.util.Errorable  // import forwarding for convenience
+  val Errorable = edg.util.Errorable  // import forwarding for convenience
 
   implicit class ErrorableNotify[T](errorable: Errorable[T]) {
     def mapOrNotify[V](notificationId: String, project: Project)(fn: T => V): Errorable[V] = {

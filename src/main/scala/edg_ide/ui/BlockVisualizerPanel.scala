@@ -12,11 +12,12 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate}
 import edg.elem.elem
 import edg.schema.schema
+import edg.compiler.{hdl => edgrpc}
 import edg.ElemBuilder
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, ZoomingScrollPane}
+import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir
-import edg.wir.DesignPath
+import edg.wir.{DesignPath, Refinements}
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
 
@@ -168,13 +169,17 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   tabbedPane.addTab("Library", libraryPanel)
   val TAB_INDEX_LIBRARY = 0
 
+  private val refinementsPanel = new RefinementsPanel()
+  tabbedPane.addTab("Refinements", refinementsPanel)
+  val TAB_INDEX_REFINEMENTS = 1
+
   private val detailPanel = new DetailPanel()
   tabbedPane.addTab("Detail", detailPanel)
-  val TAB_INDEX_DETAIL = 1
+  val TAB_INDEX_DETAIL = 2
 
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
-  val TAB_INDEX_ERRORS = 2
+  val TAB_INDEX_ERRORS = 3
   tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)  // no errors by default
 
   setLayout(new BorderLayout())
@@ -221,9 +226,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         try {
 
           val fullName = blockModule.getText() + "." + blockName.getText()
-          val block = EdgCompilerService(project).pyLib.getBlock(ElemBuilder.LibraryPath(fullName))
+          val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName))
           val design = schema.Design(contents = Some(block))
-          val (compiled, compiler, time) = EdgCompilerService(project).compile(design)
+          val (compiled, compiler, time) = EdgCompilerService(project).compile(design, refinements)
           val checker = new DesignStructuralValidate()
           val errors = compiler.getErrors() ++ checker.map(compiled)
           if (errors.isEmpty) {
@@ -237,6 +242,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           }
           setDesign(compiled, compiler)
           libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
+          refinementsPanel.setRefinements(refinements)
           errorPanel.setErrors(errors)
         } catch {
           case e: Throwable =>
@@ -300,6 +306,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
     libraryPanel.saveState(state)
+    refinementsPanel.saveState(state)
     detailPanel.saveState(state)
     errorPanel.saveState(state)
   }
@@ -313,6 +320,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)
     libraryPanel.loadState(state)
+    refinementsPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
   }
@@ -355,6 +363,31 @@ class LibraryPanel() extends JPanel {
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
     splitter.setProportion(state.panelLibrarySplitterPos)
+  }
+}
+
+
+class RefinementsPanel extends JPanel {
+  private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
+  tree.setShowColumns(true)
+  private val treeScrollPane = new JBScrollPane(tree)
+
+  setLayout(new BorderLayout())
+  add(treeScrollPane)
+
+  // Actions
+  //
+  def setRefinements(refinements: edgrpc.Refinements): Unit = {
+    tree.setModel(new RefinementsTreeTableModel(refinements))
+    tree.setRootVisible(false)
+  }
+
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
   }
 }
 

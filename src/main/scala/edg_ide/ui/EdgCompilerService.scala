@@ -6,6 +6,8 @@ import edg.compiler.{PythonInterface, PythonInterfaceLibrary}
 import edg.schema.schema
 import edg.compiler.Compiler
 import edg.util.timeExec
+import edg.compiler.{hdl => edgrpc}
+import edg.wir.Refinements
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -21,8 +23,9 @@ object EdgCompilerService {
   */
 class EdgCompilerService(project: Project) extends Disposable {
   val pyLib = new PythonInterfaceLibrary(new PythonInterface())
-  def compile(design: schema.Design): (schema.Design, Compiler, Long) = {
-    val compiler = new Compiler(design, EdgCompilerService(project).pyLib)
+  def compile(design: schema.Design, refinements: edgrpc.Refinements): (schema.Design, Compiler, Long) = {
+    val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
+                                refinements=Refinements(refinements))
     val (compiled, time) = timeExec {
       compiler.compile()
     }
