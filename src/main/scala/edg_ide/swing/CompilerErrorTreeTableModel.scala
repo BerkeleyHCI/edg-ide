@@ -66,6 +66,8 @@ object CompilerErrorNodeBase {
         (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>
         (s"Generator not ready, ${EdgirUtils.SimpleSuperclass(targets)}:$fnName", path.toString, Seq())
+      case CompilerError.AbstractBlock(path, superclasses) =>
+        (s"Abstract block, ${EdgirUtils.SimpleSuperclass(superclasses)}", path.toString, Seq())
       case CompilerError.OverAssign(target, causes) =>
         ("Conflicting assign", target.toString,
             causes.map {
