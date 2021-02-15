@@ -99,6 +99,11 @@ object CompilerErrorNodeBase {
           case ExprRef.Param(param) => new CompilerErrorDetailNode("Missing param", param.toString)
           case ExprRef.Array(array) => new CompilerErrorDetailNode("Missing array", array.toString)
         })
+
+      case CompilerError.EmptyRange(param, root, constrName, value) =>
+        (s"Empty range", s"$param", Seq(
+          new CompilerErrorDetailNode(ExprToString(value), s"$root:$constrName")
+        ))
     }
 
     override lazy val children: Seq[CompilerErrorNodeBase] = all._3
