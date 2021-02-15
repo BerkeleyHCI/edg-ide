@@ -52,25 +52,25 @@ object ElementDetailNode {
       port.is match {
         case elem.PortLike.Is.Port(port) =>
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          Seq(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
-              connectedNode ++
+          (connectedNode :+
+              new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
               port.params.sortKeysFrom(nameOrder).map {
                 case (name, param) => new ParamNode(path.asIndirect + name, param, compiler)
               }.toSeq
         case elem.PortLike.Is.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          (Seq(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
-              connectedNode ++
+          (connectedNode :+
+              new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
               port.ports.sortKeysFrom(nameOrder).map {
                 case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
               } ++
               port.params.sortKeysFrom(nameOrder).map {
                 case (name, param) => new ParamNode(path.asIndirect + name, param, compiler)
-              }).toSeq
+              }
         case elem.PortLike.Is.Array(port) =>
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          Seq(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
-              connectedNode ++
+          (connectedNode :+
+              new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
               port.ports.sortKeysFrom(nameOrder).map {
                 case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
               }.toSeq
