@@ -1,6 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.ExprBuilder
 import edg.elem.elem
 import edg.expr.expr
 import edg.init.init
@@ -51,13 +52,15 @@ object ElementDetailNode {
       port.is match {
         case elem.PortLike.Is.Port(port) =>
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          connectedNode ++
+          Seq(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
+              connectedNode ++
               port.params.sortKeysFrom(nameOrder).map {
                 case (name, param) => new ParamNode(path.asIndirect + name, param, compiler)
               }.toSeq
         case elem.PortLike.Is.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          (connectedNode ++
+          (Seq(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
+              connectedNode ++
               port.ports.sortKeysFrom(nameOrder).map {
                 case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
               } ++
@@ -66,7 +69,8 @@ object ElementDetailNode {
               }).toSeq
         case elem.PortLike.Is.Array(port) =>
           val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          connectedNode ++
+          Seq(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
+              connectedNode ++
               port.ports.sortKeysFrom(nameOrder).map {
                 case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
               }.toSeq

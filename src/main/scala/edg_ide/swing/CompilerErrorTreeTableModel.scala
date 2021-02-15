@@ -46,6 +46,8 @@ object CompilerErrorNodeBase {
         new CompilerErrorDetailNode("Missing Param Value", path.toString)
       case ElaborateRecord.FullConnectedPort(path) =>
         new CompilerErrorDetailNode("Missing Resolved Connected Port", path.toString)
+      case ElaborateRecord.BlockPortsConnected(path) =>
+        new CompilerErrorDetailNode("Missing Block Ports Connected", path.toString)
     }
 
     private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
