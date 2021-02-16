@@ -240,10 +240,11 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
             tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
             tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           }
-          setDesign(compiled, compiler)
           libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
           refinementsPanel.setRefinements(refinements)
           errorPanel.setErrors(errors)
+
+          setDesign(compiled, compiler)
         } catch {
           case e: Throwable =>
             import java.io.PrintWriter
@@ -277,6 +278,11 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       this.design = design
       this.compiler = compiler
 
+      // Update the design tree first, in case graph layout fails
+      designTreeModel = new BlockTreeTableModel(block)
+      designTree.setModel(designTreeModel)
+      designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+
       // TODO layout happens in background task?
       val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
       val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
@@ -286,9 +292,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         Some(ElkEdgirGraphUtils.DesignPathMapper))
 
       graph.setGraph(layoutGraphRoot)
-      designTreeModel = new BlockTreeTableModel(block)
-      designTree.setModel(designTreeModel)
-      designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 
       // TODO this should resolve as far as possible here, instead of passing a newly invalid path
       select(selectedPath)  // reload previous selection to the extent possible
