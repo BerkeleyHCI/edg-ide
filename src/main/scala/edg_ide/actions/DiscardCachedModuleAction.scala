@@ -18,10 +18,10 @@ class DiscardCachedModuleAction() extends AnAction() {
 
     module.mapOrNotify("edg_ide.actions.DiscardCachedModuleAction", event.getProject) { module =>
       val moduleName = module.mkString(".")
-      val discarded = EdgCompilerService(event.getProject).pyLib.clearCache(moduleName)
+      val discarded = EdgCompilerService(event.getProject).pyLib.discardCached(moduleName)
       if (discarded.nonEmpty) {
         notificationGroup.createNotification(
-          s"${discarded.length} items discarded from $moduleName",
+          s"${discarded.length} cached items discarded from $moduleName",
           "",
           discarded.map { EdgirUtils.SimpleLibraryPath }.mkString("\n"),
           NotificationType.INFORMATION

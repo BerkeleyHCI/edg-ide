@@ -222,7 +222,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         status.setText(s"Compiling")
         indicator.setIndeterminate(true)
 
-        EdgCompilerService(project).pyLib.setModules(Seq(blockModule.getText()))
+        EdgCompilerService(project).pyLib.reloadModule(blockModule.getText())
         try {
 
           val fullName = blockModule.getText() + "." + blockName.getText()
