@@ -42,7 +42,7 @@ object InferEdgeDirectionTransform {
     val bidirs = Set(
       "bidirs", "passive", "passives",
       "a", "b",  // UART
-      "node",  // CAN diff
+      "nodes",  // CAN diff
     )
     val allKnownPorts = sources ++ sinks ++ bidirs
 

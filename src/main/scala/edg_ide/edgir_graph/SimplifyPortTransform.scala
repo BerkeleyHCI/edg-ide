@@ -1,11 +1,15 @@
 package edg_ide.edgir_graph
 
+import com.intellij.openapi.diagnostic.Logger
+
 
 /**
   * An HGraph transform that eliminates sub-ports from edge connects,
   * since those aren't supported by ELK
   */
 object SimplifyPortTransform {
+  val logger = Logger.getInstance(classOf[InferEdgeDirectionTransform])
+
   def simplify(path: Seq[String], context: EdgirGraph.EdgirNode): Option[Seq[String]] = {
     path match {
       case Seq() => Some(Seq())
@@ -29,7 +33,9 @@ object SimplifyPortTransform {
         case (Some(sourceSimplified), Some(targetSimplified)) => Some(
           EdgirGraph.EdgirEdge(edge.data, sourceSimplified, targetSimplified)
         )
-        case _ => None
+        case _ =>
+          logger.warn(s"unknown source ${edge.source} or target ${edge.target}")
+          None
       }
     }
     val newMembers = node.members.mapValues {
