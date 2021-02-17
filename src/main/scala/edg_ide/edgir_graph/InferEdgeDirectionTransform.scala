@@ -34,6 +34,7 @@ object InferEdgeDirectionTransform {
       "controller",  // CAN logic
     )
     val sinks = Set(
+      "sink",
       "sinks",
       "crystal",
       "device", "devices",  // SWD, USB, SPI
