@@ -1,12 +1,11 @@
 package edg_ide.ui
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import edg.compiler.{PythonInterface, PythonInterfaceLibrary}
+import edg.compiler.{Compiler, ElaborateRecord, PythonInterface, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.schema.schema
-import edg.compiler.Compiler
 import edg.util.timeExec
-import edg.compiler.{hdl => edgrpc}
 import edg.wir.Refinements
 
 
@@ -23,9 +22,30 @@ object EdgCompilerService {
   */
 class EdgCompilerService(project: Project) extends Disposable {
   val pyLib = new PythonInterfaceLibrary(new PythonInterface())
-  def compile(design: schema.Design, refinements: edgrpc.Refinements): (schema.Design, Compiler, Long) = {
+  def compile(design: schema.Design, refinements: edgrpc.Refinements,
+              indicator: Option[ProgressIndicator]): (schema.Design, Compiler, Long) = {
     val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
-                                refinements=Refinements(refinements))
+                                refinements=Refinements(refinements)) {
+      override def onElaborate(record: ElaborateRecord): Unit = {
+        super.onElaborate(record)
+        indicator.foreach { indicator =>
+          record match {
+            case ElaborateRecord.Block(blockPath) =>
+              indicator.setText(s"EDG Compiling... block at $blockPath")
+            case ElaborateRecord.Link(linkPath) =>
+              indicator.setText(s"EDG Compiling... link at $linkPath")
+            case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) =>
+              indicator.setText(s"EDG Compiling... connect between $toLinkPortPath - $fromLinkPortPath")
+            case ElaborateRecord.Generator(blockPath, fnName) =>
+              indicator.setText(s"EDG Compiling... generator at $blockPath:$fnName")
+            case ElaborateRecord.BlockPortsConnected(blockPath) =>
+              indicator.setText(s"EDG Compiling... block ports connected at $blockPath")
+            case elaborateRecord =>
+              indicator.setText(s"EDG Compiling... unknown operation $elaborateRecord")
+          }
+        }
+      }
+    }
     val (compiled, time) = timeExec {
       compiler.compile()
     }

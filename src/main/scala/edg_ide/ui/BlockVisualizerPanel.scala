@@ -228,7 +228,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           val fullName = blockModule.getText() + "." + blockName.getText()
           val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName))
           val design = schema.Design(contents = Some(block))
-          val (compiled, compiler, time) = EdgCompilerService(project).compile(design, refinements)
+          val (compiled, compiler, time) = EdgCompilerService(project).compile(design, refinements, Some(indicator))
           val checker = new DesignStructuralValidate()
           val errors = compiler.getErrors() ++ checker.map(compiled)
           if (errors.isEmpty) {
