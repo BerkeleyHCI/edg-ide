@@ -224,11 +224,15 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
         EdgCompilerService(project).pyLib.reloadModule(blockModule.getText())
         try {
-
+          indicator.setText("EDG compiling ... design top")
           val fullName = blockModule.getText() + "." + blockName.getText()
           val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName))
           val design = schema.Design(contents = Some(block))
+
+          indicator.setText("EDG compiling ...")
           val (compiled, compiler, time) = EdgCompilerService(project).compile(design, refinements, Some(indicator))
+
+          indicator.setText("EDG compiling ... validating")
           val checker = new DesignStructuralValidate()
           val errors = compiler.getErrors() ++ checker.map(compiled)
           if (errors.isEmpty) {
@@ -240,6 +244,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
             tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
             tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           }
+          indicator.setText("EDG compiling ... done")
+
           libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
           refinementsPanel.setRefinements(refinements)
           errorPanel.setErrors(errors)
