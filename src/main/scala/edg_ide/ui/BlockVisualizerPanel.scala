@@ -20,10 +20,10 @@ import edg.wir
 import edg.wir.{DesignPath, Refinements}
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
-
 import java.awt.event.{ActionEvent, ActionListener}
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.{BorderLayout, Graphics, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
+
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JPanel, JTextField}
@@ -181,6 +181,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   tabbedPane.addTab("Errors", errorPanel)
   val TAB_INDEX_ERRORS = 3
   tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)  // no errors by default
+
+  // add a tab for kicad visualization
+  private val kicadVizPanel = new KicadVizPanel()
+  tabbedPane.addTab("Kicad", kicadVizPanel)
+  val TAB_KICAD_VIZ = 4
+
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -373,6 +379,76 @@ class LibraryPanel() extends JPanel {
   def loadState(state: BlockVisualizerServiceState): Unit = {
     splitter.setProportion(state.panelLibrarySplitterPos)
   }
+}
+
+class KicadVizPanel() extends JPanel {
+  // State
+  //
+
+  private var library: wir.Library = new wir.EdgirLibrary(schema.Library())
+  private var kicadFile:String = "hello"
+
+  // GUI Components
+  //
+  private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
+
+  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
+  libraryTree.setShowColumns(true)
+  private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
+  splitter.setFirstComponent(libraryTreeScrollPane)
+
+  // Handler to manage parsing
+  private val kicadParser = new KicadParser
+
+  private val updateButton = new JButton("Update")
+  updateButton.addActionListener(new ActionListener {
+    override def actionPerformed(actionEvent: ActionEvent): Unit = {
+      println("[Drawer] Updating Kicad Panel")
+      repaint()
+      kicadParser.parseKicadFile()
+    }
+  })
+
+  private val visualizer = new JPanel()
+  visualizer.add(updateButton)
+  splitter.setSecondComponent(visualizer)
+
+  setLayout(new BorderLayout())
+  add(splitter)
+
+
+  // Actions
+  //
+  def setLibrary(library: wir.Library): Unit = {
+    this.library = library
+    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
+    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
+  }
+
+  def setKicadFile(kicadFile: String): Unit = {
+    this.kicadFile = kicadFile
+  }
+
+  // Update GUI
+  override def paintComponent(g: Graphics): Unit = {
+    super.paintComponent(g)
+
+    // TODO maybe separate concerns / code? i.e. put the processing code elsewhere?
+    // 1. Load kicad file and parse into data structures -- lines + rectangles
+    // 2. Draw
+
+  }
+
+
+  // Configuration State
+  //
+//  def saveState(state: BlockVisualizerServiceState): Unit = {
+//    state.panelLibrarySplitterPos = splitter.getProportion
+//  }
+//
+//  def loadState(state: BlockVisualizerServiceState): Unit = {
+//    splitter.setProportion(state.panelLibrarySplitterPos)
+//  }
 }
 
 
