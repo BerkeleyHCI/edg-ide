@@ -180,7 +180,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
   val TAB_INDEX_ERRORS = 3
-  tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)  // no errors by default
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -222,8 +221,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         status.setText(s"Compiling")
         indicator.setIndeterminate(true)
 
-        EdgCompilerService(project).pyLib.reloadModule(blockModule.getText())
         try {
+          indicator.setText("EDG compiling ... reloading")
+          EdgCompilerService(project).pyLib.reloadModule(blockModule.getText())
+
           indicator.setText("EDG compiling ... design top")
           val fullName = blockModule.getText() + "." + blockName.getText()
           val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName))
@@ -237,13 +238,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           val errors = compiler.getErrors() ++ checker.map(compiled)
           if (errors.isEmpty) {
             status.setText(s"Compiled ($time ms)")
-            tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)
-            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
           } else {
             status.setText(s"Compiled, with ${errors.length} errors ($time ms)")
-            tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
-            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           }
+          tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           indicator.setText("EDG compiling ... done")
 
           libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
