@@ -7,6 +7,7 @@ import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ThrowableRunnable
+import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatementList}
 import edg_ide.ui.BlockVisualizerService
 import edg_ide.util.{ExceptionNotifyException, exceptionNotify}
@@ -15,6 +16,7 @@ import edg_ide.util.ExceptionNotifyImplicits._
 
 class InsertBlockAction() extends AnAction() {
   val VALID_FUNCTION_NAMES = Set("__init__", "contents")
+  val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
   override def actionPerformed(event: AnActionEvent): Unit = {
     exceptionNotify("edg_ide.actions.InsertBlockAction", event.getProject) {
@@ -28,16 +30,22 @@ class InsertBlockAction() extends AnAction() {
       val psiClass = PsiTreeUtil.getParentOfType(psiElement, classOf[PyClass])
           .exceptNull("No containing PSI class")
 
+      if (!psiClass.isSubclass(VALID_SUPERCLASS, TypeEvalContext.codeCompletion(event.getProject, psiFile))) {
+        throw new ExceptionNotifyException(s"Containing class ${psiClass.getName} is not a subclass of $VALID_SUPERCLASS")
+      }
+
       val psiContainingList = psiElement.getParent.instanceOfExcept[PyStatementList](s"Invalid location to insert block")
       val psiContainingFunction = psiContainingList.getParent.instanceOfExcept[PyFunction]("Not in a function")
       if (!VALID_FUNCTION_NAMES.contains(psiContainingFunction.getName)) {
         throw new ExceptionNotifyException(s"Containing function ${psiContainingFunction.getName} not valid for block insertion")
       }
 
+      val selfName = psiContainingFunction.getParameterList.getParameters()(0).getName
+
       val psiElementGenerator = PyElementGenerator.getInstance(event.getProject)
       val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(psiElement),
         classOf[PyAssignmentStatement],
-        "self.target_name = self.Block(TargetClass())"
+        s"$selfName.target_name = $selfName.Block(TargetClass())"
       )
 
       writeCommandAction(event.getProject).withName("Insert Block").run(() => {
