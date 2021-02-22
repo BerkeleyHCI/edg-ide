@@ -26,6 +26,7 @@ object EdgirLibraryTreeNode {
 
     override lazy val children: Seq[EdgirLibraryTreeNode] = {
       paths.map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
+          .sortBy(_.toString)
     }
   }
 

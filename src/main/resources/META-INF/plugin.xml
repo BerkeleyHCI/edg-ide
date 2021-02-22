@@ -27,9 +27,14 @@
     </action>
 
     <action id="edg_ide.actions.EmptyCacheAction" class="edg_ide.actions.EmptyCacheAction"
-            text="Empty IDE Cache" description="Empty the IDE cache only (does not affect the Python cache)">
+            text="Empty IDE Cache" description="Empty the IDE cache">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt Q" keymap="$default"/>
+    </action>
+
+    <action id="edg_ide.actions.FillCacheAction" class="edg_ide.actions.FillCacheAction"
+            text="Fill Cache" description="Fill the IDE cache by compiling all libraries visible from the current design">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
     </action>
 
     <action id="edg_ide.actions.DiscardCachedModuleAction" class="edg_ide.actions.DiscardCachedModuleAction"

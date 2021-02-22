@@ -9,10 +9,9 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.{JBIntSpinner, JBSplitter}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate}
+import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
 import edg.schema.schema
-import edg.compiler.{hdl => edgrpc}
 import edg.ElemBuilder
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
@@ -186,6 +185,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // Actions
   //
+  def getModule: String = blockModule.getText()
+
   def select(path: DesignPath): Unit = {
     if (path == DesignPath()) {
       tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (root)")
@@ -227,7 +228,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
           indicator.setText("EDG compiling ... design top")
           val fullName = blockModule.getText() + "." + blockName.getText()
-          val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName))
+          val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName)).get  // TODO propagate Errorable
           val design = schema.Design(contents = Some(block))
 
           indicator.setText("EDG compiling ...")
@@ -244,7 +245,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           indicator.setText("EDG compiling ... done")
 
-          libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
+          updateLibrary(EdgCompilerService(project).pyLib)
           refinementsPanel.setRefinements(refinements)
           errorPanel.setErrors(errors)
 
@@ -300,6 +301,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       // TODO this should resolve as far as possible here, instead of passing a newly invalid path
       select(selectedPath)  // reload previous selection to the extent possible
     case None => graph.setGraph(emptyHGraph)
+  }
+
+  def updateLibrary(library: PythonInterfaceLibrary): Unit = {
+    libraryPanel.setLibrary(library)
   }
 
   // Configuration State
