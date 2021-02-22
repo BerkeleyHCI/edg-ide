@@ -35,6 +35,7 @@
     <action id="edg_ide.actions.FillCacheAction" class="edg_ide.actions.FillCacheAction"
             text="Fill Cache" description="Fill the IDE cache by compiling all libraries visible from the current design">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
+      <keyboard-shortcut first-keystroke="control alt U" keymap="$default"/>
     </action>
 
     <action id="edg_ide.actions.DiscardCachedModuleAction" class="edg_ide.actions.DiscardCachedModuleAction"

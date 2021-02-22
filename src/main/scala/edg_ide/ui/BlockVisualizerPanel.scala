@@ -7,16 +7,17 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.{JBIntSpinner, JBSplitter}
-import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
+import com.intellij.ui.components.{JBScrollPane, JBTabbedPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
+import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir
 import edg.wir.{DesignPath, Refinements}
+import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
 
@@ -348,13 +349,27 @@ class LibraryPanel() extends JPanel {
   //
   private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
 
+  private val visualizer = new JBTextArea("TODO Library Visualizer here")
+  splitter.setSecondComponent(visualizer)
+
   private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
+  private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
+    override def valueChanged(e: TreeSelectionEvent): Unit = {
+      e.getPath.getLastPathComponent match {
+        case node: EdgirLibraryTreeNode.BlockNode =>
+          visualizer.setText(
+            s"${EdgirUtils.SimpleLibraryPath(node.path)}\n" +
+            s"Superclasses: ${node.block.superclasses.map{EdgirUtils.SimpleLibraryPath}.mkString(", ")}"
+          )
+        case node =>
+      }
+    }
+  }
+  libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+  libraryTree.setRootVisible(false)
   libraryTree.setShowColumns(true)
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   splitter.setFirstComponent(libraryTreeScrollPane)
-
-  private val visualizer = new JLabel("TODO Library Visualizer here")
-  splitter.setSecondComponent(visualizer)
 
   setLayout(new BorderLayout())
   add(splitter)
@@ -364,6 +379,7 @@ class LibraryPanel() extends JPanel {
   def setLibrary(library: wir.Library): Unit = {
     this.library = library
     libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
+    libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
     libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
   }
 
