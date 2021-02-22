@@ -21,6 +21,13 @@ object exceptionNotify {
   }
 }
 
+object requireExcept {
+  def apply(cond: Boolean, errMsg: String) = {
+    if (!cond) {
+      throw new ExceptionNotifyException(errMsg)
+    }
+  }
+}
 
 object ExceptionNotifyImplicits {
   implicit class ExceptNotify[T](obj: T) {

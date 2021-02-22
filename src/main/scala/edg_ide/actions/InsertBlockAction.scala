@@ -10,7 +10,7 @@ import com.intellij.util.ThrowableRunnable
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatementList}
 import edg_ide.ui.BlockVisualizerService
-import edg_ide.util.{ExceptionNotifyException, exceptionNotify}
+import edg_ide.util.{ExceptionNotifyException, exceptionNotify, requireExcept}
 import edg_ide.util.ExceptionNotifyImplicits._
 
 
@@ -27,18 +27,16 @@ class InsertBlockAction() extends AnAction() {
       val offset = editor.getCaretModel.getOffset
       val psiFile = event.getData(CommonDataKeys.PSI_FILE).exceptNull("No PSI file")
       val psiElement = psiFile.findElementAt(offset).exceptNull("No PSI element")
+
       val psiClass = PsiTreeUtil.getParentOfType(psiElement, classOf[PyClass])
           .exceptNull("No containing PSI class")
-
-      if (!psiClass.isSubclass(VALID_SUPERCLASS, TypeEvalContext.codeCompletion(event.getProject, psiFile))) {
-        throw new ExceptionNotifyException(s"Containing class ${psiClass.getName} is not a subclass of $VALID_SUPERCLASS")
-      }
+      requireExcept(psiClass.isSubclass(VALID_SUPERCLASS, TypeEvalContext.codeCompletion(event.getProject, psiFile)),
+        s"Containing class ${psiClass.getName} is not a subclass of $VALID_SUPERCLASS")
 
       val psiContainingList = psiElement.getParent.instanceOfExcept[PyStatementList](s"Invalid location to insert block")
       val psiContainingFunction = psiContainingList.getParent.instanceOfExcept[PyFunction]("Not in a function")
-      if (!VALID_FUNCTION_NAMES.contains(psiContainingFunction.getName)) {
-        throw new ExceptionNotifyException(s"Containing function ${psiContainingFunction.getName} not valid for block insertion")
-      }
+      requireExcept(VALID_FUNCTION_NAMES.contains(psiContainingFunction.getName),
+        s"Containing function ${psiContainingFunction.getName} not valid for block insertion")
 
       val selfName = psiContainingFunction.getParameterList.getParameters()(0).getName
 
