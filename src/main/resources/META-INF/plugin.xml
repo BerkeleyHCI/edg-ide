@@ -55,5 +55,12 @@
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt W" keymap="$default"/>
     </action>
+
+
+    <action id="edg_ide.actions.TestAction" class="edg_ide.actions.TestAction"
+            text="Test Action" description="Whatever we want this to do">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
+      <keyboard-shortcut first-keystroke="control alt X" keymap="$default"/>
+    </action>
   </actions>
 </idea-plugin>

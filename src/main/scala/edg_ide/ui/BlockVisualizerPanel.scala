@@ -6,7 +6,7 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.ui.{JBIntSpinner, JBSplitter}
+import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
@@ -141,6 +141,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private var designTreeModel = new BlockTreeTableModel(edg.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel)
+  new TreeTableSpeedSearch(designTree)
   private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
@@ -353,6 +354,7 @@ class LibraryPanel() extends JPanel {
   splitter.setSecondComponent(visualizer)
 
   private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
+  new TreeTableSpeedSearch(libraryTree)
   private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       e.getPath.getLastPathComponent match {
@@ -397,6 +399,7 @@ class LibraryPanel() extends JPanel {
 
 class RefinementsPanel extends JPanel {
   private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
+  new TreeTableSpeedSearch(tree)
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
