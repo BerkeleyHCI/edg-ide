@@ -11,6 +11,22 @@ Try this instead:
 1. You may also use the sbt shell tab (next to the Terminal tab) to run these commands directly. 
 
 
+### Version issues
+
+When running the IDE, you may get this bug:
+```
+com.intellij.diagnostic.PluginException: 
+While loading class [class]:
+[class] has been compiled by a more recent version of the Java Runtime (class file version 59.0), this version of the Java Runtime only recognizes class file versions up to 55.0
+```
+
+This means the project is being compiled to target a more recent Java binary format than IntelliJ is running.
+To solve (probably):
+1. In IntelliJ, go to menu > File > Project Structure.
+1. Under Project Settings > Project, set the Project SDK to be Java 11.
+1. Clean and recompile until it works. Hopefully.
+
+
 ## Command line SBT notes
 
 - `runIDE` may fail to re-compile dependencies. `clean; runIDE` is safe(r).
@@ -27,7 +43,7 @@ This is only needed if you want to reference PyCharm sources / APIs (eg, PSI str
    (this may take a while)
 1. In the newly cloned repo: `git checkout pycharm/202.7660.27`
    (the version should match the `PythonCore` plugin in build.sbt)
-   - You may need to `checkout -f` to force
+   - You may need to `checkout -f` to force.
 1. Select any PyCharm reference, navigate to it (Ctrl+B).
    It should give you a decompiled source listing, and an option to choose sources.
    Click that, and point it to your cloned `intellij-community\python` folder.
