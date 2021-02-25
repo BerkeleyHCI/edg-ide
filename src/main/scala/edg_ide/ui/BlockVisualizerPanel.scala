@@ -9,6 +9,8 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
+import com.jetbrains.python.psi.PyPsiFacade
+import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
 import edg.schema.schema
@@ -21,12 +23,12 @@ import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
 
-import java.awt.event.{ActionEvent, ActionListener}
+import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JPanel, JTextField}
+import javax.swing.{JButton, JLabel, JMenuItem, JPanel, JPopupMenu, JTextField}
 
 
 object Gbc {
@@ -341,6 +343,25 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 }
 
 
+class BlockPopupMenu(node: EdgirLibraryTreeNode.BlockNode, project: Project) extends JPopupMenu {
+  add(new JLabel(EdgirUtils.SimpleLibraryPath(node.path)))
+
+  val item = new JMenuItem("Goto Definition")
+  item.addActionListener((e: ActionEvent) => {
+    val pyPsi = PyPsiFacade.getInstance(project)
+    val pyClass = pyPsi.findClass(node.path.getTarget.getName)
+
+    val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg")
+    notificationGroup.createNotification(s"${node.path.getTarget.getName} => $pyClass",
+      NotificationType.INFORMATION).notify(project)
+  })
+  add(item)
+
+  PyClassInheritorsSearch.search()
+
+}
+
+
 class LibraryPanel(project: Project) extends JPanel {
   // State
   //
@@ -367,7 +388,23 @@ class LibraryPanel(project: Project) extends JPanel {
       }
     }
   }
+  private val libraryMouseListener = new MouseAdapter {
+    override def mousePressed(e: MouseEvent): Unit = {
+      super.mousePressed(e)
+      val selectedPath = libraryTree.getTree.getPathForLocation(e.getX, e.getY)
+      if (selectedPath == null) {
+        return
+      }
+      val selected = selectedPath.getLastPathComponent
+      if (selected.isInstanceOf[EdgirLibraryTreeNode.BlockNode]) {
+        val selectedNode = selected.asInstanceOf[EdgirLibraryTreeNode.BlockNode]
+        val menu = new BlockPopupMenu(selectedNode, project)
+        menu.show(e.getComponent, e.getX, e.getY)
+      }
+    }
+  }
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+  libraryTree.addMouseListener(libraryMouseListener)
   libraryTree.setRootVisible(false)
   libraryTree.setShowColumns(true)
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
