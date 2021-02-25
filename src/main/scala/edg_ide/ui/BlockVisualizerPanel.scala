@@ -6,6 +6,7 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -15,10 +16,11 @@ import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonIn
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
+import edg.util.Errorable
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir
-import edg.wir.{DesignPath, Refinements}
+import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
@@ -29,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JMenuItem, JPanel, JPopupMenu, JTextField}
+import scala.jdk.CollectionConverters.IterableHasAsScala
 
 
 object Gbc {
@@ -346,19 +349,41 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 class BlockPopupMenu(node: EdgirLibraryTreeNode.BlockNode, project: Project) extends JPopupMenu {
   add(new JLabel(EdgirUtils.SimpleLibraryPath(node.path)))
 
-  val item = new JMenuItem("Goto Definition")
-  item.addActionListener((e: ActionEvent) => {
-    val pyPsi = PyPsiFacade.getInstance(project)
-    val pyClass = pyPsi.findClass(node.path.getTarget.getName)
+  private val pyPsi = PyPsiFacade.getInstance(project)
+  private val pyClass = Errorable(pyPsi.findClass(node.path.getTarget.getName), "no class")
+  private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
-    val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg")
-    notificationGroup.createNotification(s"${node.path.getTarget.getName} => $pyClass",
-      NotificationType.INFORMATION).notify(project)
+  private val psiFile = pyClass.map(_.getContainingFile)
+  private val psiDocumentManager = PsiDocumentManager.getInstance(project)
+  private val psiDocument = psiFile.map("no document")(psiDocumentManager.getDocument(_))
+  private val fileLine = (pyClass + (psiFile + psiDocument)).mapToString { case (pyClass, (psiFile, psiDocument)) =>
+    val lineNumber = psiDocument.getLineNumber(pyClass.getTextOffset)
+    s"${psiFile.getName}:$lineNumber"
+  }
+
+  private val gotoItem = pyNavigatable match {
+    case Errorable.Success(pyNavigatable) =>
+      val item = new JMenuItem(s"Goto Definition (${fileLine})")
+      item.addActionListener((e: ActionEvent) => {
+        pyNavigatable.navigate(true)
+      })
+      item
+    case Errorable.Error(msg) =>
+      val item = new JMenuItem(s"Goto Definition ($msg)")
+      item.setEnabled(false)
+      item
+  }
+  add(gotoItem)
+
+  val item = new JMenuItem("Inheritor Search")
+  item.addActionListener((e: ActionEvent) => {
+    val inheritors = pyClass.map { pyClass =>
+      val results = PyClassInheritorsSearch.search(pyClass, false).findAll().asScala
+      results.map(_.getName).mkString(", ")
+    }
+    println(inheritors)
   })
   add(item)
-
-  PyClassInheritorsSearch.search()
-
 }
 
 
