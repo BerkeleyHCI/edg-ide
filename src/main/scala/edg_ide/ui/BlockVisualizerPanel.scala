@@ -21,7 +21,7 @@ import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, Edgi
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir
 import edg.wir.DesignPath
-import edg_ide.EdgirUtils
+import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
 
@@ -349,17 +349,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 class BlockPopupMenu(node: EdgirLibraryTreeNode.BlockNode, project: Project) extends JPopupMenu {
   add(new JLabel(EdgirUtils.SimpleLibraryPath(node.path)))
 
-  private val pyPsi = PyPsiFacade.getInstance(project)
-  private val pyClass = Errorable(pyPsi.findClass(node.path.getTarget.getName), "no class")
+  private val pyClass = EdgCompilerService(project).pyClassOf(node.path)
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
-  private val psiFile = pyClass.map(_.getContainingFile)
-  private val psiDocumentManager = PsiDocumentManager.getInstance(project)
-  private val psiDocument = psiFile.map("no document")(psiDocumentManager.getDocument(_))
-  private val fileLine = (pyClass + (psiFile + psiDocument)).mapToString { case (pyClass, (psiFile, psiDocument)) =>
-    val lineNumber = psiDocument.getLineNumber(pyClass.getTextOffset)
-    s"${psiFile.getName}:$lineNumber"
-  }
+  private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
 
   private val gotoItem = pyNavigatable match {
     case Errorable.Success(pyNavigatable) =>

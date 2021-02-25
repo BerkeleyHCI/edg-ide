@@ -1,10 +1,21 @@
 package edg_ide
 
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiDocumentManager, PsiElement}
 import com.jetbrains.python.psi.{LanguageLevel, PyElementGenerator, PyReferenceExpression, PyTargetExpression}
+import edg.util.Errorable
 
 object PsiUtils {
+  def fileLineOf(element: PsiElement, project: Project): Errorable[String] = {
+    val psiFile = Errorable(element.getContainingFile, "no file")
+    val psiDocumentManager = PsiDocumentManager.getInstance(project)
+    val psiDocument = psiFile.map("no document")(psiDocumentManager.getDocument(_))
+    (psiFile + psiDocument).map { case (psiFile, psiDocument) =>
+      val lineNumber = psiDocument.getLineNumber(element.getTextOffset)
+      s"${psiFile.getName}:$lineNumber"
+    }
+  }
+
   // Return all siblings (including itself) of a PsiElement
   def psiSiblings(element: PsiElement): Seq[PsiElement] = element match {
     case element: PsiElement => Seq(element) ++ psiSiblings(element.getNextSibling)

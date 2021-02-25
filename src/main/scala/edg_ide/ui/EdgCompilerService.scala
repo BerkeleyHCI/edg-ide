@@ -5,6 +5,7 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
+import com.jetbrains.python.psi.{PyClass, PyPsiFacade}
 import edg.compiler.{Compiler, ElaborateRecord, PythonInterface, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.schema.schema
 import edg.util.{Errorable, timeExec}
@@ -23,6 +24,8 @@ object EdgCompilerService {
 
 
 /** A single shared interface to Python and for running EDG compilation jobs.
+  *
+  * TODO: perhaps split the library service out?
   */
 class EdgCompilerService(project: Project) extends
     PersistentStateComponent[EdgCompilerServiceState] with Disposable {
@@ -93,4 +96,13 @@ class EdgCompilerService(project: Project) extends
   }
 
   override def dispose(): Unit = { }
+
+  //
+  // Library - PSI functions
+  //
+  private val pyPsi = PyPsiFacade.getInstance(project)
+
+  def pyClassOf(path: ref.LibraryPath): Errorable[PyClass] = {
+    Errorable(pyPsi.findClass(path.getTarget.getName), "no class")
+  }
 }
