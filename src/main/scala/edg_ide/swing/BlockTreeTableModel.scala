@@ -32,7 +32,7 @@ class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
     case steps => steps.last
   }
 
-  def getColumns(index: Int): String = block.superclasses.map(EdgirUtils.LibraryPathToString).mkString(", ")
+  def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(block.superclasses)
 }
 
 
