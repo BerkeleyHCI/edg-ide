@@ -2,6 +2,7 @@ package edg_ide.ui
 
 import collection.mutable
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import edg.compiler.{Compiler, ElaborateRecord, PythonInterface, PythonInterfaceLibrary, hdl => edgrpc}
@@ -23,7 +24,8 @@ object EdgCompilerService {
 
 /** A single shared interface to Python and for running EDG compilation jobs.
   */
-class EdgCompilerService(project: Project) extends Disposable {
+class EdgCompilerService(project: Project) extends
+    PersistentStateComponent[EdgCompilerServiceState] with Disposable {
   val pyLib = new PythonInterfaceLibrary(new PythonInterface())
 
   // Loads all library elements visible from some module.
@@ -77,6 +79,17 @@ class EdgCompilerService(project: Project) extends Disposable {
       compiler.compile()
     }
     (compiled, compiler, time)
+  }
+
+  override def getState: EdgCompilerServiceState = {
+    val state = new EdgCompilerServiceState
+    state.serializedBlocks = pyLib.toLibraryPb.toProtoString
+    state
+  }
+
+  override def loadState(state: EdgCompilerServiceState): Unit = {
+    val library = schema.Library.fromAscii(state.serializedBlocks)
+    pyLib.loadFromLibraryPb(library)
   }
 
   override def dispose(): Unit = { }

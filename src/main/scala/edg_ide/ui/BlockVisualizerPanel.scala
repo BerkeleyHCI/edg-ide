@@ -166,7 +166,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val tabbedPane = new JBTabbedPane()
   bottomSplitter.setSecondComponent(tabbedPane)
 
-  private val libraryPanel = new LibraryPanel()
+  private val libraryPanel = new LibraryPanel(project)
   tabbedPane.addTab("Library", libraryPanel)
   val TAB_INDEX_LIBRARY = 0
 
@@ -341,10 +341,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 }
 
 
-class LibraryPanel() extends JPanel {
+class LibraryPanel(project: Project) extends JPanel {
   // State
   //
-  private var library: wir.Library = new wir.EdgirLibrary(schema.Library())
+  private var library: wir.Library = EdgCompilerService(project).pyLib
 
   // GUI Components
   //

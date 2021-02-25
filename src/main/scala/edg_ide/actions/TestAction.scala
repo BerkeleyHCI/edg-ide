@@ -5,6 +5,7 @@ import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi._
+import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg_ide.ui.BlockVisualizerService
 import edg_ide.util.ExceptionNotifyImplicits._
 import edg_ide.util.{exceptionNotify, requireExcept}

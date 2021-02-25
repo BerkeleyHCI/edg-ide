@@ -1,16 +1,12 @@
 package edg_ide.actions
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
-import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.util.ThrowableRunnable
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatementList}
 import edg_ide.ui.BlockVisualizerService
-import edg_ide.util.{ExceptionNotifyException, exceptionNotify, requireExcept}
+import edg_ide.util.{exceptionNotify, requireExcept}
 import edg_ide.util.ExceptionNotifyImplicits._
 
 
