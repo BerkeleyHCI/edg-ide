@@ -3,6 +3,8 @@ package edg_ide.ui
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
+import edg.wir.DesignPath
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -28,6 +30,23 @@ class BlockVisualizerService(project: Project) extends
     created
   }
 
+
+  def setContext(path: DesignPath): Unit = {
+    visualizerPanelOption.foreach(_.setContext(path))
+  }
+
+  def setModuleClass(module: String, block: String): Unit = {
+    visualizerPanelOption.foreach(_.setFileBlock(module, block))
+    update()
+  }
+
+  def update(): Unit = {
+    visualizerPanelOption.foreach(_.update())
+  }
+
+  def getModule(): String = {
+    visualizerPanelOption.get.getModule
+  }
 
   override def getState: BlockVisualizerServiceState = {
     val state = new BlockVisualizerServiceState

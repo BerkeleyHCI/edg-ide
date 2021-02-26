@@ -23,14 +23,15 @@ import edg.wir
 import edg.wir.DesignPath
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.build.BuildInfo
-import org.eclipse.elk.graph.ElkGraphElement
+import edg_ide.util.ErrorableNotify.ErrorableNotify
+import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JMenuItem, JPanel, JPopupMenu, JTextField}
+import javax.swing.{JButton, JLabel, JMenuItem, JPanel, JPopupMenu, JTextField, SwingUtilities}
 import scala.jdk.CollectionConverters.IterableHasAsScala
 
 
@@ -59,11 +60,49 @@ object Gbc {
 }
 
 
+class DesignBlockPopupMenu(path: DesignPath, block: elem.HierarchyBlock, project: Project) extends JPopupMenu {
+  require(block.superclasses.length == 1)
+  val blockClass = block.superclasses.head
+
+  add(new JLabel(s"${EdgirUtils.SimpleLibraryPath(blockClass)} at $path"))
+
+  private val pyClass = EdgCompilerService(project).pyClassOf(blockClass)
+  private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
+
+  private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
+
+  // TODO add Goto Usage
+
+  private val gotoDefinitionItem = pyNavigatable match {
+    case Errorable.Success(pyNavigatable) =>
+      val item = new JMenuItem(s"Goto Definition (${fileLine})")
+      item.addActionListener((e: ActionEvent) => {
+        pyNavigatable.navigate(true)
+      })
+      item
+    case Errorable.Error(msg) =>
+      val item = new JMenuItem(s"Goto Definition ($msg)")
+      item.setEnabled(false)
+      item
+  }
+  add(gotoDefinitionItem)
+
+  val setFocusItem = new JMenuItem(s"Focus View on $path")
+  setFocusItem.addActionListener((e: ActionEvent) => {
+    BlockVisualizerService(project).setContext(path)
+  })
+  add(setFocusItem)
+}
+
+
 class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Internal State
   //
   private var design = schema.Design()
   private var compiler = new Compiler(design, EdgCompilerService(project).pyLib)
+
+  private var blockModule = ""
+  private var blockName = ""
 
   // GUI-facing state
   //
@@ -84,29 +123,11 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val visualizationPanel = new JPanel(new GridBagLayout())
   mainSplitter.setFirstComponent(visualizationPanel)
 
-  private val blockFileLabel = new JLabel("Block File")
-  visualizationPanel.add(blockFileLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
-  private val blockFile = new TextFieldWithBrowseButton()
-  visualizationPanel.add(blockFile, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
-  private val fileDescriptor: FileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
-  blockFile.addBrowseFolderListener(new TextBrowseFolderListener(fileDescriptor, null) {
-    override def onFileChosen(chosenFile: VirtualFile) {
-      super.onFileChosen(chosenFile)  // TODO implement me
-    }
-  })
-
-  private val blockModuleLabel = new JLabel("Block Module")
-  visualizationPanel.add(blockModuleLabel, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
-  private val blockModule = new JTextField()
-  visualizationPanel.add(blockModule, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
-
-  private val blockNameLabel = new JLabel("Block Name")
-  visualizationPanel.add(blockNameLabel, Gbc(2, 0, GridBagConstraints.HORIZONTAL))
-  private val blockName = new JTextField()
-  visualizationPanel.add(blockName, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
+  private val blockNameLabel = new JLabel("")
+  visualizationPanel.add(blockNameLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val button = new JButton("Update")
-  visualizationPanel.add(button, Gbc(3, 0, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(button, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
   button.addActionListener(new ActionListener() {
     override def actionPerformed(e: ActionEvent) {
       update()
@@ -114,15 +135,15 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   })
 
   // TODO max value based on depth of tree?
-  private val depthSpinner = new JBIntSpinner(1, 1, 100)
+  private val depthSpinner = new JBIntSpinner(1, 1, 8)
   // TODO update visualization on change?
-  visualizationPanel.add(depthSpinner, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(depthSpinner, Gbc(2, 0, GridBagConstraints.HORIZONTAL))
 
   private val status = new JLabel(s"Ready " +
       s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
       s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
   )
-  visualizationPanel.add(status, Gbc(0, 2, GridBagConstraints.HORIZONTAL, xsize=4))
+  visualizationPanel.add(status, Gbc(0, 1, GridBagConstraints.HORIZONTAL, xsize=3))
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
@@ -136,8 +157,31 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       Option(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)).foreach(select)
     }
   }
+  // TODO add quick nav double click
+  graph.addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      if (ignoreActions) {
+        return
+      }
+      if (!SwingUtilities.isRightMouseButton(e) || e.getClickCount != 1) {
+        return
+      }
+      val clickedNode = graph.getElementForLocation(e.getX, e.getY)
+      clickedNode match {
+        case Some(node: ElkNode) =>
+          val path = Errorable(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property), "node missing path")
+          val block = path.flatMap("invalid path") { EdgirUtils.resolveBlockFromBlock(_, design.getContents) }
+          (path + block).mapOrNotify("edg_ide.BlockVisualizerPanel", project) { case (path, block) =>
+            val menu = new DesignBlockPopupMenu(path, block, project)
+            menu.show(e.getComponent, e.getX, e.getY)
+          }
+        case _ =>  // ignored
+      }
+    }
+  })
+
   private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
-  visualizationPanel.add(graphScrollPane, Gbc(0, 3, GridBagConstraints.BOTH, xsize=4))
+  visualizationPanel.add(graphScrollPane, Gbc(0, 2, GridBagConstraints.BOTH, xsize=3))
 
   // GUI: Bottom half (design tree and task tabs)
   //
@@ -192,7 +236,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // Actions
   //
-  def getModule: String = blockModule.getText()
+  def getModule: String = blockModule
 
   def select(path: DesignPath): Unit = {
     if (path == DesignPath()) {
@@ -216,6 +260,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     ignoreActions = false
   }
 
+  def setContext(path: DesignPath): Unit = {
+
+  }
+
   def update(): Unit = {
     if (!compilerRunning.compareAndSet(false, true)) {
       notificationGroup.createNotification(
@@ -231,10 +279,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
         try {
           indicator.setText("EDG compiling ... reloading")
-          EdgCompilerService(project).pyLib.reloadModule(blockModule.getText())
+          EdgCompilerService(project).pyLib.reloadModule(blockModule)
 
           indicator.setText("EDG compiling ... design top")
-          val fullName = blockModule.getText() + "." + blockName.getText()
+          val fullName = blockModule + "." + blockName
           val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName)).get  // TODO propagate Errorable
           val design = schema.Design(contents = Some(block))
 
@@ -278,11 +326,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   }
 
-  def setFileBlock(file: VirtualFile, module: String, block: String): Unit = {
-    blockFile.setText(file.getCanonicalPath)
-    blockModule.setText(module)
-    blockName.setText(block)
-    update()
+  def setFileBlock(module: String, block: String): Unit = {
+    blockModule = module
+    blockName = block
+    blockNameLabel.setText(s"$module.$blockName")
   }
 
   def setDesign(design: schema.Design, compiler: Compiler): Unit = design.contents match {
@@ -317,9 +364,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.panelBlockFile = blockFile.getText
-    state.panelBlockModule = blockModule.getText()
-    state.panelBlockName = blockName.getText()
+    state.panelBlockModule = blockModule
+    state.panelBlockName = blockName
     state.depthSpinner = depthSpinner.getNumber
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
@@ -331,9 +377,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
-    blockFile.setText(state.panelBlockFile)
-    blockModule.setText(state.panelBlockModule)
-    blockName.setText(state.panelBlockName)
+    setFileBlock(state.panelBlockModule, state.panelBlockName)
     depthSpinner.setNumber(state.depthSpinner)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
@@ -342,112 +386,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     refinementsPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
-  }
-}
-
-
-class BlockPopupMenu(node: EdgirLibraryTreeNode.BlockNode, project: Project) extends JPopupMenu {
-  add(new JLabel(EdgirUtils.SimpleLibraryPath(node.path)))
-
-  private val pyClass = EdgCompilerService(project).pyClassOf(node.path)
-  private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
-
-  private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
-
-  private val gotoItem = pyNavigatable match {
-    case Errorable.Success(pyNavigatable) =>
-      val item = new JMenuItem(s"Goto Definition (${fileLine})")
-      item.addActionListener((e: ActionEvent) => {
-        pyNavigatable.navigate(true)
-      })
-      item
-    case Errorable.Error(msg) =>
-      val item = new JMenuItem(s"Goto Definition ($msg)")
-      item.setEnabled(false)
-      item
-  }
-  add(gotoItem)
-
-  val item = new JMenuItem("Inheritor Search")
-  item.addActionListener((e: ActionEvent) => {
-    val inheritors = pyClass.map { pyClass =>
-      val results = PyClassInheritorsSearch.search(pyClass, false).findAll().asScala
-      results.map(_.getName).mkString(", ")
-    }
-    println(inheritors)
-  })
-  add(item)
-}
-
-
-class LibraryPanel(project: Project) extends JPanel {
-  // State
-  //
-  private var library: wir.Library = EdgCompilerService(project).pyLib
-
-  // GUI Components
-  //
-  private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
-
-  private val visualizer = new JBTextArea("TODO Library Visualizer here")
-  splitter.setSecondComponent(visualizer)
-
-  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
-  new TreeTableSpeedSearch(libraryTree)
-  private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
-    override def valueChanged(e: TreeSelectionEvent): Unit = {
-      e.getPath.getLastPathComponent match {
-        case node: EdgirLibraryTreeNode.BlockNode =>
-          visualizer.setText(
-            s"${EdgirUtils.SimpleLibraryPath(node.path)}\n" +
-            s"Superclasses: ${node.block.superclasses.map{EdgirUtils.SimpleLibraryPath}.mkString(", ")}"
-          )
-        case node =>
-      }
-    }
-  }
-  private val libraryMouseListener = new MouseAdapter {
-    override def mousePressed(e: MouseEvent): Unit = {
-      super.mousePressed(e)
-      val selectedPath = libraryTree.getTree.getPathForLocation(e.getX, e.getY)
-      if (selectedPath == null) {
-        return
-      }
-      val selected = selectedPath.getLastPathComponent
-      if (selected.isInstanceOf[EdgirLibraryTreeNode.BlockNode]) {
-        val selectedNode = selected.asInstanceOf[EdgirLibraryTreeNode.BlockNode]
-        val menu = new BlockPopupMenu(selectedNode, project)
-        menu.show(e.getComponent, e.getX, e.getY)
-      }
-    }
-  }
-  libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
-  libraryTree.addMouseListener(libraryMouseListener)
-  libraryTree.setRootVisible(false)
-  libraryTree.setShowColumns(true)
-  private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
-  splitter.setFirstComponent(libraryTreeScrollPane)
-
-  setLayout(new BorderLayout())
-  add(splitter)
-
-  // Actions
-  //
-  def setLibrary(library: wir.Library): Unit = {
-    this.library = library
-    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
-    libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
-    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
-  }
-
-  // Configuration State
-  //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.panelLibrarySplitterPos = splitter.getProportion
-  }
-
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-    splitter.setProportion(state.panelLibrarySplitterPos)
   }
 }
 

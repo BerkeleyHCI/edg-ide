@@ -97,6 +97,16 @@ object EdgirUtils {
     resolveFromBlockLike(path.steps, elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)))
   }
 
+  def resolveBlockFromBlock(path: DesignPath, block: elem.HierarchyBlock): Option[elem.HierarchyBlock] = {
+    resolveFromBlock(path, block) match {
+      case Some(blockLike: elem.BlockLike) => blockLike.`type` match {
+        case elem.BlockLike.Type.Hierarchy(block) => Some(block)
+        case _ => None
+      }
+      case _ => None
+    }
+  }
+
   @tailrec
   private def resolveFromBlockLike(path: Seq[String], blockLike: elem.BlockLike): Option[Any] = (path, blockLike.`type`) match {
     case (Seq(), _) => Some(blockLike)
