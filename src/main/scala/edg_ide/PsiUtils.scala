@@ -50,7 +50,7 @@ object PsiUtils {
     if (assigns.isEmpty) {  // search up the superclass chain if needed
       container.getSuperClasses(TypeEvalContext.userInitiated(project, null))
           .flatMap(findAssignmentsTo(_, targetName, project))
-          .distinct  // TODO prevent duplicate work in case of multiple inheritance?
+          .distinct  // TODO also prevent duplicate work in case of multiple inheritance?
     } else {
       assigns
     }
