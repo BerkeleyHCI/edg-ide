@@ -60,13 +60,14 @@ object Gbc {
 }
 
 
-class DesignBlockPopupMenu(path: DesignPath, block: elem.HierarchyBlock, project: Project) extends JPopupMenu {
-  require(block.superclasses.length == 1)
-  val blockClass = block.superclasses.head
+class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Project) extends JPopupMenu {
+  private val block = Errorable(EdgirUtils.resolveBlockFromBlock(path, design.getContents), "no block at path")
+  private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
+      .map(_.head)
 
-  add(new JLabel(s"${EdgirUtils.SimpleLibraryPath(blockClass)} at $path"))
+  add(new JLabel(s"${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
 
-  private val pyClass = EdgCompilerService(project).pyClassOf(blockClass)
+  private val pyClass = blockClass.flatMap(EdgCompilerService(project).pyClassOf(_))
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
   private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
@@ -86,6 +87,8 @@ class DesignBlockPopupMenu(path: DesignPath, block: elem.HierarchyBlock, project
       item
   }
   add(gotoDefinitionItem)
+
+  // TODO add goto parent / goto root if selected current focus?
 
   val setFocusItem = new JMenuItem(s"Focus View on $path")
   setFocusItem.addActionListener((e: ActionEvent) => {
@@ -170,9 +173,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       clickedNode match {
         case Some(node: ElkNode) =>
           val path = Errorable(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property), "node missing path")
-          val block = path.flatMap("invalid path") { EdgirUtils.resolveBlockFromBlock(_, design.getContents) }
-          (path + block).mapOrNotify("edg_ide.BlockVisualizerPanel", project) { case (path, block) =>
-            val menu = new DesignBlockPopupMenu(path, block, project)
+          path.mapOrNotify("edg_ide.BlockVisualizerPanel", project) { case path =>
+            val menu = new DesignBlockPopupMenu(path, design, project)
             menu.show(e.getComponent, e.getX, e.getY)
           }
         case _ =>  // ignored
