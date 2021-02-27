@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
+import com.jetbrains.python.psi.PyAssignmentStatement
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
 import edg.schema.schema
@@ -61,33 +62,21 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
 
   add(new JLabel(s"${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
 
-  DesignAnalysisUtils.allAssignsTo(path, design, project) match {
-    case Errorable.Error(msg) =>
-      val errorItem = new JMenuItem(s"Goto Instantiation ($msg)")
-      errorItem.setEnabled(false)
-      add(errorItem)
-    case Errorable.Success(assigns) => assigns.foreach { assign =>
-      val fileLine = PsiUtils.fileLineOf(assign, project).mapToString(identity)
-      val gotoInstantiationItem = new JMenuItem(s"Goto Instantiation ($fileLine)")
-      gotoInstantiationItem.addActionListener((e: ActionEvent) => {
-        assign.navigate(true)
-      })
-      add(gotoInstantiationItem)
-    }
-  }
+  val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project)
+  PopupMenuUtils.MenuItemsFromErrorableSeq(assigns,
+    errMsg => s"Goto Instantiation ($errMsg)",
+    {assign: PyAssignmentStatement =>
+      s"Goto Instantiation (${PsiUtils.fileLineOf(assign, project).mapToString(identity)})"}) { assign =>
+    assign.navigate(true)
+  }.foreach(add)
 
   private val pyClass = blockClass.flatMap(DesignAnalysisUtils.pyClassOf(_, project))
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
-  private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
-  val gotoDefinitionItem = new JMenuItem(s"Goto Definition (${fileLine})")
-  pyNavigatable match {
-    case Errorable.Success(pyNavigatable) =>
-      gotoDefinitionItem.addActionListener((e: ActionEvent) => {
-        pyNavigatable.navigate(true)
-      })
-    case Errorable.Error(msg) =>
-      gotoDefinitionItem.setEnabled(false)
+  private val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
+  val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
+    s"Goto Definition (${fileLine})") { pyNavigatable =>
+    pyNavigatable.navigate(true)
   }
   add(gotoDefinitionItem)
 

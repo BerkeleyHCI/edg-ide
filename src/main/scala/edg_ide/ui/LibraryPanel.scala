@@ -24,22 +24,14 @@ class LibraryBlockPopupMenu(node: EdgirLibraryTreeNode.BlockNode, project: Proje
   private val pyClass = DesignAnalysisUtils.pyClassOf(node.path, project)
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
-  private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
-
-  private val gotoItem = pyNavigatable match {
-    case Errorable.Success(pyNavigatable) =>
-      val item = new JMenuItem(s"Goto Definition (${fileLine})")
-      item.addActionListener((e: ActionEvent) => {
-        pyNavigatable.navigate(true)
-      })
-      item
-    case Errorable.Error(msg) =>
-      val item = new JMenuItem(s"Goto Definition ($msg)")
-      item.setEnabled(false)
-      item
+  private val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
+  val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
+    s"Goto Definition (${fileLine})") { pyNavigatable =>
+    pyNavigatable.navigate(true)
   }
-  add(gotoItem)
+  add(gotoDefinitionItem)
 
+  // TODO temporary item remove me
   val item = new JMenuItem("Inheritor Search")
   item.addActionListener((e: ActionEvent) => {
     val inheritors = pyClass.map { pyClass =>
