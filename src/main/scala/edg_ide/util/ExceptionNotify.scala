@@ -2,11 +2,26 @@ package edg_ide.util
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.project.Project
+import edg.util.Errorable
 
 import scala.reflect.ClassTag
 
 
-class ExceptionNotifyException(val errMsg: String) extends Exception(errMsg)
+case class ExceptionNotifyException(val errMsg: String) extends Exception(errMsg)
+
+
+object exceptable {
+  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions.
+    * The result (or failure message) is returned as an Errorable.
+    */
+  def apply[T](fn: => T): Errorable[T] = {
+    try {
+      Errorable.Success(fn)
+    } catch {
+      case ExceptionNotifyException(errMsg) => Errorable.Error(errMsg)
+    }
+  }
+}
 
 
 object exceptionNotify {
@@ -40,7 +55,7 @@ object exceptionNotify {
 object requireExcept {
   def apply(cond: Boolean, errMsg: String): Unit = {
     if (!cond) {
-      throw new ExceptionNotifyException(errMsg)
+      throw ExceptionNotifyException(errMsg)
     }
   }
 }
@@ -54,14 +69,28 @@ object ExceptionNotifyImplicits {
       if (obj != null) {
         obj
       } else {
-        throw new ExceptionNotifyException(errMsg)
+        throw ExceptionNotifyException(errMsg)
       }
     }
 
     def instanceOfExcept[V](errMsg: String)(implicit tag: ClassTag[V]): V = obj match {
         // Need the implicit tag so this generates a proper runtime check
       case obj: V => obj
-      case _ => throw new ExceptionNotifyException(errMsg)
+      case _ => throw ExceptionNotifyException(errMsg)
+    }
+  }
+
+  implicit class ExceptOption[T](obj: Option[T]) {
+    def exceptNone(errMsg: String): T = obj match {
+      case Some(obj) => obj
+      case None => throw ExceptionNotifyException(errMsg)
+    }
+  }
+
+  implicit class ExceptErrorable[T](obj: Errorable[T]) {
+    def exceptError: T = obj match {
+      case Errorable.Success(obj) => obj
+      case Errorable.Error(msg) => throw ExceptionNotifyException(msg)
     }
   }
 }

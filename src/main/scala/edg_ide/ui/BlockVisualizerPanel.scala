@@ -17,6 +17,8 @@ import edg.wir.DesignPath
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.build.BuildInfo
 import edg_ide.util.ErrorableNotify.ErrorableNotify
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
+import edg_ide.util.{exceptable, requireExcept}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
@@ -176,8 +178,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       Option(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)).foreach(select)
     }
   }
-  // TODO add quick nav double click
-  graph.addMouseListener(new MouseAdapter {
+  graph.addMouseListener(new MouseAdapter {  // right click context menu
     override def mouseClicked(e: MouseEvent): Unit = {
       if (ignoreActions) {
         return
@@ -194,6 +195,31 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
             menu.show(e.getComponent, e.getX, e.getY)
           }
         case _ =>  // ignored
+      }
+    }
+  })
+  graph.addMouseListener(new MouseAdapter { // double click navigate to source
+    override def mouseClicked(e: MouseEvent): Unit = {
+      if (!SwingUtilities.isLeftMouseButton(e) || e.getClickCount != 2) {
+        return
+      }
+      val clickedNode = graph.getElementForLocation(e.getX, e.getY)
+      clickedNode match {
+        case Some(node: ElkNode) => exceptable {
+          val blockPath = node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)
+              .exceptNull("node missing path")
+          requireExcept(blockPath.steps.nonEmpty, "node at top")
+          val (parentPath, blockName) = blockPath.split
+          val parentBlock = EdgirUtils.resolveBlockFromBlock(parentPath, design.getContents)
+              .exceptNone(s"no block at parent path $parentPath")
+          requireExcept(parentBlock.superclasses.length == 1,
+            s"invalid parent class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
+          val parentPyClass = EdgCompilerService(project).pyClassOf(parentBlock.superclasses.head).exceptError
+          val assigns = PsiUtils.findAssignmentsTo(parentPyClass, blockName, project).filter(_.canNavigateToSource)
+          requireExcept(assigns.nonEmpty, s"no assigns to $blockName found in ${parentPyClass.getName}")
+          assigns.head.navigate(true)
+        }.mapOrNotify(notificationGroup, project)(identity)
+        case _ => // ignored
       }
     }
   })
