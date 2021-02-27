@@ -1,25 +1,18 @@
 package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
-import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiDocumentManager
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
-import com.intellij.ui.components.{JBScrollPane, JBTabbedPane, JBTextArea}
+import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.jetbrains.python.psi.PyPsiFacade
-import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
 import edg.util.Errorable
-import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
-import edg.wir
+import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
+import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir.DesignPath
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.build.BuildInfo
@@ -31,8 +24,7 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JMenuItem, JPanel, JPopupMenu, JTextField, SwingUtilities}
-import scala.jdk.CollectionConverters.IterableHasAsScala
+import javax.swing.{JButton, JLabel, JMenuItem, JPanel, JPopupMenu, SwingUtilities}
 
 
 object Gbc {
@@ -67,24 +59,47 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
 
   add(new JLabel(s"${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
 
+  if (path.steps.nonEmpty) {  // can only goto instantiation if the selection has a parent
+    val (parentPath, blockName) = path.split
+    val parentBlock = Errorable(EdgirUtils.resolveBlockFromBlock(parentPath, design.getContents), "no block at parent path")
+    val parentClass = parentBlock.map(_.superclasses).require("invalid parent class")(_.length == 1)
+        .map(_.head)
+    val parentPyClass = parentClass.flatMap(EdgCompilerService(project).pyClassOf(_))
+    val parentAssigns = parentPyClass.map(parentPyClass =>
+      PsiUtils.findAssignmentsTo(parentPyClass, blockName, project).filter(_.canNavigateToSource))
+    parentAssigns match {
+      case Errorable.Error(msg) =>
+        val errorItem = new JMenuItem(s"Goto Instantiation ($msg)")
+        errorItem.setEnabled(false)
+        add(errorItem)
+      case Errorable.Success(Seq()) =>
+        val errorItem = new JMenuItem(s"Goto Instantiation (none found)")
+        errorItem.setEnabled(false)
+        add(errorItem)
+      case Errorable.Success(parentAssigns) => parentAssigns.foreach { parentAssign =>
+        val fileLine = PsiUtils.fileLineOf(parentAssign, project).mapToString(identity)
+        val gotoInstantiationItem = new JMenuItem(s"Goto Instantiation ($fileLine)")
+        gotoInstantiationItem.addActionListener((e: ActionEvent) => {
+          parentAssign.navigate(true)
+        })
+        add(gotoInstantiationItem)
+      }
+
+    }
+  }
+
   private val pyClass = blockClass.flatMap(EdgCompilerService(project).pyClassOf(_))
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
   private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
-
-  // TODO add Goto Usage
-
-  private val gotoDefinitionItem = pyNavigatable match {
+  val gotoDefinitionItem = new JMenuItem(s"Goto Definition (${fileLine})")
+  pyNavigatable match {
     case Errorable.Success(pyNavigatable) =>
-      val item = new JMenuItem(s"Goto Definition (${fileLine})")
-      item.addActionListener((e: ActionEvent) => {
+      gotoDefinitionItem.addActionListener((e: ActionEvent) => {
         pyNavigatable.navigate(true)
       })
-      item
     case Errorable.Error(msg) =>
-      val item = new JMenuItem(s"Goto Definition ($msg)")
-      item.setEnabled(false)
-      item
+      gotoDefinitionItem.setEnabled(false)
   }
   add(gotoDefinitionItem)
 

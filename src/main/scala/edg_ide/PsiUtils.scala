@@ -2,8 +2,10 @@ package edg_ide
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
-import com.jetbrains.python.psi.{LanguageLevel, PyElementGenerator, PyReferenceExpression, PyTargetExpression}
+import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyRecursiveElementVisitor, PyReferenceExpression, PyTargetExpression}
 import edg.util.Errorable
+
+import scala.collection.mutable
 
 object PsiUtils {
   def fileLineOf(element: PsiElement, project: Project): Errorable[String] = {
@@ -16,13 +18,48 @@ object PsiUtils {
     }
   }
 
+  def findAssignmentsTo(container: PyClass, targetName: String,
+                        project: Project): Seq[PyAssignmentStatement] = {
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+
+    println(s"VisitClass $container")
+
+    container.getMethods.toSeq.collect { method =>
+      val parameters = method.getParameterList.getParameters
+      val selfName = parameters(0).getName
+      val targetReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(method),
+        s"$selfName.$targetName"
+      ).asInstanceOf[PyReferenceExpression]
+
+      println(s"VisitMethod ${method.getName}  $selfName  ${targetReference.getText}")
+
+      if (parameters.nonEmpty) {
+        // TODO support ElementDict and array ops
+        val methodAssigns = mutable.ListBuffer[PyAssignmentStatement]()
+        method.accept(new PyRecursiveElementVisitor() {
+          override def visitPyAssignmentStatement(node: PyAssignmentStatement): Unit = {
+            println(s"    VisitAssign $node")
+            if (node.getTargets.exists(expr => expr.textMatches(targetReference))) {
+              methodAssigns += (node)
+            }
+          }
+        })
+        methodAssigns.toSeq
+      } else {
+        Seq()
+      }
+    }.flatten
+  }
+
   // Return all siblings (including itself) of a PsiElement
+  @deprecated
   def psiSiblings(element: PsiElement): Seq[PsiElement] = element match {
     case element: PsiElement => Seq(element) ++ psiSiblings(element.getNextSibling)
     case _ => Seq()  // null case
   }
 
   // Returns whether the two Seq of PsiElements produce text matches (individual element-wise)
+  @deprecated
   def psiTextMatches(seq1: Seq[PsiElement], seq2: Seq[PsiElement]): Boolean = {  // TODO better match impl?
     seq1.lengthCompare(seq2.length) == 0 && (seq1.zip(seq2).map { case (val1, val2) =>
       val1.textMatches(val2)
