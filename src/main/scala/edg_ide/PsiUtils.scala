@@ -2,6 +2,7 @@ package edg_ide
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyRecursiveElementVisitor, PyReferenceExpression, PyTargetExpression}
 import edg.util.Errorable
 
@@ -22,7 +23,7 @@ object PsiUtils {
                         project: Project): Seq[PyAssignmentStatement] = {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
-    container.getMethods.toSeq.collect { method =>
+    val assigns = container.getMethods.toSeq.collect { method =>
       val parameters = method.getParameterList.getParameters
       val selfName = parameters(0).getName
       val targetReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(method),
@@ -45,6 +46,14 @@ object PsiUtils {
         Seq()
       }
     }.flatten
+
+    if (assigns.isEmpty) {  // search up the superclass chain if needed
+      container.getSuperClasses(TypeEvalContext.userInitiated(project, null))
+          .flatMap(findAssignmentsTo(_, targetName, project))
+          .distinct  // TODO prevent duplicate work in case of multiple inheritance?
+    } else {
+      assigns
+    }
   }
 
   // Return all siblings (including itself) of a PsiElement
