@@ -301,8 +301,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
           indicator.setText("EDG compiling ... design top")
           val fullName = blockModule + "." + blockName
-          val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName)).get  // TODO propagate Errorable
-          val design = schema.Design(contents = Some(block))
+          val designPathTop = ElemBuilder.LibraryPath(fullName)
+          val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designPathTop).get  // TODO propagate Errorable
+          val design = schema.Design(contents = Some(block.copy(superclasses = Seq(designPathTop))))  // TODO dedup w/ superclass resolution in BlockLink.Block
 
           indicator.setText("EDG compiling ...")
           val (compiled, compiler, time) = EdgCompilerService(project).compile(design, refinements, Some(indicator))

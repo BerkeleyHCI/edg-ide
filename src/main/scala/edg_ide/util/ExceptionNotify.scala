@@ -38,7 +38,7 @@ object exceptionNotify {
 }
 
 object requireExcept {
-  def apply(cond: Boolean, errMsg: String) = {
+  def apply(cond: Boolean, errMsg: String): Unit = {
     if (!cond) {
       throw new ExceptionNotifyException(errMsg)
     }

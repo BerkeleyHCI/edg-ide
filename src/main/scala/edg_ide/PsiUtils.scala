@@ -22,8 +22,6 @@ object PsiUtils {
                         project: Project): Seq[PyAssignmentStatement] = {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
-    println(s"VisitClass $container")
-
     container.getMethods.toSeq.collect { method =>
       val parameters = method.getParameterList.getParameters
       val selfName = parameters(0).getName
@@ -31,14 +29,12 @@ object PsiUtils {
         s"$selfName.$targetName"
       ).asInstanceOf[PyReferenceExpression]
 
-      println(s"VisitMethod ${method.getName}  $selfName  ${targetReference.getText}")
-
       if (parameters.nonEmpty) {
         // TODO support ElementDict and array ops
+        // TODO search superclasses
         val methodAssigns = mutable.ListBuffer[PyAssignmentStatement]()
         method.accept(new PyRecursiveElementVisitor() {
           override def visitPyAssignmentStatement(node: PyAssignmentStatement): Unit = {
-            println(s"    VisitAssign $node")
             if (node.getTargets.exists(expr => expr.textMatches(targetReference))) {
               methodAssigns += (node)
             }
