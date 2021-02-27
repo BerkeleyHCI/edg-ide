@@ -109,11 +109,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // GUI-facing state
   //
+  private var focusPath: DesignPath = DesignPath()  // visualize from root by default
   private var selectedPath: DesignPath = DesignPath()  // root implicitly selected by default
   // This hack ignores actions when programmatically synchronizing the design tree and graph
   // TODO refactor w/ shared model eg https://docs.oracle.com/javase/tutorial/uiswing/examples/components/index.html#SharedModelDemo
   private var ignoreActions: Boolean = false
-  private var compilerRunning = new AtomicBoolean(false)
+  private val compilerRunning = new AtomicBoolean(false)
 
   // GUI Components
   //
@@ -173,7 +174,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       clickedNode match {
         case Some(node: ElkNode) =>
           val path = Errorable(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property), "node missing path")
-          path.mapOrNotify("edg_ide.BlockVisualizerPanel", project) { case path =>
+          path.mapOrNotify(notificationGroup, project) { path =>
             val menu = new DesignBlockPopupMenu(path, design, project)
             menu.show(e.getComponent, e.getX, e.getY)
           }
