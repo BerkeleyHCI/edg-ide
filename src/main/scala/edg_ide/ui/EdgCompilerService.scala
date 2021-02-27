@@ -96,13 +96,4 @@ class EdgCompilerService(project: Project) extends
   }
 
   override def dispose(): Unit = { }
-
-  //
-  // Library - PSI functions
-  //
-  private val pyPsi = PyPsiFacade.getInstance(project)
-
-  def pyClassOf(path: ref.LibraryPath): Errorable[PyClass] = {
-    Errorable(pyPsi.findClass(path.getTarget.getName), "no class")
-  }
 }

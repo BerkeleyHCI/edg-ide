@@ -18,7 +18,7 @@ import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.build.BuildInfo
 import edg_ide.util.ErrorableNotify.ErrorableNotify
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
-import edg_ide.util.{exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
@@ -61,36 +61,22 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
 
   add(new JLabel(s"${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
 
-  if (path.steps.nonEmpty) {  // can only goto instantiation if the selection has a parent
-    val (parentPath, blockName) = path.split
-    val parentBlock = Errorable(EdgirUtils.resolveBlockFromBlock(parentPath, design.getContents), "no block at parent path")
-    val parentClass = parentBlock.map(_.superclasses).require("invalid parent class")(_.length == 1)
-        .map(_.head)
-    val parentPyClass = parentClass.flatMap(EdgCompilerService(project).pyClassOf(_))
-    val parentAssigns = parentPyClass.map(parentPyClass =>
-      PsiUtils.findAssignmentsTo(parentPyClass, blockName, project).filter(_.canNavigateToSource))
-    parentAssigns match {
-      case Errorable.Error(msg) =>
-        val errorItem = new JMenuItem(s"Goto Instantiation ($msg)")
-        errorItem.setEnabled(false)
-        add(errorItem)
-      case Errorable.Success(Seq()) =>
-        val errorItem = new JMenuItem(s"Goto Instantiation (none found)")
-        errorItem.setEnabled(false)
-        add(errorItem)
-      case Errorable.Success(parentAssigns) => parentAssigns.foreach { parentAssign =>
-        val fileLine = PsiUtils.fileLineOf(parentAssign, project).mapToString(identity)
-        val gotoInstantiationItem = new JMenuItem(s"Goto Instantiation ($fileLine)")
-        gotoInstantiationItem.addActionListener((e: ActionEvent) => {
-          parentAssign.navigate(true)
-        })
-        add(gotoInstantiationItem)
-      }
-
+  DesignAnalysisUtils.allAssignsTo(path, design, project) match {
+    case Errorable.Error(msg) =>
+      val errorItem = new JMenuItem(s"Goto Instantiation ($msg)")
+      errorItem.setEnabled(false)
+      add(errorItem)
+    case Errorable.Success(assigns) => assigns.foreach { assign =>
+      val fileLine = PsiUtils.fileLineOf(assign, project).mapToString(identity)
+      val gotoInstantiationItem = new JMenuItem(s"Goto Instantiation ($fileLine)")
+      gotoInstantiationItem.addActionListener((e: ActionEvent) => {
+        assign.navigate(true)
+      })
+      add(gotoInstantiationItem)
     }
   }
 
-  private val pyClass = blockClass.flatMap(EdgCompilerService(project).pyClassOf(_))
+  private val pyClass = blockClass.flatMap(DesignAnalysisUtils.pyClassOf(_, project))
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
   private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
@@ -206,20 +192,13 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       val clickedNode = graph.getElementForLocation(e.getX, e.getY)
       clickedNode match {
         case Some(node: ElkNode) => exceptable {
-          val blockPath = node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)
-              .exceptNull("node missing path")
-          requireExcept(blockPath.steps.nonEmpty, "node at top")
-          val (parentPath, blockName) = blockPath.split
-          val parentBlock = EdgirUtils.resolveBlockFromBlock(parentPath, design.getContents)
-              .exceptNone(s"no block at parent path $parentPath")
-          requireExcept(parentBlock.superclasses.length == 1,
-            s"invalid parent class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
-          val parentPyClass = EdgCompilerService(project).pyClassOf(parentBlock.superclasses.head).exceptError
-          val assigns = PsiUtils.findAssignmentsTo(parentPyClass, blockName, project).filter(_.canNavigateToSource)
-          requireExcept(assigns.nonEmpty, s"no assigns to $blockName found in ${parentPyClass.getName}")
-          assigns.head.navigate(true)
-        }.mapOrNotify(notificationGroup, project)(identity)
-        case _ => // ignored
+            val blockPath = node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)
+                .exceptNull("node missing path")
+            DesignAnalysisUtils.allAssignsTo(blockPath, design, project).exceptError
+          }.mapOrNotify(notificationGroup, project) {
+            _.head.navigate(true)
+          }
+        case None =>  // ignored
       }
     }
   })

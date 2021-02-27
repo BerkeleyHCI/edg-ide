@@ -9,6 +9,7 @@ import edg.util.Errorable
 import edg.wir
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
+import edg_ide.util.DesignAnalysisUtils
 
 import java.awt.BorderLayout
 import java.awt.event.{ActionEvent, MouseAdapter, MouseEvent}
@@ -20,7 +21,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 class LibraryBlockPopupMenu(node: EdgirLibraryTreeNode.BlockNode, project: Project) extends JPopupMenu {
   add(new JLabel(EdgirUtils.SimpleLibraryPath(node.path)))
 
-  private val pyClass = EdgCompilerService(project).pyClassOf(node.path)
+  private val pyClass = DesignAnalysisUtils.pyClassOf(node.path, project)
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
   private val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
