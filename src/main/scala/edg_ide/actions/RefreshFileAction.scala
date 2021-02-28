@@ -18,7 +18,7 @@ class RefreshFileAction() extends AnAction() {
       val documentManager = FileDocumentManager.getInstance()
       documentManager.saveDocument(document)
       new DiscardCachedModuleAction().actionPerformed(event)  // TODO this could integrate better by inlining
-      visualizer.update()
+      visualizer.recompile()
     }
   }
 }

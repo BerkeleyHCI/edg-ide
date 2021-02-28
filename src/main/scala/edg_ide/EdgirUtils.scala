@@ -72,89 +72,160 @@ object EdgirUtils {
     )
   }
 
-  @deprecated("Use resolveFrom*Like")
-  def ResolvePath(start: elem.HierarchyBlock, path: Seq[String]): Option[Any] = path match {  // TODO should be Union
-    case Seq(head, tail@_*) =>
-      start.blocks.get(head) match {
-        case Some(child) => child.`type` match {
-          case elem.BlockLike.Type.Hierarchy(child) => return ResolvePath(child, tail)
-        }
-        case _ =>  // fall through
-      }
-      start.ports.get(head) match {
-        case Some(child) => child.is match {
-          case elem.PortLike.Is.Port(child) if tail.isEmpty => return Some(child)
-          // fail noisily - shouldn't happen
-        }
-        case _ =>  // fall through
-      }
-      None
-    case Seq() => Some(start)
+
+  private sealed trait ResolveTarget[+T]
+
+  private object ResolveTarget {
+    object Any extends ResolveTarget[Any]
+    object Block extends ResolveTarget[elem.HierarchyBlock]
+    object Port extends ResolveTarget[elem.Port]
+    object Link extends ResolveTarget[elem.Link]
   }
 
-  // Resolves to a *Like from a Block. If path is root, this creates a dummy top-level BlockLike.
-  def resolveFromBlock(path: DesignPath, block: elem.HierarchyBlock): Option[Any] = {
-    resolveFromBlockLike(path.steps, elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(block)))
+  def resolveDeepestBlock(path: DesignPath, start: elem.HierarchyBlock): Option[(DesignPath, elem.HierarchyBlock)] = {
+    ResolveDeepest.fromBlock(Seq(), path.steps, start, ResolveTarget.Block)
+        .map { case (resolvedPath, resolvedBlock) => (DesignPath(resolvedPath), resolvedBlock)
+        }
   }
 
-  def resolveBlockFromBlock(path: DesignPath, block: elem.HierarchyBlock): Option[elem.HierarchyBlock] = {
-    resolveFromBlock(path, block) match {
-      case Some(blockLike: elem.BlockLike) => blockLike.`type` match {
-        case elem.BlockLike.Type.Hierarchy(block) => Some(block)
-        case _ => None
-      }
+  def resolveDeepestLink(path: DesignPath, start: elem.HierarchyBlock): Option[(DesignPath, elem.Link)] = {
+    ResolveDeepest.fromBlock(Seq(), path.steps, start, ResolveTarget.Link)
+        .map { case (resolvedPath, resolvedLink) => (DesignPath(resolvedPath), resolvedLink)
+        }
+  }
+
+  def resolveDeepest(path: DesignPath, start: elem.HierarchyBlock): Option[(DesignPath, Any)] = {
+    ResolveDeepest.fromBlock(Seq(), path.steps, start, ResolveTarget.Any)
+        .map { case (resolvedPath, resolved) => (DesignPath(resolvedPath), resolved)
+        }
+  }
+
+
+  def resolveExact(path: DesignPath, start: elem.HierarchyBlock): Option[Any] = {
+    resolveDeepest(path, start) match {
+      case Some((resolvedPath, resolvedTarget)) if resolvedPath == path => Some(resolvedTarget)
       case _ => None
     }
   }
 
-  @tailrec
-  private def resolveFromBlockLike(path: Seq[String], blockLike: elem.BlockLike): Option[Any] = (path, blockLike.`type`) match {
-    case (Seq(), _) => Some(blockLike)
-    case (Seq(head, tail@_*), elem.BlockLike.Type.Hierarchy(block)) =>
-      if (block.ports.contains(head)) {
-        resolveFromPortLike(tail, block.ports(head))
-      } else if (block.blocks.contains(head)) {
-        resolveFromBlockLike(tail, block.blocks(head))
-      } else if (block.links.contains(head)) {
-        resolveFromLinkLike(tail, block.links(head))
-      } else {
-        None
-      }
-    case _ => None
+  def resolveExactBlock(path: DesignPath, start: elem.HierarchyBlock): Option[elem.HierarchyBlock] = {
+    resolveDeepestBlock(path, start) match {
+      case Some((resolvedPath, resolvedBlock)) if resolvedPath == path => Some(resolvedBlock)
+      case _ => None
+    }
   }
 
-  @tailrec
-  private def resolveFromPortLike(path: Seq[String], portLike: elem.PortLike): Option[Any] = (path, portLike.is) match {
-    case (Seq(), _) => Some(portLike)
-    case (Seq(head, tail@_*), elem.PortLike.Is.Port(port)) =>
-      None
-    case (Seq(head, tail@_*), elem.PortLike.Is.Bundle(port)) =>
-      if (port.ports.contains(head)) {
-        resolveFromPortLike(tail, port.ports(head))
-      } else {
-        None
-      }
-    case (Seq(head, tail@_*), elem.PortLike.Is.Array(port)) =>
-      if (port.ports.contains(head)) {
-        resolveFromPortLike(tail, port.ports(head))
-      } else {
-        None
-      }
-    case _ => None
+  def resolveExactLink(path: DesignPath, start: elem.HierarchyBlock): Option[elem.Link] = {
+    resolveDeepestLink(path, start) match {
+      case Some((resolvedPath, resolvedLink)) if resolvedPath == path => Some(resolvedLink)
+      case _ => None
+    }
   }
 
-  @tailrec
-  private def resolveFromLinkLike(path: Seq[String], linkLike: elem.LinkLike): Option[Any] = (path, linkLike.`type`) match {
-    case (Seq(), _) => Some(linkLike)
-    case (Seq(head, tail@_*), elem.LinkLike.Type.Link(link)) =>
-      if (link.ports.contains(head)) {
-        resolveFromPortLike(tail, link.ports(head))
-      } else if (link.links.contains(head)) {
-        resolveFromLinkLike(tail, link.links(head))
-      } else {
-        None
+  /** These helper functions resolve a path (given as a Seq[String]) to the deepest of some target element type.
+    * This guarantees a return of the target element type (or return of None), but does not guarantee the rest
+    * of the unresolved path is resolvable (to anything).
+    */
+  private object ResolveDeepest {
+    val followIntoBlock = Set(ResolveTarget.Any, ResolveTarget.Block, ResolveTarget.Link, ResolveTarget.Port)
+    val followIntoLink = Set(ResolveTarget.Any, ResolveTarget.Link, ResolveTarget.Port)
+    val followIntoPort = Set(ResolveTarget.Any, ResolveTarget.Port)
+
+    def fromBlock[T](prefix: Seq[String], postfix: Seq[String],
+                     block: elem.HierarchyBlock, target: ResolveTarget[T]): Option[(Seq[String], T)] = {
+      ((postfix, target): @unchecked) match {
+        case (Seq(), ResolveTarget.Any | ResolveTarget.Block) => Some((prefix, block.asInstanceOf[T]))
+        case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
+        case (Seq(head, tail@_*), target) =>
+          if (block.blocks.contains(head) && followIntoBlock.contains(target)) {
+            fromBlockLike(prefix :+ head, tail, block.blocks(head), target)
+          } else if (block.links.contains(head) && followIntoLink.contains(target)) {
+            fromLinkLike(prefix :+ head, tail, block.links(head), target)
+          } else if (block.ports.contains(head) && followIntoPort.contains(target)) {
+            fromPortLike(prefix :+ head, tail, block.ports(head), target)
+          } else if (target == ResolveTarget.Any || target == ResolveTarget.Block) {  // deepest possible target along path
+            Some(prefix, block.asInstanceOf[T])
+          } else {
+            None
+          }
       }
-    case _ => None
+    }
+
+    def fromBlockLike[T](prefix: Seq[String], postfix: Seq[String],
+                          blockLike: elem.BlockLike, target: ResolveTarget[T]): Option[(Seq[String], T)] = {
+      blockLike.`type` match {
+        case elem.BlockLike.Type.Hierarchy(block) => fromBlock(prefix, postfix, block, target)
+        case _ => None
+      }
+    }
+
+    def fromLinkLike[T](prefix: Seq[String], postfix: Seq[String],
+                        linkLike: elem.LinkLike, target: ResolveTarget[T]): Option[(Seq[String], T)] = {
+      linkLike.`type` match {
+        case elem.LinkLike.Type.Link(link) =>
+          ((postfix, target): @unchecked) match {
+            case (Seq(), ResolveTarget.Any | ResolveTarget.Link) => Some((prefix, link.asInstanceOf[T]))
+            case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
+            case (Seq(head, tail@_*), target) =>
+              if (link.links.contains(head) && followIntoLink.contains(target)) {
+                fromLinkLike(prefix :+ head, tail, link.links(head), target)
+              } else if (link.ports.contains(head) && followIntoPort.contains(target)) {
+                fromPortLike(prefix :+ head, tail, link.ports(head), target)
+              } else if (target == ResolveTarget.Any || target == ResolveTarget.Link) {  // deepest possible target along path
+                Some(prefix, link.asInstanceOf[T])
+              } else {
+                None
+              }
+          }
+        case _ => None
+      }
+    }
+
+    def fromPortLike[T](prefix: Seq[String], postfix: Seq[String],
+                        portLike: elem.PortLike, target: ResolveTarget[T]): Option[(Seq[String], T)] = {
+      portLike.is match {
+        case elem.PortLike.Is.Port(port) =>
+          (postfix, target) match {
+            case (_, ResolveTarget.Any | ResolveTarget.Port) => Some((prefix, port.asInstanceOf[T]))  // deepest along path
+            case _ => None
+          }
+        case elem.PortLike.Is.Array(port) =>
+          (postfix, target) match {
+            case (Seq(), ResolveTarget.Any) => Some((prefix, port.asInstanceOf[T]))
+            case (Seq(), ResolveTarget.Port) => ???  // TODO return non-Port PortType
+            case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
+            case (Seq(head, tail@_*), target) =>
+              if (port.ports.contains(head) && target == ResolveTarget.Port) {
+                fromPortLike(prefix :+ head, tail, port.ports(head), target)
+              } else if (target == ResolveTarget.Port) {  // deepest possible target along path
+                ???  // TODO return non-Port PortType
+              } else if (target == ResolveTarget.Any) {  // deepest possible target along path
+                Some((prefix, port.asInstanceOf[T]))
+              } else {
+                None
+              }
+            case _ => None
+          }
+        case elem.PortLike.Is.Bundle(port) =>
+          (postfix, target) match {
+            case (Seq(), ResolveTarget.Any) => Some((prefix, port.asInstanceOf[T]))
+            case (Seq(), ResolveTarget.Port) => ???  // TODO return non-Port PortType
+            case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
+            case (Seq(head, tail@_*), target) =>
+              if (port.ports.contains(head) && target == ResolveTarget.Port) {
+                fromPortLike(prefix :+ head, tail, port.ports(head), target)
+              } else if (target == ResolveTarget.Port) {  // deepest possible target along path
+                ???  // TODO return non-Port PortType
+              } else if (target == ResolveTarget.Any) {  // deepest possible target along path
+                Some((prefix, port.asInstanceOf[T]))
+              } else {
+                None
+              }
+            case _ => None
+          }
+        case _ => None
+      }
+    }
   }
 }
 

@@ -41,7 +41,7 @@ class BlockVisualizerService(project: Project) extends
   }
 
   def update(): Unit = {
-    visualizerPanelOption.foreach(_.update())
+    visualizerPanelOption.foreach(_.recompile())
   }
 
   def getModule(): String = {

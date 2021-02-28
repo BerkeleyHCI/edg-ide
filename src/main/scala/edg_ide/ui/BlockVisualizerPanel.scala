@@ -56,7 +56,7 @@ object Gbc {
 
 
 class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Project) extends JPopupMenu {
-  private val block = Errorable(EdgirUtils.resolveBlockFromBlock(path, design.getContents), "no block at path")
+  private val block = Errorable(EdgirUtils.resolveExactBlock(path, design.getContents), "no block at path")
   private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
       .map(_.head)
 
@@ -126,7 +126,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   visualizationPanel.add(button, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
   button.addActionListener(new ActionListener() {
     override def actionPerformed(e: ActionEvent) {
-      update()
+      recompile()
     }
   })
 
@@ -180,7 +180,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       }
       val clickedNode = graph.getElementForLocation(e.getX, e.getY)
       clickedNode match {
-        case Some(node: ElkNode) => exceptable {
+        case Some(node) => exceptable {
             val blockPath = node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)
                 .exceptNull("node missing path")
             DesignAnalysisUtils.allAssignsTo(blockPath, design, project).exceptError
@@ -276,7 +276,29 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   }
 
-  def update(): Unit = {
+  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
+    * Does not update visualizations that are unaffected by operations that don't change the design.
+    */
+  def updateDisplay(): Unit = {
+    val block = design.contents.getOrElse(elem.HierarchyBlock())
+
+    // For now, this only updates the graph visualization, which can change with focus.
+    // In the future, maybe this will also update or filter the design tree.
+    val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
+    val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
+      InferEdgeDirectionTransform(SimplifyPortTransform(
+        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
+    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+      Some(ElkEdgirGraphUtils.DesignPathMapper))
+
+    graph.setGraph(layoutGraphRoot)
+
+    select(selectedPath)  // reload previous selection to the extent possible
+  }
+
+  /** Recompiles the current blockModule / blockName, and updates the display
+    */
+  def recompile(): Unit = {
     if (!compilerRunning.compareAndSet(false, true)) {
       notificationGroup.createNotification(
         s"Compiler already running", NotificationType.WARNING)
@@ -345,29 +367,21 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     blockNameLabel.setText(s"$module.$blockName")
   }
 
-  def setDesign(design: schema.Design, compiler: Compiler): Unit = design.contents match {
-    case Some(block) =>
-      this.design = design
-      this.compiler = compiler
+  /** Sets the design and updates displays accordingly.
+    */
+  def setDesign(design: schema.Design, compiler: Compiler): Unit = {
+    // Update state
+    this.design = design
+    this.compiler = compiler
 
-      // Update the design tree first, in case graph layout fails
-      designTreeModel = new BlockTreeTableModel(block)
-      designTree.setModel(designTreeModel)
-      designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+    val block = design.contents.getOrElse(elem.HierarchyBlock())
 
-      // TODO layout happens in background task?
-      val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
-      val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
-        InferEdgeDirectionTransform(SimplifyPortTransform(
-          PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
-      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-        Some(ElkEdgirGraphUtils.DesignPathMapper))
+    // Update the design tree first, in case graph layout fails
+    designTreeModel = new BlockTreeTableModel(block)
+    designTree.setModel(designTreeModel)
+    designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 
-      graph.setGraph(layoutGraphRoot)
-
-      // TODO this should resolve as far as possible here, instead of passing a newly invalid path
-      select(selectedPath)  // reload previous selection to the extent possible
-    case None => graph.setGraph(emptyHGraph)
+    updateDisplay()
   }
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {
