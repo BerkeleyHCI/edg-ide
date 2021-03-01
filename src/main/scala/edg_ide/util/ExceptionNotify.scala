@@ -103,4 +103,16 @@ object ExceptionNotifyImplicits {
       case Errorable.Error(msg) => throw ExceptionNotifyException(msg)
     }
   }
+
+  implicit class ExceptBoolean(obj: Boolean) {
+    def exceptTrue(errMsg: String): Boolean = obj match {
+      case true => throw ExceptionNotifyException(errMsg)
+      case false => obj
+    }
+
+    def exceptFalse(errMsg: String): Boolean = obj match {
+      case true => obj
+      case false => throw ExceptionNotifyException(errMsg)
+    }
+  }
 }

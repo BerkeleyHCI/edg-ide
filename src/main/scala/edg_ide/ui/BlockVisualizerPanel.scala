@@ -59,7 +59,10 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
   private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
       .map(_.head)
 
-  add(new JLabel(s"${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
+  add(new JLabel(s"Design Block: ${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
+
+  addSeparator()
+
 
   val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project)
   PopupMenuUtils.MenuItemsFromErrorableSeq(assigns,
@@ -78,6 +81,8 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
     pyNavigatable.navigate(true)
   }
   add(gotoDefinitionItem)
+
+  addSeparator()
 
   // TODO add goto parent / goto root if selected current focus?
 

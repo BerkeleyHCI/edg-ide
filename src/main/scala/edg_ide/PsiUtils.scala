@@ -5,18 +5,26 @@ import com.intellij.psi.{PsiDocumentManager, PsiElement}
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyRecursiveElementVisitor, PyReferenceExpression, PyTargetExpression}
 import edg.util.Errorable
+import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
+import edg_ide.util.exceptable
 
 import scala.collection.mutable
 
 object PsiUtils {
-  def fileLineOf(element: PsiElement, project: Project): Errorable[String] = {
-    val psiFile = Errorable(element.getContainingFile, "no file")
+  def fileLineOf(element: PsiElement, project: Project): Errorable[String] = exceptable {
+    val psiFile = element.getContainingFile.exceptNull("no file")
     val psiDocumentManager = PsiDocumentManager.getInstance(project)
-    val psiDocument = psiFile.map("no document")(psiDocumentManager.getDocument(_))
-    (psiFile + psiDocument).map { case (psiFile, psiDocument) =>
-      val lineNumber = psiDocument.getLineNumber(element.getTextOffset)
-      s"${psiFile.getName}:$lineNumber"
-    }
+    val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
+    val lineNumber = psiDocument.getLineNumber(element.getTextOffset)
+    s"${psiFile.getName}:$lineNumber"
+  }
+
+  def fileNextLineOf(element: PsiElement, project: Project): Errorable[String] = exceptable {
+    val psiFile = element.getContainingFile.exceptNull("no file")
+    val psiDocumentManager = PsiDocumentManager.getInstance(project)
+    val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
+    val endLineNumber = psiDocument.getLineNumber(element.getTextOffset + element.getTextLength)
+    s"${psiFile.getName}:${endLineNumber + 1}"
   }
 
   // Return all siblings (including itself) of a PsiElement
