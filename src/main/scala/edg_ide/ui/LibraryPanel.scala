@@ -2,12 +2,9 @@ package edg_ide.ui
 
 import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.intellij.pom.Navigatable
-import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
