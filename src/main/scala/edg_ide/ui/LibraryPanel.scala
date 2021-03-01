@@ -2,6 +2,7 @@ package edg_ide.ui
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.Messages
 import com.intellij.pom.Navigatable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
@@ -50,17 +51,20 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
           .head.getName
       val psiElementGenerator = PyElementGenerator.getInstance(project)
       val pyClassName = pyClass.exceptError.getName()
-      val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(fn),
-        classOf[PyAssignmentStatement],
-        s"$selfName.target_name = $selfName.Block($pyClassName())"
-      )
-      writeCommandAction(project).withName(s"Insert $pathName into ${fn.getName}").run(() => {
-        val added = fn.getStatementList.add(newAssign)
-        added match {
-          case added: Navigatable => added.navigate(true)
-          case _ =>  // ignored
-        }
-      })
+
+      PopupUtils.createStringEntryPopup("Block Name", project) { targetName =>
+        val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(fn),
+          classOf[PyAssignmentStatement],
+          s"$selfName.$targetName = $selfName.Block($pyClassName())"
+        )
+        writeCommandAction(project).withName(s"Insert $pathName into ${fn.getName}").run(() => {
+          val added = fn.getStatementList.add(newAssign)
+          added match {
+            case added: Navigatable => added.navigate(true)
+            case _ =>  // ignored
+          }
+        })
+      }
     }
   }.foreach(add)
 
