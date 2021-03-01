@@ -162,7 +162,7 @@ class LibraryPanel(project: Project) extends JPanel {
           val action = InsertBlockAction.createInsertBlockFlow(caretPsiElement, libPyClass,
             s"Insert $libName at ${contextPyClass.getName} caret",
             project, InsertBlockAction.navigateElementFn).exceptError
-          action
+          action()
         }
       } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
         // right click context menu
