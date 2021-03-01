@@ -3,8 +3,8 @@ package edg_ide.ui
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import edg.wir.DesignPath
+import edg.elem.elem
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -46,6 +46,10 @@ class BlockVisualizerService(project: Project) extends
 
   def getModule(): String = {
     visualizerPanelOption.get.getModule
+  }
+
+  def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
+    visualizerPanelOption.get.getContextBlock
   }
 
   override def getState: BlockVisualizerServiceState = {

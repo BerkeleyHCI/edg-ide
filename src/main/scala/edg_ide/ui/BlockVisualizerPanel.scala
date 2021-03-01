@@ -268,6 +268,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   //
   def getModule: String = blockModule
 
+  def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
+    val designContents = design.contents.getOrElse(elem.HierarchyBlock())
+    EdgirUtils.resolveExactBlock(focusPath, designContents).map((focusPath, _))
+  }
+
+
   def select(path: DesignPath): Unit = {
     selectedPath = path
 
