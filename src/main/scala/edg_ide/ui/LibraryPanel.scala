@@ -1,14 +1,19 @@
 package edg_ide.ui
 
+import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
+import com.intellij.pom.Navigatable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
+import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyElementGenerator, PyFunction}
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.wir
+import edg.ref.ref
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
-import edg_ide.util.DesignAnalysisUtils
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptSeq}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify}
 
 import java.awt.BorderLayout
 import java.awt.event.{ActionEvent, MouseAdapter, MouseEvent}
@@ -17,18 +22,47 @@ import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
-class LibraryBlockPopupMenu(node: EdgirLibraryTreeNode.BlockNode, project: Project) extends JPopupMenu {
-  add(new JLabel(EdgirUtils.SimpleLibraryPath(node.path)))
+class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPopupMenu {
+  val pathName = EdgirUtils.SimpleLibraryPath(path)
+  add(new JLabel(pathName))
 
-  private val pyClass = DesignAnalysisUtils.pyClassOf(node.path, project)
+  private val pyClass = DesignAnalysisUtils.pyClassOf(path, project)
   private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
+  // Navigation actions
   private val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
-  val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
+  private val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
     s"Goto Definition (${fileLine})") { pyNavigatable =>
     pyNavigatable.navigate(true)
   }
   add(gotoDefinitionItem)
+
+  // Edit actions
+  private val insertionFunctions = exceptable {
+    DesignAnalysisUtils.findInsertionPoints(pyClass.exceptError, project).exceptError
+  }
+  PopupMenuUtils.MenuItemsFromErrorableSeq(insertionFunctions,
+    errMsg => s"Insert $pathName at Function ($errMsg)",
+    {fn: PyFunction =>
+      s"Insert $pathName at ${fn.getName} (${PsiUtils.fileLineOf(fn, project).mapToString(identity)})"}) { fn =>
+    exceptionNotify("edg_ide.LibraryBlockPopupMenu", project) {
+      val selfName = fn.getParameterList.getParameters.toSeq.exceptEmpty("function has no self argument")
+          .head.getName
+      val psiElementGenerator = PyElementGenerator.getInstance(project)
+      val pyClassName = pyClass.exceptError.getName()
+      val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(fn),
+        classOf[PyAssignmentStatement],
+        s"$selfName.target_name = $selfName.Block($pyClassName())"
+      )
+      writeCommandAction(project).withName(s"Insert $pathName into ${fn.getName}").run(() => {
+        val added = fn.getStatementList.add(newAssign)
+        added match {
+          case added: Navigatable => added.navigate(true)
+          case _ =>  // ignored
+        }
+      })
+    }
+  }.foreach(add)
 
   // TODO temporary item remove me
   val item = new JMenuItem("Inheritor Search")
@@ -72,19 +106,22 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
-      if (!SwingUtilities.isRightMouseButton(e) || e.getClickCount != 1) {
+      val selectedTreePath = libraryTree.getTree.getPathForLocation(e.getX, e.getY)
+      if (selectedTreePath == null) {
         return
+      }
+      val selectedPath = selectedTreePath.getLastPathComponent match {
+        case selected: EdgirLibraryTreeNode.BlockNode => selected.path
+        case _ => return  // any other type ignored
       }
 
-      val selectedPath = libraryTree.getTree.getPathForLocation(e.getX, e.getY)
-      if (selectedPath == null) {
-        return
-      }
-      selectedPath.getLastPathComponent match {
-        case selected: EdgirLibraryTreeNode.BlockNode =>
-          val menu = new LibraryBlockPopupMenu(selected, project)
-          menu.show(e.getComponent, e.getX, e.getY)
-        case _ =>  // any other type ignored
+      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
+        // double click quick insert
+        // TODO implement me
+      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+        // right click context menu
+        val menu = new LibraryBlockPopupMenu(selectedPath, project)
+        menu.show(e.getComponent, e.getX, e.getY)
       }
     }
   }

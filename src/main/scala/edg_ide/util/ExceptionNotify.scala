@@ -90,6 +90,13 @@ object ExceptionNotifyImplicits {
     }
   }
 
+  implicit class ExceptSeq[T](obj: Seq[T]) {
+    def exceptEmpty(errMsg: String): Seq[T] = obj match {
+      case Seq() => throw ExceptionNotifyException(errMsg)
+      case _ => obj
+    }
+  }
+
   implicit class ExceptErrorable[T](obj: Errorable[T]) {
     def exceptError: T = obj match {
       case Errorable.Success(obj) => obj

@@ -11,10 +11,12 @@ object ErrorableNotify {
   val Errorable = edg.util.Errorable  // import forwarding for convenience
 
   implicit class ErrorableNotify[T](errorable: Errorable[T]) {
+    @deprecated("Use exceptionNotify")
     def mapOrNotify[V](notificationId: String, project: Project)(fn: T => V): Errorable[V] = {
       mapOrNotify(NotificationGroup.balloonGroup(notificationId), project)(fn)
     }
 
+    @deprecated("Use exceptionNotify")
     def mapOrNotify[V](notificationGroup: NotificationGroup, project: Project)(fn: T => V): Errorable[V] = {
       errorable match {
         case Errorable.Success(_) =>  // ignored

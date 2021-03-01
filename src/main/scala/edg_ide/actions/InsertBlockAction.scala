@@ -10,10 +10,13 @@ import edg_ide.util.{exceptionNotify, requireExcept}
 import edg_ide.util.ExceptionNotifyImplicits._
 
 
-class InsertBlockAction() extends AnAction() {
+object InsertBlockAction {
   val VALID_FUNCTION_NAMES = Set("__init__", "contents")
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
+}
 
+
+class InsertBlockAction() extends AnAction() {
   override def actionPerformed(event: AnActionEvent): Unit = {
     exceptionNotify("edg_ide.actions.InsertBlockAction", event.getProject) {
       val visualizer = BlockVisualizerService.apply(event.getProject).visualizerPanelOption
@@ -26,12 +29,12 @@ class InsertBlockAction() extends AnAction() {
 
       val psiClass = PsiTreeUtil.getParentOfType(psiElement, classOf[PyClass])
           .exceptNull("No containing PSI class")
-      requireExcept(psiClass.isSubclass(VALID_SUPERCLASS, TypeEvalContext.codeCompletion(event.getProject, psiFile)),
-        s"Containing class ${psiClass.getName} is not a subclass of $VALID_SUPERCLASS")
+      requireExcept(psiClass.isSubclass(InsertBlockAction.VALID_SUPERCLASS, TypeEvalContext.codeCompletion(event.getProject, psiFile)),
+        s"Containing class ${psiClass.getName} is not a subclass of ${InsertBlockAction.VALID_FUNCTION_NAMES}")
 
       val psiContainingList = psiElement.getParent.instanceOfExcept[PyStatementList](s"Invalid location to insert block")
       val psiContainingFunction = psiContainingList.getParent.instanceOfExcept[PyFunction]("Not in a function")
-      requireExcept(VALID_FUNCTION_NAMES.contains(psiContainingFunction.getName),
+      requireExcept(InsertBlockAction.VALID_FUNCTION_NAMES.contains(psiContainingFunction.getName),
         s"Containing function ${psiContainingFunction.getName} not valid for block insertion")
 
       val selfName = psiContainingFunction.getParameterList.getParameters()(0).getName

@@ -19,43 +19,6 @@ object PsiUtils {
     }
   }
 
-  def findAssignmentsTo(container: PyClass, targetName: String,
-                        project: Project): Seq[PyAssignmentStatement] = {
-    val psiElementGenerator = PyElementGenerator.getInstance(project)
-
-    val assigns = container.getMethods.toSeq.collect { method =>
-      val parameters = method.getParameterList.getParameters
-      val selfName = parameters(0).getName
-      val targetReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(method),
-        s"$selfName.$targetName"
-      ).asInstanceOf[PyReferenceExpression]
-
-      if (parameters.nonEmpty) {
-        // TODO support ElementDict and array ops
-        // TODO search superclasses
-        val methodAssigns = mutable.ListBuffer[PyAssignmentStatement]()
-        method.accept(new PyRecursiveElementVisitor() {
-          override def visitPyAssignmentStatement(node: PyAssignmentStatement): Unit = {
-            if (node.getTargets.exists(expr => expr.textMatches(targetReference))) {
-              methodAssigns += (node)
-            }
-          }
-        })
-        methodAssigns.toSeq
-      } else {
-        Seq()
-      }
-    }.flatten
-
-    if (assigns.isEmpty) {  // search up the superclass chain if needed
-      container.getSuperClasses(TypeEvalContext.userInitiated(project, null))
-          .flatMap(findAssignmentsTo(_, targetName, project))
-          .distinct  // TODO also prevent duplicate work in case of multiple inheritance?
-    } else {
-      assigns
-    }
-  }
-
   // Return all siblings (including itself) of a PsiElement
   @deprecated
   def psiSiblings(element: PsiElement): Seq[PsiElement] = element match {
