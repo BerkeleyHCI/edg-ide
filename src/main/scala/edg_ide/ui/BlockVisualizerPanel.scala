@@ -390,7 +390,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       InferEdgeDirectionTransform(SimplifyPortTransform(
         PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-      Some(ElkEdgirGraphUtils.DesignPathMapper))
+      Some(ElkEdgirGraphUtils.DesignPathMapper),
+      focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)
 

@@ -150,9 +150,18 @@ object HierarchyGraphElk {
     */
   def HGraphNodeToElk[NodeType, PortType, EdgeType, PropType](
       node: HGraphNode[NodeType, PortType, EdgeType],
-      mapper: Option[PropertyMapper[NodeType, PortType, EdgeType, PropType]] = None): ElkNode = {
+      mapper: Option[PropertyMapper[NodeType, PortType, EdgeType, PropType]] = None,
+      makeRoot: Boolean = false): ElkNode = {
     // TODO avoid passing through this 4 parameter nightmare
-    val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None, mapper)
+    val root = if (makeRoot) {
+      val root = makeGraphRoot()
+      HGraphNodeToElkNode(node, "design", Some(root), mapper)
+      root
+    } else {
+      val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None, mapper)
+      root
+    }
+
     engine.layout(root, new BasicProgressMonitor())
     root
   }
