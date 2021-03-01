@@ -29,7 +29,10 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
 
 
   private val libPyClass = DesignAnalysisUtils.pyClassOf(path, project)
-  private val contextPyClass = libPyClass  // TODO FIXME
+  private val (contextPath, contextBlock) = BlockVisualizerService(project)
+      .getContextBlock.exceptNone("no context block")
+  requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
+  private val contextPyClass = DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project)
   private val contextPyName = contextPyClass.mapToString(_.getName)
   private val libPyNavigatable = libPyClass.require("class not navigatable")(_.canNavigateToSource)
 
@@ -60,7 +63,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   }.mapToString(identity)
 
   private val insertAtCaretItem = PopupMenuUtils.MenuItemFromErrorable(
-    caretInsertAction, s"Insert $libName at $contextPyName caret ($caretFileLine)") { fn =>
+    caretInsertAction, s"Insert at $contextPyName caret ($caretFileLine)") { fn =>
     fn()
   }
   add(insertAtCaretItem)
@@ -69,7 +72,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
     InsertAction.findInsertionPoints(contextPyClass.exceptError, project).exceptError
         .map { fn =>
           val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project).mapToString(identity)
-          val label = s"Insert $libName at ${contextPyName}.${fn.getName} ($fileLine)"
+          val label = s"Insert at ${contextPyName}.${fn.getName} ($fileLine)"
           val action = InsertBlockAction.createInsertBlockFlow(fn.getStatementList.getStatements.last, libPyClass.exceptError,
             s"Insert $libName at $contextPyName.${fn.getName}",
             project, InsertBlockAction.navigateElementFn)
@@ -79,7 +82,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
         }
   }
   PopupMenuUtils.MenuItemsFromErrorableSeq(insertionFunctions,
-    errMsg => s"Insert $libName into $contextPyName ($errMsg)",
+    errMsg => s"Insert into $contextPyName ($errMsg)",
     { seqElt: Tuple2[String, Any] => seqElt._1 }) { case (fn, action) =>
     action()
   }.foreach(add)

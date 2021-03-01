@@ -50,6 +50,20 @@ object InsertAction {
 
     methods
   }
+
+  def createNameEntryPopup(title: String, containingPsiClass: PyClass,
+                           project: Project)(accept: String => Errorable[Unit]): Unit = exceptable {
+    val contextAttributeNames = containingPsiClass.getInstanceAttributes.toSeq.map(_.getName)
+
+    PopupUtils.createStringEntryPopup(title, project) { name => exceptable {
+      LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)
+          .exceptFalse("not an identifier")
+      contextAttributeNames.contains(name)
+          .exceptTrue(s"attribute already exists in ${containingPsiClass.getName}")
+
+      accept(name).exceptError
+    }}
+  }
 }
 
 
@@ -59,6 +73,9 @@ object InsertBlockAction {
 
   val notificationGroup = "edg_ide.actions.InsertBlockAction"
 
+  /** If the element is navigatable, navigates to it.
+    * Used as a continuation to the createInsertBlockFlow.
+    */
   def navigateElementFn(element: PsiElement): Unit = element match {
     case navigatable: Navigatable => navigatable.navigate(true)
   }
@@ -67,7 +84,7 @@ object InsertBlockAction {
     * Validation is performed before the action is generated, though the action itself may also return an error.
     */
   def createInsertBlockFlow(after: PsiElement, libClass: PyClass, actionName: String,
-                            project: Project, continuation: (PsiElement) => Unit): Errorable[() => Unit] = exceptable {
+                            project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
         .instanceOfExcept[PyStatementList](s"invalid position for insertion")
     val containingPsiFunction = containingPsiList.getParent
@@ -79,31 +96,20 @@ object InsertBlockAction {
     val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
         .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
         .head.getName
-    val contextAttributeNames = containingPsiClass.getInstanceAttributes.toSeq.map(_.getName)
 
     def insertBlockFlow: Unit = {
-      PopupUtils.createStringEntryPopup("Block Name", project) { targetName => exceptable {
-        LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), targetName)
-            .exceptFalse("not an identifier")
-        contextAttributeNames.contains(targetName)
-            .exceptTrue(s"attribute already exists in ${containingPsiClass.getName}")
-
+      InsertAction.createNameEntryPopup("Block Name", containingPsiClass, project) { name => exceptable {
         val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
           classOf[PyAssignmentStatement],
-          s"$selfName.$targetName = $selfName.Block(${libClass.getName}())"
+          s"$selfName.$name = $selfName.Block(${libClass.getName}())"
         )
 
         writeCommandAction(project).withName(actionName).run(() => {
           val added = containingPsiList.addAfter(newAssign, after)
           continuation(added)
-          added match {
-            case added: Navigatable => added.navigate(true)
-            case _ => // ignored
-          }
         })
       }}
     }
-
     () => insertBlockFlow
   }
 }
