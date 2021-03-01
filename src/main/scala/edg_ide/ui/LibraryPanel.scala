@@ -5,7 +5,6 @@ import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
-import edg.util.Errorable
 import edg.wir
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
@@ -70,6 +69,7 @@ class LibraryPanel(project: Project) extends JPanel {
       }
     }
   }
+  libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
       if (!SwingUtilities.isRightMouseButton(e) || e.getClickCount != 1) {
@@ -80,15 +80,14 @@ class LibraryPanel(project: Project) extends JPanel {
       if (selectedPath == null) {
         return
       }
-      val selected = selectedPath.getLastPathComponent
-      if (selected.isInstanceOf[EdgirLibraryTreeNode.BlockNode]) {
-        val selectedNode = selected.asInstanceOf[EdgirLibraryTreeNode.BlockNode]
-        val menu = new LibraryBlockPopupMenu(selectedNode, project)
-        menu.show(e.getComponent, e.getX, e.getY)
+      selectedPath.getLastPathComponent match {
+        case selected: EdgirLibraryTreeNode.BlockNode =>
+          val menu = new LibraryBlockPopupMenu(selected, project)
+          menu.show(e.getComponent, e.getX, e.getY)
+        case _ =>  // any other type ignored
       }
     }
   }
-  libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
   libraryTree.addMouseListener(libraryMouseListener)
   libraryTree.setRootVisible(false)
   libraryTree.setShowColumns(true)

@@ -29,11 +29,14 @@ object exceptionNotify {
     * If any of those fail, terminates execution and displays the failure message.
     */
   def apply(notificationId: String, project: Project)(fn: => Unit): Unit = {
+    apply(NotificationGroup.balloonGroup(notificationId), project)(fn)
+  }
+
+  def apply(notificationGroup: NotificationGroup, project: Project)(fn: => Unit): Unit = {
     try {
       fn
     } catch {
       case e: ExceptionNotifyException =>
-        val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup(notificationId)
         notificationGroup.createNotification(e.errMsg, NotificationType.WARNING).notify(project)
     }
   }

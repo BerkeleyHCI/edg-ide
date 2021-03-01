@@ -13,13 +13,12 @@ import edg.schema.schema
 import edg.ElemBuilder
 import edg.util.Errorable
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
+import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, HierarchyBlockNode, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir.DesignPath
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.build.BuildInfo
-import edg_ide.util.ErrorableNotify.ErrorableNotify
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
+import edg_ide.util.{DesignAnalysisUtils, exceptionNotify}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
@@ -153,41 +152,29 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       Option(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)).foreach(select)
     }
   }
-  graph.addMouseListener(new MouseAdapter {  // right click context menu
+  graph.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      if (ignoreActions) {
-        return
+      val clicked = graph.getElementForLocation(e.getX, e.getY) match {
+        case Some(clicked) => clicked
+        case None => return
       }
-      if (!SwingUtilities.isRightMouseButton(e) || e.getClickCount != 1) {
-        return
-      }
-      val clickedNode = graph.getElementForLocation(e.getX, e.getY)
-      clickedNode match {
-        case Some(node: ElkNode) =>
-          val path = Errorable(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property), "node missing path")
-          path.mapOrNotify(notificationGroup, project) { path =>
-            val menu = new DesignBlockPopupMenu(path, design, project)
-            menu.show(e.getComponent, e.getX, e.getY)
-          }
-        case _ =>  // ignored
-      }
-    }
-  })
-  graph.addMouseListener(new MouseAdapter { // double click navigate to source
-    override def mouseClicked(e: MouseEvent): Unit = {
-      if (!SwingUtilities.isLeftMouseButton(e) || e.getClickCount != 2) {
-        return
-      }
-      val clickedNode = graph.getElementForLocation(e.getX, e.getY)
-      clickedNode match {
-        case Some(node) => exceptable {
-            val blockPath = node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)
-                .exceptNull("node missing path")
-            DesignAnalysisUtils.allAssignsTo(blockPath, design, project).exceptError
-          }.mapOrNotify(notificationGroup, project) {
-            _.head.navigate(true)
-          }
-        case None =>  // ignored
+      val clickedPath = Errorable(clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property), "missing path")
+
+      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
+        // double click quick navigate
+        exceptionNotify(notificationGroup, project) {
+          val assigns = DesignAnalysisUtils.allAssignsTo(clickedPath.exceptError, design, project).exceptError
+          assigns.head.navigate(true)
+        }
+      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+        // right click context menu
+        if (!clicked.isInstanceOf[ElkNode]) {  // only context-menu on nodes
+          return
+        }
+        exceptionNotify(notificationGroup, project) {
+          val menu = new DesignBlockPopupMenu(clickedPath.exceptError, design, project)
+          menu.show(e.getComponent, e.getX, e.getY)
+        }
       }
     }
   })
@@ -210,7 +197,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         return
       }
       e.getPath.getLastPathComponent match {
-        case node: HierarchyBlockNode => select(node.path)
+        case selectedNode: HierarchyBlockNode => select(selectedNode.path)
         case value => notificationGroup.createNotification(
           s"Unknown selection $value", NotificationType.WARNING)
             .notify(project)
@@ -218,6 +205,32 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   }
   designTree.getTree.addTreeSelectionListener(designTreeListener)
+  designTree.addMouseListener(new MouseAdapter {  // right click context menu
+    override def mousePressed(e: MouseEvent): Unit = {
+      val clickedTreePath = designTree.getTree.getPathForLocation(e.getX, e.getY)
+      if (clickedTreePath == null) {
+        return
+      }
+      val clickedPath = clickedTreePath.getLastPathComponent match {
+        case clickedNode: HierarchyBlockNode => clickedNode.path
+        case _ => return  // any other type ignored
+      }
+
+      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
+        // double click quick navigate
+        exceptionNotify(notificationGroup, project) {
+          val assigns = DesignAnalysisUtils.allAssignsTo(clickedPath, design, project).exceptError
+          assigns.head.navigate(true)
+        }
+      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+        // right click context menu
+        exceptionNotify(notificationGroup, project) {
+          val menu = new DesignBlockPopupMenu(clickedPath, design, project)
+          menu.show(e.getComponent, e.getX, e.getY)
+        }
+      }
+    }
+  })
   designTree.setShowColumns(true)
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
