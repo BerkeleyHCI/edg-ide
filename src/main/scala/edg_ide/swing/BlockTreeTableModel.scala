@@ -27,10 +27,7 @@ class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
     case _ => false
   }
 
-  override def toString: String = path.steps match {
-    case Seq() => ""
-    case steps => steps.last
-  }
+  override def toString: String = path.lastString
 
   def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(block.superclasses)
 }

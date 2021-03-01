@@ -251,13 +251,16 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   def getModule: String = blockModule
 
   def select(path: DesignPath): Unit = {
-    if (path == DesignPath()) {
-      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (root)")
-    } else {
-      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.steps.last})")
-    }
-    detailPanel.setLoaded(path, design, compiler)
     selectedPath = path
+
+    val designContents = design.contents.getOrElse(elem.HierarchyBlock())
+    val (containingPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, designContents) match {
+      case Some((path, block)) => (path, block)
+      case None => (DesignPath(), designContents)
+    }
+
+    tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${containingPath.lastString})")
+    detailPanel.setLoaded(containingPath, design, compiler)
 
     ignoreActions = true
 
@@ -272,28 +275,16 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     ignoreActions = false
   }
 
-  def setContext(path: DesignPath): Unit = {
 
+  def setContext(path: DesignPath): Unit = {
+    focusPath = path
+    updateDisplay()
   }
 
-  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
-    * Does not update visualizations that are unaffected by operations that don't change the design.
-    */
-  def updateDisplay(): Unit = {
-    val block = design.contents.getOrElse(elem.HierarchyBlock())
-
-    // For now, this only updates the graph visualization, which can change with focus.
-    // In the future, maybe this will also update or filter the design tree.
-    val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
-    val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
-      InferEdgeDirectionTransform(SimplifyPortTransform(
-        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
-    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-      Some(ElkEdgirGraphUtils.DesignPathMapper))
-
-    graph.setGraph(layoutGraphRoot)
-
-    select(selectedPath)  // reload previous selection to the extent possible
+  def setFileBlock(module: String, block: String): Unit = {
+    blockModule = module
+    blockName = block
+    blockNameLabel.setText(s"$module.$blockName")
   }
 
   /** Recompiles the current blockModule / blockName, and updates the display
@@ -361,12 +352,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   }
 
-  def setFileBlock(module: String, block: String): Unit = {
-    blockModule = module
-    blockName = block
-    blockNameLabel.setText(s"$module.$blockName")
-  }
-
   /** Sets the design and updates displays accordingly.
     */
   def setDesign(design: schema.Design, compiler: Compiler): Unit = {
@@ -383,6 +368,35 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
     updateDisplay()
   }
+
+  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
+    * Does not update visualizations that are unaffected by operations that don't change the design.
+    */
+  def updateDisplay(): Unit = {
+    val designContents = design.contents.getOrElse(elem.HierarchyBlock())
+    val focusBlock = EdgirUtils.resolveDeepestBlock(focusPath, designContents) match {
+      case Some((path, block)) =>
+        focusPath = path
+        block
+      case None =>
+        focusPath = DesignPath()
+        designContents
+    }
+
+    // For now, this only updates the graph visualization, which can change with focus.
+    // In the future, maybe this will also update or filter the design tree.
+    val edgirGraph = EdgirGraph.blockToNode(focusPath, focusBlock)
+    val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
+      InferEdgeDirectionTransform(SimplifyPortTransform(
+        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
+    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+      Some(ElkEdgirGraphUtils.DesignPathMapper))
+
+    graph.setGraph(layoutGraphRoot)
+
+    select(selectedPath)  // reload previous selection to the extent possible
+  }
+
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {
     libraryPanel.setLibrary(library)

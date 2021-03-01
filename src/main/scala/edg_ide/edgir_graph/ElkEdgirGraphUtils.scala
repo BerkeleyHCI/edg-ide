@@ -71,7 +71,7 @@ object ElkEdgirGraphUtils {
             (nodePrefix :+ elkNode :+ childElt, None)
           case Seq(childElt) if childElt.getProperty(DesignPathMapper.property) == path =>  // exact match
             (nodePrefix :+ elkNode :+ childElt, Some(childElt))  // TODO warning
-          case Seq(childElt, _) =>  // partial match
+          case Seq(childElt, _*) =>  // partial match
             (nodePrefix :+ elkNode :+ childElt, None)  // TODO warning
         }
       }
