@@ -76,17 +76,4 @@ object DesignAnalysisUtils {
       assigns
     }
   }
-
-  def findInsertionPoints(container: PyClass, project: Project): Errorable[Seq[PyFunction]] = exceptable {
-    val psiFile = container.getContainingFile.exceptNull("no containing file")
-    requireExcept(container.isSubclass(InsertBlockAction.VALID_SUPERCLASS,
-      TypeEvalContext.codeCompletion(project, psiFile)),
-      s"class ${container.getName} is not a subclass of ${InsertBlockAction.VALID_SUPERCLASS}")
-
-    val methods = container.getMethods.toSeq.collect {
-      case method if InsertBlockAction.VALID_FUNCTION_NAMES.contains(method.getName) => method
-    }.exceptEmpty(s"class ${container.getName} contains no insertion methods")
-
-    methods
-  }
 }

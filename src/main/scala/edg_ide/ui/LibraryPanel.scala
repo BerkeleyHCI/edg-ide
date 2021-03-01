@@ -1,17 +1,9 @@
 package edg_ide.ui
 
-import com.intellij.lang.LanguageNamesValidation
-import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
-import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
 import com.intellij.openapi.project.Project
-import com.intellij.pom.Navigatable
-import com.intellij.psi.PsiElement
-import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.jetbrains.python.PythonLanguage
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatementList}
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.wir
 import edg.ref.ref
@@ -19,14 +11,13 @@ import edg.util.Errorable
 import edg_ide.actions.{InsertAction, InsertBlockAction}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptBoolean, ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify, requireExcept}
 
 import java.awt.BorderLayout
 import java.awt.event.{ActionEvent, MouseAdapter, MouseEvent}
 import javax.swing.{JLabel, JMenuItem, JPanel, JPopupMenu, SwingUtilities}
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
-import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
@@ -75,7 +66,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   add(insertAtCaretItem)
 
   private val insertionFunctions = exceptable {
-    DesignAnalysisUtils.findInsertionPoints(contextPyClass.exceptError, project).exceptError
+    InsertAction.findInsertionPoints(contextPyClass.exceptError, project).exceptError
         .map { fn =>
           val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project).mapToString(identity)
           val label = s"Insert $libName at ${contextPyName}.${fn.getName} ($fileLine)"
