@@ -207,9 +207,16 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   // Selection operations
   //
-  var selected: Set[ElkGraphElement] = Set()
-  def setSelected(elt: Set[ElkGraphElement]): Unit = {
-    selected = elt
+  private var selected: Set[ElkGraphElement] = Set()
+  def setSelected(elts: Set[ElkGraphElement]): Unit = {
+    selected = elts
+    validate()
+    repaint()
+  }
+
+  private var highlighted: Option[Set[ElkGraphElement]] = None
+  def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
+    highlighted = elts
     validate()
     repaint()
   }

@@ -73,6 +73,13 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Tool
   //
   private val toolInterface = new ToolInterface {
+    private def pathsToNodes(paths: Set[DesignPath]): Set[ElkGraphElement] = {
+      paths.flatMap { path =>
+        val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
+        targetElkNode
+      }
+    }
+
     override def setDesignTreeSelection(path: Option[DesignPath]): Unit = {
       designTree.clearSelection()
       path match {
@@ -85,15 +92,14 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
 
     override def setGraphSelections(paths: Set[DesignPath]): Unit = {
-      val nodes = paths.flatMap { path =>
-        val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
-        targetElkNode
-      }
-      graph.setSelected(nodes)
+      graph.setSelected(pathsToNodes(paths))
     }
 
-    override def setGraphHighlights(paths: Option[Seq[DesignPath]]): Unit = {
-      // TODO does nothing for now
+    override def setGraphHighlights(paths: Option[Set[DesignPath]]): Unit = {
+      paths match {
+        case Some(paths) => graph.setHighlighted(Some(pathsToNodes(paths)))
+        case None => graph.setHighlighted(None)
+      }
     }
 
     override def setFocus(path: DesignPath): Unit = {

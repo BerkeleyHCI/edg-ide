@@ -70,21 +70,22 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       // double click
       resolved match {
-        case Some(elem.HierarchyBlock) =>  // blocks: quick navigate
+        case Some(_: elem.HierarchyBlock) =>  // blocks: quick navigate
           exceptionNotify(notificationGroup, interface.getProject) {
             val assigns = DesignAnalysisUtils.allAssignsTo(path, interface.getDesign, interface.getProject).exceptError
             assigns.head.navigate(true)
           }
-        case Some(elem.Port | elem.Bundle | elem.PortArray) =>  // ports: start connect
+        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>  // ports: start connect
+          interface.startNewTool(new ConnectTool(interface, path))
         case _ =>
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
       // right click context menu
       resolved match {
-        case Some(elem.HierarchyBlock) =>
+        case Some(_: elem.HierarchyBlock) =>
           val menu = new DesignBlockPopupMenu(path, interface.getDesign, interface.getProject)
           menu.show(e.getComponent, e.getX, e.getY)
-        case Some(elem.Port | elem.Bundle | elem.PortArray) =>
+        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>
 
         case _ =>  // TODO support other element types
       }
