@@ -21,7 +21,7 @@ import org.eclipse.elk.graph.ElkGraphElement
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JPanel}
 
@@ -145,7 +145,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   visualizationPanel.add(blockNameLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val button = new JButton("Update")
-  visualizationPanel.add(button, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(button, Gbc(1, 0))
   button.addActionListener(new ActionListener() {
     override def actionPerformed(e: ActionEvent) {
       recompile()
@@ -154,8 +154,13 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // TODO max value based on depth of tree?
   private val depthSpinner = new JBIntSpinner(1, 1, 8)
+  depthSpinner.addChangeListener(new ChangeListener {
+    override def stateChanged(e: ChangeEvent): Unit = {
+      updateDisplay()
+    }
+  })
   // TODO update visualization on change?
-  visualizationPanel.add(depthSpinner, Gbc(2, 0, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(depthSpinner, Gbc(2, 0))
 
   private val status = new JLabel(s"Ready " +
       s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
