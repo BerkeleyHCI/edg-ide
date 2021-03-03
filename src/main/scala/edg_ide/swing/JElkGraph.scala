@@ -221,6 +221,12 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     repaint()
   }
 
+  addMouseListener(new MouseAdapter {
+    override def mousePressed(e: MouseEvent): Unit = {
+      requestFocusInWindow()
+    }
+  })
+
   // Scrollable APIs
   //
   override def getPreferredSize: Dimension =
