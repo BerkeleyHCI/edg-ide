@@ -11,7 +11,7 @@ import edg.wir.DesignPath
 /** Tool for making connections from a port
   *
   */
-class DefaultTool(val project: Project, val interface: ToolInterface, initialPortPath: DesignPath) extends BaseTool {
+class ConnectTool(val interface: ToolInterface, initialPortPath: DesignPath) extends BaseTool {
   /** Returns the link-side top-level port names and types of connected elements.
     * Local analysis only, does not guarantee these ultimately resolve to a block port (may be a dangling export).
     * Works on both fully expanded as well as non-expanded (with ALLOCATEs) designs.

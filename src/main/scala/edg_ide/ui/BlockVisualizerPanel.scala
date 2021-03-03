@@ -11,6 +11,7 @@ import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonIn
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
+import edg.schema.schema.Design
 import edg.util.Errorable
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, HierarchyBlockNode, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
@@ -54,46 +55,6 @@ object Gbc {
 }
 
 
-class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Project) extends JPopupMenu {
-  private val block = Errorable(EdgirUtils.resolveExactBlock(path, design.getContents), "no block at path")
-  private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
-      .map(_.head)
-
-  add(new JLabel(s"Design Block: ${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
-
-  addSeparator()
-
-
-  val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project)
-  PopupMenuUtils.MenuItemsFromErrorableSeq(assigns,
-    errMsg => s"Goto Instantiation ($errMsg)",
-    {assign: PyAssignmentStatement =>
-      s"Goto Instantiation (${PsiUtils.fileLineOf(assign, project).mapToString(identity)})"}) { assign =>
-    assign.navigate(true)
-  }.foreach(add)
-
-  private val pyClass = blockClass.flatMap(DesignAnalysisUtils.pyClassOf(_, project))
-  private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
-
-  private val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
-  val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
-    s"Goto Definition (${fileLine})") { pyNavigatable =>
-    pyNavigatable.navigate(true)
-  }
-  add(gotoDefinitionItem)
-
-  addSeparator()
-
-  // TODO add goto parent / goto root if selected current focus?
-
-  val setFocusItem = new JMenuItem(s"Focus View on $path")
-  setFocusItem.addActionListener((e: ActionEvent) => {
-    BlockVisualizerService(project).setContext(path)
-  })
-  add(setFocusItem)
-}
-
-
 class BlockVisualizerPanel(val project: Project) extends JPanel {
   // Internal State
   //
@@ -106,11 +67,62 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   // GUI-facing state
   //
   private var focusPath: DesignPath = DesignPath()  // visualize from root by default
-  private var selectedPath: DesignPath = DesignPath()  // root implicitly selected by default
-  // This hack ignores actions when programmatically synchronizing the design tree and graph
-  // TODO refactor w/ shared model eg https://docs.oracle.com/javase/tutorial/uiswing/examples/components/index.html#SharedModelDemo
-  private var ignoreActions: Boolean = false
+
   private val compilerRunning = new AtomicBoolean(false)
+
+  // Tool
+  //
+  private val toolInterface = new ToolInterface {
+    override def setDesignTreeSelection(path: Option[DesignPath]): Unit = {
+      designTree.clearSelection()
+      path match {
+        case Some(path) =>
+          val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
+          val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) { _.pathByAddingChild(_) }
+          designTree.addSelectedPath(treePath)
+        case None =>  // do nothing
+      }
+    }
+
+    override def setGraphSelections(path: Option[DesignPath]): Unit = {
+      path match {
+        case Some(path) =>
+          val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
+          graph.setSelected(Some(targetElkPrefix.last))
+        case None => graph.setSelected(None)
+      }
+    }
+
+    override def setGraphHighlights(paths: Option[Seq[DesignPath]]): Unit = {
+      // TODO does nothing for now
+    }
+
+    override def setFocus(path: DesignPath): Unit = {
+      setContext(path)
+    }
+
+    override def setDetailView(path: DesignPath): Unit = {
+      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
+      detailPanel.setLoaded(path, design, compiler)
+    }
+
+    override def getFocus: DesignPath = focusPath
+    override def getProject: Project = project
+    override def getDesign: Design = design
+
+    override def startNewTool(tool: BaseTool): Unit = {
+      activeTool = tool
+      activeTool.init()
+    }
+    override def endTool(): Unit = {
+      activeTool = defaultTool
+      activeTool.init()
+    }
+  }
+
+  private val defaultTool: BaseTool = new DefaultTool(toolInterface)
+  private var activeTool: BaseTool = defaultTool
+
 
   // GUI Components
   //
@@ -151,35 +163,21 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private val graph = new JElkGraph(emptyHGraph) {
     override def onSelected(node: ElkGraphElement): Unit = {
-      if (ignoreActions) {
-        return
+      node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
+        case path: DesignPath => activeTool.onSelect(path)
+        case null =>  // TODO should this error out?
       }
-      Option(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)).foreach(select)
     }
   }
   graph.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val clicked = graph.getElementForLocation(e.getX, e.getY) match {
-        case Some(clicked) => clicked
-        case None => return
-      }
-      val clickedPath = Errorable(clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property), "missing path")
+      graph.getElementForLocation(e.getX, e.getY) match {
+        case Some(clicked) => clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
+          case path: DesignPath => activeTool.onPathMouse(e, path)
+          case null =>  // TODO should this error out?
 
-      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
-        // double click quick navigate
-        exceptionNotify(notificationGroup, project) {
-          val assigns = DesignAnalysisUtils.allAssignsTo(clickedPath.exceptError, design, project).exceptError
-          assigns.head.navigate(true)
         }
-      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
-        // right click context menu
-        if (!clicked.isInstanceOf[ElkNode]) {  // only context-menu on nodes
-          return
-        }
-        exceptionNotify(notificationGroup, project) {
-          val menu = new DesignBlockPopupMenu(clickedPath.exceptError, design, project)
-          menu.show(e.getComponent, e.getX, e.getY)
-        }
+        case None =>  // ignored
       }
     }
   })
@@ -198,40 +196,22 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
-      if (ignoreActions) {
-        return
-      }
       e.getPath.getLastPathComponent match {
-        case selectedNode: HierarchyBlockNode => select(selectedNode.path)
-        case value => notificationGroup.createNotification(
-          s"Unknown selection $value", NotificationType.WARNING)
-            .notify(project)
+        case selectedNode: HierarchyBlockNode =>
+          activeTool.onSelect(selectedNode.path)
+        case _ =>  // any other type ignored, not that there should be any other types
+          // TODO should this error out?
       }
     }
   }
   designTree.getTree.addTreeSelectionListener(designTreeListener)
   designTree.addMouseListener(new MouseAdapter {  // right click context menu
     override def mousePressed(e: MouseEvent): Unit = {
-      val clickedTreePath = designTree.getTree.getPathForLocation(e.getX, e.getY)
-      if (clickedTreePath == null) {
-        return
-      }
-      val clickedPath = clickedTreePath.getLastPathComponent match {
-        case clickedNode: HierarchyBlockNode => clickedNode.path
-        case _ => return  // any other type ignored
-      }
-
-      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
-        // double click quick navigate
-        exceptionNotify(notificationGroup, project) {
-          val assigns = DesignAnalysisUtils.allAssignsTo(clickedPath, design, project).exceptError
-          assigns.head.navigate(true)
-        }
-      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
-        // right click context menu
-        exceptionNotify(notificationGroup, project) {
-          val menu = new DesignBlockPopupMenu(clickedPath, design, project)
-          menu.show(e.getComponent, e.getX, e.getY)
+      designTree.getTree.getPathForLocation(e.getX, e.getY) match {
+        case null =>  // ignored
+        case treePath: TreePath => treePath.getLastPathComponent match {
+          case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
+          case _ =>  // any other type ignored
         }
       }
     }
@@ -272,33 +252,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     val designContents = design.contents.getOrElse(elem.HierarchyBlock())
     EdgirUtils.resolveExactBlock(focusPath, designContents).map((focusPath, _))
   }
-
-
-  def select(path: DesignPath): Unit = {
-    selectedPath = path
-
-    val designContents = design.contents.getOrElse(elem.HierarchyBlock())
-    val (containingPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, designContents) match {
-      case Some((path, block)) => (path, block)
-      case None => (DesignPath(), designContents)
-    }
-
-    tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${containingPath.lastString})")
-    detailPanel.setLoaded(containingPath, design, compiler)
-
-    ignoreActions = true
-
-    val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
-    graph.setSelected(targetElkPrefix.last)
-
-    val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
-    designTree.clearSelection()
-    val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) { _.pathByAddingChild(_) }
-    designTree.addSelectedPath(treePath)
-
-    ignoreActions = false
-  }
-
 
   def setContext(path: DesignPath): Unit = {
     focusPath = path
@@ -418,8 +371,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)
-
-    select(selectedPath)  // reload previous selection to the extent possible
+    if (activeTool != defaultTool) {  // revert to the default tool
+      toolInterface.endTool()  // TODO should we also preserve state like selected?
+    }
   }
 
 

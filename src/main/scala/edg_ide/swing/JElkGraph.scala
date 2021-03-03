@@ -6,7 +6,7 @@ import org.eclipse.elk.graph._
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.geom.AffineTransform
 import java.awt._
-import javax.swing.{JComponent, Scrollable}
+import javax.swing.{JComponent, Scrollable, SwingUtilities}
 import scala.collection.JavaConverters._
 
 
@@ -207,15 +207,14 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   addMouseListener(new MouseAdapter() {
     override def mouseClicked(e: MouseEvent) {
-      if (e.getButton != MouseEvent.BUTTON1 || e.getClickCount != 1) {
-        return
-      }
+      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
+        val clickedNode = getElementForLocation(e.getX, e.getY)
 
-      val clickedNode = getElementForLocation(e.getX, e.getY)
-
-      clickedNode.foreach { node =>  // foreach as an Option gate
-        setSelected(node)  // TODO handle multi select?
-        onSelected(node)  // happens after setSelected, so onSelected can reference eg getSelectedByPath
+        clickedNode.foreach { node =>  // foreach as an Option gate
+          setSelected(Some(node))  // TODO handle multi select?
+          onSelected(node)  // happens after setSelected, so onSelected can reference eg getSelectedByPath
+        }
+        // TODO should a failed intersect be a select-none operation?
       }
     }
   })
@@ -226,8 +225,8 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   // Selection operations
   //
   var selected: Option[ElkGraphElement] = None
-  def setSelected(elt: ElkGraphElement): Unit = {
-    selected = Some(elt)
+  def setSelected(elt: Option[ElkGraphElement]): Unit = {
+    selected = elt
     validate()
     repaint()
   }
