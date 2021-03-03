@@ -73,7 +73,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       val nodeY = parentY + node.getY.toInt
 
       val rectG = g.create()
-      if (selected.orNull eq node) {  // emphasis for selected element
+      if (selected.contains(node)) {  // emphasis for selected element
         // TODO different color?
       }
       rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.15))
@@ -81,7 +81,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
         node.getWidth.toInt, node.getHeight.toInt)
 
       val rectStrokeG = g.create().asInstanceOf[Graphics2D]
-      if (selected.orNull eq node) {  // emphasis for selected element
+      if (selected.contains(node)) {  // emphasis for selected element
         rectStrokeG.setStroke(new BasicStroke(3/zoomLevel))  // TODO: maybe should be based off the current stroke?
       }
       rectStrokeG.drawRect(nodeX, nodeY,
@@ -97,7 +97,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
       node.getPorts.asScala.foreach { port =>
         val portStrokeG = g.create().asInstanceOf[Graphics2D]
-        if (selected.orNull eq port) {  // emphasis for selected element
+        if (selected.contains(port)) {  // emphasis for selected element
           portStrokeG.setStroke(new BasicStroke(3))
         }
         portStrokeG.drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
@@ -124,7 +124,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
       node.getContainedEdges.asScala.foreach { edge =>
         val edgeStrokeG = g.create().asInstanceOf[Graphics2D]
-        if (selected.orNull eq edge) {  // emphasis for selected element
+        if (selected.contains(edge)) {  // emphasis for selected element
           edgeStrokeG.setStroke(new BasicStroke(3))
         }
         paintEdge(edgeStrokeG, edge, nodeX, nodeY)
@@ -205,64 +205,12 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     intersectNode(rootNode, elkPoint)
   }
 
-  addMouseListener(new MouseAdapter() {
-    override def mouseClicked(e: MouseEvent) {
-      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
-        val clickedNode = getElementForLocation(e.getX, e.getY)
-
-        clickedNode.foreach { node =>  // foreach as an Option gate
-          setSelected(Some(node))  // TODO handle multi select?
-          onSelected(node)  // happens after setSelected, so onSelected can reference eg getSelectedByPath
-        }
-        // TODO should a failed intersect be a select-none operation?
-      }
-    }
-  })
-
-  def onSelected(node: ElkGraphElement): Unit = {  // to be overridden by the user
-  }
-
   // Selection operations
   //
-  var selected: Option[ElkGraphElement] = None
-  def setSelected(elt: Option[ElkGraphElement]): Unit = {
+  var selected: Set[ElkGraphElement] = Set()
+  def setSelected(elt: Set[ElkGraphElement]): Unit = {
     selected = elt
     validate()
-    repaint()
-  }
-
-  def getSelectedByPath: Seq[String] = {
-    def pathToNode(node: ElkGraphElement): Seq[String] = node match {
-      case node if node == rootNode => Seq()
-      case node: ElkNode => pathToNode(node.getParent) ++ Seq(node.getIdentifier)
-    }
-    selected match {
-      case Some(selected) => pathToNode(selected)
-      case _ => Seq()
-    }
-  }
-
-  // TODO how to select edges?
-  def setSelectedByPath(path: Seq[String]): Unit = { // TODO: is this a good API?
-    def resolvePath(pathSuffix: Seq[String], node: ElkNode): Option[ElkGraphElement] = pathSuffix match {
-      case Seq(head, suffixTail@_*) =>
-        // check children
-        val matchingChild = node.getChildren.asScala.filter(_.getIdentifier == head)
-        val matchingPorts = node.getPorts.asScala.filter(_.getIdentifier == head)
-        if (matchingChild.length == 1 && matchingPorts.isEmpty) {
-          resolvePath(suffixTail, matchingChild.head)
-        } else if (matchingChild.isEmpty && matchingPorts.length == 1) {
-          Some(matchingPorts.head)
-        } else {
-          // TODO proper logging
-          println(s"failed to resolve element $head with suffix $suffixTail, " +
-            s"got ${matchingChild.length} children and ${matchingPorts.length} ports")
-          None
-        }
-      case Seq() => Some(node)
-    }
-    selected = resolvePath(path, rootNode)
-    validate()  // TODO dedup repaint logic w/ setSelected?
     repaint()
   }
 

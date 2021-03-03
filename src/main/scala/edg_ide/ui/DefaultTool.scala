@@ -63,21 +63,29 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
 
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
   override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
-    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
-      // double click quick navigate
-      exceptionNotify(notificationGroup, interface.getProject) {
-        val assigns = DesignAnalysisUtils.allAssignsTo(path, interface.getDesign, interface.getProject).exceptError
-        assigns.head.navigate(true)
+    val resolved = EdgirUtils.resolveExact(path, interface.getDesign.contents.getOrElse(elem.HierarchyBlock()))
+
+    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
+      onSelect(path)
+    } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
+      // double click
+      resolved match {
+        case Some(elem.HierarchyBlock) =>  // blocks: quick navigate
+          exceptionNotify(notificationGroup, interface.getProject) {
+            val assigns = DesignAnalysisUtils.allAssignsTo(path, interface.getDesign, interface.getProject).exceptError
+            assigns.head.navigate(true)
+          }
+        case Some(elem.Port | elem.Bundle | elem.PortArray) =>  // ports: start connect
+        case _ =>
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
       // right click context menu
-      val resolved = EdgirUtils.resolveExact(path, interface.getDesign.contents.getOrElse(elem.HierarchyBlock()))
       resolved match {
-        case Some(block: elem.HierarchyBlock) =>
-          exceptionNotify(notificationGroup, interface.getProject) {
-            val menu = new DesignBlockPopupMenu(path, interface.getDesign, interface.getProject)
-            menu.show(e.getComponent, e.getX, e.getY)
-          }
+        case Some(elem.HierarchyBlock) =>
+          val menu = new DesignBlockPopupMenu(path, interface.getDesign, interface.getProject)
+          menu.show(e.getComponent, e.getX, e.getY)
+        case Some(elem.Port | elem.Bundle | elem.PortArray) =>
+
         case _ =>  // TODO support other element types
       }
     }
@@ -95,7 +103,7 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
       case None => (DesignPath(), designContents)
     }
     interface.setDesignTreeSelection(Some(containingPath))
-    interface.setGraphSelections(Some(path))
+    interface.setGraphSelections(Set(path))
     interface.setDetailView(containingPath)
     ignoreSelect = false
   }

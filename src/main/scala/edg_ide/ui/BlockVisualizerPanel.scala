@@ -84,13 +84,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       }
     }
 
-    override def setGraphSelections(path: Option[DesignPath]): Unit = {
-      path match {
-        case Some(path) =>
-          val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
-          graph.setSelected(Some(targetElkPrefix.last))
-        case None => graph.setSelected(None)
+    override def setGraphSelections(paths: Set[DesignPath]): Unit = {
+      val nodes = paths.flatMap { path =>
+        val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
+        targetElkNode
       }
+      graph.setSelected(nodes)
     }
 
     override def setGraphHighlights(paths: Option[Seq[DesignPath]]): Unit = {
@@ -161,14 +160,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()))
 
-  private val graph = new JElkGraph(emptyHGraph) {
-    override def onSelected(node: ElkGraphElement): Unit = {
-      node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
-        case path: DesignPath => activeTool.onSelect(path)
-        case null =>  // TODO should this error out?
-      }
-    }
-  }
+  private val graph = new JElkGraph(emptyHGraph)
   graph.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       graph.getElementForLocation(e.getX, e.getY) match {

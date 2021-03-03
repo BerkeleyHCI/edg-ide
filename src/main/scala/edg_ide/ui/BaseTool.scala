@@ -22,7 +22,7 @@ trait ToolInterface {
   // Sets the selected design tree element in the graph.
   def setDesignTreeSelection(path: Option[DesignPath]): Unit
   // Sets the selected elements in the graph
-  def setGraphSelections(paths: Option[DesignPath]): Unit
+  def setGraphSelections(paths: Set[DesignPath]): Unit
   // Sets the highlighted items on the graph, or None to disable highlighting.
   def setGraphHighlights(paths: Option[Seq[DesignPath]]): Unit
   def setFocus(path: DesignPath): Unit
@@ -40,7 +40,7 @@ trait BaseTool {
   // Initialization function that runs when the tool is made active. By default clears state.
   def init(): Unit = {
     interface.setDesignTreeSelection(None)
-    interface.setGraphSelections(None)
+    interface.setGraphSelections(Set())
     interface.setGraphHighlights(None)
   }
 
