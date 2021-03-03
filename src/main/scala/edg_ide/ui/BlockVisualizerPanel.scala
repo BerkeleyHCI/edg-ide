@@ -122,6 +122,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     override def endTool(): Unit = {
       activeTool = defaultTool
       activeTool.init()
+      setStatus("Ready")
     }
   }
 

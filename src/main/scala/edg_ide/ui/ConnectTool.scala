@@ -7,8 +7,10 @@ import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
 import edg.ref.ref.LocalStep
+import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
+import edg_ide.util.{exceptable, requireExcept}
 
 import java.awt.Point
 import java.awt.event.MouseEvent
@@ -68,27 +70,43 @@ object ConnectToolAnalysis {
 }
 
 
+object ConnectTool {
+  def apply(interface: ToolInterface, initialPortPath: DesignPath): Errorable[ConnectTool] = exceptable {
+    val containingBlockPath = EdgirUtils.resolveDeepestBlock(initialPortPath, interface.getDesign)._1
+    val focusPath = interface.getFocus
+    requireExcept(containingBlockPath == focusPath || containingBlockPath.split._1 == focusPath,
+      "port not reachable from focus")
+      // TODO refactor
+
+    val containingBlock = EdgirUtils.resolveExactBlock(focusPath, interface.getDesign).get
+    // TODO exterior connect analysis and bridge analysis
+    val linkNameOpt = ConnectToolAnalysis.linkNameOfPort(focusPath, containingBlock, initialPortPath)
+    val linkConnects = linkNameOpt match {
+      case Some(linkName) =>
+        val connectTypes = ConnectToolAnalysis.connectsToLink(focusPath, containingBlock, linkName)
+        // TODO use port type data
+        connectTypes.map(_._1).toSet
+      case None => Set(initialPortPath)
+    }
+
+    new ConnectTool(interface, focusPath, initialPortPath, linkConnects)
+  }
+}
+
+
 /** Tool for making connections from a port
   */
-class ConnectTool(val interface: ToolInterface, focusBlockPath: DesignPath,
-                  initialPortPath: DesignPath) extends BaseTool {
+class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPortPath: DesignPath,
+                 linkConnects: Set[DesignPath],
+                 ) extends BaseTool {
   private val selected = mutable.Set[DesignPath]()
 
-  private val containingBlock = EdgirUtils.resolveExactBlock(focusBlockPath, interface.getDesign).get
-  // TODO exterior connect analysis and bridge analysis
-  private val linkNameOpt = ConnectToolAnalysis.linkNameOfPort(focusBlockPath, containingBlock, initialPortPath)
-  private val linkConnects = linkNameOpt match {
-    case Some(linkName) =>
-      val connectTypes = ConnectToolAnalysis.connectsToLink(focusBlockPath, containingBlock, linkName)
-      // TODO use port type data
-      connectTypes.map(_._1).toSet
-    case None => Set(initialPortPath)
-  }
+
 
   override def init(): Unit = {
     interface.setDesignTreeSelection(None)
     interface.setGraphSelections(linkConnects)
-    interface.setGraphHighlights(Some(Set(focusBlockPath)))  // TODO all connectable
+    interface.setGraphHighlights(Some(Set(focusPath)))  // TODO all connectable
     interface.setStatus(s"Connect to $initialPortPath")
   }
 

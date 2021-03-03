@@ -2,8 +2,6 @@ package edg_ide.ui
 
 import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
-import com.intellij.ui.scale.JBUIScale
 import com.jetbrains.python.psi.PyAssignmentStatement
 import edg.elem.elem
 import edg.schema.schema
@@ -12,11 +10,10 @@ import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.{EdgirUtils, PsiUtils}
-import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionNotify, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionPopup, requireExcept}
 
-import java.awt.Point
 import java.awt.event.{ActionEvent, MouseEvent}
-import javax.swing.{JComponent, JEditorPane, JLabel, JMenuItem, JPopupMenu, SwingUtilities}
+import javax.swing.{JLabel, JMenuItem, JPopupMenu, SwingUtilities}
 
 
 trait NavigationPopupMenu extends JPopupMenu {
@@ -114,27 +111,9 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
             interface.setFocus(path)
           }
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>  // ports: start connect
-          val containingBlockPath = EdgirUtils.resolveDeepestBlock(path, interface.getDesign)._1
-          val focusPath = interface.getFocus
-          if (!(containingBlockPath == focusPath || containingBlockPath.split._1 == focusPath)) {
-            // TODO refactor
-            var hintHeight: Int = 0
-            val popupBuilder = ComponentValidator.createPopupBuilder(
-              new ValidationInfo("port not visible from focus", e.getComponent.asInstanceOf[JComponent]),
-              (editorPane: JEditorPane) => {
-                hintHeight = editorPane.getPreferredSize.height
-              }
-            )   .setCancelOnWindowDeactivation(false)
-                .setCancelOnClickOutside(true)
-                .addUserData("SIMPLE_WINDOW")
-
-            val myErrorPopup = popupBuilder.createPopup
-            myErrorPopup.showInScreenCoordinates(e.getComponent,
-              new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - hintHeight))
-
-            return
+          exceptionPopup(e) {
+            interface.startNewTool(ConnectTool(interface, path).exceptError)
           }
-          interface.startNewTool(new ConnectTool(interface, focusPath, path))
         case _ =>
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {

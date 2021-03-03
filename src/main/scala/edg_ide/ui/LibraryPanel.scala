@@ -12,7 +12,7 @@ import edg_ide.actions.{InsertAction, InsertBlockAction}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.BorderLayout
 import java.awt.event.{ActionEvent, MouseAdapter, MouseEvent}
@@ -143,7 +143,7 @@ class LibraryPanel(project: Project) extends JPanel {
 
       if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
         // double click quick insert at caret
-        exceptionNotify(InsertBlockAction.notificationGroup, project) {
+        exceptionPopup(e) {
           val (contextPath, contextBlock) = BlockVisualizerService(project)
               .getContextBlock.exceptNone("no context block")
           requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")

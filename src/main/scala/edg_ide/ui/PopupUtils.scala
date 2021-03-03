@@ -3,7 +3,13 @@ package edg_ide.ui
 import com.intellij.ide.ui.newItemPopup.NewItemPopupUtil
 import com.intellij.ide.ui.newItemPopup.NewItemSimplePopupPanel
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
+import com.intellij.ui.scale.JBUIScale
 import edg.util.Errorable
+
+import java.awt.Point
+import java.awt.event.MouseEvent
+import javax.swing.{JComponent, JEditorPane}
 
 
 object PopupUtils {
@@ -19,5 +25,21 @@ object PopupUtils {
       }
     }
     popup.showCenteredInCurrentWindow(project)
+  }
+
+  def createErrorPopup(message: String, e: MouseEvent): Unit = {
+    var hintHeight: Int = 0
+    val popupBuilder = ComponentValidator.createPopupBuilder(
+      new ValidationInfo(message, e.getComponent.asInstanceOf[JComponent]),
+      (editorPane: JEditorPane) => {
+        hintHeight = editorPane.getPreferredSize.height
+      }
+    )   .setCancelOnWindowDeactivation(false)
+        .setCancelOnClickOutside(true)
+        .addUserData("SIMPLE_WINDOW")
+
+    val myErrorPopup = popupBuilder.createPopup
+    myErrorPopup.showInScreenCoordinates(e.getComponent,
+      new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - hintHeight))
   }
 }

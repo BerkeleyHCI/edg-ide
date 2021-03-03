@@ -3,7 +3,9 @@ package edg_ide.util
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.project.Project
 import edg.util.Errorable
+import edg_ide.ui.PopupUtils
 
+import java.awt.event.MouseEvent
 import scala.reflect.ClassTag
 
 
@@ -54,6 +56,22 @@ object exceptionNotify {
     }
   }
 }
+
+
+object exceptionPopup {
+  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions.
+    * If any of those fail, terminates execution and displays the failure message as a popup above the cursor.
+    */
+  def apply(event: MouseEvent)(fn: => Unit): Unit = {
+    try {
+      fn
+    } catch {
+      case e: ExceptionNotifyException =>
+        PopupUtils.createErrorPopup(e.errMsg, event)
+    }
+  }
+}
+
 
 object requireExcept {
   def apply(cond: Boolean, errMsg: String): Unit = {
