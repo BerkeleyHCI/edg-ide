@@ -46,6 +46,7 @@ object ConnectToolAnalysis {
               case elem.PortLike.Is.Array(array) =>
                 require(array.superclasses.length == 1)
                 array.superclasses.head
+              case isOther => throw new IllegalArgumentException(s"unexpected $isOther")
             }
             (blockPath ++ blockRef, portType)
         }.toSeq
