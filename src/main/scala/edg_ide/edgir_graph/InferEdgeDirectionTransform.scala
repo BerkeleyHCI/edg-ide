@@ -62,7 +62,7 @@ object InferEdgeDirectionTransform {
       val bidirPorts = ports.collect { case (linkPort, blockPorts) if bidirs.contains(linkPort) =>
         blockPorts
       }.flatten
-      Set(bidirPorts.headOption.getOrElse(Seq()))  // only take the first bidir port
+      Set(bidirPorts.headOption).flatten  // only take the first bidir port
     } else {
       strongSourcePorts.toSet
     }
