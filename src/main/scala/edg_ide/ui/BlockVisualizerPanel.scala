@@ -247,8 +247,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   def getModule: String = blockModule
 
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
-    val designContents = design.contents.getOrElse(elem.HierarchyBlock())
-    EdgirUtils.resolveExactBlock(focusPath, designContents).map((focusPath, _))
+    EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))
   }
 
   def setContext(path: DesignPath): Unit = {
@@ -348,19 +347,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
-    val designContents = design.contents.getOrElse(elem.HierarchyBlock())
-    val focusBlock = EdgirUtils.resolveDeepestBlock(focusPath, designContents) match {
-      case Some((path, block)) =>
-        focusPath = path
-        block
-      case None =>
-        focusPath = DesignPath()
-        designContents
-    }
+    val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, design)
+    focusPath = blockPath
 
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
-    val edgirGraph = EdgirGraph.blockToNode(focusPath, focusBlock)
+    val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
     val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
         PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth

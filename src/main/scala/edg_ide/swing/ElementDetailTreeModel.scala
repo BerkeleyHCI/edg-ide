@@ -39,7 +39,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
 
     lazy val linkNode: Seq[ElementDetailNode] = if (!fromLink) {
       compiler.getConnectedLink(path) match {
-        case Some(linkPath) => EdgirUtils.resolveExactLink(linkPath, root.getContents) match {
+        case Some(linkPath) => EdgirUtils.resolveExactLink(linkPath, root) match {
           case Some(link) =>
             Seq(new LinkNode(linkPath, path.asIndirect + IndirectStep.ConnectedLink, link))
           case None =>
@@ -272,12 +272,8 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
 
 
 class ElementDetailTreeModel(path: DesignPath, root: schema.Design, compiler: Compiler) extends SeqTreeTableModel[ElementDetailNode] {
-  val rootNode: ElementDetailNode = EdgirUtils.resolveDeepestBlock(path, root.getContents) match {
-    case Some((resolvedPath, resolvedBlock)) =>
-      new ElementDetailNodes(root, compiler).BlockNode(resolvedPath, resolvedBlock)
-    case None =>
-      new ElementDetailNode.Dummy(s"Invalid path @ $path")
-  }
+  val (rootBlockPath, rootBlock) = EdgirUtils.resolveDeepestBlock(path, root)
+  val rootNode: ElementDetailNode = new ElementDetailNodes(root, compiler).BlockNode(rootBlockPath, rootBlock)
   val COLUMNS = Seq("Item", "Value")
 
   // TreeView abstract methods

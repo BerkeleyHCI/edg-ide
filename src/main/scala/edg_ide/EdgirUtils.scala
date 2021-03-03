@@ -3,6 +3,7 @@ package edg_ide
 import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
+import edg.schema.schema
 import edg.wir.DesignPath
 
 import scala.annotation.tailrec
@@ -82,40 +83,41 @@ object EdgirUtils {
     object Link extends ResolveTarget[elem.Link]
   }
 
-  def resolveDeepestBlock(path: DesignPath, start: elem.HierarchyBlock): Option[(DesignPath, elem.HierarchyBlock)] = {
-    ResolveDeepest.fromBlock(Seq(), path.steps, start, ResolveTarget.Block)
+  // Resolves the deepest block. Always succeeds - can return the root if nothing matches
+  def resolveDeepestBlock(path: DesignPath, start: schema.Design): (DesignPath, elem.HierarchyBlock) = {
+    ResolveDeepest.fromDesign(path.steps, start, ResolveTarget.Block)
         .map { case (resolvedPath, resolvedBlock) => (DesignPath(resolvedPath), resolvedBlock)
-        }
+        }.get
   }
 
-  def resolveDeepestLink(path: DesignPath, start: elem.HierarchyBlock): Option[(DesignPath, elem.Link)] = {
-    ResolveDeepest.fromBlock(Seq(), path.steps, start, ResolveTarget.Link)
+  def resolveDeepestLink(path: DesignPath, start: schema.Design): Option[(DesignPath, elem.Link)] = {
+    ResolveDeepest.fromDesign(path.steps, start, ResolveTarget.Link)
         .map { case (resolvedPath, resolvedLink) => (DesignPath(resolvedPath), resolvedLink)
         }
   }
 
-  def resolveDeepest(path: DesignPath, start: elem.HierarchyBlock): Option[(DesignPath, Any)] = {
-    ResolveDeepest.fromBlock(Seq(), path.steps, start, ResolveTarget.Any)
+  def resolveDeepest(path: DesignPath, start: schema.Design): Option[(DesignPath, Any)] = {
+    ResolveDeepest.fromDesign(path.steps, start, ResolveTarget.Any)
         .map { case (resolvedPath, resolved) => (DesignPath(resolvedPath), resolved)
         }
   }
 
 
-  def resolveExact(path: DesignPath, start: elem.HierarchyBlock): Option[Any] = {
+  def resolveExact(path: DesignPath, start: schema.Design): Option[Any] = {
     resolveDeepest(path, start) match {
       case Some((resolvedPath, resolvedTarget)) if resolvedPath == path => Some(resolvedTarget)
       case _ => None
     }
   }
 
-  def resolveExactBlock(path: DesignPath, start: elem.HierarchyBlock): Option[elem.HierarchyBlock] = {
+  def resolveExactBlock(path: DesignPath, start: schema.Design): Option[elem.HierarchyBlock] = {
     resolveDeepestBlock(path, start) match {
-      case Some((resolvedPath, resolvedBlock)) if resolvedPath == path => Some(resolvedBlock)
+      case (resolvedPath, resolvedBlock) if resolvedPath == path => Some(resolvedBlock)
       case _ => None
     }
   }
 
-  def resolveExactLink(path: DesignPath, start: elem.HierarchyBlock): Option[elem.Link] = {
+  def resolveExactLink(path: DesignPath, start: schema.Design): Option[elem.Link] = {
     resolveDeepestLink(path, start) match {
       case Some((resolvedPath, resolvedLink)) if resolvedPath == path => Some(resolvedLink)
       case _ => None
@@ -130,6 +132,13 @@ object EdgirUtils {
     val followIntoBlock = Set(ResolveTarget.Any, ResolveTarget.Block, ResolveTarget.Link, ResolveTarget.Port)
     val followIntoLink = Set(ResolveTarget.Any, ResolveTarget.Link, ResolveTarget.Port)
     val followIntoPort = Set(ResolveTarget.Any, ResolveTarget.Port)
+
+    def fromDesign[T](postfix: Seq[String],
+                      design: schema.Design, target: ResolveTarget[T]): Option[(Seq[String], T)] = {
+      val topBlock = design.contents.getOrElse(elem.HierarchyBlock())
+      fromBlock(Seq(), postfix, topBlock, target)
+    }
+
 
     def fromBlock[T](prefix: Seq[String], postfix: Seq[String],
                      block: elem.HierarchyBlock, target: ResolveTarget[T]): Option[(Seq[String], T)] = {

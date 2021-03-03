@@ -2,6 +2,8 @@ package edg_ide.ui
 
 import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
+import com.intellij.ui.scale.JBUIScale
 import com.jetbrains.python.psi.PyAssignmentStatement
 import edg.elem.elem
 import edg.schema.schema
@@ -12,8 +14,9 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionNotify, requireExcept}
 
+import java.awt.Point
 import java.awt.event.{ActionEvent, MouseEvent}
-import javax.swing.{JLabel, JMenuItem, JPopupMenu, SwingUtilities}
+import javax.swing.{JComponent, JEditorPane, JLabel, JMenuItem, JPopupMenu, SwingUtilities}
 
 
 trait NavigationPopupMenu extends JPopupMenu {
@@ -42,7 +45,7 @@ trait NavigationPopupMenu extends JPopupMenu {
 
 class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Project)
     extends JPopupMenu with NavigationPopupMenu {
-  private val block = Errorable(EdgirUtils.resolveExactBlock(path, design.getContents), "no block at path")
+  private val block = Errorable(EdgirUtils.resolveExactBlock(path, design), "no block at path")
   private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
       .map(_.head)
 
@@ -66,7 +69,7 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
 class DesignPortPopupMenu(path: DesignPath, design: schema.Design, project: Project)
     extends JPopupMenu with NavigationPopupMenu {
   private val portClass = exceptable {
-    val port = EdgirUtils.resolveExact(path, design.getContents).exceptNone("no port at path")
+    val port = EdgirUtils.resolveExact(path, design).exceptNone("no port at path")
     port match {
       case port: elem.Port =>
         requireExcept(port.superclasses.length == 1, "invalid class")
@@ -95,7 +98,7 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
 
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
   override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
-    val resolved = EdgirUtils.resolveExact(path, interface.getDesign.contents.getOrElse(elem.HierarchyBlock()))
+    val resolved = EdgirUtils.resolveExact(path, interface.getDesign)
 
     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
       onSelect(path)
@@ -111,7 +114,27 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
             interface.setFocus(path)
           }
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>  // ports: start connect
-          interface.startNewTool(new ConnectTool(interface, path))
+          val containingBlockPath = EdgirUtils.resolveDeepestBlock(path, interface.getDesign)._1
+          val focusPath = interface.getFocus
+          if (!(containingBlockPath == focusPath || containingBlockPath.split._1 == focusPath)) {
+            // TODO refactor
+            var hintHeight: Int = 0
+            val popupBuilder = ComponentValidator.createPopupBuilder(
+              new ValidationInfo("port not visible from focus", e.getComponent.asInstanceOf[JComponent]),
+              (editorPane: JEditorPane) => {
+                hintHeight = editorPane.getPreferredSize.height
+              }
+            )   .setCancelOnWindowDeactivation(false)
+                .setCancelOnClickOutside(true)
+                .addUserData("SIMPLE_WINDOW")
+
+            val myErrorPopup = popupBuilder.createPopup
+            myErrorPopup.showInScreenCoordinates(e.getComponent,
+              new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - hintHeight))
+
+            return
+          }
+          interface.startNewTool(new ConnectTool(interface, focusPath, path))
         case _ =>
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
@@ -134,11 +157,7 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
       return
     }
     ignoreSelect = true
-    val designContents = interface.getDesign.contents.getOrElse(elem.HierarchyBlock())
-    val (containingPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, designContents) match {
-      case Some((path, block)) => (path, block)
-      case None => (DesignPath(), designContents)
-    }
+    val (containingPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, interface.getDesign)
     interface.setDesignTreeSelection(Some(containingPath))
     interface.setGraphSelections(Set(path))
     interface.setDetailView(containingPath)

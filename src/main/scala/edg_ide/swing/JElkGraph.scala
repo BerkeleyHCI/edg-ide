@@ -90,12 +90,16 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       rectStrokeG.drawRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
 
+      val rectTextG = g.create().asInstanceOf[Graphics2D]
+      if (!selected.contains(node) && highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out
+        rectTextG.setColor(UIUtil.shade(rectTextG.getColor, 1, 0.25))
+      }
       node.getLabels.asScala.foreach { label =>
         // convert the center x, y to top left aligned coordinates
         val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
         val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
 
-        g.drawString(label.getText, labelX + nodeX, labelY + nodeY)
+        rectTextG.drawString(label.getText, labelX + nodeX, labelY + nodeY)
       }
 
       node.getPorts.asScala.foreach { port =>
@@ -108,12 +112,16 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
         portStrokeG.drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
           port.getWidth.toInt, port.getHeight.toInt)
 
+        val portTextG = g.create().asInstanceOf[Graphics2D]
+        if (!selected.contains(port) && highlighted.isDefined && !highlighted.get.contains(port)) {  // dimmed out
+          portTextG.setColor(UIUtil.shade(portTextG.getColor, 1, 0.25))
+        }
         port.getLabels.asScala.foreach { label =>
           // convert the center x, y to top left aligned coordinates
           val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
           val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
 
-          g.drawString(label.getText, labelX + nodeX + port.getX.toInt, labelY + nodeY + port.getY.toInt)
+          portTextG.drawString(label.getText, labelX + nodeX + port.getX.toInt, labelY + nodeY + port.getY.toInt)
         }
       }
       paintBlockContents(node, parentX, parentY)

@@ -28,7 +28,7 @@ object DesignAnalysisUtils {
                    project: Project): Errorable[Seq[PyAssignmentStatement]] = exceptable {
     requireExcept(path.steps.nonEmpty, "node at top")
     val (parentPath, blockName) = path.split
-    val parentBlock = EdgirUtils.resolveExactBlock(parentPath, topDesign.getContents)
+    val parentBlock = EdgirUtils.resolveExactBlock(parentPath, topDesign)
         .exceptNone(s"no block at parent path $parentPath")
     requireExcept(parentBlock.superclasses.length == 1,
       s"invalid parent class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")

@@ -6,6 +6,7 @@ import edg.ExprBuilder.ValueExpr
 import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
+import edg.ref.ref.LocalStep
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 
@@ -22,38 +23,76 @@ object ConnectToolAnalysis {
     *
     * If linkName is invalid, returns empty.
     */
-  def connectsToLink(block: elem.HierarchyBlock, linkName: String): Seq[(String, ref.LibraryPath)] = {
-    val linkConnectedConstraints = block.constraints
+  def connectsToLink(blockPath: DesignPath, block: elem.HierarchyBlock,
+                     linkName: String): Seq[(DesignPath, ref.LibraryPath)] = {
+    val link = block.links.getOrElse(linkName, return Seq())
+        .`type`.link.getOrElse(return Seq())
+
+    block.constraints
         .mapValues(_.expr)
-        .collect {  // filter for connected constraints only
+        .collect {  // filter for connected constraints only, and unpack
           case (constrName, expr.ValueExpr.Expr.Connected(connected)) =>
-            (constrName, (connected, connected.getBlockPort, connected.getLinkPort))
+            (connected.getBlockPort.getRef, connected.getLinkPort.getRef)
         } .collect {  // filter for link
-      case pair @ (constrName, (connected, blockExpr, ValueExpr.Ref(linkRef)))
-        if linkRef.nonEmpty && linkRef.head == linkName => pair
-    }
-    ???
+          case (blockRef, linkRef) if linkRef.steps.head.getName == linkName =>
+            val linkPortName = linkRef.steps(1).getName
+            val portType = link.ports(linkPortName).is match {
+              case elem.PortLike.Is.Port(port) =>
+                require(port.superclasses.length == 1)
+                port.superclasses.head
+              case elem.PortLike.Is.Bundle(port) =>
+                require(port.superclasses.length == 1)
+                port.superclasses.head
+              case elem.PortLike.Is.Array(array) =>
+                require(array.superclasses.length == 1)
+                array.superclasses.head
+            }
+            (blockPath ++ blockRef, portType)
+        }.toSeq
+  }
+
+  def linkNameOfPort(blockPath: DesignPath, block: elem.HierarchyBlock, port: DesignPath): Option[String] = {
+    val allLinks = block.constraints
+        .mapValues(_.expr)
+        .collect {  // filter for connected constraints only, and unpack
+          case (constrName, expr.ValueExpr.Expr.Connected(connected)) =>
+            (connected.getBlockPort.getRef, connected.getLinkPort.getRef)
+        } .collect { // filter for link
+          case (blockRef, linkRef) if blockPath ++ blockRef == port =>
+            linkRef.steps.head.getName
+        }
+    require(allLinks.size <= 1)
+    allLinks.headOption
   }
 }
 
 
 /** Tool for making connections from a port
   */
-class ConnectTool(val interface: ToolInterface, initialPortPath: DesignPath) extends BaseTool {
-  val selected = mutable.Set[DesignPath]()
+class ConnectTool(val interface: ToolInterface, focusBlockPath: DesignPath,
+                  initialPortPath: DesignPath) extends BaseTool {
+  private val selected = mutable.Set[DesignPath]()
 
-  val containingBlockPath = EdgirUtils.resolveDeepestBlock(initialPortPath,
-    interface.getDesign.contents.getOrElse(elem.HierarchyBlock())).get._1
+  private val containingBlock = EdgirUtils.resolveExactBlock(focusBlockPath, interface.getDesign).get
+  // TODO exterior connect analysis and bridge analysis
+  private val linkNameOpt = ConnectToolAnalysis.linkNameOfPort(focusBlockPath, containingBlock, initialPortPath)
+  private val linkConnects = linkNameOpt match {
+    case Some(linkName) =>
+      val connectTypes = ConnectToolAnalysis.connectsToLink(focusBlockPath, containingBlock, linkName)
+      // TODO use port type data
+      connectTypes.map(_._1).toSet
+    case None => Set(initialPortPath)
+  }
 
   override def init(): Unit = {
     interface.setDesignTreeSelection(None)
-    interface.setGraphSelections(Set(initialPortPath))
-    interface.setGraphHighlights(Some(Set(containingBlockPath)))  // TODO all connectable
+    interface.setGraphSelections(linkConnects)
+    interface.setGraphHighlights(Some(Set(focusBlockPath)))  // TODO all connectable
     interface.setStatus(s"Connect to $initialPortPath")
   }
 
   override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
-    val resolved = EdgirUtils.resolveExact(path, interface.getDesign.contents.getOrElse(elem.HierarchyBlock()))
+    val resolved = EdgirUtils.resolveExact(path, interface.getDesign)
 
     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
       resolved match {
@@ -65,19 +104,7 @@ class ConnectTool(val interface: ToolInterface, initialPortPath: DesignPath) ext
           }
           interface.setGraphSelections(selected.toSet + initialPortPath)
         case _ =>
-          var hintHeight: Int = 0
-          val popupBuilder = ComponentValidator.createPopupBuilder(
-            new ValidationInfo("ERROR", e.getComponent.asInstanceOf[JComponent]),
-            (editorPane: JEditorPane) => {
-              hintHeight = editorPane.getPreferredSize.height
-            }
-          )   .setCancelOnWindowDeactivation(false)
-              .setCancelOnClickOutside(true)
-              .addUserData("SIMPLE_WINDOW")
 
-          val myErrorPopup = popupBuilder.createPopup
-          myErrorPopup.showInScreenCoordinates(e.getComponent,
-            new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - hintHeight))
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       if (selected.isEmpty) {
