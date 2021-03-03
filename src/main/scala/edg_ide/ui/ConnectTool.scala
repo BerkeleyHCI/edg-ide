@@ -1,6 +1,7 @@
 package edg_ide.ui
 
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
+import com.intellij.ui.scale.JBUIScale
 import edg.ExprBuilder.ValueExpr
 import edg.elem.elem
 import edg.expr.expr
@@ -10,7 +11,7 @@ import edg_ide.EdgirUtils
 
 import java.awt.Point
 import java.awt.event.MouseEvent
-import javax.swing.{JComponent, SwingUtilities}
+import javax.swing.{JComponent, JEditorPane, SwingUtilities}
 import collection.mutable
 
 
@@ -46,8 +47,8 @@ class ConnectTool(val interface: ToolInterface, initialPortPath: DesignPath) ext
 
   override def init(): Unit = {
     interface.setDesignTreeSelection(None)
-    interface.setGraphSelections(Set())
-    interface.setGraphHighlights(Some(Set(containingBlockPath, initialPortPath)))  // TODO all connectable
+    interface.setGraphSelections(Set(initialPortPath))
+    interface.setGraphHighlights(Some(Set(containingBlockPath)))  // TODO all connectable
     interface.setStatus(s"Connect to $initialPortPath")
   }
 
@@ -62,15 +63,21 @@ class ConnectTool(val interface: ToolInterface, initialPortPath: DesignPath) ext
           } else {
             selected += path
           }
-          interface.setGraphSelections(selected.toSet)
+          interface.setGraphSelections(selected.toSet + initialPortPath)
         case _ =>
-          val popupBuilder = ComponentValidator.createPopupBuilder(new ValidationInfo("ERROR", e.getComponent.asInstanceOf[JComponent]), null)
-              .setCancelOnWindowDeactivation(false)
+          var hintHeight: Int = 0
+          val popupBuilder = ComponentValidator.createPopupBuilder(
+            new ValidationInfo("ERROR", e.getComponent.asInstanceOf[JComponent]),
+            (editorPane: JEditorPane) => {
+              hintHeight = editorPane.getPreferredSize.height
+            }
+          )   .setCancelOnWindowDeactivation(false)
               .setCancelOnClickOutside(true)
               .addUserData("SIMPLE_WINDOW")
 
           val myErrorPopup = popupBuilder.createPopup
-          myErrorPopup.showInScreenCoordinates(e.getComponent, new Point(e.getXOnScreen, e.getYOnScreen))
+          myErrorPopup.showInScreenCoordinates(e.getComponent,
+            new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - hintHeight))
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       if (selected.isEmpty) {
