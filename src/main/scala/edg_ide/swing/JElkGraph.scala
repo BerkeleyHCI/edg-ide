@@ -73,16 +73,19 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       val nodeY = parentY + node.getY.toInt
 
       val rectG = g.create()
-      if (selected.contains(node)) {  // emphasis for selected element
-        // TODO different color?
+      if (highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out
+        rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.05))
+      } else {  // normal color
+        rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.20))
       }
-      rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.15))
       rectG.fillRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
 
       val rectStrokeG = g.create().asInstanceOf[Graphics2D]
       if (selected.contains(node)) {  // emphasis for selected element
         rectStrokeG.setStroke(new BasicStroke(3/zoomLevel))  // TODO: maybe should be based off the current stroke?
+      } else if (highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out if not highlighted
+        rectStrokeG.setColor(UIUtil.shade(rectStrokeG.getColor, 1, 0.25))
       }
       rectStrokeG.drawRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
@@ -98,7 +101,9 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       node.getPorts.asScala.foreach { port =>
         val portStrokeG = g.create().asInstanceOf[Graphics2D]
         if (selected.contains(port)) {  // emphasis for selected element
-          portStrokeG.setStroke(new BasicStroke(3))
+          portStrokeG.setStroke(new BasicStroke(3/zoomLevel))
+        } else if (highlighted.isDefined && !highlighted.get.contains(port)) {  // dimmed out if not highlighted
+          portStrokeG.setColor(UIUtil.shade(portStrokeG.getColor, 1, 0.25))
         }
         portStrokeG.drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
           port.getWidth.toInt, port.getHeight.toInt)
@@ -125,7 +130,9 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       node.getContainedEdges.asScala.foreach { edge =>
         val edgeStrokeG = g.create().asInstanceOf[Graphics2D]
         if (selected.contains(edge)) {  // emphasis for selected element
-          edgeStrokeG.setStroke(new BasicStroke(3))
+          edgeStrokeG.setStroke(new BasicStroke(3/zoomLevel))
+        } else if (highlighted.isDefined && !highlighted.get.contains(edge)) {  // dimmed out if not highlighted
+          edgeStrokeG.setColor(UIUtil.shade(edgeStrokeG.getColor, 1, 0.25))
         }
         paintEdge(edgeStrokeG, edge, nodeX, nodeY)
       }

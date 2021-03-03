@@ -102,10 +102,13 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       // double click
       resolved match {
-        case Some(_: elem.HierarchyBlock) =>  // blocks: quick navigate
-          exceptionNotify(notificationGroup, interface.getProject) {
-            val assigns = DesignAnalysisUtils.allAssignsTo(path, interface.getDesign, interface.getProject).exceptError
-            assigns.head.navigate(true)
+        case Some(_: elem.HierarchyBlock) => // blocks: quick set focus
+          if (path == interface.getFocus) {  // double click focus block to zoom out
+            if (path != DesignPath()) {
+              interface.setFocus(path.split._1)
+            }
+          } else {
+            interface.setFocus(path)
           }
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>  // ports: start connect
           interface.startNewTool(new ConnectTool(interface, path))
