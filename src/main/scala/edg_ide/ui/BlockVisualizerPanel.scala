@@ -6,28 +6,24 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.jetbrains.python.psi.PyAssignmentStatement
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
 import edg.schema.schema
 import edg.ElemBuilder
 import edg.schema.schema.Design
-import edg.util.Errorable
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, HierarchyBlockNode, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir.DesignPath
-import edg_ide.{EdgirUtils, PsiUtils}
+import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
-import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
-import edg_ide.util.{DesignAnalysisUtils, exceptionNotify}
-import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
+import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JMenuItem, JPanel, JPopupMenu, SwingUtilities}
+import javax.swing.{JButton, JLabel, JPanel}
 
 
 object Gbc {

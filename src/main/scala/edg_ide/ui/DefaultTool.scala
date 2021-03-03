@@ -10,7 +10,6 @@ import edg.wir.DesignPath
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.util.{DesignAnalysisUtils, exceptionNotify}
-import org.eclipse.elk.graph.ElkNode
 
 import java.awt.event.{ActionEvent, MouseEvent}
 import javax.swing.{JLabel, JMenuItem, JPopupMenu, SwingUtilities}

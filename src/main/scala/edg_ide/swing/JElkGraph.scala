@@ -6,7 +6,7 @@ import org.eclipse.elk.graph._
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.geom.AffineTransform
 import java.awt._
-import javax.swing.{JComponent, Scrollable, SwingUtilities}
+import javax.swing.{JComponent, Scrollable}
 import scala.collection.JavaConverters._
 
 
