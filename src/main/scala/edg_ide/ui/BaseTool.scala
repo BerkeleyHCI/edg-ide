@@ -2,7 +2,7 @@ package edg_ide.ui
 
 import com.intellij.openapi.project.Project
 import edg.schema.schema
-import edg.wir.DesignPath
+import edg.wir.{DesignPath, Library}
 
 import java.awt.event.MouseEvent
 
@@ -11,6 +11,7 @@ trait ToolInterface {
   // Returns the top-level visualization (focus / context) path
   def getFocus: DesignPath
   def getProject: Project
+  def getLibrary: Library
   def getDesign: schema.Design
 
   // Starts a new tool

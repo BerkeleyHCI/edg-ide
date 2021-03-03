@@ -113,6 +113,10 @@ object ExceptionNotifyImplicits {
       case Seq() => throw ExceptionNotifyException(errMsg)
       case _ => obj
     }
+    def onlyExcept(errMsg: String): T = obj match {
+      case Seq(obj) => obj
+      case _ => throw ExceptionNotifyException(errMsg)
+    }
   }
 
   implicit class ExceptErrorable[T](obj: Errorable[T]) {

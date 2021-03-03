@@ -13,7 +13,7 @@ import edg.ElemBuilder
 import edg.schema.schema.Design
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, HierarchyBlockNode, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
-import edg.wir.DesignPath
+import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
@@ -113,6 +113,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
     override def getFocus: DesignPath = focusPath
     override def getProject: Project = project
+    override def getLibrary: Library = EdgCompilerService(project).pyLib
     override def getDesign: Design = design
 
     override def startNewTool(tool: BaseTool): Unit = {
