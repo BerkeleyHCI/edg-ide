@@ -37,6 +37,7 @@ class ConnectTool(val interface: ToolInterface, initialPortPath: DesignPath) ext
     interface.setDesignTreeSelection(None)
     interface.setGraphSelections(Set(initialPortPath))
     interface.setGraphHighlights(Some(Set(initialPortPath)))  // TODO all connectable
+    interface.setStatus(s"Connect to $initialPortPath")
   }
 
 

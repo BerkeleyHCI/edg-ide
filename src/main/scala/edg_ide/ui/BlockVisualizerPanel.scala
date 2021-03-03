@@ -107,6 +107,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       detailPanel.setLoaded(path, design, compiler)
     }
 
+    override def setStatus(statusText: String): Unit = {
+      status.setText(statusText)
+    }
+
     override def getFocus: DesignPath = focusPath
     override def getProject: Project = project
     override def getDesign: Design = design

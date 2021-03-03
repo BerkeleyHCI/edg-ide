@@ -5,45 +5,52 @@ import com.intellij.openapi.project.Project
 import com.jetbrains.python.psi.PyAssignmentStatement
 import edg.elem.elem
 import edg.schema.schema
+import edg.ref.ref
 import edg.util.Errorable
 import edg.wir.DesignPath
-import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.{EdgirUtils, PsiUtils}
-import edg_ide.util.{DesignAnalysisUtils, exceptionNotify}
+import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionNotify, requireExcept}
 
 import java.awt.event.{ActionEvent, MouseEvent}
 import javax.swing.{JLabel, JMenuItem, JPopupMenu, SwingUtilities}
 
 
+trait NavigationPopupMenu extends JPopupMenu {
+  def addNavigationItems(path: DesignPath, superclass: Errorable[ref.LibraryPath],
+                         design: schema.Design, project: Project): Unit = {
+    val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project)
+    PopupMenuUtils.MenuItemsFromErrorableSeq(assigns,
+      errMsg => s"Goto Instantiation ($errMsg)",
+      {assign: PyAssignmentStatement =>
+        s"Goto Instantiation (${PsiUtils.fileLineOf(assign, project).mapToString(identity)})"}) { assign =>
+      assign.navigate(true)
+    }.foreach(add)
 
-class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Project) extends JPopupMenu {
+    val pyClass = superclass.flatMap(DesignAnalysisUtils.pyClassOf(_, project))
+    val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
+
+    val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
+    val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
+      s"Goto Definition (${fileLine})") { pyNavigatable =>
+      pyNavigatable.navigate(true)
+    }
+    add(gotoDefinitionItem)
+  }
+}
+
+
+class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Project)
+    extends JPopupMenu with NavigationPopupMenu {
   private val block = Errorable(EdgirUtils.resolveExactBlock(path, design.getContents), "no block at path")
   private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
       .map(_.head)
 
   add(new JLabel(s"Design Block: ${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
-
   addSeparator()
 
 
-  val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project)
-  PopupMenuUtils.MenuItemsFromErrorableSeq(assigns,
-    errMsg => s"Goto Instantiation ($errMsg)",
-    {assign: PyAssignmentStatement =>
-      s"Goto Instantiation (${PsiUtils.fileLineOf(assign, project).mapToString(identity)})"}) { assign =>
-    assign.navigate(true)
-  }.foreach(add)
-
-  private val pyClass = blockClass.flatMap(DesignAnalysisUtils.pyClassOf(_, project))
-  private val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
-
-  private val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
-  val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
-    s"Goto Definition (${fileLine})") { pyNavigatable =>
-    pyNavigatable.navigate(true)
-  }
-  add(gotoDefinitionItem)
-
+  addNavigationItems(path, blockClass, design, project)
   addSeparator()
 
   // TODO add goto parent / goto root if selected current focus?
@@ -53,6 +60,32 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
     BlockVisualizerService(project).setContext(path)
   })
   add(setFocusItem)
+}
+
+
+class DesignPortPopupMenu(path: DesignPath, design: schema.Design, project: Project)
+    extends JPopupMenu with NavigationPopupMenu {
+  private val portClass = exceptable {
+    val port = EdgirUtils.resolveExact(path, design.getContents).exceptNone("no port at path")
+    port match {
+      case port: elem.Port =>
+        requireExcept(port.superclasses.length == 1, "invalid class")
+        port.superclasses.head
+      case bundle: elem.Bundle =>
+        requireExcept(bundle.superclasses.length == 1, "invalid class")
+        bundle.superclasses.head
+      case array: elem.PortArray =>
+        requireExcept(array.superclasses.length == 1, "invalid class")
+        array.superclasses.head
+      case other => throw ExceptionNotifyException(s"unknown ${other.getClass} at path")
+    }
+  }
+
+  add(new JLabel(s"Design Port: ${portClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
+  addSeparator()
+
+
+  addNavigationItems(path, portClass, design, project)
 }
 
 
@@ -85,7 +118,8 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
           val menu = new DesignBlockPopupMenu(path, interface.getDesign, interface.getProject)
           menu.show(e.getComponent, e.getX, e.getY)
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>
-
+          val menu = new DesignPortPopupMenu(path, interface.getDesign, interface.getProject)
+          menu.show(e.getComponent, e.getX, e.getY)
         case _ =>  // TODO support other element types
       }
     }

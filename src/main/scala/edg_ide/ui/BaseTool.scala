@@ -27,6 +27,7 @@ trait ToolInterface {
   def setGraphHighlights(paths: Option[Set[DesignPath]]): Unit
   def setFocus(path: DesignPath): Unit
   def setDetailView(path: DesignPath): Unit
+  def setStatus(status: String): Unit
 }
 
 
