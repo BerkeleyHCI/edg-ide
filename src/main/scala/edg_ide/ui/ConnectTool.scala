@@ -22,6 +22,7 @@ object ConnectToolAnalysis {
       case elem.PortLike.Is.Port(port) => typeOfPort(port).exceptError
       case elem.PortLike.Is.Bundle(port) => typeOfPort(port).exceptError
       case elem.PortLike.Is.Array(array) => typeOfPort(array).exceptError
+      case isOther => throw ExceptionNotifyException(s"unexpected port ${isOther.getClass}")
     }
     case port: elem.Port =>
       port.superclasses.onlyExcept("invalid port class")
@@ -29,7 +30,7 @@ object ConnectToolAnalysis {
       port.superclasses.onlyExcept("invalid port class")
     case array: elem.PortArray =>
       array.superclasses.onlyExcept("invalid port class")
-    case isOther => throw ExceptionNotifyException(s"unexpected $isOther")
+    case isOther => throw ExceptionNotifyException(s"unexpected port ${isOther.getClass}")
   }}
 
   /** Returns all connected ports in a block, both ports of internal blocks and bounary exports
@@ -71,12 +72,10 @@ object ConnectToolAnalysis {
         }.toSeq
   }
 
-  /** For a set of block-side ports (of blocks in block), of those that are connected to a PortBridge,
-    * returns all the connected exported ports with the associated link-side port type.
+  /** Given a block, return a map of all exports as inner block port path -> exterior port path
     */
-  def getExported(blockPath: DesignPath, block: elem.HierarchyBlock,
-                  portPathTypes: Seq[(DesignPath, ref.LibraryPath)]): Seq[(DesignPath, ref.LibraryPath)] = {
-    val exportMap = block.constraints
+  def blockExportMap(blockPath: DesignPath, block: elem.HierarchyBlock): Map[DesignPath, DesignPath] = {
+    block.constraints
         .values
         .map(_.expr)
         .collect {  // filter for exported only, into (inner block port path, exterior port path) pairs
@@ -87,7 +86,15 @@ object ConnectToolAnalysis {
         .mapValues { pairs =>  // extract only exterior port path from value pairs seq
           require(pairs.size == 1)
           pairs.head._2
-        }
+        }.toMap
+  }
+
+  /** For a set of block-side ports (of blocks in block), of those that are connected to a PortBridge,
+    * returns all the connected exported ports with the associated link-side port type.
+    */
+  def getExported(blockPath: DesignPath, block: elem.HierarchyBlock,
+                  portPathTypes: Seq[(DesignPath, ref.LibraryPath)]): Seq[(DesignPath, ref.LibraryPath)] = {
+    val exportMap = blockExportMap(blockPath, block)
 
     // TODO more graceful error handling?
     portPathTypes.flatMap { case (portPath, portType) =>
@@ -130,11 +137,12 @@ object ConnectToolAnalysis {
 
 
 object ConnectTool {
-  def apply(interface: ToolInterface, initialPortPath: DesignPath): Errorable[ConnectTool] = exceptable {
+  def apply(interface: ToolInterface, portPath: DesignPath): Errorable[ConnectTool] = exceptable {
     val libraryAnalysis = new LibraryConnectivityAnalysis(interface.getLibrary)  // TODO this should be saved & reused!
-    val port = EdgirUtils.resolveExact(initialPortPath, interface.getDesign).exceptNone("no port")
+    val port = EdgirUtils.resolveExact(portPath, interface.getDesign).exceptNone("no port")
+    val portType = ConnectToolAnalysis.typeOfPort(port).exceptError
 
-    val containingBlockPath = EdgirUtils.resolveDeepestBlock(initialPortPath, interface.getDesign)._1
+    val containingBlockPath = EdgirUtils.resolveDeepestBlock(portPath, interface.getDesign)._1
     val focusPath = interface.getFocus
     val focusBlock = EdgirUtils.resolveExact(focusPath, interface.getDesign)
         .exceptNone("can't reach focus block")
@@ -144,44 +152,83 @@ object ConnectTool {
       "port not reachable from focus")
       // TODO refactor
 
-    // TODO exterior connect analysis and bridge analysis
-    val linkNameOpt = ConnectToolAnalysis.linkNameOfPort(focusPath, focusBlock, initialPortPath)
-    val (linkType, priorConnects) = linkNameOpt match {
-      case Some(linkName) =>
-        val link = EdgirUtils.resolveExact(focusPath + linkName, interface.getDesign)
-            .exceptNone("can't find connected link")
-            .instanceOfExcept[elem.Link]("invalid connected link")
-        val linkType = link.superclasses.onlyExcept("invalid connected link type")
-        val priorDirectConnects = ConnectToolAnalysis.connectsToLink(focusPath, focusBlock, linkName)
-        val priorConnects = priorDirectConnects ++
-            ConnectToolAnalysis.getExported(focusPath, focusBlock, priorDirectConnects)
-        // Use the link type from the link itself
-        (linkType, priorConnects)
-      case None =>
-        val portType = ConnectToolAnalysis.typeOfPort(port).exceptError
-        val linkType = libraryAnalysis.linkOfPort(portType).exceptNone("can't find link of port")
-        (linkType, Seq())
-    }
-    val linkAvailable = libraryAnalysis.connectablePorts(linkType)
-    val linkConnectableTypes = linkAvailable.keySet
-    val alreadyConnected = ConnectToolAnalysis.connectsInBlock(focusPath, focusBlock)
+    val bridgedPortTypeOption = libraryAnalysis.bridgedPortByOuter(portType)
 
-    val boundaryPorts = ConnectToolAnalysis.topPortsOfBlock(focusPath, focusBlock)
-        .filter { case (portPath, portType) =>
-          libraryAnalysis.bridgedPort(portType) match {
-            case Some(bridgedPortType) =>
-              linkConnectableTypes.contains(bridgedPortType) && !alreadyConnected.contains(portPath)
-            case None => false
-          }
+    if (isExteriorPort && bridgedPortTypeOption.isEmpty) {  // exterior port with no bridge, no link available
+      val exportablePorts = focusBlock.blocks.toSeq.flatMap { case (intBlockName, intBlock) =>  // get all ports
+        ConnectToolAnalysis.topPortsOfBlock(focusPath + intBlockName, intBlock.getHierarchy)
+      }.filter { case (innerPortPath, innerPortType) =>  // filter by same type
+        innerPortType == portType
+      }.map(_._1)  // don't need type data
+
+      new ConnectTool(interface, focusPath, portPath,
+        Seq(), Map(), Seq(), exportablePorts,
+        s"Export to $portPath"
+      )
+    } else { // either interior port, or bridged exterior port
+      val (linkPortType, linkNameOpt) = if (isExteriorPort) {  // port type as seen by the link, correcting for bridges
+        // also need to resolve the link side port across an export and bridge
+        val exportedByExterior = ConnectToolAnalysis.blockExportMap(focusPath, focusBlock)
+            .map { case (k, v) => v -> k }
+        val linkNameOpt = exportedByExterior.get(portPath).flatMap { outerPortPath =>
+          val (bridgeBlockPath, _) = outerPortPath.split
+          val linkPortPath = bridgeBlockPath + LibraryConnectivityAnalysis.portBridgeLinkPort
+          ConnectToolAnalysis.linkNameOfPort(focusPath, focusBlock, linkPortPath)
         }
-    val internalPorts = focusBlock.blocks.toSeq.flatMap { case (intBlockName, intBlock) =>
-      ConnectToolAnalysis.topPortsOfBlock(focusPath + intBlockName, intBlock.getHierarchy)
-    }.filter { case (portPath, portType) =>
-      linkConnectableTypes.contains(portType) && !alreadyConnected.contains(portPath)
-    }
+        (bridgedPortTypeOption.get, linkNameOpt)
+      } else {
+        (portType, ConnectToolAnalysis.linkNameOfPort(focusPath, focusBlock, portPath))
+      }
 
-    new ConnectTool(interface, focusPath, initialPortPath,
-      priorConnects, linkAvailable, boundaryPorts ++ internalPorts, Seq())  // TODO implement available exports
+      val (linkType, priorConnects, connectName) = linkNameOpt match {
+        case Some(linkName) =>
+          val link = EdgirUtils.resolveExact(focusPath + linkName, interface.getDesign)
+              .exceptNone("can't find connected link")
+              .instanceOfExcept[elem.Link]("invalid connected link")
+          val linkType = link.superclasses.onlyExcept("invalid connected link type")
+          val priorDirectConnects = ConnectToolAnalysis.connectsToLink(focusPath, focusBlock, linkName)
+          val priorConnects = priorDirectConnects ++
+              ConnectToolAnalysis.getExported(focusPath, focusBlock, priorDirectConnects)
+          // Use the link type from the link itself
+          (linkType, priorConnects,
+              s"Connect to $portPath by appending to ${EdgirUtils.SimpleLibraryPath(linkType)} at $linkName")
+        case None =>
+          val linkType = libraryAnalysis.linkOfPort(portType).exceptNone("can't find link of port")
+          (linkType, Seq(), s"Connect to $portPath with new ${EdgirUtils.SimpleLibraryPath(linkType)}")
+      }
+      val linkAvailable = libraryAnalysis.connectablePorts(linkType)
+      val linkConnectableTypes = linkAvailable.keySet
+      val alreadyConnected = ConnectToolAnalysis.connectsInBlock(focusPath, focusBlock)
+
+      val boundaryPorts = ConnectToolAnalysis.topPortsOfBlock(focusPath, focusBlock)
+          .filter { case (portPath, portType) =>
+            libraryAnalysis.bridgedPortByOuter(portType) match {
+              case Some(bridgedPortType) =>
+                linkConnectableTypes.contains(bridgedPortType) && !alreadyConnected.contains(portPath)
+              case None => false
+            }
+          }
+      val internalPorts = focusBlock.blocks.toSeq.flatMap { case (intBlockName, intBlock) =>
+        ConnectToolAnalysis.topPortsOfBlock(focusPath + intBlockName, intBlock.getHierarchy)
+      }.filter { case (portPath, portType) =>  // filter by connectable type and not connected
+        linkConnectableTypes.contains(portType) && !alreadyConnected.contains(portPath)
+      }
+
+      val exportablePorts = if (isExteriorPort) {
+        focusBlock.blocks.toSeq.flatMap { case (intBlockName, intBlock) => // get all ports
+          ConnectToolAnalysis.topPortsOfBlock(focusPath + intBlockName, intBlock.getHierarchy)
+        }.filter { case (innerPortPath, innerPortType) => // filter by same type and not connected
+          innerPortType == portType && !alreadyConnected.contains(portPath)
+        }.map(_._1) // don't need type data
+      } else {
+        Seq()
+      }
+
+      new ConnectTool(interface, focusPath, portPath,
+        priorConnects, linkAvailable, boundaryPorts ++ internalPorts, exportablePorts,
+        connectName
+      )
+    }
   }
 }
 
@@ -190,7 +237,8 @@ object ConnectTool {
   */
 class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPortPath: DesignPath,
                   priorConnects: Seq[(DesignPath, ref.LibraryPath)], linkAvailable: Map[ref.LibraryPath, Int],
-                  availableTargets: Seq[(DesignPath, ref.LibraryPath)], availableExports: Seq[DesignPath]
+                  availableTargets: Seq[(DesignPath, ref.LibraryPath)], availableExports: Seq[DesignPath],
+                  name: String
                  ) extends BaseTool {
   private val selected = mutable.Set[DesignPath]()
 
@@ -201,8 +249,8 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
     interface.setDesignTreeSelection(None)
     interface.setGraphSelections(linkConnectPaths + initialPortPath)
     // TODO filter by selected
-    interface.setGraphHighlights(Some(Set(focusPath) ++ availableTargetBlocks ++ availableTargets.map(_._1)))  // TODO all connectable
-    interface.setStatus(s"Connect to $initialPortPath")
+    interface.setGraphHighlights(Some(Set(focusPath) ++ availableTargetBlocks ++ availableTargets.map(_._1) ++ availableExports))  // TODO all connectable
+    interface.setStatus(name)
   }
 
   override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
