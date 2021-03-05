@@ -335,6 +335,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       if (selected.isEmpty) {  // cancel
         interface.endTool()
+        PopupUtils.createErrorPopup("canceled", e)
         return
       }
       exceptionPopup(e) {  // quick insert at caret
