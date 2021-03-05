@@ -6,8 +6,9 @@ import edg.ref.ref
 import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils
+import edg_ide.actions.{InsertAction, InsertBlockAction}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{ExceptionNotifyException, exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.event.MouseEvent
 import javax.swing.SwingUtilities
@@ -318,13 +319,25 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
             }
           }
         case _ =>  // ignored
-
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
-      if (selected.isEmpty) {
+      if (selected.isEmpty) {  // cancel
         interface.endTool()
-      } else {
-        interface.endTool()  // TODO do connect operation
+        return
+      }
+      exceptionPopup(e) {  // quick insert at caret
+        // TODO dedup w/ LibraryPanel.mousePressed
+        val (contextPath, contextBlock) = BlockVisualizerService(interface.getProject)
+            .getContextBlock.exceptNone("no context block")
+        requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
+        val contextPyClass = DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, interface.getProject).exceptError
+        val contextPsiFile = contextPyClass.getContainingFile.exceptNull("no file")
+        val caretPsiElement = InsertAction.getCaretAtFile(contextPsiFile, contextPyClass, interface.getProject).exceptError
+
+//        val action = InsertBlockAction.createInsertBlockFlow(caretPsiElement, libPyClass,
+//          s"Insert $libName at ${contextPyClass.getName} caret",
+//          project, InsertAction.navigateElementFn).exceptError
+//        action()
       }
     }
   }

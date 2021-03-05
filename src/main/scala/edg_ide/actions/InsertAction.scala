@@ -19,6 +19,7 @@ import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 
 object InsertAction {
+
   def getCaretAtFile(file: PsiFile, expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
     val editors = FileEditorManager.getInstance(project)
         .getAllEditors(file.getVirtualFile).toSeq
@@ -61,6 +62,13 @@ object InsertAction {
       accept(name).exceptError
     }}
   }
+
+  /** If the element is navigatable, navigates to it.
+    * Used as a continuation to the createInsertBlockFlow.
+    */
+  def navigateElementFn(element: PsiElement): Unit = element match {
+    case navigatable: Navigatable => navigatable.navigate(true)
+  }
 }
 
 
@@ -69,13 +77,6 @@ object InsertBlockAction {
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
   val notificationGroup = "edg_ide.actions.InsertBlockAction"
-
-  /** If the element is navigatable, navigates to it.
-    * Used as a continuation to the createInsertBlockFlow.
-    */
-  def navigateElementFn(element: PsiElement): Unit = element match {
-    case navigatable: Navigatable => navigatable.navigate(true)
-  }
 
   /** Creates an action to insert a block of type libClass after some PSI element after.
     * Validation is performed before the action is generated, though the action itself may also return an error.
@@ -108,5 +109,57 @@ object InsertBlockAction {
       }}
     }
     () => insertBlockFlow
+  }
+}
+
+
+object InsertConnectAction {
+  /** Creates an action to insert a new connect statement containing (interior block, block's port).
+    * If interior_block is empty, the port is a port of the parent.
+    * Location is checked to ensure all the ports are visible.
+    */
+  def createInsertConnectFlow(after: PsiElement, elements: Seq[(String, String)], actionName: String,
+                              project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
+    val containingPsiList = after.getParent
+        .instanceOfExcept[PyStatementList](s"invalid position for insertion")
+    val containingPsiFunction = containingPsiList.getParent
+        .instanceOfExcept[PyFunction]("not in a function")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
+        .exceptNull("not in a class")
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+
+    val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
+        .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
+        .head.getName
+
+    // TODO check containing class
+          // TODO check reachability
+
+    def insertConnectFlow: Unit = {
+
+      InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project) { name => exceptable {
+        val elementsText = elements map {
+          case ("", portName) => portName
+          case (blockName, portName) => s"$blockName.$portName"
+        }
+        val connectStatementText = s"$selfName.connect(${elementsText.mkString(", ")})"
+        val statementText = if (name.isEmpty) {
+          connectStatementText
+        } else {
+          s"$selfName.$name = $connectStatementText"
+        }
+
+        val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
+          classOf[PyAssignmentStatement],
+          statementText
+        )
+
+        writeCommandAction(project).withName(actionName).run(() => {
+          val added = containingPsiList.addAfter(newAssign, after)
+          continuation(added)
+        })
+      }}
+    }
+    () => insertConnectFlow
   }
 }

@@ -55,7 +55,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   private val caretInsertAction = exceptable {
     InsertBlockAction.createInsertBlockFlow(caretPsiElement.exceptError, libPyClass.exceptError,
         s"Insert $libName at $contextPyName caret",
-        project, InsertBlockAction.navigateElementFn).exceptError
+        project, InsertAction.navigateElementFn).exceptError
   }
   private val caretFileLine = exceptable {  // or error label
     caretInsertAction.exceptError
@@ -75,7 +75,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
           val label = s"Insert at ${contextPyName}.${fn.getName} ($fileLine)"
           val action = InsertBlockAction.createInsertBlockFlow(fn.getStatementList.getStatements.last, libPyClass.exceptError,
             s"Insert $libName at $contextPyName.${fn.getName}",
-            project, InsertBlockAction.navigateElementFn)
+            project, InsertAction.navigateElementFn)
           (label, action)
         } .collect {
           case (fn, Errorable.Success(action)) => (fn, action)
@@ -148,14 +148,15 @@ class LibraryPanel(project: Project) extends JPanel {
               .getContextBlock.exceptNone("no context block")
           requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
           val contextPyClass = DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project).exceptError
+          val contextPsiFile = contextPyClass.getContainingFile.exceptNull("no file")
+          val caretPsiElement = InsertAction.getCaretAtFile(contextPsiFile, contextPyClass, project).exceptError
+
           val libName = EdgirUtils.SimpleLibraryPath(selectedPath)
           val libPyClass = DesignAnalysisUtils.pyClassOf(selectedPath, project).exceptError
 
-          val contextPsiFile = contextPyClass.getContainingFile.exceptNull("no file")
-          val caretPsiElement = InsertAction.getCaretAtFile(contextPsiFile, contextPyClass, project).exceptError
           val action = InsertBlockAction.createInsertBlockFlow(caretPsiElement, libPyClass,
             s"Insert $libName at ${contextPyClass.getName} caret",
-            project, InsertBlockAction.navigateElementFn).exceptError
+            project, InsertAction.navigateElementFn).exceptError
           action()
         }
       } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
