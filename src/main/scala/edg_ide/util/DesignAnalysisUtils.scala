@@ -9,9 +9,8 @@ import edg.ref.ref
 import edg.schema.schema
 import edg.util.Errorable
 import edg.wir.DesignPath
-import edg_ide.actions.InsertBlockAction
-import edg_ide.{EdgirUtils, PsiUtils}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.EdgirUtils
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
 
 import scala.collection.mutable
 

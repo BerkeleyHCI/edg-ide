@@ -8,19 +8,22 @@ import javax.swing.{JMenu, JMenuItem}
 
 object PopupMenuUtils {
   def MenuItemFromErrorable[T](obj: Errorable[T], label: String)(actionFn: T => Unit): JMenuItem = {
-    val item = new JMenuItem(label)
-    obj match {
+    val item = obj match {
       case Errorable.Success(obj) =>
+        val item = new JMenuItem(label)
         item.addActionListener((e: ActionEvent) => {
           actionFn(obj)
         })
+        item
       case Errorable.Error(msg) =>
+        val item = new JMenuItem(s"$label ($msg)")
         item.setEnabled(false)
+        item
     }
     item
   }
 
-  def MenuItemsFromErrorableSeq[T](objs: Errorable[Seq[T]], errorLabelFn: String => String, labelFn: T => String)
+  def MenuItemsFromErrorableSeq[T](objs: Errorable[Seq[T]], labelFn: T => String, errorLabel: String)
                                   (actionFn: T => Unit): Seq[JMenuItem] = {
     objs match {
       case Errorable.Success(objs) =>
@@ -32,7 +35,7 @@ object PopupMenuUtils {
           item
         }
       case Errorable.Error(msg) =>
-        val item = new JMenuItem(errorLabelFn(msg))
+        val item = new JMenuItem(s"$errorLabel ($msg)")
         item.setEnabled(false)
         Seq(item)
     }

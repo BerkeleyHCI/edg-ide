@@ -21,18 +21,21 @@ trait NavigationPopupMenu extends JPopupMenu {
                          design: schema.Design, project: Project): Unit = {
     val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project)
     PopupMenuUtils.MenuItemsFromErrorableSeq(assigns,
-      errMsg => s"Goto Instantiation ($errMsg)",
       {assign: PyAssignmentStatement =>
-        s"Goto Instantiation (${PsiUtils.fileLineOf(assign, project).mapToString(identity)})"}) { assign =>
+        val fileLine = PsiUtils.fileLineOf(assign, project)
+            .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+        s"Goto Instantiation$fileLine"},
+      s"Goto Instantiation") { assign =>
       assign.navigate(true)
     }.foreach(add)
 
     val pyClass = superclass.flatMap(DesignAnalysisUtils.pyClassOf(_, project))
     val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
 
-    val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
+    val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project))
+        .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
     val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
-      s"Goto Definition (${fileLine})") { pyNavigatable =>
+      s"Goto Definition$fileLine") { pyNavigatable =>
       pyNavigatable.navigate(true)
     }
     add(gotoDefinitionItem)
@@ -40,9 +43,9 @@ trait NavigationPopupMenu extends JPopupMenu {
 }
 
 
-class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Project)
+class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
-  private val block = Errorable(EdgirUtils.resolveExactBlock(path, design), "no block at path")
+  private val block = Errorable(EdgirUtils.resolveExactBlock(path, interface.getDesign), "no block at path")
   private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
       .map(_.head)
 
@@ -50,23 +53,22 @@ class DesignBlockPopupMenu(path: DesignPath, design: schema.Design, project: Pro
   addSeparator()
 
 
-  addNavigationItems(path, blockClass, design, project)
-  addSeparator()
-
-  // TODO add goto parent / goto root if selected current focus?
-
-  val setFocusItem = new JMenuItem(s"Focus View on $path")
+  private val setFocusItem = new JMenuItem(s"Focus on $path")
   setFocusItem.addActionListener((e: ActionEvent) => {
-    BlockVisualizerService(project).setContext(path)
+    BlockVisualizerService(interface.getProject).setContext(path)  // TODO interface.setFocus?
   })
   add(setFocusItem)
+  addSeparator()
+
+
+  addNavigationItems(path, blockClass, interface.getDesign, interface.getProject)
 }
 
 
-class DesignPortPopupMenu(path: DesignPath, design: schema.Design, project: Project)
+class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
   private val portClass = exceptable {
-    val port = EdgirUtils.resolveExact(path, design).exceptNone("no port at path")
+    val port = EdgirUtils.resolveExact(path, interface.getDesign).exceptNone("no port at path")
     port match {
       case port: elem.Port =>
         requireExcept(port.superclasses.length == 1, "invalid class")
@@ -85,7 +87,15 @@ class DesignPortPopupMenu(path: DesignPath, design: schema.Design, project: Proj
   addSeparator()
 
 
-  addNavigationItems(path, portClass, design, project)
+  private val startConnectItem = PopupMenuUtils.MenuItemFromErrorable(ConnectTool(interface, path),
+    s"Start Connect") { connectTool =>
+    interface.startNewTool(connectTool)
+  }
+  add(startConnectItem)
+  addSeparator()
+
+
+  addNavigationItems(path, portClass, interface.getDesign, interface.getProject)
 }
 
 
@@ -120,10 +130,10 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
       // right click context menu
       resolved match {
         case Some(_: elem.HierarchyBlock) =>
-          val menu = new DesignBlockPopupMenu(path, interface.getDesign, interface.getProject)
+          val menu = new DesignBlockPopupMenu(path, interface)
           menu.show(e.getComponent, e.getX, e.getY)
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>
-          val menu = new DesignPortPopupMenu(path, interface.getDesign, interface.getProject)
+          val menu = new DesignPortPopupMenu(path, interface)
           menu.show(e.getComponent, e.getX, e.getY)
         case _ =>  // TODO support other element types
       }

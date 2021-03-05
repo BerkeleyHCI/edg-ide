@@ -34,9 +34,10 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   private val libPyNavigatable = libPyClass.require("class not navigatable")(_.canNavigateToSource)
 
   // Navigation actions
-  private val libFileLine = libPyNavigatable.flatMap(PsiUtils.fileLineOf(_, project)).mapToString(identity)
+  private val libFileLine = libPyNavigatable.flatMap(PsiUtils.fileLineOf(_, project))
+      .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(libPyNavigatable,
-    s"Goto Definition (${libFileLine})") { pyNavigatable =>
+    s"Goto Definition$libFileLine") { pyNavigatable =>
     pyNavigatable.navigate(true)
   }
   add(gotoDefinitionItem)
@@ -57,10 +58,10 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   private val caretFileLine = exceptable {  // or error label
     caretInsertAction.exceptError
     PsiUtils.fileNextLineOf(caretPsiElement.exceptError, project).exceptError
-  }.mapToString(identity)
+  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
   private val insertAtCaretItem = PopupMenuUtils.MenuItemFromErrorable(
-    caretInsertAction, s"Insert at $contextPyName caret ($caretFileLine)") { fn =>
+    caretInsertAction, s"Insert at $contextPyName caret$caretFileLine") { fn =>
     fn()
   }
   add(insertAtCaretItem)
@@ -68,8 +69,9 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   private val insertionFunctions = exceptable {
     InsertAction.findInsertionPoints(contextPyClass, project).exceptError
         .map { fn =>
-          val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project).mapToString(identity)
-          val label = s"Insert at ${contextPyName}.${fn.getName} ($fileLine)"
+          val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project)
+              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+          val label = s"Insert at ${contextPyName}.${fn.getName}$fileLine"
           val action = InsertBlockAction.createInsertBlockFlow(fn.getStatementList.getStatements.last, libPyClass.exceptError,
             s"Insert $libName at $contextPyName.${fn.getName}",
             project, InsertAction.navigateElementFn)
@@ -79,8 +81,8 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
         }
   }
   PopupMenuUtils.MenuItemsFromErrorableSeq(insertionFunctions,
-    errMsg => s"Insert into $contextPyName ($errMsg)",
-    { seqElt: Tuple2[String, Any] => seqElt._1 }) { case (fn, action) =>
+    { seqElt: Tuple2[String, Any] => seqElt._1 },
+    s"Insert into $contextPyName") { case (fn, action) =>
     action()
   }.foreach(add)
 
