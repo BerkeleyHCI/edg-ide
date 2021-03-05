@@ -29,11 +29,8 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
 
 
   private val libPyClass = DesignAnalysisUtils.pyClassOf(path, project)
-  private val (contextPath, contextBlock) = BlockVisualizerService(project)
-      .getContextBlock.exceptNone("no context block")
-  requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
-  private val contextPyClass = DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project)
-  private val contextPyName = contextPyClass.mapToString(_.getName)
+  private val contextPyClass = InsertAction.getPyClassOfContext(project).exceptError
+  private val contextPyName = contextPyClass.getName
   private val libPyNavigatable = libPyClass.require("class not navigatable")(_.canNavigateToSource)
 
   // Navigation actions
@@ -49,8 +46,8 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
 
   // Edit actions
   private val caretPsiElement = exceptable {
-    val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
-    InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, project).exceptError
+    val contextPsiFile = contextPyClass.getContainingFile.exceptNull("no file")
+    InsertAction.getCaretAtFile(contextPsiFile, contextPyClass, project).exceptError
   }
   private val caretInsertAction = exceptable {
     InsertBlockAction.createInsertBlockFlow(caretPsiElement.exceptError, libPyClass.exceptError,
@@ -69,7 +66,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   add(insertAtCaretItem)
 
   private val insertionFunctions = exceptable {
-    InsertAction.findInsertionPoints(contextPyClass.exceptError, project).exceptError
+    InsertAction.findInsertionPoints(contextPyClass, project).exceptError
         .map { fn =>
           val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project).mapToString(identity)
           val label = s"Insert at ${contextPyName}.${fn.getName} ($fileLine)"
@@ -144,10 +141,7 @@ class LibraryPanel(project: Project) extends JPanel {
       if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
         // double click quick insert at caret
         exceptionPopup(e) {
-          val (contextPath, contextBlock) = BlockVisualizerService(project)
-              .getContextBlock.exceptNone("no context block")
-          requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
-          val contextPyClass = DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project).exceptError
+          val contextPyClass = InsertAction.getPyClassOfContext(project).exceptError
           val contextPsiFile = contextPyClass.getContainingFile.exceptNull("no file")
           val caretPsiElement = InsertAction.getCaretAtFile(contextPsiFile, contextPyClass, project).exceptError
 

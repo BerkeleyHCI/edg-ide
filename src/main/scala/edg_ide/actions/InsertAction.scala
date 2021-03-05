@@ -9,16 +9,22 @@ import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatementList}
+import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatement, PyStatementList}
 import edg.util.Errorable
-import edg_ide.ui.PopupUtils
-import edg_ide.util.{exceptable, requireExcept}
+import edg_ide.ui.{BlockVisualizerService, PopupUtils}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 import edg_ide.util.ExceptionNotifyImplicits._
 
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 
 object InsertAction {
+  def getPyClassOfContext(project: Project): Errorable[PyClass] = {
+    val (contextPath, contextBlock) = BlockVisualizerService(project)
+        .getContextBlock.exceptNone("no context block")
+    requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
+    DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project)
+  }
 
   def getCaretAtFile(file: PsiFile, expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
     val editors = FileEditorManager.getInstance(project)
@@ -50,12 +56,15 @@ object InsertAction {
   }
 
   def createNameEntryPopup(title: String, containingPsiClass: PyClass,
-                           project: Project)(accept: String => Errorable[Unit]): Unit = exceptable {
+                           project: Project,
+                           allowEmpty: Boolean = false)(accept: String => Errorable[Unit]): Unit = exceptable {
     val contextAttributeNames = containingPsiClass.getInstanceAttributes.toSeq.map(_.getName)
 
     PopupUtils.createStringEntryPopup(title, project) { name => exceptable {
-      LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)
-          .exceptFalse("not an identifier")
+      if (!(allowEmpty && name.isEmpty)) {
+        LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)
+            .exceptFalse("not an identifier")
+      }
       contextAttributeNames.contains(name)
           .exceptTrue(s"attribute already exists in ${containingPsiClass.getName}")
 
@@ -136,11 +145,11 @@ object InsertConnectAction {
           // TODO check reachability
 
     def insertConnectFlow: Unit = {
-
-      InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project) { name => exceptable {
+      InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project,
+          allowEmpty=true) { name => exceptable {
         val elementsText = elements map {
-          case ("", portName) => portName
-          case (blockName, portName) => s"$blockName.$portName"
+          case ("", portName) => s"$selfName.$portName"
+          case (blockName, portName) => s"$selfName.$blockName.$portName"
         }
         val connectStatementText = s"$selfName.connect(${elementsText.mkString(", ")})"
         val statementText = if (name.isEmpty) {
@@ -149,13 +158,13 @@ object InsertConnectAction {
           s"$selfName.$name = $connectStatementText"
         }
 
-        val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
-          classOf[PyAssignmentStatement],
+        val newStatement = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
+          classOf[PyStatement],
           statementText
         )
 
         writeCommandAction(project).withName(actionName).run(() => {
-          val added = containingPsiList.addAfter(newAssign, after)
+          val added = containingPsiList.addAfter(newStatement, after)
           continuation(added)
         })
       }}
