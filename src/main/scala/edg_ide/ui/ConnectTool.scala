@@ -262,8 +262,12 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
 
   def connectsAvailable(): Set[DesignPath] = {  // returns all available ports to connect
     val selectedTypes = selected.toSeq.flatMap { linkTargetsMap.get(_) }
-    if (selectedTypes.isEmpty && selected.size == 1 && availableExports.contains(selected.head)) {  // export only
-      Set()
+    if (linkTargets.isEmpty) {  // export only TODO less heuristic?
+      if (selected.nonEmpty || priorConnectPaths.size > 1) {  // already connected
+        Set()
+      } else {
+        availableExports.toSet
+      }
     } else {
       val allTypes = selectedTypes :+ linkTargetsMap(initialPortPath)  // TODO if nonexistent, eg export only ext port
       val allTypeCounts = allTypes.groupBy(identity).mapValues(_.size)
@@ -302,18 +306,25 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
 
     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
       resolved match {
-        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) if path != initialPortPath=>
+        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) if path != initialPortPath =>
           if (selected.contains(path)) {  // toggle selection
             selected -= path
+            updateSelected()
           } else {
-            selected += path
+            if (connectsAvailable().contains(path)) {
+              selected += path
+              updateSelected()
+            } else {
+              PopupUtils.createErrorPopup(s"not connectable", e)  // TODO more detailed errors?
+            }
           }
-          updateSelected()
-        case _ =>
+        case _ =>  // ignored
 
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       if (selected.isEmpty) {
+        interface.endTool()
+      } else {
         interface.endTool()  // TODO do connect operation
       }
     }
