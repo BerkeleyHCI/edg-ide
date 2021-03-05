@@ -48,14 +48,14 @@ object ConnectToolAnalysis {
         }.flatten.toSeq
   }
 
-  /** Returns the block-side top-level port names and types of connected elements.
+  /** Returns the block-side top-level port paths of connected elements.
     * Local analysis only, does not guarantee these ultimately resolve to a block port (may be a dangling export).
     * Works on both fully expanded as well as non-expanded (with ALLOCATEs) designs.
     *
     * If linkName is invalid, returns empty.
     */
   def connectsToLink(blockPath: DesignPath, block: elem.HierarchyBlock,
-                     linkName: String): Seq[(DesignPath, ref.LibraryPath)] = {
+                     linkName: String): Seq[DesignPath] = {
     val link = block.links.getOrElse(linkName, return Seq())
         .`type`.link.getOrElse(return Seq())
 
@@ -67,8 +67,7 @@ object ConnectToolAnalysis {
             (connected.getBlockPort.getRef, connected.getLinkPort.getRef)
         } .collect {  // filter for link
           case (blockRef, linkRef) if linkRef.steps.head.getName == linkName =>
-            val linkPortName = linkRef.steps(1).getName
-            (blockPath ++ blockRef, typeOfPort(link.ports(linkPortName)).get)
+            blockPath ++ blockRef
         }.toSeq
   }
 
@@ -90,21 +89,21 @@ object ConnectToolAnalysis {
   }
 
   /** For a set of block-side ports (of blocks in block), of those that are connected to a PortBridge,
-    * returns all the connected exported ports with the associated link-side port type.
+    * returns all the connected exported ports.
     */
   def getExported(blockPath: DesignPath, block: elem.HierarchyBlock,
-                  portPathTypes: Seq[(DesignPath, ref.LibraryPath)]): Seq[(DesignPath, ref.LibraryPath)] = {
+                  portPaths: Seq[DesignPath]): Seq[DesignPath] = {
     val exportMap = blockExportMap(blockPath, block)
 
     // TODO more graceful error handling?
-    portPathTypes.flatMap { case (portPath, portType) =>
+    portPaths.flatMap { portPath =>
       val (portBlockPath, portName) = portPath.split
       val (portBlockContainerPath, blockName) = portBlockPath.split
       require(portBlockContainerPath == blockPath)
       // TODO a superclass check would be better!
       if (portName == LibraryConnectivityAnalysis.portBridgeLinkPort) {
         val exportedPortPath = exportMap(portBlockPath + LibraryConnectivityAnalysis.portBridgeOuterPort)
-        Some((exportedPortPath, portType))
+        Some(exportedPortPath)
       } else {
         None
       }
@@ -191,7 +190,7 @@ object ConnectTool {
           val priorConnects = priorDirectConnects ++
               ConnectToolAnalysis.getExported(focusPath, focusBlock, priorDirectConnects)
           // Use the link type from the link itself
-          (linkType, priorConnects.map(_._1),
+          (linkType, priorConnects,
               s"Connect to $portPath by appending to ${EdgirUtils.SimpleLibraryPath(linkType)} at $linkName")
         case None =>  // no existing link: new port or direct export
           val exportMap = ConnectToolAnalysis.blockExportMap(focusPath, focusBlock)
