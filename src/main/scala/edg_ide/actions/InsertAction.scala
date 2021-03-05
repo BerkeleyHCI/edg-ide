@@ -98,8 +98,8 @@ object InsertBlockAction {
         .instanceOfExcept[PyFunction]("not in a function")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
         .exceptNull("not in a class")
-    val psiElementGenerator = PyElementGenerator.getInstance(project)
 
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
     val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
         .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
         .head.getName
@@ -126,6 +126,9 @@ object InsertConnectAction {
   /** Creates an action to insert a new connect statement containing (interior block, block's port).
     * If interior_block is empty, the port is a port of the parent.
     * Location is checked to ensure all the ports are visible.
+    *
+    * TODO should elements be more structured to allow more analysis checking?
+    * This generally assumes that elements are sane and in the class of after.
     */
   def createInsertConnectFlow(after: PsiElement, elements: Seq[(String, String)], actionName: String,
                               project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
@@ -135,14 +138,29 @@ object InsertConnectAction {
         .instanceOfExcept[PyFunction]("not in a function")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
         .exceptNull("not in a class")
-    val psiElementGenerator = PyElementGenerator.getInstance(project)
 
+    val attributesAfter = elements.map {  // to attribute name
+      case ("", portName) => portName
+      case (blockName, portName) => blockName  // assume portName is in blockName
+    }.map { attributeName =>  // to ([assigns], attribute name)
+      (DesignAnalysisUtils.findAssignmentsTo(containingPsiClass, attributeName, project),
+          attributeName)
+    }.flatMap { case (assigns, attributeName) =>  // flatten assign statements to attribute names if any are after
+      val containsAssignAfter = assigns.map { assign =>
+        DesignAnalysisUtils.elementAfterEdg(assign, after, project)
+      }.contains(Some(false))
+      if (containsAssignAfter) {
+        Some(attributeName)
+      } else {
+        None
+      }
+    }
+    requireExcept(attributesAfter.isEmpty, s"${attributesAfter.mkString(", ")} defined after insertion position")
+
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
     val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
         .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
         .head.getName
-
-    // TODO check containing class
-          // TODO check reachability
 
     def insertConnectFlow: Unit = {
       InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project,
