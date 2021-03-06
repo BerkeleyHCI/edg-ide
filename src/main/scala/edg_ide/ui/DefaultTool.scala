@@ -1,8 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.project.Project
-import com.jetbrains.python.psi.PyAssignmentStatement
 import edg.elem.elem
 import edg.schema.schema
 import edg.ref.ref
@@ -12,32 +10,42 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionPopup, requireExcept}
 
-import java.awt.event.{ActionEvent, MouseEvent}
-import javax.swing.{JLabel, JMenuItem, JPopupMenu, SwingUtilities}
+import java.awt.event.MouseEvent
+import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
 
 
 trait NavigationPopupMenu extends JPopupMenu {
-  def addNavigationItems(path: DesignPath, superclass: Errorable[ref.LibraryPath],
-                         design: schema.Design, project: Project): Unit = {
-    val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project)
-    PopupMenuUtils.MenuItemsFromErrorableSeq(assigns,
-      {assign: PyAssignmentStatement =>
+  def addGotoInstantiationItems(path: DesignPath,
+                                design: schema.Design, project: Project): Unit = {
+    val actionPairs = exceptable {
+      val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project).exceptError
+
+      assigns.map { assign =>
         val fileLine = PsiUtils.fileLineOf(assign, project)
             .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-        s"Goto Instantiation$fileLine"},
-      s"Goto Instantiation") { assign =>
-      assign.navigate(true)
-    }.foreach(add)
-
-    val pyClass = superclass.flatMap(DesignAnalysisUtils.pyClassOf(_, project))
-    val pyNavigatable = pyClass.require("class not navigatable")(_.canNavigateToSource)
-
-    val fileLine = pyNavigatable.flatMap(PsiUtils.fileLineOf(_, project))
-        .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-    val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(pyNavigatable,
-      s"Goto Definition$fileLine") { pyNavigatable =>
-      pyNavigatable.navigate(true)
+        (s"Goto Instantiation$fileLine", () => assign.navigate(true))
+      }
     }
+
+    PopupMenuUtils.MenuItemsFromErrorableSeq(actionPairs, s"Goto Instantiation")
+        .foreach(add)
+  }
+
+  def addGotoDefinitionItem(superclass: Errorable[ref.LibraryPath],
+                            project: Project): Unit = {
+    val pyClass = exceptable {
+      val pyClass = DesignAnalysisUtils.pyClassOf(superclass.exceptError, project).exceptError
+      requireExcept(pyClass.canNavigateToSource, "class not navigatable")
+      pyClass
+    }
+    val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project))
+        .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+    val action = exceptable {
+      () => pyClass.exceptError.navigate(true)
+    }
+    val actionName = s"Goto Definition$fileLine"
+
+    val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(action, actionName)
     add(gotoDefinitionItem)
   }
 }
@@ -52,16 +60,31 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   add(new JLabel(s"Design Block: ${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
   addSeparator()
 
-
-  private val setFocusItem = new JMenuItem(s"Focus on $path")
-  setFocusItem.addActionListener((e: ActionEvent) => {
-    BlockVisualizerService(interface.getProject).setContext(path)  // TODO interface.setFocus?
-  })
+  val setFocusAction: Errorable[() => Unit] = exceptable {
+    if (path == interface.getFocus) {  // double click focus block to zoom out
+      requireExcept(path != DesignPath(), "can't zoom out of top")
+      () => interface.setFocus(path.split._1)
+    } else {
+      () => interface.setFocus(path)
+    }
+  }
+  val setFocusName: String = {  // TODO unify w/ above?
+    if (path == interface.getFocus) {  // double click focus block to zoom out
+      if (path != DesignPath()) {
+        s"Focus Out to ${path.split._1}"
+      } else {
+        s"Focus Out"
+      }
+    } else {
+      s"Focus In to $path"
+    }
+  }
+  private val setFocusItem = PopupMenuUtils.MenuItemFromErrorable(setFocusAction, setFocusName)
   add(setFocusItem)
   addSeparator()
 
-
-  addNavigationItems(path, blockClass, interface.getDesign, interface.getProject)
+  addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
+  addGotoDefinitionItem(blockClass, interface.getProject)
 }
 
 
@@ -82,25 +105,23 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
       case other => throw ExceptionNotifyException(s"unknown ${other.getClass} at path")
     }
   }
-
   add(new JLabel(s"Design Port: ${portClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
   addSeparator()
 
-
-  private val startConnectItem = PopupMenuUtils.MenuItemFromErrorable(ConnectTool(interface, path),
-    s"Start Connect") { connectTool =>
-    interface.startNewTool(connectTool)
+  val startConnectAction = exceptable {
+    val connectTool = ConnectTool(interface, path).exceptError
+    () => interface.startNewTool(connectTool)
   }
+  private val startConnectItem = PopupMenuUtils.MenuItemFromErrorable(startConnectAction, "Start Connect")
   add(startConnectItem)
   addSeparator()
 
-
-  addNavigationItems(path, portClass, interface.getDesign, interface.getProject)
+  addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
+  addGotoDefinitionItem(portClass, interface.getProject)
 }
 
 
 class DefaultTool(val interface: ToolInterface) extends BaseTool {
-  private val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.DefaultTool")
   private var ignoreSelect: Boolean = false
 
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
@@ -113,16 +134,12 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
       // double click
       resolved match {
         case Some(_: elem.HierarchyBlock) => // blocks: quick set focus
-          if (path == interface.getFocus) {  // double click focus block to zoom out
-            if (path != DesignPath()) {
-              interface.setFocus(path.split._1)
-            }
-          } else {
-            interface.setFocus(path)
+          exceptionPopup(e) {
+            (new DesignBlockPopupMenu(path, interface).setFocusAction.exceptError)()
           }
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>  // ports: start connect
           exceptionPopup(e) {
-            interface.startNewTool(ConnectTool(interface, path).exceptError)
+            (new DesignPortPopupMenu(path, interface).startConnectAction.exceptError)()
           }
         case _ =>
       }
@@ -130,11 +147,9 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
       // right click context menu
       resolved match {
         case Some(_: elem.HierarchyBlock) =>
-          val menu = new DesignBlockPopupMenu(path, interface)
-          menu.show(e.getComponent, e.getX, e.getY)
+          new DesignBlockPopupMenu(path, interface).show(e.getComponent, e.getX, e.getY)
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>
-          val menu = new DesignPortPopupMenu(path, interface)
-          menu.show(e.getComponent, e.getX, e.getY)
+          new DesignPortPopupMenu(path, interface).show(e.getComponent, e.getX, e.getY)
         case _ =>  // TODO support other element types
       }
     }

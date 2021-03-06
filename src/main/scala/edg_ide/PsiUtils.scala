@@ -11,12 +11,14 @@ import edg_ide.util.exceptable
 import scala.collection.mutable
 
 object PsiUtils {
-  def fileLineOf(element: PsiElement, project: Project): Errorable[String] = exceptable {
-    val psiFile = element.getContainingFile.exceptNull("no file")
-    val psiDocumentManager = PsiDocumentManager.getInstance(project)
-    val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
-    val lineNumber = psiDocument.getLineNumber(element.getTextOffset)
-    s"${psiFile.getName}:$lineNumber"
+  def fileLineOf(element: PsiElement, project: Project): Errorable[String] = {
+    exceptable {
+      val psiFile = element.getContainingFile.exceptNull("no file")
+      val psiDocumentManager = PsiDocumentManager.getInstance(project)
+      val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
+      val lineNumber = psiDocument.getLineNumber(element.getTextOffset)
+      s"${psiFile.getName}:$lineNumber"
+    }
   }
 
   def fileNextLineOf(element: PsiElement, project: Project): Errorable[String] = exceptable {

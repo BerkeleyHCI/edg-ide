@@ -12,7 +12,7 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, Exc
 import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.event.MouseEvent
-import javax.swing.SwingUtilities
+import javax.swing.{JPopupMenu, SwingUtilities}
 import collection.mutable
 
 
@@ -258,6 +258,11 @@ object ConnectTool {
       )
     }
   }
+}
+
+
+class ConnectPopup() extends JPopupMenu {
+
 }
 
 

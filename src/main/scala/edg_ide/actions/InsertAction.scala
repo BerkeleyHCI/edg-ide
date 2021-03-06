@@ -19,11 +19,11 @@ import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 
 object InsertAction {
-  def getPyClassOfContext(project: Project): Errorable[PyClass] = {
+  def getPyClassOfContext(project: Project): Errorable[PyClass] = exceptable {
     val (contextPath, contextBlock) = BlockVisualizerService(project)
         .getContextBlock.exceptNone("no context block")
     requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
-    DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project)
+    DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project).exceptError
   }
 
   def getCaretAtFile(file: PsiFile, expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
