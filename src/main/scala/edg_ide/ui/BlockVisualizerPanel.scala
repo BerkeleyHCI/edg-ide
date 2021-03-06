@@ -1,6 +1,7 @@
 package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
@@ -284,6 +285,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         indicator.setIndeterminate(true)
 
         try {
+          indicator.setText("EDG compiling ... saving")
+          val documentManager = FileDocumentManager.getInstance()
+          documentManager.saveAllDocuments()
+
           indicator.setText("EDG compiling ... reloading")
           EdgCompilerService(project).pyLib.reloadModule(blockModule)
 

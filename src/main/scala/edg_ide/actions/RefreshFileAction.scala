@@ -1,9 +1,8 @@
 package edg_ide.actions
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
 import com.intellij.openapi.fileEditor.FileDocumentManager
-import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
+import edg_ide.ui.BlockVisualizerService
 import edg_ide.util.ErrorableNotify._
 
 
