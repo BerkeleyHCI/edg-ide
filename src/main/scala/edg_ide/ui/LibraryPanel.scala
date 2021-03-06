@@ -11,7 +11,7 @@ import edg.util.Errorable
 import edg_ide.actions.{InsertAction, InsertBlockAction}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.BorderLayout

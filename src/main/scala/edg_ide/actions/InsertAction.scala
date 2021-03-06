@@ -85,8 +85,6 @@ object InsertBlockAction {
   val VALID_FUNCTION_NAMES = Set("__init__", "contents")
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
-  val notificationGroup = "edg_ide.actions.InsertBlockAction"
-
   /** Creates an action to insert a block of type libClass after some PSI element after.
     * Validation is performed before the action is generated, though the action itself may also return an error.
     */
