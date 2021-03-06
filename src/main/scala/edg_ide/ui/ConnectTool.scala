@@ -291,6 +291,25 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
     val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
     InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, interface.getProject).exceptError
   }
+
+  val appendConnectAction: Errorable[() => Unit] = exceptable {
+    requireExcept(selected.nonEmpty, "no selection to connect")
+    // TODO this should use the captured focus instead, but here's a sanity check
+    requireExcept(BlockVisualizerService(interface.getProject).getContextBlock.get._1 == focusPath,
+      "focus consistency sanity check failed")
+
+    InsertConnectAction.createAppendConnectFlow(caretPsiElement.exceptError, connectPairs,
+      s"Append connect to ${connectPairs.mkString(", ")} at $contextPyName caret",
+      interface.getProject, continuation).exceptError
+  }
+  private val appendConnectCaretFileLine = exceptable {
+    appendConnectAction.exceptError
+    PsiUtils.fileNextLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
+  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+  private val appendConnectItem = PopupMenuUtils.MenuItemFromErrorable(
+    appendConnectAction, s"Append connect at $contextPyName caret$appendConnectCaretFileLine")
+  add(appendConnectItem)
+
   val insertConnectAction: Errorable[() => Unit] = exceptable {
     requireExcept(selected.nonEmpty, "no selection to connect")
     // TODO this should use the captured focus instead, but here's a sanity check
@@ -301,12 +320,12 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
       s"Insert connect to ${connectPairs.mkString(", ")} at $contextPyName caret",
       interface.getProject, continuation).exceptError
   }
-  private val caretFileLine = exceptable {
+  private val insertConnectCaretFileLine = exceptable {
     insertConnectAction.exceptError
     PsiUtils.fileNextLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val insertConnectItem = PopupMenuUtils.MenuItemFromErrorable(
-    insertConnectAction, s"Insert connect at $contextPyName caret$caretFileLine")
+    insertConnectAction, s"Insert connect at $contextPyName caret$insertConnectCaretFileLine")
   add(insertConnectItem)
 
   private val insertionPairs = exceptable {
@@ -340,8 +359,10 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
   add(cancelItem)
 
   val defaultAction: Errorable[() => Unit] = if (selected.nonEmpty) {
-    // TODO prefer append item
-    insertConnectAction
+    appendConnectAction match {
+      case Errorable.Success(_) => appendConnectAction  // prefer append connect if available
+      case _ => insertConnectAction
+    }
   } else {
     cancelAction
   }

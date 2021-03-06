@@ -105,9 +105,7 @@ object InsertBlockAction {
     def insertBlockFlow: Unit = {
       InsertAction.createNameEntryPopup("Block Name", containingPsiClass, project) { name => exceptable {
         val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
-          classOf[PyAssignmentStatement],
-          s"$selfName.$name = $selfName.Block(${libClass.getName}())"
-        )
+          classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
 
         writeCommandAction(project).withName(actionName).run(() => {
           val added = containingPsiList.addAfter(newAssign, after)
@@ -121,23 +119,15 @@ object InsertBlockAction {
 
 
 object InsertConnectAction {
-  /** Creates an action to insert a new connect statement containing (interior block, block's port).
-    * If interior_block is empty, the port is a port of the parent.
-    * Location is checked to ensure all the ports are visible.
-    *
-    * TODO should elements be more structured to allow more analysis checking?
-    * This generally assumes that elements are sane and in the class of after.
-    */
-  def createInsertConnectFlow(after: PsiElement, elements: Seq[(String, String)], actionName: String,
-                              project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
-    val containingPsiList = after.getParent
-        .instanceOfExcept[PyStatementList](s"invalid position for insertion")
-    val containingPsiFunction = containingPsiList.getParent
-        .instanceOfExcept[PyFunction]("not in a function")
-    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
-        .exceptNull("not in a class")
 
-    val attributesAfter = elements.map {  // to attribute name
+  private def elementPairToText(selfName: String, pair: (String, String)): String = pair match {
+    case ("", portName) => s"$selfName.$portName"
+    case (blockName, portName) => s"$selfName.$blockName.$portName"
+  }
+
+  def pairAttributesAfter(after: PsiElement, portPairs: Seq[(String, String)],
+                          containingPsiClass: PyClass, project: Project): Seq[String] = {
+    portPairs.map {  // to attribute name
       case ("", portName) => portName
       case (blockName, portName) => blockName  // assume portName is in blockName
     }.map { attributeName =>  // to ([assigns], attribute name)
@@ -153,6 +143,26 @@ object InsertConnectAction {
         None
       }
     }
+  }
+
+  /** Creates an action to insert a new connect statement containing (interior block, block's port).
+    * If interior_block is empty, the port is a port of the parent.
+    * Location is checked to ensure all the ports are visible.
+    *
+    * TODO should elements be more structured to allow more analysis checking?
+    * This generally assumes that elements are sane and in the class of after.
+    */
+  def createInsertConnectFlow(after: PsiElement, portPairs: Seq[(String, String)], actionName: String,
+                              project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
+    val containingPsiList = after.getParent
+        .instanceOfExcept[PyStatementList](s"invalid position for insertion")
+    val containingPsiFunction = containingPsiList.getParent
+        .instanceOfExcept[PyFunction]("not in a function")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
+        .exceptNull("not in a class")
+
+    // Check that referenced attributes (eg, port or block names) are not defined after the current position
+    val attributesAfter = pairAttributesAfter(after, portPairs, containingPsiClass, project)
     requireExcept(attributesAfter.isEmpty, s"${attributesAfter.mkString(", ")} defined after insertion position")
 
     val psiElementGenerator = PyElementGenerator.getInstance(project)
@@ -163,10 +173,7 @@ object InsertConnectAction {
     def insertConnectFlow: Unit = {
       InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project,
           allowEmpty=true) { name => exceptable {
-        val elementsText = elements map {
-          case ("", portName) => s"$selfName.$portName"
-          case (blockName, portName) => s"$selfName.$blockName.$portName"
-        }
+        val elementsText = portPairs map { elementPairToText(selfName, _) }
         val connectStatementText = s"$selfName.connect(${elementsText.mkString(", ")})"
         val statementText = if (name.isEmpty) {
           connectStatementText
@@ -175,9 +182,7 @@ object InsertConnectAction {
         }
 
         val newStatement = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
-          classOf[PyStatement],
-          statementText
-        )
+          classOf[PyStatement], statementText)
 
         writeCommandAction(project).withName(actionName).run(() => {
           val added = containingPsiList.addAfter(newStatement, after)
@@ -188,32 +193,46 @@ object InsertConnectAction {
     () => insertConnectFlow
   }
 
-  def createAppendConnectFlow(within: PsiElement, elements: Seq[(String, String)], actionName: String,
+  def createAppendConnectFlow(within: PsiElement, portPairs: Seq[(String, String)], actionName: String,
                               project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiArgs = PsiTreeUtil.getParentOfType(within, classOf[PyArgumentList])
         .exceptNull(s"not in an argument list")
     val containingPsiCall = containingPsiArgs.getParent
         .instanceOfExcept[PyCallExpression](s"not in a call")
 
-    val containingPsiFunction = containingPsiCall.getParent
-        .instanceOfExcept[PyFunction]("not in a function")
+    val containingPsiFunction = PsiTreeUtil.getParentOfType(within, classOf[PyFunction])
+        .exceptNull("not in a function")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
         .exceptNull("not in a class")
+
+    // Check that referenced attributes (eg, port or block names) are not defined after the current position
+    val attributesAfter = pairAttributesAfter(within, portPairs, containingPsiClass, project)
+    requireExcept(attributesAfter.isEmpty, s"${attributesAfter.mkString(", ")} defined after insertion position")
+
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
     val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
         .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
         .head.getName
-
-    val psiElementGenerator = PyElementGenerator.getInstance(project)
-    val connectReference = psiElementGenerator.createFromText(LanguageLevel.forElement(within),
-      classOf[PyReferenceExpression],
-      s"$selfName.connect"
-    )
+    val connectReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(within),
+      s"$selfName.connect")
     requireExcept(containingPsiCall.getCallee.textMatches(connectReference), "call not to connect")
-    
 
-    val containingPsiFunction = containingPsiList.getParent
-        .instanceOfExcept[PyFunction]("not in a function")
-    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
-        .exceptNull("not in a class")
+    val portRefElements = portPairs.map { elementPairToText(selfName, _) }
+        .map { refText =>
+          psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(within),
+            refText)
+        }
+    requireExcept(containingPsiArgs.getArguments.exists { arg =>
+      arg.textMatches(portRefElements.head)
+    }, s"connect doesn't contain ${portPairs.head}")
+
+    () => {
+      writeCommandAction(project).withName(actionName).run(() => {
+        val added = portRefElements.drop(1).map { portRefElement =>
+          containingPsiArgs.addArgument(portRefElement)
+        }
+        continuation(containingPsiArgs)
+      })
+    }
   }
 }
