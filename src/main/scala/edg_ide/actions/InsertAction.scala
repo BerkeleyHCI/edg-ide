@@ -9,7 +9,7 @@ import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatement, PyStatementList}
+import com.jetbrains.python.psi.{LanguageLevel, PyArgumentList, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyFunction, PyReferenceExpression, PyStatement, PyStatementList}
 import edg.util.Errorable
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
@@ -186,5 +186,34 @@ object InsertConnectAction {
       }}
     }
     () => insertConnectFlow
+  }
+
+  def createAppendConnectFlow(within: PsiElement, elements: Seq[(String, String)], actionName: String,
+                              project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
+    val containingPsiArgs = PsiTreeUtil.getParentOfType(within, classOf[PyArgumentList])
+        .exceptNull(s"not in an argument list")
+    val containingPsiCall = containingPsiArgs.getParent
+        .instanceOfExcept[PyCallExpression](s"not in a call")
+
+    val containingPsiFunction = containingPsiCall.getParent
+        .instanceOfExcept[PyFunction]("not in a function")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
+        .exceptNull("not in a class")
+    val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
+        .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
+        .head.getName
+
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+    val connectReference = psiElementGenerator.createFromText(LanguageLevel.forElement(within),
+      classOf[PyReferenceExpression],
+      s"$selfName.connect"
+    )
+    requireExcept(containingPsiCall.getCallee.textMatches(connectReference), "call not to connect")
+    
+
+    val containingPsiFunction = containingPsiList.getParent
+        .instanceOfExcept[PyFunction]("not in a function")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
+        .exceptNull("not in a class")
   }
 }
