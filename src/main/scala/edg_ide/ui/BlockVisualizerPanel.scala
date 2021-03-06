@@ -279,16 +279,15 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       return
     }
 
+    val documentManager = FileDocumentManager.getInstance()
+    documentManager.saveAllDocuments()
+
     ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
       override def run(indicator: ProgressIndicator): Unit = {
         status.setText(s"Compiling")
         indicator.setIndeterminate(true)
 
         try {
-          indicator.setText("EDG compiling ... saving")
-          val documentManager = FileDocumentManager.getInstance()
-          documentManager.saveAllDocuments()
-
           indicator.setText("EDG compiling ... reloading")
           EdgCompilerService(project).pyLib.reloadModule(blockModule)
 

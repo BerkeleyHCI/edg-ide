@@ -2,6 +2,7 @@ package edg_ide.actions
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent}
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.ErrorableNotify.{Errorable, ErrorableNotify}
@@ -15,6 +16,9 @@ class FillCacheAction() extends AnAction() {
 
     Errorable(BlockVisualizerService.apply(event.getProject).visualizerPanelOption,
       "No visualizer panel").mapOrNotify("edg_ide.actions.FillCacheAction", project) { visualizer =>
+
+      val documentManager = FileDocumentManager.getInstance()
+      documentManager.saveAllDocuments()
 
       ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG library compiling") {
         override def run(indicator: ProgressIndicator): Unit = {

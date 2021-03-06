@@ -285,7 +285,7 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
 
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)
   private val contextPyName = contextPyClass.mapToString(_.getName)
-  private val connectPairs = (Seq(initialPortPath) ++ selected.toSeq).map(pathToPairs)
+  private val connectPairs = (initialPortPath +: selected).map(pathToPairs)
 
   private val caretPsiElement = exceptable {
     val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
