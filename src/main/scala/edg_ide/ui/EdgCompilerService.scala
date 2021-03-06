@@ -127,37 +127,47 @@ class EdgCompilerService(project: Project) extends
     (loadSuccess.toSeq, loadFailure.toSeq)
   }
 
-  def compile(design: schema.Design, refinements: edgrpc.Refinements,
-              indicator: Option[ProgressIndicator]): (schema.Design, Compiler, Long) = {
+  def compile(topModule: String, designType: ref.LibraryPath,
+              indicator: Option[ProgressIndicator]): (schema.Design, Compiler, edgrpc.Refinements, Long, Long) = {
+    indicator.foreach(_.setText(s"EDG compiling: reloading"))
+    val (_, reloadTime) = timeExec {
+      pyLib.reloadModule(topModule)
+    }
+
     indicator.foreach(_.setText(s"EDG compiling: cleaning cache"))
     discardStale()
 
-    val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
-                                refinements=Refinements(refinements)) {
-      override def onElaborate(record: ElaborateRecord): Unit = {
-        super.onElaborate(record)
-        indicator.foreach { indicator =>
-          record match {
-            case ElaborateRecord.Block(blockPath) =>
-              indicator.setText(s"EDG compiling: block at $blockPath")
-            case ElaborateRecord.Link(linkPath) =>
-              indicator.setText(s"EDG compiling: link at $linkPath")
-            case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) =>
-              indicator.setText(s"EDG compiling: connect between $toLinkPortPath - $fromLinkPortPath")
-            case ElaborateRecord.Generator(blockPath, fnName) =>
-              indicator.setText(s"EDG compiling: generator at $blockPath:$fnName")
-            case ElaborateRecord.BlockPortsConnected(blockPath) =>
-              indicator.setText(s"EDG compiling: block ports connected at $blockPath")
-            case elaborateRecord =>
-              indicator.setText(s"EDG compiling: unknown operation $elaborateRecord")
+    indicator.foreach(_.setText(s"EDG compiling: design top"))
+    val ((compiled, compiler, refinements), compileTime) = timeExec {
+      val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType).get  // TODO propagate Errorable
+      val design = schema.Design(contents = Some(block.copy(superclasses = Seq(designType))))  // TODO dedup w/ superclass resolution in BlockLink.Block
+
+      val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
+        refinements=Refinements(refinements)) {
+        override def onElaborate(record: ElaborateRecord): Unit = {
+          super.onElaborate(record)
+          indicator.foreach { indicator =>
+            record match {
+              case ElaborateRecord.Block(blockPath) =>
+                indicator.setText(s"EDG compiling: block at $blockPath")
+              case ElaborateRecord.Link(linkPath) =>
+                indicator.setText(s"EDG compiling: link at $linkPath")
+              case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) =>
+                indicator.setText(s"EDG compiling: connect between $toLinkPortPath - $fromLinkPortPath")
+              case ElaborateRecord.Generator(blockPath, fnName) =>
+                indicator.setText(s"EDG compiling: generator at $blockPath:$fnName")
+              case ElaborateRecord.BlockPortsConnected(blockPath) =>
+                indicator.setText(s"EDG compiling: block ports connected at $blockPath")
+              case elaborateRecord =>
+                indicator.setText(s"EDG compiling: unknown operation $elaborateRecord")
+            }
           }
         }
       }
+      (compiler.compile(), compiler, refinements)
+
     }
-    val (compiled, time) = timeExec {
-      compiler.compile()
-    }
-    (compiled, compiler, time)
+    (compiled, compiler, refinements, reloadTime, compileTime)
   }
 
   override def getState: EdgCompilerServiceState = {

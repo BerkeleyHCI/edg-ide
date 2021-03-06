@@ -288,25 +288,19 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         indicator.setIndeterminate(true)
 
         try {
-          indicator.setText("EDG compiling ... reloading")
-          EdgCompilerService(project).pyLib.reloadModule(blockModule)
+          indicator.setText("EDG compiling")
 
-          indicator.setText("EDG compiling ... design top")
-          val fullName = blockModule + "." + blockName
-          val designPathTop = ElemBuilder.LibraryPath(fullName)
-          val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designPathTop).get  // TODO propagate Errorable
-          val design = schema.Design(contents = Some(block.copy(superclasses = Seq(designPathTop))))  // TODO dedup w/ superclass resolution in BlockLink.Block
+          val designType = ElemBuilder.LibraryPath(blockModule + "." + blockName)
+          val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project)
+              .compile(blockModule, designType, Some(indicator))
 
-          indicator.setText("EDG compiling ...")
-          val (compiled, compiler, time) = EdgCompilerService(project).compile(design, refinements, Some(indicator))
-
-          indicator.setText("EDG compiling ... validating")
+          indicator.setText("EDG compiling: validating")
           val checker = new DesignStructuralValidate()
           val errors = compiler.getErrors() ++ checker.map(compiled)
           if (errors.isEmpty) {
-            status.setText(s"Compiled ($time ms)")
+            status.setText(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)")
           } else {
-            status.setText(s"Compiled, with ${errors.length} errors ($time ms)")
+            status.setText(s"Compiled, with ${errors.length} errors (reload: $reloadTime ms, compile: $compileTime ms)")
           }
           tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           indicator.setText("EDG compiling ... done")
