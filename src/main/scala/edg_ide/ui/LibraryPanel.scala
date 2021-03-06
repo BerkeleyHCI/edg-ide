@@ -77,18 +77,6 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
   private val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(gotoDefinitionAction,
     s"Goto Definition$libFileLine")
   add(gotoDefinitionItem)
-  addSeparator()
-
-  // TODO temporary item remove me
-  val item = new JMenuItem("Inheritor Search")
-  item.addActionListener((e: ActionEvent) => {
-    val inheritors = libPyClass.map { pyClass =>
-      val results = PyClassInheritorsSearch.search(pyClass, false).findAll().asScala
-      results.map(_.getName).mkString(", ")
-    }
-    println(inheritors)
-  })
-  add(item)
 }
 
 

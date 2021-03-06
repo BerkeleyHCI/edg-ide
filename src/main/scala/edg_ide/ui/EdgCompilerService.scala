@@ -1,17 +1,25 @@
 package edg_ide.ui
 
+import com.intellij.notification.{NotificationGroup, NotificationType}
+
 import collection.mutable
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.jetbrains.python.psi.{PyClass, PyPsiFacade}
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
+import com.jetbrains.python.psi.PyClass
+import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.compiler.{Compiler, ElaborateRecord, PythonInterface, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.schema.schema
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.EdgirUtils
 import edg.ref.ref
+
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -29,10 +37,75 @@ object EdgCompilerService {
   */
 class EdgCompilerService(project: Project) extends
     PersistentStateComponent[EdgCompilerServiceState] with Disposable {
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.EdgCompilerService")
+
   val pyLib = new PythonInterfaceLibrary(new PythonInterface())
 
-  // Loads all library elements visible from some module.
-  // Returns (loaded elements, error elements)
+  // Tracks modified classes, so the appropriate library elements can be discarded on the next refresh.
+  val modifiedPyClasses = mutable.Set[PyClass]()
+
+  PsiManager.getInstance(project).addPsiTreeChangeListener(new PsiTreeChangeListener {
+    override def beforeChildAddition(event: PsiTreeChangeEvent): Unit = { }
+    override def beforeChildRemoval(event: PsiTreeChangeEvent): Unit = { }
+    override def beforeChildReplacement(event: PsiTreeChangeEvent): Unit = { }
+    override def beforeChildMovement(event: PsiTreeChangeEvent): Unit = { }
+    override def beforeChildrenChange(event: PsiTreeChangeEvent): Unit = { }
+    override def beforePropertyChange(event: PsiTreeChangeEvent): Unit = { }
+
+    override def childAdded(event: PsiTreeChangeEvent): Unit = childAction(event)
+    override def childRemoved(event: PsiTreeChangeEvent): Unit = childAction(event)
+    override def childReplaced(event: PsiTreeChangeEvent): Unit = childAction(event)
+    override def childrenChanged(event: PsiTreeChangeEvent): Unit = { }  // ends up as a file action
+    override def childMoved(event: PsiTreeChangeEvent): Unit = childAction(event)
+    override def propertyChanged(event: PsiTreeChangeEvent): Unit = { }
+
+    def childAction(event: PsiTreeChangeEvent): Unit = {
+      val containingClass = PsiTreeUtil.getParentOfType(event.getParent, classOf[PyClass])
+      if (containingClass != null) {
+        modifiedPyClasses.synchronized {
+          modifiedPyClasses += containingClass
+        }
+      } else {
+        println(s"null containingClass $event ::  ${event.getChild}  ${event.getParent}  ${event.getOldChild}")
+      }
+    }
+  }, this)
+
+  /** Discards stale elements from modifiedPyClasses
+    */
+  def discardStale(): Unit = {
+    val copyModifiedClasses = modifiedPyClasses.synchronized {
+      val copy = modifiedPyClasses.toSet
+      modifiedPyClasses.clear()
+      copy
+    }
+
+    val extendedModifiedClassNames = ReadAction.compute(() => {
+      copyModifiedClasses.flatMap { modifiedClass =>
+        val inheritors = PyClassInheritorsSearch.search(modifiedClass, false).findAll().asScala
+        inheritors.toSeq :+ modifiedClass
+      }.map (_.getQualifiedName)
+    })
+
+    val discarded = extendedModifiedClassNames.flatMap { modifiedClassName =>
+      pyLib.discardCached(modifiedClassName)
+    }
+
+    if (discarded.isEmpty) {
+      notificationGroup.createNotification("No changes to source files", NotificationType.WARNING)
+          .notify(project)
+    } else {
+      notificationGroup.createNotification(s"Cleaned cache",
+        s"discarded ${discarded.size} changed modules",
+        discarded.map(EdgirUtils.SimpleLibraryPath).mkString(", "),
+        NotificationType.INFORMATION)
+          .notify(project)
+    }
+  }
+
+  /** Loads all library elements visible from some module.
+    * Returns (loaded elements, error elements)
+    */
   def fillCache(module: String, indicator: Option[ProgressIndicator]): (Seq[ref.LibraryPath], Seq[ref.LibraryPath]) = {
     indicator.foreach(_.setIndeterminate(true))
     indicator.foreach(_.setText(s"EDG library compiling: indexing"))
@@ -56,6 +129,9 @@ class EdgCompilerService(project: Project) extends
 
   def compile(design: schema.Design, refinements: edgrpc.Refinements,
               indicator: Option[ProgressIndicator]): (schema.Design, Compiler, Long) = {
+    indicator.foreach(_.setText(s"EDG compiling: cleaning cache"))
+    discardStale()
+
     val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
                                 refinements=Refinements(refinements)) {
       override def onElaborate(record: ElaborateRecord): Unit = {
@@ -85,6 +161,7 @@ class EdgCompilerService(project: Project) extends
   }
 
   override def getState: EdgCompilerServiceState = {
+    // TODO discard stale cache?
     val state = new EdgCompilerServiceState
     state.serializedBlocks = pyLib.toLibraryPb.toProtoString
     state
