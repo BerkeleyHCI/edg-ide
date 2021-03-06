@@ -6,8 +6,8 @@ import edg.expr.expr
 import edg.ref.ref
 import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
-import edg_ide.EdgirUtils
-import edg_ide.actions.{InsertAction, InsertConnectAction}
+import edg_ide.{EdgirUtils, PsiUtils}
+import edg_ide.actions.{InsertAction, InsertBlockAction, InsertConnectAction}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionPopup, requireExcept}
 
@@ -267,43 +267,71 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
   add(new JLabel(s"$name"))
   addSeparator()
 
+  def pathToPairs(path: DesignPath): (String, String) = {
+    requireExcept(path.startsWith(focusPath), s"unable to create expr for $path")
+    if (path.steps.size == focusPath.steps.size + 2) {  // inner block + port
+      (path.steps(path.steps.size - 2), path.steps.last)
+    } else if (path.steps.size == focusPath.steps.size + 1) {
+      ("", path.steps.last)
+    } else {
+      throw ExceptionNotifyException(s"unable to create expr for $path")
+    }
+  }
+
+  def continuation(elem: PsiElement): Unit = {  // TODO can we use compose or something?
+    interface.endTool()
+    InsertAction.navigateElementFn(elem)
+  }
+
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)
   private val contextPyName = contextPyClass.mapToString(_.getName)
+  private val connectPairs = (Seq(initialPortPath) ++ selected.toSeq).map(pathToPairs)
 
+  private val caretPsiElement = exceptable {
+    val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
+    InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, interface.getProject).exceptError
+  }
   val insertConnectAction: Errorable[() => Unit] = exceptable {
     requireExcept(selected.nonEmpty, "no selection to connect")
     // TODO this should use the captured focus instead, but here's a sanity check
     requireExcept(BlockVisualizerService(interface.getProject).getContextBlock.get._1 == focusPath,
       "focus consistency sanity check failed")
 
-
-    val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
-    val caretPsiElement = InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, interface.getProject).exceptError
-
-    def pathToPairs(path: DesignPath): (String, String) = {
-      requireExcept(path.startsWith(focusPath), s"unable to create expr for $path")
-      if (path.steps.size == focusPath.steps.size + 2) {  // inner block + port
-        (path.steps(path.steps.size - 2), path.steps.last)
-      } else if (path.steps.size == focusPath.steps.size + 1) {
-        ("", path.steps.last)
-      } else {
-        throw ExceptionNotifyException(s"unable to create expr for $path")
-      }
-    }
-    val connectPairs = (Seq(initialPortPath) ++ selected.toSeq).map(pathToPairs)
-
-    def continuation(elem: PsiElement): Unit = {  // TODO can we use compose or something?
-      interface.endTool()
-      InsertAction.navigateElementFn(elem)
-    }
-    InsertConnectAction.createInsertConnectFlow(caretPsiElement, connectPairs,
-      s"Connect ${selected.mkString(", ")} at $contextPyName caret",
+    InsertConnectAction.createInsertConnectFlow(caretPsiElement.exceptError, connectPairs,
+      s"Insert connect to ${connectPairs.mkString(", ")} at $contextPyName caret",
       interface.getProject, continuation).exceptError
   }
+  private val caretFileLine = exceptable {
+    insertConnectAction.exceptError
+    PsiUtils.fileNextLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
+  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val insertConnectItem = PopupMenuUtils.MenuItemFromErrorable(
-    insertConnectAction, s"Insert connect at $contextPyName caret")
+    insertConnectAction, s"Insert connect at $contextPyName caret$caretFileLine")
   add(insertConnectItem)
 
+  private val insertionPairs = exceptable {
+    requireExcept(selected.nonEmpty, "no selection to connect")
+    // TODO this should use the captured focus instead, but here's a sanity check
+    requireExcept(BlockVisualizerService(interface.getProject).getContextBlock.get._1 == focusPath,
+      "focus consistency sanity check failed")
+
+    InsertAction.findInsertionPoints(contextPyClass.exceptError, interface.getProject).exceptError
+        .map { fn =>
+          val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, interface.getProject)
+              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+          val label = s"Insert connect at ${contextPyName}.${fn.getName}$fileLine"
+          val action = InsertConnectAction.createInsertConnectFlow(fn.getStatementList.getStatements.last,
+            connectPairs,
+            s"Insert connect to ${connectPairs.mkString(", ")} at $contextPyName.${fn.getName}",
+            interface.getProject, continuation)
+          (label, action)
+        } .collect {
+      case (fn, Errorable.Success(action)) => (fn, action)
+    }.exceptEmpty("no insertion points")
+  }
+  PopupMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
+      .foreach(add)
+  addSeparator()
 
   val cancelAction: Errorable[() => Unit] = exceptable {
     () => interface.endTool()
@@ -312,6 +340,7 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
   add(cancelItem)
 
   val defaultAction: Errorable[() => Unit] = if (selected.nonEmpty) {
+    // TODO prefer append item
     insertConnectAction
   } else {
     cancelAction

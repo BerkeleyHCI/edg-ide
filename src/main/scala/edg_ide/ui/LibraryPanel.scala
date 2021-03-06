@@ -11,7 +11,7 @@ import edg.util.Errorable
 import edg_ide.actions.{InsertAction, InsertBlockAction}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.BorderLayout
@@ -40,7 +40,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
         s"Insert $libName at $contextPyName caret",
         project, InsertAction.navigateElementFn).exceptError
   }
-  private val caretFileLine = exceptable {  // or error label
+  private val caretFileLine = exceptable {
     caretInsertAction.exceptError
     PsiUtils.fileNextLineOf(caretPsiElement.exceptError, project).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
@@ -61,7 +61,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
           (label, action)
         } .collect {
           case (fn, Errorable.Success(action)) => (fn, action)
-        }
+        }.exceptEmpty("no insertion points")
   }
   PopupMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
       .foreach(add)
