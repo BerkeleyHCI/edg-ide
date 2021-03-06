@@ -1,6 +1,8 @@
 package edg_ide.ui
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.python.psi.PyFunction
 import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
@@ -304,11 +306,34 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
   }
   private val appendConnectCaretFileLine = exceptable {
     appendConnectAction.exceptError
-    PsiUtils.fileNextLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
+    PsiUtils.fileLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val appendConnectItem = PopupMenuUtils.MenuItemFromErrorable(
     appendConnectAction, s"Append connect at $contextPyName caret$appendConnectCaretFileLine")
   add(appendConnectItem)
+
+  private val appendPairs = exceptable {
+    requireExcept(selected.nonEmpty, "no selection to connect")
+    // TODO this should use the captured focus instead, but here's a sanity check
+    requireExcept(BlockVisualizerService(interface.getProject).getContextBlock.get._1 == focusPath,
+      "focus consistency sanity check failed")
+
+    InsertConnectAction.findConnectsTo(contextPyClass.exceptError, connectPairs.head, interface.getProject).exceptError
+        .map { call =>
+          val fn = PsiTreeUtil.getParentOfType(call, classOf[PyFunction])
+          val fileLine = PsiUtils.fileLineOf(call, interface.getProject)
+              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+          val label = s"Append connect at ${contextPyName}.${fn.getName}$fileLine"
+          val action = InsertConnectAction.createAppendConnectFlow(call, connectPairs,
+            s"Append connect to ${connectPairs.mkString(", ")} at $contextPyName.${fn.getName}",
+            interface.getProject, continuation)
+          (label, action)
+        } .collect {
+      case (fn, Errorable.Success(action)) => (fn, action)
+    }.exceptEmpty("no insertion points")
+  }
+  PopupMenuUtils.MenuItemsFromErrorableSeq(appendPairs, s"Append connect into $contextPyName")
+      .foreach(add)
 
   val insertConnectAction: Errorable[() => Unit] = exceptable {
     requireExcept(selected.nonEmpty, "no selection to connect")
@@ -348,7 +373,7 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
       case (fn, Errorable.Success(action)) => (fn, action)
     }.exceptEmpty("no insertion points")
   }
-  PopupMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
+  PopupMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert connect into $contextPyName")
       .foreach(add)
   addSeparator()
 

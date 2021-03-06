@@ -1,5 +1,6 @@
 package edg_ide.actions
 
+import collection.mutable
 import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
@@ -8,8 +9,7 @@ import com.intellij.pom.Navigatable
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.PythonLanguage
-import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{LanguageLevel, PyArgumentList, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyFunction, PyReferenceExpression, PyStatement, PyStatementList}
+import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyExpression, PyFunction, PyRecursiveElementVisitor, PyReferenceExpression, PyStatement, PyStatementList}
 import edg.util.Errorable
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
@@ -43,11 +43,6 @@ object InsertAction {
   }
 
   def findInsertionPoints(container: PyClass, project: Project): Errorable[Seq[PyFunction]] = exceptable {
-    val psiFile = container.getContainingFile.exceptNull("no containing file")
-    requireExcept(container.isSubclass(InsertBlockAction.VALID_SUPERCLASS,
-      TypeEvalContext.codeCompletion(project, psiFile)),
-      s"class ${container.getName} is not a subclass of ${InsertBlockAction.VALID_SUPERCLASS}")
-
     val methods = container.getMethods.toSeq.collect {
       case method if InsertBlockAction.VALID_FUNCTION_NAMES.contains(method.getName) => method
     }.exceptEmpty(s"class ${container.getName} contains no insertion methods")
@@ -82,7 +77,7 @@ object InsertAction {
 
 
 object InsertBlockAction {
-  val VALID_FUNCTION_NAMES = Set("__init__", "contents")
+  val VALID_FUNCTION_NAMES = Set("__init__", "contents")  // TODO support generators
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
   /** Creates an action to insert a block of type libClass after some PSI element after.
@@ -119,13 +114,56 @@ object InsertBlockAction {
 
 
 object InsertConnectAction {
+  def findConnectsTo(container: PyClass, pair: (String, String),
+                     project: Project): Errorable[Seq[PyExpression]] = exceptable {
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+
+    container.getMethods.toSeq.map { psiFunction => exceptable {  //
+      val selfName = psiFunction.getParameterList.getParameters.toSeq
+          .exceptEmpty(s"function ${psiFunction.getName} has no self")
+          .head.getName
+      val connectReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(container),
+        s"$selfName.connect")
+      val portReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(container),
+        elementPairToText(selfName, pair))
+
+      // Traverse w/ recursive visitor to find all port references inside a self.connect
+      val references = mutable.ListBuffer[PyReferenceExpression]()
+      container.accept(new PyRecursiveElementVisitor() {
+        override def visitPyCallExpression(node: PyCallExpression): Unit = {
+          if (node.getCallee.textMatches(connectReference)) {  // an optimization to not traverse down other functions
+            super.visitPyCallExpression(node)
+          }
+        }
+        override def visitPyReferenceExpression(node: PyReferenceExpression): Unit = {
+          if (node.textMatches(portReference)) {
+            references += node
+          }
+        }
+      })
+
+      references.toSeq.map { reference => // from reference to call expression
+        PsiTreeUtil.getParentOfType(reference, classOf[PyCallExpression])
+      }.filter { call =>
+        if (call == null) {
+          false
+        } else {
+          call.getCallee.textMatches(connectReference)
+        }
+      }
+    }}.collect {
+      case Errorable.Success(x) => x
+    }.flatten
+        .distinct
+        .exceptEmpty(s"class ${container.getName} contains no prior connects")
+  }
 
   private def elementPairToText(selfName: String, pair: (String, String)): String = pair match {
     case ("", portName) => s"$selfName.$portName"
     case (blockName, portName) => s"$selfName.$blockName.$portName"
   }
 
-  def pairAttributesAfter(after: PsiElement, portPairs: Seq[(String, String)],
+  private def pairAttributesAfter(after: PsiElement, portPairs: Seq[(String, String)],
                           containingPsiClass: PyClass, project: Project): Seq[String] = {
     portPairs.map {  // to attribute name
       case ("", portName) => portName
@@ -195,11 +233,11 @@ object InsertConnectAction {
 
   def createAppendConnectFlow(within: PsiElement, portPairs: Seq[(String, String)], actionName: String,
                               project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
-    val containingPsiArgs = PsiTreeUtil.getParentOfType(within, classOf[PyArgumentList])
-        .exceptNull(s"not in an argument list")
-    val containingPsiCall = containingPsiArgs.getParent
-        .instanceOfExcept[PyCallExpression](s"not in a call")
-
+    val containingPsiCall = within match {
+      case within: PyCallExpression => within
+      case within => PsiTreeUtil.getParentOfType(within, classOf[PyCallExpression])
+          .exceptNull(s"not in an call")
+    }
     val containingPsiFunction = PsiTreeUtil.getParentOfType(within, classOf[PyFunction])
         .exceptNull("not in a function")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
@@ -222,16 +260,16 @@ object InsertConnectAction {
           psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(within),
             refText)
         }
-    requireExcept(containingPsiArgs.getArguments.exists { arg =>
+    requireExcept(containingPsiCall.getArguments.exists { arg =>
       arg.textMatches(portRefElements.head)
     }, s"connect doesn't contain ${portPairs.head}")
 
     () => {
       writeCommandAction(project).withName(actionName).run(() => {
         val added = portRefElements.drop(1).map { portRefElement =>
-          containingPsiArgs.addArgument(portRefElement)
+          containingPsiCall.getArgumentList.addArgument(portRefElement)
         }
-        continuation(containingPsiArgs)
+        continuation(containingPsiCall.getArgumentList)
       })
     }
   }
