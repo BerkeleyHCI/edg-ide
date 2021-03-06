@@ -118,6 +118,19 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
 
   addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
   addGotoDefinitionItem(portClass, interface.getProject)
+
+  val gotoConnectPairs = exceptable {
+    val assigns = DesignAnalysisUtils.allConnectsTo(path, interface.getDesign, interface.getProject).exceptError
+
+    assigns.map { assign =>
+      val fileLine = PsiUtils.fileLineOf(assign, interface.getProject)
+          .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+      (s"Goto Connect$fileLine", () => assign.navigate(true))
+    }
+  }
+
+  PopupMenuUtils.MenuItemsFromErrorableSeq(gotoConnectPairs, s"Goto Connect")
+      .foreach(add)
 }
 
 

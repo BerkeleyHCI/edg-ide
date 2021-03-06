@@ -158,7 +158,7 @@ object InsertConnectAction {
         .exceptEmpty(s"class ${container.getName} contains no prior connects")
   }
 
-  private def elementPairToText(selfName: String, pair: (String, String)): String = pair match {
+  def elementPairToText(selfName: String, pair: (String, String)): String = pair match {
     case ("", portName) => s"$selfName.$portName"
     case (blockName, portName) => s"$selfName.$blockName.$portName"
   }

@@ -4,12 +4,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyPsiFacade, PyRecursiveElementVisitor, PyReferenceExpression, PyStatement}
+import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyExpression, PyFunction, PyPsiFacade, PyRecursiveElementVisitor, PyReferenceExpression, PyStatement}
 import edg.ref.ref
 import edg.schema.schema
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
+import edg_ide.actions.InsertConnectAction
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
 
 import scala.collection.mutable
@@ -72,6 +73,92 @@ object DesignAnalysisUtils {
     val assigns = findAssignmentsTo(parentPyClass, blockName, project).filter(_.canNavigateToSource)
         .exceptEmpty(s"no assigns to $blockName found in ${parentPyClass.getName}")
     assigns
+  }
+
+  /** Returns all connects to some path, by searching its parent class (for exports) and that parent's parent
+    * (for connects).
+    * TODO clarify semantics around chain and implicits!
+    */
+  def allConnectsTo(path: DesignPath, topDesign: schema.Design,
+                   project: Project): Errorable[Seq[PyExpression]] = exceptable {
+    requireExcept(path.steps.nonEmpty, "path at top")
+    val (parentPath, parentBlock) = EdgirUtils.resolveDeepestBlock(path, topDesign)
+    requireExcept(path.steps.length > parentPath.steps.length, "path resolves to block")
+    val portName = path.steps(parentPath.steps.length)
+
+    requireExcept(parentBlock.superclasses.length == 1,
+      s"invalid parent class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
+    val parentPyClass = pyClassOf(parentBlock.superclasses.head, project).exceptError
+    val parentConnects = findGeneralConnectsTo(parentPyClass, ("", portName), project) match {
+      case Errorable.Success(connects) => connects
+      case _ => Seq()
+    }
+
+    val (containingPath, parentName) = parentPath.split
+    val containingBlock = EdgirUtils.resolveExactBlock(containingPath, topDesign)
+        .exceptNone(s"no block at containing path $containingPath")
+    requireExcept(containingBlock.superclasses.length == 1,
+      s"invalid containing class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
+    val containingPyClass = pyClassOf(containingBlock.superclasses.head, project).exceptError
+    val containingConnects = findGeneralConnectsTo(containingPyClass, ("", portName), project) match {
+      case Errorable.Success(connects) => connects
+      case _ => Seq()
+    }
+
+    (containingConnects ++ parentConnects)
+        .filter(_.canNavigateToSource)
+        .exceptEmpty(s"no connects to $parentName.$portName")
+  }
+
+  /** Returns all connections involving a port, specified relative from the container as a pair.
+    * TODO: dedup w/ InsertConnectAction? But this is more general, and finds (some!) chains
+    * TODO needs to be aware of implicit port semantics, including chain, implicit blocks, and export
+    */
+  def findGeneralConnectsTo(container: PyClass, pair: (String, String),
+                     project: Project): Errorable[Seq[PyExpression]] = exceptable {
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+
+    container.getMethods.toSeq.map { psiFunction => exceptable {  //
+      val selfName = psiFunction.getParameterList.getParameters.toSeq
+          .exceptEmpty(s"function ${psiFunction.getName} has no self")
+          .head.getName
+      val connectReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(container),
+        s"$selfName.connect")
+      val chainReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(container),
+        s"$selfName.chain")
+      val portReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(container),
+        InsertConnectAction.elementPairToText(selfName, pair))
+
+      // Traverse w/ recursive visitor to find all port references inside a self.connect
+      val references = mutable.ListBuffer[PyReferenceExpression]()
+      container.accept(new PyRecursiveElementVisitor() {
+        override def visitPyCallExpression(node: PyCallExpression): Unit = {
+          if (node.getCallee.textMatches(connectReference) || node.getCallee.textMatches(chainReference)) {
+            // an optimization to not traverse down other functions
+            super.visitPyCallExpression(node)
+          }
+        }
+        override def visitPyReferenceExpression(node: PyReferenceExpression): Unit = {
+          if (node.textMatches(portReference)) {
+            references += node
+          }
+        }
+      })
+
+      references.toSeq.map { reference => // from reference to call expression
+        PsiTreeUtil.getParentOfType(reference, classOf[PyCallExpression])
+      }.filter { call =>
+        if (call == null) {
+          false
+        } else {
+          call.getCallee.textMatches(connectReference) || call.getCallee.textMatches(chainReference)
+        }
+      }
+    }}.collect {
+      case Errorable.Success(x) => x
+    }.flatten
+        .distinct
+        .exceptEmpty(s"class ${container.getName} contains no prior connects")
   }
 
   /** Returns all assignment statements targeting some targetName
