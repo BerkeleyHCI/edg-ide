@@ -65,8 +65,6 @@ class EdgCompilerService(project: Project) extends
         modifiedPyClasses.synchronized {
           modifiedPyClasses += containingClass
         }
-      } else {
-        println(s"null containingClass $event ::  ${event.getChild}  ${event.getParent}  ${event.getOldChild}")
       }
     }
   }, this)
