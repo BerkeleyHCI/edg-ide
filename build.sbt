@@ -8,7 +8,7 @@ intellijBuild in ThisBuild := "2020.2.3"
 
 
 lazy val compiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
-    .enablePlugins(SbtIdeaPlugin)  // sbt-idea-plugin does if this isn't enabled
+    .enablePlugins(SbtIdeaPlugin)  // sbt-idea-plugin doesn't import properly if this isn't enabled
 
 lazy val root = (project in file("."))
     .dependsOn(compiler)
