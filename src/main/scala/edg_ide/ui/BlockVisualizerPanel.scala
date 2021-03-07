@@ -10,7 +10,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
 import edg.schema.schema
-import edg.ElemBuilder
+import edg.{ElemBuilder, ElemModifier}
 import edg.schema.schema.Design
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, HierarchyBlockNode, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
@@ -272,12 +272,15 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   /** Recompiles the current blockModule / blockName, and updates the display
     */
   def recompile(): Unit = {
+    // TODO: should be in EdgCompilerService? Which is what really needs the lock
     if (!compilerRunning.compareAndSet(false, true)) {
       notificationGroup.createNotification(
         s"Compiler already running", NotificationType.WARNING)
           .notify(project)
       return
     }
+
+    // TODO: lock out tools?
 
     val documentManager = FileDocumentManager.getInstance()
     documentManager.saveAllDocuments()
@@ -310,6 +313,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           errorPanel.setErrors(errors)
 
           setDesign(compiled, compiler)
+
+          if (activeTool != defaultTool) {  // revert to the default tool
+            toolInterface.endTool()  // TODO should we also preserve state like selected?
+          }
         } catch {
           case e: Throwable =>
             import java.io.PrintWriter
@@ -366,14 +373,18 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)
-    if (activeTool != defaultTool) {  // revert to the default tool
-      toolInterface.endTool()  // TODO should we also preserve state like selected?
-    }
   }
-
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {
     libraryPanel.setLibrary(library)
+  }
+
+  // In place design tree modifications
+  //
+  def currentDesignModifyBlock(blockPath: DesignPath)
+                              (blockTransformFn: elem.HierarchyBlock => elem.HierarchyBlock): Unit = {
+    val newDesign = ElemModifier.modifyBlock(blockPath, design)(blockTransformFn)
+    setDesign(newDesign, compiler)
   }
 
   // Configuration State

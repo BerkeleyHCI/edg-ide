@@ -70,7 +70,7 @@ object InsertAction {
   /** If the element is navigatable, navigates to it.
     * Used as a continuation to the createInsertBlockFlow.
     */
-  def navigateElementFn(element: PsiElement): Unit = element match {
+  def navigateElementFn(name: String, element: PsiElement): Unit = element match {
     case navigatable: Navigatable => navigatable.navigate(true)
   }
 }
@@ -84,7 +84,8 @@ object InsertBlockAction {
     * Validation is performed before the action is generated, though the action itself may also return an error.
     */
   def createInsertBlockFlow(after: PsiElement, libClass: PyClass, actionName: String,
-                            project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
+                            project: Project,
+                            continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
         .instanceOfExcept[PyStatementList](s"invalid position for insertion")
     val containingPsiFunction = containingPsiList.getParent
@@ -102,10 +103,10 @@ object InsertBlockAction {
         val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
           classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
 
-        writeCommandAction(project).withName(actionName).run(() => {
-          val added = containingPsiList.addAfter(newAssign, after)
-          continuation(added)
+        val added = writeCommandAction(project).withName(actionName).compute(() => {
+          containingPsiList.addAfter(newAssign, after)
         })
+        continuation(name, added)
       }}
     }
     () => insertBlockFlow
@@ -191,7 +192,8 @@ object InsertConnectAction {
     * This generally assumes that elements are sane and in the class of after.
     */
   def createInsertConnectFlow(after: PsiElement, portPairs: Seq[(String, String)], actionName: String,
-                              project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
+                              project: Project,
+                              continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
         .instanceOfExcept[PyStatementList](s"invalid position for insertion")
     val containingPsiFunction = containingPsiList.getParent
@@ -222,17 +224,18 @@ object InsertConnectAction {
         val newStatement = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
           classOf[PyStatement], statementText)
 
-        writeCommandAction(project).withName(actionName).run(() => {
-          val added = containingPsiList.addAfter(newStatement, after)
-          continuation(added)
+        val added = writeCommandAction(project).withName(actionName).compute(() => {
+          containingPsiList.addAfter(newStatement, after)
         })
+        continuation(name, added)
       }}
     }
     () => insertConnectFlow
   }
 
   def createAppendConnectFlow(within: PsiElement, portPairs: Seq[(String, String)], actionName: String,
-                              project: Project, continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
+                              project: Project,
+                              continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiCall = within match {
       case within: PyCallExpression => within
       case within => PsiTreeUtil.getParentOfType(within, classOf[PyCallExpression])
@@ -265,12 +268,12 @@ object InsertConnectAction {
     }, s"connect doesn't contain ${portPairs.head}")
 
     () => {
-      writeCommandAction(project).withName(actionName).run(() => {
-        val added = portRefElements.drop(1).map { portRefElement =>
+      writeCommandAction(project).withName(actionName).compute(() => {
+        portRefElements.drop(1).map { portRefElement =>
           containingPsiCall.getArgumentList.addArgument(portRefElement)
         }
-        continuation(containingPsiCall.getArgumentList)
       })
+      continuation("", containingPsiCall.getArgumentList)  // TODO name doesn't make sense here?
     }
   }
 }

@@ -129,13 +129,13 @@ class EdgCompilerService(project: Project) extends
 
   def compile(topModule: String, designType: ref.LibraryPath,
               indicator: Option[ProgressIndicator]): (schema.Design, Compiler, edgrpc.Refinements, Long, Long) = {
+    indicator.foreach(_.setText(s"EDG compiling: cleaning cache"))
+    discardStale()
+
     indicator.foreach(_.setText(s"EDG compiling: reloading"))
     val (_, reloadTime) = timeExec {
       pyLib.reloadModule(topModule)
     }
-
-    indicator.foreach(_.setText(s"EDG compiling: cleaning cache"))
-    discardStale()
 
     indicator.foreach(_.setText(s"EDG compiling: design top"))
     val ((compiled, compiler, refinements), compileTime) = timeExec {

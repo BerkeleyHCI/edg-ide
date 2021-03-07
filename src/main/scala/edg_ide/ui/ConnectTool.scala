@@ -280,9 +280,9 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
     }
   }
 
-  def continuation(elem: PsiElement): Unit = {  // TODO can we use compose or something?
+  def continuation(name: String, elem: PsiElement): Unit = {  // TODO can we use compose or something?
     interface.endTool()
-    InsertAction.navigateElementFn(elem)
+    InsertAction.navigateElementFn(name, elem)
   }
 
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)

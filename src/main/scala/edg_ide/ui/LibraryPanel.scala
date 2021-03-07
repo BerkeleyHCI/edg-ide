@@ -1,32 +1,33 @@
 package edg_ide.ui
 
 import com.intellij.openapi.project.Project
-import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
+import com.intellij.psi.PsiElement
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.jetbrains.python.psi.search.PyClassInheritorsSearch
-import edg.wir
+import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import edg.ref.ref
+import edg.elem.elem
 import edg.util.Errorable
+import edg.{IrPort, wir}
 import edg_ide.actions.{InsertAction, InsertBlockAction}
-import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify, exceptionPopup, requireExcept}
+import edg_ide.{EdgirUtils, PsiUtils}
 
 import java.awt.BorderLayout
-import java.awt.event.{ActionEvent, MouseAdapter, MouseEvent}
-import javax.swing.{JLabel, JMenuItem, JPanel, JPopupMenu, SwingUtilities}
+import java.awt.event.{MouseAdapter, MouseEvent}
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import javax.swing.{JLabel, JPanel, JPopupMenu, SwingUtilities}
 
 
-class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPopupMenu {
-  val libName = EdgirUtils.SimpleLibraryPath(path)
+class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends JPopupMenu {
+  val libName = EdgirUtils.SimpleLibraryPath(libType)
   add(new JLabel(s"Library Block: $libName"))
   addSeparator()
 
-  private val libPyClass = DesignAnalysisUtils.pyClassOf(path, project)
+  private val libPyClass = DesignAnalysisUtils.pyClassOf(libType, project)
+  private val (contextPath, _) = BlockVisualizerService(project).getContextBlock.get
   private val contextPyClass = InsertAction.getPyClassOfContext(project)
   private val contextPyName = contextPyClass.mapToString(_.getName)
 
@@ -35,10 +36,38 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
     val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
     InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, project).exceptError
   }
+  private def insertContinuation(name: String, added: PsiElement): Unit = {
+    InsertAction.navigateElementFn(name, added)
+
+    val library = EdgCompilerService(project).pyLib
+    def recursiveExpandPort(port: elem.PortLike): elem.PortLike = {
+      library.getPort(port.getLibElem).get match {  // TODO in future support block-side arrays?
+        case IrPort.Port(port) => elem.PortLike().update(_.port := port)
+        case IrPort.Bundle(bundle) => elem.PortLike().update(_.bundle := bundle)
+      }
+    }
+
+    exceptionNotify("edg.ui.LibraryPanel", project) {
+      val newBlock = library.getBlock(libType).exceptError
+          val placeholderBlock = newBlock.update(  // create a placeholder only
+            _.superclasses := Seq(libType),
+            _.ports := newBlock.ports.mapValues(recursiveExpandPort).toMap,
+            _.blocks := Map(),
+            _.links := Map(),
+            _.constraints := Map()
+          ) // TODO pyLib.instantiateBlock(...)?
+
+      val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption.exceptNone("no visualizer panel")
+      visualizerPanel.currentDesignModifyBlock(contextPath) { _.update(
+        _.blocks :+= (name, elem.BlockLike().update(_.hierarchy := placeholderBlock))
+      )}
+    }
+  }
+
   val caretInsertAction: Errorable[() => Unit] = exceptable {
     InsertBlockAction.createInsertBlockFlow(caretPsiElement.exceptError, libPyClass.exceptError,
         s"Insert $libName at $contextPyName caret",
-        project, InsertAction.navigateElementFn).exceptError
+        project, insertContinuation).exceptError
   }
   private val caretFileLine = exceptable {
     caretInsertAction.exceptError
@@ -57,7 +86,7 @@ class LibraryBlockPopupMenu(path: ref.LibraryPath, project: Project) extends JPo
           val label = s"Insert at ${contextPyName}.${fn.getName}$fileLine"
           val action = InsertBlockAction.createInsertBlockFlow(fn.getStatementList.getStatements.last, libPyClass.exceptError,
             s"Insert $libName at $contextPyName.${fn.getName}",
-            project, InsertAction.navigateElementFn)
+            project, insertContinuation)
           (label, action)
         } .collect {
           case (fn, Errorable.Success(action)) => (fn, action)
