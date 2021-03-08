@@ -6,7 +6,7 @@ import com.jetbrains.python.psi.PyFunction
 import edg.elem.elem
 import edg.ref.ref
 import edg.util.Errorable
-import edg.wir.{BlockConnectivityAnalysis, DesignPath, LibraryConnectivityAnalysis}
+import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.actions.{InsertAction, InsertConnectAction}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
@@ -87,7 +87,6 @@ object ConnectTool {
       (linkAvailable, connectableRefs)
     } .getOrElse((Map[ref.LibraryPath, Int](), Seq()))  // if no link, then no connects
 
-    val priorConnectPaths = portConnected.getPorts.map(focusPath ++ _).toSet + portPath
     val otherConnectedRefs = focusBlockConnectedRefs.toSet -- portConnected.getPorts - portRef
     val connectablePathTypes = connectableRefTypes.collect{
       case (connectableRef, connectableType) if !otherConnectedRefs.contains(connectableRef) =>
@@ -98,8 +97,7 @@ object ConnectTool {
         focusPath ++ exportableRef
     }
     new ConnectTool(interface, focusPath, portPath,
-      priorConnectPaths.toSeq, linkAvailable, connectablePathTypes.toSeq, exportablePaths.toSeq,
-      portConnected.toString
+      portConnected, linkAvailable, connectablePathTypes.toSeq, exportablePaths.toSeq
     )
   }
 }
@@ -236,48 +234,120 @@ class ConnectPopup(interface: ToolInterface, focusPath: DesignPath, initialPortP
 }
 
 
+sealed trait ConnectToolAction
+object ConnectToolAction {
+  case class None() extends ConnectToolAction
+  case class AppendToLink(focusPath: DesignPath, linkName: String,
+                          linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]) extends ConnectToolAction
+  case class NewLink(focusPath: DesignPath,
+                     linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]) extends ConnectToolAction
+  case class NewExport(focusPath: DesignPath, exteriorPort: DesignPath, innerPort: DesignPath) extends ConnectToolAction
+  case class RefactorExportToLink(focusPath: DesignPath, priorExteriorPort: DesignPath, priorInnerPort: DesignPath,
+                                  linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]) extends ConnectToolAction
+}
+
+
 /** Tool for making connections from a port
   */
-class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPortPath: DesignPath,
-                  priorConnectPaths: Seq[DesignPath], linkAvailable: Map[ref.LibraryPath, Int],
-                  linkTargets: Seq[(DesignPath, ref.LibraryPath)], availableExports: Seq[DesignPath],
-                  name: String
+class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath: DesignPath,
+                  priorConnect: Connection, linkAvailable: Map[ref.LibraryPath, Int],
+                  linkTargets: Seq[(DesignPath, ref.LibraryPath)], availableExports: Seq[DesignPath]
                  ) extends BaseTool {
-  private val selected = mutable.ListBuffer[DesignPath]()  // order preserving
-
   private val linkTargetsMap = linkTargets.toMap
 
-  def connectsAvailable(): Set[DesignPath] = {  // returns all available ports to connect
-    val selectedTypes = selected.toSeq.flatMap { linkTargetsMap.get(_) }
-    if (linkTargets.isEmpty) {  // export only TODO less heuristic?
-      if (selected.nonEmpty || priorConnectPaths.size > 1) {  // already connected
-        Set()
-      } else {
-        availableExports.toSet
+  private def isExportOnly(path: DesignPath) = !linkTargetsMap.contains(path)
+  private def isExteriorPort(path: DesignPath) = path.split._1 == focusPath
+
+  // User State
+  private val selected = mutable.ListBuffer[DesignPath]()  // order preserving; excluding priorConnect and portPath
+
+  private def getConnectAction(): ConnectToolAction = priorConnect match {
+    case Connection.Disconnected() =>
+      if (selected.isEmpty) { // no connects, can link and export
+        ConnectToolAction.None()
+      } else if (selected.size == 1 &&
+          (isExportOnly(selected.head) || isExportOnly(portPath))) {  // selected export
+        if (isExteriorPort(portPath)) {
+          ConnectToolAction.NewExport(focusPath, portPath, selected.head)
+        } else {
+          ConnectToolAction.NewExport(focusPath, selected.head, portPath)
+        }
+      } else {  // link connection
+        val (linkPorts, bridgePorts) = selected.toSeq.partition(!isExteriorPort(_))
+        if (isExteriorPort(portPath)) {
+          ConnectToolAction.NewLink(focusPath, linkPorts, portPath +: bridgePorts)
+        } else {
+          ConnectToolAction.NewLink(focusPath, portPath +: linkPorts, bridgePorts)
+        }
       }
-    } else {
-      val allTypes = selectedTypes ++ linkTargetsMap.get(initialPortPath).toSeq
+    case Connection.Export(constraintName, exteriorPort, innerBlockPort) =>
+      if (linkTargetsMap.isDefinedAt(focusPath ++ exteriorPort)) {  // can refactor current export to link
+        val (linkPorts, bridgePorts) = selected.toSeq.partition(!isExteriorPort(_))
+        ConnectToolAction.RefactorExportToLink(focusPath, focusPath ++ exteriorPort, focusPath ++ innerBlockPort,
+          linkPorts, bridgePorts)
+      } else {  // cannot refactor existing export to link, can only have single export
+        ConnectToolAction.None()
+      }
+    case Connection.Link(linkName, linkConnects, bridgedExports) =>  // prior link, add new links but no exports
+      val (linkPorts, bridgePorts) = selected.toSeq.partition(!isExteriorPort(_))
+      ConnectToolAction.AppendToLink(focusPath, linkName, linkPorts, bridgePorts)
+  }
+
+  private def connectToolActionToDesc(action: ConnectToolAction): String = action match {
+    case ConnectToolAction.None() => s"Create new connection with $portPath"
+    case ConnectToolAction.AppendToLink(focusPath, linkName, linkPorts, bridgePorts) =>
+      s"Append ports to $linkName: ${(linkPorts ++ bridgePorts).mkString(", ")}"
+    case ConnectToolAction.NewLink(focusPath, linkPorts, bridgePorts) =>
+      s"Create new connection: ${(linkPorts ++ bridgePorts).mkString(", ")}"
+    case ConnectToolAction.NewExport(focusPath, exteriorPort, innerPort) =>
+      s"Create new export: $exteriorPort from $innerPort"
+    case ConnectToolAction.RefactorExportToLink(focusPath, priorExteriorPort, priorInnerPort, linkPorts, bridgePorts) =>
+      s"Create connection from export of $priorInnerPort from $priorExteriorPort: ${(linkPorts ++ bridgePorts).mkString(", ")}"
+
+  }
+
+  // returns all available ports to connect
+  private def connectsAvailable(): Seq[DesignPath] = {
+    // returns all available ports, assuming a current link
+    def linkRemainingConnects(priorConnectPaths: Seq[DesignPath]): Seq[DesignPath] = {
+      val allTypes = priorConnectPaths.flatMap { linkTargetsMap.get(_) }
       val allTypeCounts = allTypes.groupBy(identity).mapValues(_.size)
+
       val linkRemainingTypes = linkAvailable.map { case (linkType, linkTypeCount) =>  // subtract connected count
         linkType -> (linkTypeCount - allTypeCounts.getOrElse(linkType, 0))
-      } .collect { case (linkType, linkTypeCount) if linkTypeCount > 0 =>  // filter > 0, convert to counts
+      } .collect { case (linkType, linkTypeCount) if linkTypeCount > 0 =>  // filter > 0, convert to types
         linkType
       } .toSet
-      val linkConnectablePaths = linkTargets.collect {  // filter by type, convert to paths
+      linkTargets.collect {  // filter by type, convert to paths
         case (linkTargetPath, linkTargetType) if linkRemainingTypes.contains(linkTargetType) => linkTargetPath
       }
+    }
 
-      if (selected.isEmpty && priorConnectPaths == Seq(initialPortPath)) {  // no existing connects, can also export
-        linkConnectablePaths.toSet ++ availableExports
-      } else {  // existing connects, can't export
-        linkConnectablePaths.toSet
-      }
+    priorConnect match {
+      case Connection.Disconnected() =>
+        if (selected.isEmpty) { // no connects, can link and export
+          linkRemainingConnects(Seq(portPath)) ++ availableExports
+        } else if (selected.size == 1 &&
+            (isExportOnly(selected.head) || isExportOnly(portPath))) {  // selected export
+          Seq()
+        } else {  // link connection
+          linkRemainingConnects(portPath +: selected.toSeq)
+        }
+      case Connection.Export(constraintName, exteriorPort, innerBlockPort) =>
+        if (linkTargetsMap.isDefinedAt(focusPath ++ exteriorPort)) {  // can refactor current export to link
+          linkRemainingConnects(Seq(focusPath ++ exteriorPort, focusPath ++ innerBlockPort))
+        } else {  // cannot refactor existing export to link, can only have single export
+          Seq()
+        }
+      case Connection.Link(linkName, linkConnects, bridgedExports) =>  // prior link, add new links but no exports
+        linkRemainingConnects(linkConnects.map(focusPath ++ _._1) ++
+            bridgedExports.map(focusPath ++ _._1) ++ selected.toSeq)
     }
   }
 
   def updateSelected(): Unit = {  // updates selected in graph and text
-    interface.setStatus(name + ": " + selected.mkString(", "))
-    interface.setGraphSelections(priorConnectPaths.toSet + initialPortPath ++ selected.toSet)
+    interface.setStatus(connectToolActionToDesc(getConnectAction()))
+    interface.setGraphSelections(priorConnect.getPorts.map(focusPath ++ _).toSet + portPath ++ selected.toSet)
     val availablePaths = connectsAvailable()
     val availableBlockPaths = availablePaths.map(_.split._1)
     interface.setGraphHighlights(Some(Set(focusPath) ++ availablePaths ++ availableBlockPaths))
@@ -293,7 +363,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
 
     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
       resolved match {
-        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) if path != initialPortPath =>
+        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) if path != portPath =>
           if (selected.contains(path)) {  // toggle selection
             selected -= path
             updateSelected()
@@ -309,11 +379,13 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       exceptionPopup(e) { // quick insert at caret
-        (new ConnectPopup(interface, focusPath, initialPortPath, selected.toSeq, name)
+        val connectToolAction = getConnectAction()
+        (new ConnectPopup(interface, focusPath, portPath, selected.toSeq, connectToolActionToDesc(connectToolAction))
             .defaultAction.exceptError)()
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
-      new ConnectPopup(interface, focusPath, initialPortPath, selected.toSeq, name)
+      val connectToolAction = getConnectAction()
+      new ConnectPopup(interface, focusPath, portPath, selected.toSeq, connectToolActionToDesc(connectToolAction))
           .show(e.getComponent, e.getX, e.getY)
     }
   }
