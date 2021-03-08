@@ -4,7 +4,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyFunction
 import edg.elem.elem
-import edg.expr.expr
 import edg.ref.ref
 import edg.util.Errorable
 import edg.wir.{BlockConnectivityAnalysis, DesignPath, LibraryConnectivityAnalysis}
@@ -22,12 +21,6 @@ object ConnectToolAnalysis {
   // TODO this is awful, replace with union types when possible!
   // TODO goes in some shared analysis util?
   def typeOfPort(port: Any): Errorable[ref.LibraryPath] = exceptable { port match {
-    case portLike: elem.PortLike => portLike.is match {
-      case elem.PortLike.Is.Port(port) => typeOfPort(port).exceptError
-      case elem.PortLike.Is.Bundle(port) => typeOfPort(port).exceptError
-      case elem.PortLike.Is.Array(array) => typeOfPort(array).exceptError
-      case isOther => throw ExceptionNotifyException(s"unexpected port ${isOther.getClass}")
-    }
     case port: elem.Port =>
       port.superclasses.onlyExcept("invalid port class")
     case port: elem.Bundle =>
@@ -40,6 +33,9 @@ object ConnectToolAnalysis {
 
 
 object ConnectTool {
+  /** External interface for creating a ConnectTool, which does the needed analysis work and can return an error
+    * (as an exceptable) if the ConnectTool cannot be created.
+    */
   def apply(interface: ToolInterface, portPath: DesignPath): Errorable[ConnectTool] = exceptable {
     val libraryAnalysis = new LibraryConnectivityAnalysis(interface.getLibrary)  // TODO this should be saved & reused!
     val port = EdgirUtils.resolveExact(portPath, interface.getDesign).exceptNone("no port")
