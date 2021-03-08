@@ -52,8 +52,8 @@ object ConnectTool {
         .instanceOfExcept[elem.HierarchyBlock]("focus block not a block")
     val blockAnalysis = new BlockConnectivityAnalysis(focusBlock)
 
-    val portConnected = blockAnalysis.getConnected(
-      portPath.postfixFromOption(focusPath).exceptNone("port not in focus block"))
+    val portRef = portPath.postfixFromOption(focusPath).exceptNone("port not in focus block")
+    val portConnected = blockAnalysis.getConnected(portRef)
     val focusBlockConnectedRefs =
       blockAnalysis.getAllConnectedInternalPorts ++ blockAnalysis.getAllConnectedExternalPorts
     val focusBlockConnectable = blockAnalysis.allConnectablePortTypes
@@ -92,12 +92,13 @@ object ConnectTool {
     } .getOrElse((Map[ref.LibraryPath, Int](), Seq()))  // if no link, then no connects
 
     val priorConnectPaths = portConnected.getPorts.map(focusPath ++ _).toSet + portPath
+    val otherConnectedRefs = focusBlockConnectedRefs.toSet -- portConnected.getPorts - portRef
     val connectablePathTypes = connectableRefTypes.collect{
-      case (connectableRef, connectableType) if !focusBlockConnectedRefs.contains(connectableRef) =>
+      case (connectableRef, connectableType) if !otherConnectedRefs.contains(connectableRef) =>
         (focusPath ++ connectableRef, connectableType)
     }
     val exportablePaths = exportableRefs.collect {
-      case exportableRef if !focusBlockConnectedRefs.contains(exportableRef) =>
+      case exportableRef if !otherConnectedRefs.contains(exportableRef) =>
         focusPath ++ exportableRef
     }
     new ConnectTool(interface, focusPath, portPath,
@@ -259,7 +260,6 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, initialPo
         availableExports.toSet
       }
     } else {
-      // TODO need to account for prior connects
       val allTypes = selectedTypes ++ linkTargetsMap.get(initialPortPath).toSeq
       val allTypeCounts = allTypes.groupBy(identity).mapValues(_.size)
       val linkRemainingTypes = linkAvailable.map { case (linkType, linkTypeCount) =>  // subtract connected count
