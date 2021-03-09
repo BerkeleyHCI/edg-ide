@@ -89,8 +89,8 @@ object InsertConnectAction {
     * TODO should elements be more structured to allow more analysis checking?
     * This generally assumes that elements are sane and in the class of after.
     */
-  def createInsertConnectFlow(after: PsiElement, portPairs: Seq[(String, String)], actionName: String,
-                              project: Project,
+  def createInsertConnectFlow(after: PsiElement, requiresName: Boolean, portPairs: Seq[(String, String)],
+                              actionName: String, project: Project,
                               continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
         .instanceOfExcept[PyStatementList](s"invalid position for insertion")
@@ -108,31 +108,38 @@ object InsertConnectAction {
         .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
         .head.getName
 
+    def insertConnectAction(name: String): Unit = {
+      val elementsText = portPairs map { elementPairToText(selfName, _) }
+      val connectStatementText = s"$selfName.connect(${elementsText.mkString(", ")})"
+      val statementText = if (name.isEmpty) {
+        connectStatementText
+      } else {
+        s"$selfName.$name = $connectStatementText"
+      }
+
+      val newStatement = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
+        classOf[PyStatement], statementText)
+
+      val added = writeCommandAction(project).withName(actionName).compute(() => {
+        containingPsiList.addAfter(newStatement, after)
+      })
+      continuation(name, added)
+    }
+
     def insertConnectFlow(): Unit = {
-      InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project,
-        allowEmpty=true) { name => exceptable {
-        val elementsText = portPairs map { elementPairToText(selfName, _) }
-        val connectStatementText = s"$selfName.connect(${elementsText.mkString(", ")})"
-        val statementText = if (name.isEmpty) {
-          connectStatementText
-        } else {
-          s"$selfName.$name = $connectStatementText"
-        }
-
-        val newStatement = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
-          classOf[PyStatement], statementText)
-
-        val added = writeCommandAction(project).withName(actionName).compute(() => {
-          containingPsiList.addAfter(newStatement, after)
-        })
-        continuation(name, added)
-      }}
+      if (requiresName) {
+        InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project,
+          allowEmpty=true) { name => exceptable { insertConnectAction(name) } }
+      } else {
+        insertConnectAction("")
+      }
     }
     () => insertConnectFlow()
   }
 
-  def createAppendConnectFlow(within: PsiElement, portPairs: Seq[(String, String)], actionName: String,
-                              project: Project,
+  def createAppendConnectFlow(within: PsiElement,
+                              allPortPairs: Seq[(String, String)], portPairs: Seq[(String, String)],
+                              actionName: String, project: Project,
                               continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiCall = within match {
       case within: PyCallExpression => within
@@ -161,9 +168,16 @@ object InsertConnectAction {
           psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(within),
             refText)
         }
-    requireExcept(containingPsiCall.getArguments.exists { arg =>
-      arg.textMatches(portRefElements.head)
-    }, s"connect doesn't contain ${portPairs.head}")
+    val allPortRefElements = allPortPairs.map { elementPairToText(selfName, _) }
+        .map { refText =>
+          psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(within),
+            refText)
+        }
+    requireExcept(containingPsiCall.getArguments.forall { arg =>
+      allPortRefElements.exists { allPortRef =>
+          arg.textMatches(allPortRef)
+        }
+    }, s"connect doesn't contain previously connected element")
 
     () => {
       writeCommandAction(project).withName(actionName).compute(() => {
