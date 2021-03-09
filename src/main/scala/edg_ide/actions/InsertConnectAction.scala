@@ -173,15 +173,22 @@ object InsertConnectAction {
           psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(within),
             refText)
         }
+
     requireExcept(containingPsiCall.getArguments.forall { arg =>
       allPortRefElements.exists { allPortRef =>
           arg.textMatches(allPortRef)
         }
     }, s"connect doesn't contain previously connected element")
 
+    val newPortRefElements = portRefElements.filter { portRef =>  // don't re-generate existing connects
+      !containingPsiCall.getArguments.exists { arg =>
+        arg.textMatches(portRef)
+      }
+    }
+
     () => {
       writeCommandAction(project).withName(actionName).compute(() => {
-        portRefElements.drop(1).map { portRefElement =>
+        newPortRefElements.map { portRefElement =>
           containingPsiCall.getArgumentList.addArgument(portRefElement)
         }
       })

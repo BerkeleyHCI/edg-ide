@@ -4,7 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyExpression, PyFunction, PyPsiFacade, PyRecursiveElementVisitor, PyReferenceExpression, PyStatement}
+import com.jetbrains.python.psi._
 import edg.ref.ref
 import edg.schema.schema
 import edg.util.Errorable
@@ -55,7 +55,9 @@ object DesignAnalysisUtils {
       }
     } else {
       // compare positions within a function
-      Some(beforeElement.getTextOffset < afterElement.getTextOffset)
+      // the length is used so after includes the contents of the entire sub-tree
+      Some(beforeElement.getTextOffset + beforeElement.getTextLength <
+          afterElement.getTextOffset + afterElement.getTextLength)
     }
   }
 
@@ -130,7 +132,7 @@ object DesignAnalysisUtils {
         InsertConnectAction.elementPairToText(selfName, pair))
 
       // Traverse w/ recursive visitor to find all port references inside a self.connect
-      val references = mutable.ListBuffer[PyReferenceExpression]()
+      val references = mutable.ListBuffer[PyExpression]()
       container.accept(new PyRecursiveElementVisitor() {
         override def visitPyCallExpression(node: PyCallExpression): Unit = {
           if (node.getCallee.textMatches(connectReference) || node.getCallee.textMatches(chainReference)) {
@@ -138,7 +140,7 @@ object DesignAnalysisUtils {
             super.visitPyCallExpression(node)
           }
         }
-        override def visitPyReferenceExpression(node: PyReferenceExpression): Unit = {
+        override def visitPyExpression(node: PyExpression): Unit = {
           if (node.textMatches(portReference)) {
             references += node
           }
@@ -173,7 +175,7 @@ object DesignAnalysisUtils {
         val selfName = parameters(0).getName
         val targetReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(method),
           s"$selfName.$targetName"
-        ).asInstanceOf[PyReferenceExpression]
+        )
 
         // TODO support ElementDict and array ops
         // TODO search superclasses

@@ -125,21 +125,17 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
 
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)
   private val contextPyName = contextPyClass.mapToString(_.getName)
-  private val priorPortPairs = action.getPriorPaths.map(pathToPairs)
-  private val addedPortPairs = action.getAddedPaths.map(pathToPairs)
-  private val initialPortPair = pathToPairs(action.getInitialPort)
-
   private val caretPsiElement = exceptable {
     val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
     InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, interface.getProject).exceptError
   }
 
   val appendConnectAction: Errorable[() => Unit] = exceptable {
-    addedPortPairs.exceptEmpty("no selection to connect")
+    action.getAppendPortPaths.exceptEmpty("no selection to connect")
 
     InsertConnectAction.createAppendConnectFlow(caretPsiElement.exceptError,
-      priorPortPairs ++ addedPortPairs, addedPortPairs,
-      s"Append connect to ${addedPortPairs.mkString(", ")} at $contextPyName caret",
+      action.getAllPortPaths.map(pathToPairs), action.getAppendPortPaths.map(pathToPairs),
+      s"${action.getDesc} at $contextPyName caret",
       interface.getProject, continuation).exceptError
   }
   private val appendConnectCaretFileLine = exceptable {
@@ -150,20 +146,21 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
     appendConnectAction, s"Append connect at $contextPyName caret$appendConnectCaretFileLine")
   add(appendConnectItem)
 
+  private val initialPortPair = pathToPairs(action.getInitialPort)
   private val appendPairs = exceptable {
-    addedPortPairs.exceptEmpty("no selection to connect")
+    action.getAppendPortPaths.exceptEmpty("no selection to connect")
 
-    InsertConnectAction.findConnectsTo(contextPyClass.exceptError, addedPortPairs.head, interface.getProject).exceptError
+    InsertConnectAction.findConnectsTo(contextPyClass.exceptError, initialPortPair, interface.getProject).exceptError
         .map { call =>
           val fn = PsiTreeUtil.getParentOfType(call, classOf[PyFunction])
           val fileLine = PsiUtils.fileLineOf(call, interface.getProject)
               .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
           val label = s"Append connect at ${contextPyName}.${fn.getName}$fileLine"
-          val action = InsertConnectAction.createAppendConnectFlow(call,
-            priorPortPairs ++ addedPortPairs, addedPortPairs,
-            s"Append connect to ${addedPortPairs.mkString(", ")} at $contextPyName.${fn.getName}",
+          val runnable = InsertConnectAction.createAppendConnectFlow(call,
+            action.getAllPortPaths.map(pathToPairs), action.getAppendPortPaths.map(pathToPairs),
+            s"${action.getDesc} at $contextPyName.${fn.getName}",
             interface.getProject, continuation)
-          (label, action)
+          (label, runnable)
         } .collect {
       case (fn, Errorable.Success(action)) => (fn, action)
     }.exceptEmpty("no insertion points")
@@ -172,11 +169,11 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
       .foreach(add)
 
   val insertConnectAction: Errorable[() => Unit] = exceptable {
-    addedPortPairs.exceptEmpty("no selection to connect")
+    action.getAppendPortPaths.exceptEmpty("no selection to connect")  // TODO append maybe not perfect here
 
     InsertConnectAction.createInsertConnectFlow(caretPsiElement.exceptError,
-      priorPortPairs.isEmpty, initialPortPair +: addedPortPairs,
-      s"Insert connect to ${addedPortPairs.mkString(", ")} at $contextPyName caret",
+      !action.isInstanceOf[ConnectToolAction.AppendToLink], action.getInsertPortPaths.map(pathToPairs),
+      s"${action.getDesc} at $contextPyName caret",
       interface.getProject, continuation).exceptError
   }
   private val insertConnectCaretFileLine = exceptable {
@@ -188,18 +185,18 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
   add(insertConnectItem)
 
   private val insertionPairs = exceptable {
-    addedPortPairs.exceptEmpty("no selection to connect")
+    action.getAppendPortPaths.exceptEmpty("no selection to connect")  // TODO append maybe not perfect here
 
     InsertAction.findInsertionPoints(contextPyClass.exceptError, interface.getProject).exceptError
         .map { fn =>
           val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, interface.getProject)
               .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
           val label = s"Insert connect at ${contextPyName}.${fn.getName}$fileLine"
-          val action = InsertConnectAction.createInsertConnectFlow(fn.getStatementList.getStatements.last,
-            priorPortPairs.isEmpty, initialPortPair +: addedPortPairs,
-            s"Insert connect to ${addedPortPairs.mkString(", ")} at $contextPyName.${fn.getName}",
+          val runnable = InsertConnectAction.createInsertConnectFlow(fn.getStatementList.getStatements.last,
+            !action.isInstanceOf[ConnectToolAction.AppendToLink], action.getInsertPortPaths.map(pathToPairs),
+            s"${action.getDesc} at $contextPyName.${fn.getName}",
             interface.getProject, continuation)
-          (label, action)
+          (label, runnable)
         } .collect {
       case (fn, Errorable.Success(action)) => (fn, action)
     }.exceptEmpty("no insertion points")
@@ -214,7 +211,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
   private val cancelItem = PopupMenuUtils.MenuItemFromErrorable(cancelAction, "Cancel")
   add(cancelItem)
 
-  val defaultAction: Errorable[() => Unit] = if (addedPortPairs.nonEmpty) {
+  val defaultAction: Errorable[() => Unit] = if (action.getAppendPortPaths.nonEmpty) {
     appendConnectAction match {
       case Errorable.Success(_) => appendConnectAction  // prefer append connect if available
       case _ => insertConnectAction
@@ -229,8 +226,10 @@ sealed trait ConnectToolAction {
   def getDesc: String
   def getFocusPath: DesignPath
   def getInitialPort: DesignPath
-  def getPriorPaths: Seq[DesignPath]
-  def getAddedPaths: Seq[DesignPath]
+
+  def getAllPortPaths: Seq[DesignPath]
+  def getInsertPortPaths: Seq[DesignPath] = getInitialPort +: getAppendPortPaths
+  def getAppendPortPaths: Seq[DesignPath]
 }
 sealed trait AppendConnectAction extends ConnectToolAction
 
@@ -239,8 +238,10 @@ object ConnectToolAction {
     override def getDesc: String = s"No connect action"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
-    override def getPriorPaths: Seq[DesignPath] = Seq()
-    override def getAddedPaths: Seq[DesignPath] = Seq()
+
+    override def getAllPortPaths: Seq[DesignPath] = Seq()
+    override def getInsertPortPaths: Seq[DesignPath] = Seq()
+    override def getAppendPortPaths: Seq[DesignPath] = Seq()
   }
   case class AppendToLink(focusPath: DesignPath, linkName: String,
                           initialPort: DesignPath, priorPorts: Seq[DesignPath],
@@ -248,34 +249,40 @@ object ConnectToolAction {
     override def getDesc: String = s"Append ports to $linkName: ${(linkPorts ++ bridgePorts).mkString(", ")}"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
-    override def getPriorPaths: Seq[DesignPath] = priorPorts
-    override def getAddedPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
+
+    override def getAllPortPaths: Seq[DesignPath] = priorPorts ++ linkPorts ++ bridgePorts
+    override def getAppendPortPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
   }
   case class NewLink(focusPath: DesignPath, initialPort: DesignPath,
                      linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]) extends ConnectToolAction {
-    override def getDesc: String = s"Create new connection: ${(linkPorts ++ bridgePorts).mkString(", ")}"
+    override def getDesc: String = s"Create new connection to ${(linkPorts ++ bridgePorts).mkString(", ")}"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
-    override def getPriorPaths: Seq[DesignPath] = Seq()
-    override def getAddedPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
+
+    override def getAllPortPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
+    override def getInsertPortPaths: Seq[DesignPath] = getAllPortPaths  // initialPort is already one of the other ports
+    override def getAppendPortPaths: Seq[DesignPath] = getAllPortPaths
   }
   case class NewExport(focusPath: DesignPath, initialPort: DesignPath,
                        exteriorPort: DesignPath, innerPort: DesignPath) extends ConnectToolAction {
-    override def getDesc: String = s"Create new export: $exteriorPort from $innerPort"
+    override def getDesc: String = s"Create new export to $exteriorPort from $innerPort"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
-    override def getPriorPaths: Seq[DesignPath] = Seq()
-    override def getAddedPaths: Seq[DesignPath] = Seq(exteriorPort, innerPort)
+
+    override def getAllPortPaths: Seq[DesignPath] = Seq(exteriorPort, innerPort)
+    override def getInsertPortPaths: Seq[DesignPath] = getAllPortPaths  // initialPort is already one of the other ports
+    override def getAppendPortPaths: Seq[DesignPath] = getAllPortPaths
   }
   case class RefactorExportToLink(focusPath: DesignPath, initialPort: DesignPath,
                                   priorExteriorPort: DesignPath, priorInnerPort: DesignPath,
                                   linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]) extends AppendConnectAction {
     override def getDesc: String =
-      s"Create connection from export of $priorInnerPort from $priorExteriorPort: ${(linkPorts ++ bridgePorts).mkString(", ")}"
+      s"Create connection from export of $priorInnerPort from $priorExteriorPort with ${(linkPorts ++ bridgePorts).mkString(", ")}"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
-    override def getPriorPaths: Seq[DesignPath] = Seq(priorExteriorPort, priorInnerPort)
-    override def getAddedPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
+
+    override def getAllPortPaths: Seq[DesignPath] = Seq(priorExteriorPort, priorInnerPort) ++ linkPorts ++ bridgePorts
+    override def getAppendPortPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
   }
 }
 
