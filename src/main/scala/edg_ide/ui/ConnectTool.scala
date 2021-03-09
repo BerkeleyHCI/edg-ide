@@ -5,22 +5,22 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyFunction
 import edg.elem.elem
 import edg.ref.ref
-import edg.util.Errorable
+import edg.util.{Errorable, NameCreator}
 import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.actions.{InsertAction, InsertConnectAction}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionPopup, requireExcept}
+import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup, requireExcept}
 
 import java.awt.event.MouseEvent
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
 import collection.mutable
 
 
-object ConnectToolAnalysis {
+object ConnectTool {
   // TODO this is awful, replace with union types when possible!
   // TODO goes in some shared analysis util?
-  def typeOfPort(port: Any): Errorable[ref.LibraryPath] = exceptable { port match {
+  private def typeOfPort(port: Any): Errorable[ref.LibraryPath] = exceptable { port match {
     case port: elem.Port =>
       port.superclasses.onlyExcept("invalid port class")
     case port: elem.Bundle =>
@@ -29,17 +29,14 @@ object ConnectToolAnalysis {
       array.superclasses.onlyExcept("invalid port class")
     case isOther => throw ExceptionNotifyException(s"unexpected port ${isOther.getClass}")
   }}
-}
 
-
-object ConnectTool {
   /** External interface for creating a ConnectTool, which does the needed analysis work and can return an error
     * (as an exceptable) if the ConnectTool cannot be created.
     */
   def apply(interface: ToolInterface, portPath: DesignPath): Errorable[ConnectTool] = exceptable {
     val libraryAnalysis = new LibraryConnectivityAnalysis(interface.getLibrary)  // TODO this should be saved & reused!
     val port = EdgirUtils.resolveExact(portPath, interface.getDesign).exceptNone("no port")
-    val portType = ConnectToolAnalysis.typeOfPort(port).exceptError
+    val portType = typeOfPort(port).exceptError
 
     val containingBlockPath = EdgirUtils.resolveDeepestBlock(portPath, interface.getDesign)._1
     val focusPath = interface.getFocus
@@ -118,9 +115,42 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
     }
   }
 
-  def continuation(name: String, elem: PsiElement): Unit = {  // TODO can we use compose or something?
+  def continuation(name: String, psiElement: PsiElement): Unit = {  // TODO can we use compose or something?
     interface.endTool()
-    InsertAction.navigateElementFn(name, elem)
+    InsertAction.navigateElementFn(name, psiElement)
+
+    // Fast-path add to visualization
+    exceptionNotify("edg.ui.ConnectTool", interface.getProject) {
+      val visualizerPanel = BlockVisualizerService(interface.getProject).visualizerPanelOption
+          .exceptNone("no visualizer panel")
+
+      val blockUpdateFn = action match {
+        case ConnectToolAction.None(focusPath, initialPort) =>
+          block: elem.HierarchyBlock => block
+        case ConnectToolAction.AppendToLink(focusPath, linkName,
+            initialPort, priorPorts, linkPorts, bridgePorts) =>
+          { block: elem.HierarchyBlock =>
+            val namer = NameCreator.fromBlock(block)
+            block.update(
+              
+            )
+          }
+        case ConnectToolAction.NewLink(focusPath, initialPort, linkPorts, bridgePorts) =>
+          { block: elem.HierarchyBlock =>
+            block
+          }
+        case ConnectToolAction.NewExport(focusPath, initialPort, exteriorPort, innerPort) =>
+          { block: elem.HierarchyBlock =>
+            block
+          }
+        case ConnectToolAction.RefactorExportToLink(focusPath, initialPort,
+            priorExteriorPort, priorInnerPort, linkPorts, bridgePorts) =>
+          { block: elem.HierarchyBlock =>
+            block
+          }
+      }
+      visualizerPanel.currentDesignModifyBlock(action.getFocusPath)(blockUpdateFn(_))
+    }
   }
 
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)

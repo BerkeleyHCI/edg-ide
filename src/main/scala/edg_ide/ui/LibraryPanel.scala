@@ -57,7 +57,8 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
             _.constraints := Map()
           ) // TODO pyLib.instantiateBlock(...)?
 
-      val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption.exceptNone("no visualizer panel")
+      val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
+          .exceptNone("no visualizer panel")
       visualizerPanel.currentDesignModifyBlock(contextPath) { _.update(
         _.blocks :+= (name, elem.BlockLike().update(_.hierarchy := placeholderBlock))
       )}
