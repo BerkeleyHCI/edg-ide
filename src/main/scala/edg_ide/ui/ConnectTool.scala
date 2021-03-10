@@ -52,14 +52,13 @@ object ConnectTool {
     val focusBlockConnectable = blockAnalysis.allConnectablePortTypes
 
     val isExteriorPort = containingBlockPath == focusPath  // a boundary port that may need to be bridged
-    val exportableRefs = if (isExteriorPort) {  // find inner ports of the same type
+    val exportableRefTypes = if (isExteriorPort) {  // find inner ports of the same type
       focusBlockConnectable.innerPortTypes.collect {
-        case (intPortRef, intPortType) if portType == intPortType => intPortRef
+        case (intPortRef, intPortType) if portType == intPortType => (intPortRef, intPortType)
       }
     } else {  // find exterior ports of the same type
       focusBlockConnectable.exteriorPortTypes.collect {
-        case (extPortRef, extPortType) if portType == extPortType =>
-          extPortRef
+        case (extPortRef, extPortType) if portType == extPortType => (extPortRef, extPortType)
       }
     }
 
@@ -89,18 +88,20 @@ object ConnectTool {
       case (connectableRef, connectableType) if !otherConnectedRefs.contains(connectableRef) =>
         (focusPath ++ connectableRef, connectableType)
     }
-    val exportablePaths = exportableRefs.collect {
-      case exportableRef if !otherConnectedRefs.contains(exportableRef) =>
-        focusPath ++ exportableRef
+    val exportablePathTypes = exportableRefTypes.collect {
+      case (exportableRef, exportableType) if !otherConnectedRefs.contains(exportableRef) =>
+        (focusPath ++ exportableRef, exportableType)
     }
     new ConnectTool(interface, focusPath, portPath,
-      portConnected, linkAvailable, connectablePathTypes.toSeq, exportablePaths.toSeq
+      portConnected, linkAvailable, connectablePathTypes.toMap, exportablePathTypes.toMap
     )
   }
 }
 
 
-class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends JPopupMenu {
+class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
+                   linkTargets: Map[DesignPath, ref.LibraryPath],
+                   availableExports: Map[DesignPath, ref.LibraryPath]) extends JPopupMenu {
   add(new JLabel(action.getDesc))
   addSeparator()
 
@@ -121,6 +122,11 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
 
     // Fast-path add to visualization
     exceptionNotify("edg.ui.ConnectTool", interface.getProject) {
+      import edg.ExprBuilder, edg.ElemBuilder
+      // TODO
+      val library = EdgCompilerService(interface.getProject).pyLib
+      val fastPathUtil = new DesignFastPathUtil(library)
+
       val visualizerPanel = BlockVisualizerService(interface.getProject).visualizerPanelOption
           .exceptNone("no visualizer panel")
 
@@ -132,21 +138,33 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction) extends 
           { block: elem.HierarchyBlock =>
             val namer = NameCreator.fromBlock(block)
             block.update(
-              
+
             )
           }
         case ConnectToolAction.NewLink(focusPath, initialPort, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>
-            block
+            val namer = NameCreator.fromBlock(block)
+            block.update(
+
+            )
           }
         case ConnectToolAction.NewExport(focusPath, initialPort, exteriorPort, innerPort) =>
           { block: elem.HierarchyBlock =>
-            block
+            val namer = NameCreator.fromBlock(block)
+            block.update(
+              _.constraints :+= (namer.newName(s"_new_export_$name") ->
+                  ElemBuilder.Constraint.Exported(exteriorPort.postfixFromOption(focusPath).get,
+                    innerPort.postfixFromOption(focusPath).get)
+                  )
+            )
           }
-        case ConnectToolAction.RefactorExportToLink(focusPath, initialPort,
-            priorExteriorPort, priorInnerPort, linkPorts, bridgePorts) =>
+        case ConnectToolAction.RefactorExportToLink(focusPath, constrName,
+            initialPort, priorExteriorPort, priorInnerPort, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>
-            block
+            val namer = NameCreator.fromBlock(block)
+            block.update(
+              _.constraints := block.constraints - constrName,
+            )
           }
       }
       visualizerPanel.currentDesignModifyBlock(action.getFocusPath)(blockUpdateFn(_))
@@ -303,8 +321,8 @@ object ConnectToolAction {
     override def getInsertPortPaths: Seq[DesignPath] = getAllPortPaths  // initialPort is already one of the other ports
     override def getAppendPortPaths: Seq[DesignPath] = getAllPortPaths
   }
-  case class RefactorExportToLink(focusPath: DesignPath, initialPort: DesignPath,
-                                  priorExteriorPort: DesignPath, priorInnerPort: DesignPath,
+  case class RefactorExportToLink(focusPath: DesignPath, constrName: String,
+                                  initialPort: DesignPath, priorExteriorPort: DesignPath, priorInnerPort: DesignPath,
                                   linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]) extends AppendConnectAction {
     override def getDesc: String =
       s"Create connection from export of $priorInnerPort from $priorExteriorPort with ${(linkPorts ++ bridgePorts).mkString(", ")}"
@@ -321,7 +339,8 @@ object ConnectToolAction {
   */
 class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath: DesignPath,
                   priorConnect: Connection, linkAvailable: Map[ref.LibraryPath, Int],
-                  linkTargets: Seq[(DesignPath, ref.LibraryPath)], availableExports: Seq[DesignPath]
+                  linkTargets: Map[DesignPath, ref.LibraryPath],
+                  availableExports: Map[DesignPath, ref.LibraryPath]
                  ) extends BaseTool {
   private val linkTargetsMap = linkTargets.toMap
 
@@ -353,7 +372,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
     case Connection.Export(constraintName, exteriorPort, innerBlockPort) =>
       if (linkTargetsMap.isDefinedAt(focusPath ++ exteriorPort)) {  // can refactor current export to link
         val (linkPorts, bridgePorts) = selected.toSeq.partition(!isExteriorPort(_))
-        ConnectToolAction.RefactorExportToLink(focusPath, portPath,
+        ConnectToolAction.RefactorExportToLink(focusPath, constraintName, portPath,
           focusPath ++ exteriorPort, focusPath ++ innerBlockPort,
           linkPorts, bridgePorts)
       } else {  // cannot refactor existing export to link, can only have single export
@@ -378,7 +397,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
       } .collect { case (linkType, linkTypeCount) if linkTypeCount > 0 =>  // filter > 0, convert to types
         linkType
       } .toSet
-      linkTargets.collect {  // filter by type, convert to paths
+      linkTargets.toSeq.collect {  // filter by type, convert to paths
         case (linkTargetPath, linkTargetType) if linkRemainingTypes.contains(linkTargetType) => linkTargetPath
       }
     }
@@ -386,7 +405,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
     priorConnect match {
       case Connection.Disconnected() =>
         if (selected.isEmpty) { // no connects, can link and export
-          linkRemainingConnects(Seq(portPath)) ++ availableExports
+          linkRemainingConnects(Seq(portPath)) ++ availableExports.map(_._1)
         } else if (selected.size == 1 &&
             (isExportOnly(selected.head) || isExportOnly(portPath))) {  // selected export
           Seq()
@@ -440,12 +459,12 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       exceptionPopup(e) { // quick insert at caret
         val connectToolAction = getConnectAction()
-        (new ConnectPopup(interface, connectToolAction)
+        (new ConnectPopup(interface, connectToolAction, linkTargets, availableExports)
             .defaultAction.exceptError)()
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
       val connectToolAction = getConnectAction()
-      new ConnectPopup(interface, connectToolAction)
+      new ConnectPopup(interface, connectToolAction, linkTargets, availableExports)
           .show(e.getComponent, e.getX, e.getY)
     }
   }

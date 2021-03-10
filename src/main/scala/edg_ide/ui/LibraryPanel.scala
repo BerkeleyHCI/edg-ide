@@ -40,27 +40,13 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
     InsertAction.navigateElementFn(name, added)
 
     val library = EdgCompilerService(project).pyLib
-    def recursiveExpandPort(port: elem.PortLike): elem.PortLike = {
-      library.getPort(port.getLibElem).get match {  // TODO in future support block-side arrays?
-        case IrPort.Port(port) => elem.PortLike().update(_.port := port)
-        case IrPort.Bundle(bundle) => elem.PortLike().update(_.bundle := bundle)
-      }
-    }
+    val fastPathUtil = new DesignFastPathUtil(library)
 
     exceptionNotify("edg.ui.LibraryPanel", project) {
-      val newBlock = library.getBlock(libType).exceptError
-          val placeholderBlock = newBlock.update(  // create a placeholder only
-            _.superclasses := Seq(libType),
-            _.ports := newBlock.ports.mapValues(recursiveExpandPort).toMap,
-            _.blocks := Map(),
-            _.links := Map(),
-            _.constraints := Map()
-          ) // TODO pyLib.instantiateBlock(...)?
-
       val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
           .exceptNone("no visualizer panel")
       visualizerPanel.currentDesignModifyBlock(contextPath) { _.update(
-        _.blocks :+= (name, elem.BlockLike().update(_.hierarchy := placeholderBlock))
+        _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(libType).exceptError)
       )}
     }
   }
