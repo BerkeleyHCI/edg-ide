@@ -21,11 +21,11 @@ object InsertBlockAction {
                             project: Project,
                             continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
-        .instanceOfExcept[PyStatementList](s"invalid position for insertion")
+        .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
     val containingPsiFunction = containingPsiList.getParent
-        .instanceOfExcept[PyFunction]("not in a function")
-    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
-        .exceptNull("not in a class")
+        .instanceOfExcept[PyFunction](s"not in a function in ${containingPsiList.getContainingFile.getName}")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
+        .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
 
     val psiElementGenerator = PyElementGenerator.getInstance(project)
     val selfName = containingPsiFunction.getParameterList.getParameters.toSeq

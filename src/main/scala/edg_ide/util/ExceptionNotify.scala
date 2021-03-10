@@ -74,7 +74,7 @@ object exceptionPopup {
 
 
 object requireExcept {
-  def apply(cond: Boolean, errMsg: String): Unit = {
+  def apply(cond: Boolean, errMsg: => String): Unit = {
     if (!cond) {
       throw ExceptionNotifyException(errMsg)
     }
@@ -86,7 +86,7 @@ object requireExcept {
   */
 object ExceptionNotifyImplicits {
   implicit class ExceptNotify[T](obj: T) {
-    def exceptNull(errMsg: String): T = {
+    def exceptNull(errMsg: => String): T = {
       if (obj != null) {
         obj
       } else {
@@ -94,7 +94,7 @@ object ExceptionNotifyImplicits {
       }
     }
 
-    def instanceOfExcept[V](errMsg: String)(implicit tag: ClassTag[V]): V = obj match {
+    def instanceOfExcept[V](errMsg: => String)(implicit tag: ClassTag[V]): V = obj match {
         // Need the implicit tag so this generates a proper runtime check
       case obj: V => obj
       case _ => throw ExceptionNotifyException(errMsg)
@@ -102,18 +102,18 @@ object ExceptionNotifyImplicits {
   }
 
   implicit class ExceptOption[T](obj: Option[T]) {
-    def exceptNone(errMsg: String): T = obj match {
+    def exceptNone(errMsg: => String): T = obj match {
       case Some(obj) => obj
       case None => throw ExceptionNotifyException(errMsg)
     }
   }
 
   implicit class ExceptSeq[T](obj: Seq[T]) {
-    def exceptEmpty(errMsg: String): Seq[T] = obj match {
+    def exceptEmpty(errMsg: => String): Seq[T] = obj match {
       case Seq() => throw ExceptionNotifyException(errMsg)
       case _ => obj
     }
-    def onlyExcept(errMsg: String): T = obj match {
+    def onlyExcept(errMsg: => String): T = obj match {
       case Seq(obj) => obj
       case _ => throw ExceptionNotifyException(errMsg)
     }
@@ -127,12 +127,12 @@ object ExceptionNotifyImplicits {
   }
 
   implicit class ExceptBoolean(obj: Boolean) {
-    def exceptTrue(errMsg: String): Boolean = obj match {
+    def exceptTrue(errMsg: => String): Boolean = obj match {
       case true => throw ExceptionNotifyException(errMsg)
       case false => obj
     }
 
-    def exceptFalse(errMsg: String): Boolean = obj match {
+    def exceptFalse(errMsg: => String): Boolean = obj match {
       case true => obj
       case false => throw ExceptionNotifyException(errMsg)
     }

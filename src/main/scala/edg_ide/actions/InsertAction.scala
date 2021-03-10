@@ -25,17 +25,17 @@ object InsertAction {
   }
 
   def getCaretAtFile(file: PsiFile, expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
-    val editors = FileEditorManager.getInstance(project)
-        .getAllEditors(file.getVirtualFile).toSeq
-        .exceptEmpty("file not open")
-    requireExcept(editors.length == 1, "multiple editors open")
+    val editors = FileEditorManager.getInstance(project).getSelectedEditors
+        .filter { editor => editor.getFile == file.getVirtualFile }
+    requireExcept(editors.length > 0, s"no editors for ${file.getName} open")
+    requireExcept(editors.length == 1, s"multiple editors for ${file.getName} open")
     val contextEditor = editors.head.instanceOfExcept[TextEditor]("not a text editor")
     val contextOffset = contextEditor.getEditor.getCaretModel.getOffset
-    val element = file.findElementAt(contextOffset).exceptNull("invalid caret position")
+    val element = file.findElementAt(contextOffset).exceptNull(s"invalid caret position in ${file.getName}")
 
     val containingPsiClass = PsiTreeUtil.getParentOfType(element, classOf[PyClass])
-        .exceptNull("not in a class")
-    requireExcept(containingPsiClass == expectedClass, s"not in expected class ${expectedClass.getName}")
+        .exceptNull(s"not in a class in ${file.getName}")
+    requireExcept(containingPsiClass == expectedClass, s"not in expected class ${expectedClass.getName} in ${file.getName}")
 
     element
   }

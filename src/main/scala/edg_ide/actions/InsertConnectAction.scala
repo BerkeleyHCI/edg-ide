@@ -93,11 +93,11 @@ object InsertConnectAction {
                               actionName: String, project: Project,
                               continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
-        .instanceOfExcept[PyStatementList](s"invalid position for insertion")
+        .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
     val containingPsiFunction = containingPsiList.getParent
-        .instanceOfExcept[PyFunction]("not in a function")
+        .instanceOfExcept[PyFunction](s"not in a function in ${after.getContainingFile.getName}")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
-        .exceptNull("not in a class")
+        .exceptNull(s"not in a class in ${after.getContainingFile.getName}")
 
     // Check that referenced attributes (eg, port or block names) are not defined after the current position
     val attributesAfter = pairAttributesAfter(after, portPairs, containingPsiClass, project)
@@ -144,12 +144,12 @@ object InsertConnectAction {
     val containingPsiCall = within match {
       case within: PyCallExpression => within
       case within => PsiTreeUtil.getParentOfType(within, classOf[PyCallExpression])
-          .exceptNull(s"not in an call")
+          .exceptNull(s"not in an call in ${within.getContainingFile.getName}")
     }
     val containingPsiFunction = PsiTreeUtil.getParentOfType(within, classOf[PyFunction])
-        .exceptNull("not in a function")
+        .exceptNull(s"not in a function in ${within.getContainingFile.getName}")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
-        .exceptNull("not in a class")
+        .exceptNull(s"not in a class in ${within.getContainingFile.getName}")
 
     // Check that referenced attributes (eg, port or block names) are not defined after the current position
     val attributesAfter = pairAttributesAfter(within, portPairs, containingPsiClass, project)
