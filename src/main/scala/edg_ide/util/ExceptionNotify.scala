@@ -9,7 +9,7 @@ import java.awt.event.MouseEvent
 import scala.reflect.ClassTag
 
 
-case class ExceptionNotifyException(val errMsg: String) extends Exception(errMsg)
+case class ExceptionNotifyException(errMsg: String) extends Exception(errMsg)
 
 
 object exceptable {

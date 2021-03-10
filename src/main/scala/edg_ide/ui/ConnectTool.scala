@@ -52,13 +52,13 @@ object ConnectTool {
     val focusBlockConnectable = blockAnalysis.allConnectablePortTypes
 
     val isExteriorPort = containingBlockPath == focusPath  // a boundary port that may need to be bridged
-    val exportableRefTypes = if (isExteriorPort) {  // find inner ports of the same type
+    val exportableRefs = if (isExteriorPort) {  // find inner ports of the same type
       focusBlockConnectable.innerPortTypes.collect {
-        case (intPortRef, intPortType) if portType == intPortType => (intPortRef, intPortType)
+        case (intPortRef, intPortType) if portType == intPortType => intPortRef
       }
     } else {  // find exterior ports of the same type
       focusBlockConnectable.exteriorPortTypes.collect {
-        case (extPortRef, extPortType) if portType == extPortType => (extPortRef, extPortType)
+        case (extPortRef, extPortType) if portType == extPortType => extPortRef
       }
     }
 
@@ -88,12 +88,16 @@ object ConnectTool {
       case (connectableRef, connectableType) if !otherConnectedRefs.contains(connectableRef) =>
         (focusPath ++ connectableRef, connectableType)
     }
-    val exportablePathTypes = exportableRefTypes.collect {
-      case (exportableRef, exportableType) if !otherConnectedRefs.contains(exportableRef) =>
-        (focusPath ++ exportableRef, exportableType)
+    val exportablePaths = exportableRefs.collect {
+      case exportableRef if !otherConnectedRefs.contains(exportableRef) =>
+        focusPath ++ exportableRef
+    }
+    val boundaryTypes = focusBlockConnectable.exteriorPortTypes.toMap.map {
+      case (portRef, portType) => focusPath ++ portRef -> portType
     }
     new ConnectTool(interface, focusPath, portPath,
-      portConnected, linkAvailable, connectablePathTypes.toMap, exportablePathTypes.toMap
+      portConnected, linkAvailable, connectablePathTypes.toMap, exportablePaths.toSeq,
+      boundaryTypes
     )
   }
 }
@@ -101,7 +105,7 @@ object ConnectTool {
 
 class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
                    linkTargets: Map[DesignPath, ref.LibraryPath],
-                   availableExports: Map[DesignPath, ref.LibraryPath]) extends JPopupMenu {
+                   boundaryTypes: Map[DesignPath, ref.LibraryPath]) extends JPopupMenu {
   add(new JLabel(action.getDesc))
   addSeparator()
 
@@ -116,14 +120,13 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
     }
   }
 
-  def continuation(name: String, psiElement: PsiElement): Unit = {  // TODO can we use compose or something?
+  def continuation(linkName: String, psiElement: PsiElement): Unit = {  // TODO can we use compose or something?
     interface.endTool()
-    InsertAction.navigateElementFn(name, psiElement)
+    InsertAction.navigateElementFn(linkName, psiElement)
 
     // Fast-path add to visualization
     exceptionNotify("edg.ui.ConnectTool", interface.getProject) {
-      import edg.ExprBuilder, edg.ElemBuilder
-      // TODO
+      import edg.ElemBuilder
       val library = EdgCompilerService(interface.getProject).pyLib
       val fastPathUtil = new DesignFastPathUtil(library)
 
@@ -137,22 +140,48 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
             initialPort, priorPorts, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>
             val namer = NameCreator.fromBlock(block)
-            block.update(
-
-            )
+            block
           }
         case ConnectToolAction.NewLink(focusPath, initialPort, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>
             val namer = NameCreator.fromBlock(block)
+            val bridgeNameBlockIntTypes = bridgePorts.map { extPortPath =>
+              val bridgeName = namer.newName(s"_new_${linkName}_bridge_${extPortPath.steps.last}")
+              val (bridge, intPortType) = fastPathUtil.instantiateStubBridgeLike(boundaryTypes(extPortPath)).exceptError
+              (extPortPath, bridgeName, bridge, intPortType)
+            }
+            val linkPortTypes = (linkPorts.map { innerPortPath =>
+              val portType = linkTargets(innerPortPath)
+              innerPortPath -> portType
+            } ++ bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
+              focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeLinkPort -> intPortType
+            }).toMap
+            val (link, linkConnects) = fastPathUtil.instantiateStubLinkLike(linkPortTypes).exceptError
+            val linkNewName = namer.newName(linkName)
             block.update(
-
+              _.blocks :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
+                bridgeName -> bridge
+              },
+              _.links :+= (linkNewName -> link),
+              _.constraints :++= linkConnects.map { case (innerPortPath, linkRef) =>
+                namer.newName(s"_new_${linkName}_connect") -> ElemBuilder.Constraint.Connected(
+                  innerPortPath.postfixFromOption(focusPath).get,
+                  (focusPath + linkNewName ++ linkRef).postfixFromOption(focusPath).get
+                )
+              },
+              _.constraints :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
+                namer.newName(s"_new_${linkName}_export") -> ElemBuilder.Constraint.Exported(
+                  extPortPath.postfixFromOption(focusPath).get,
+                  (focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeLinkPort).postfixFromOption(focusPath).get
+                )
+              }
             )
           }
         case ConnectToolAction.NewExport(focusPath, initialPort, exteriorPort, innerPort) =>
           { block: elem.HierarchyBlock =>
             val namer = NameCreator.fromBlock(block)
             block.update(
-              _.constraints :+= (namer.newName(s"_new_export_$name") ->
+              _.constraints :+= (namer.newName(s"_new_${linkName}_export") ->
                   ElemBuilder.Constraint.Exported(exteriorPort.postfixFromOption(focusPath).get,
                     innerPort.postfixFromOption(focusPath).get)
                   )
@@ -340,7 +369,8 @@ object ConnectToolAction {
 class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath: DesignPath,
                   priorConnect: Connection, linkAvailable: Map[ref.LibraryPath, Int],
                   linkTargets: Map[DesignPath, ref.LibraryPath],
-                  availableExports: Map[DesignPath, ref.LibraryPath]
+                  availableExports: Seq[DesignPath],
+                  boundaryTypes: Map[DesignPath, ref.LibraryPath]
                  ) extends BaseTool {
   private val linkTargetsMap = linkTargets.toMap
 
@@ -405,7 +435,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
     priorConnect match {
       case Connection.Disconnected() =>
         if (selected.isEmpty) { // no connects, can link and export
-          linkRemainingConnects(Seq(portPath)) ++ availableExports.map(_._1)
+          linkRemainingConnects(Seq(portPath)) ++ availableExports
         } else if (selected.size == 1 &&
             (isExportOnly(selected.head) || isExportOnly(portPath))) {  // selected export
           Seq()
@@ -459,12 +489,12 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       exceptionPopup(e) { // quick insert at caret
         val connectToolAction = getConnectAction()
-        (new ConnectPopup(interface, connectToolAction, linkTargets, availableExports)
+        (new ConnectPopup(interface, connectToolAction, linkTargets, boundaryTypes)
             .defaultAction.exceptError)()
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
       val connectToolAction = getConnectAction()
-      new ConnectPopup(interface, connectToolAction, linkTargets, availableExports)
+      new ConnectPopup(interface, connectToolAction, linkTargets, boundaryTypes)
           .show(e.getComponent, e.getX, e.getY)
     }
   }
