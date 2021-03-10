@@ -95,7 +95,7 @@ class DesignFastPathUtil(library: wir.Library) {
     // Allocate incoming connects to link ports, and allocate port array elts as needed
     // TODO it's yet another variant of the link connect algorithm, this has been written too many times.
     // Can these all be consolidated?
-    val linkSortedPorts = newLink.ports.sortKeysFrom(ProtoUtil.getNameOrder(newLink.meta)).to(mutable.SeqMap)
+    val linkSortedPorts = stubLink.ports.sortKeysFrom(ProtoUtil.getNameOrder(newLink.meta)).to(mutable.SeqMap)
     def nextOfType(findType: ref.LibraryPath): Option[(String, elem.PortLike)] = {
       linkSortedPorts.find {
         case (name, portLike) => BlockConnectivityAnalysis.typeOfPortLike(portLike) == findType

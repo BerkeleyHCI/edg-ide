@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyFunction
 import edg.elem.elem
+import edg.expr.expr
 import edg.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
@@ -129,53 +130,67 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
       import edg.ElemBuilder
       val library = EdgCompilerService(interface.getProject).pyLib
       val fastPathUtil = new DesignFastPathUtil(library)
-
       val visualizerPanel = BlockVisualizerService(interface.getProject).visualizerPanelOption
           .exceptNone("no visualizer panel")
+
+      def transformBlockMakeLink(block: elem.HierarchyBlock, linkName: String,
+                                 focusPath: DesignPath, linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]
+                                ): elem.HierarchyBlock = {
+        val namer = NameCreator.fromBlock(block)
+        val bridgeNameBlockIntTypes = bridgePorts.map { extPortPath =>
+          val bridgeName = namer.newName(s"(bridge)_new_${linkName}_${extPortPath.steps.last}")
+          val (bridge, intPortType) = fastPathUtil.instantiateStubBridgeLike(boundaryTypes(extPortPath)).exceptError
+          (extPortPath, bridgeName, bridge, intPortType)
+        }
+        val linkPortTypes = (linkPorts.map { innerPortPath =>
+          val portType = linkTargets(innerPortPath)
+          innerPortPath -> portType
+        } ++ bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
+          focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeLinkPort -> intPortType
+        }).toMap
+        val (link, linkConnects) = fastPathUtil.instantiateStubLinkLike(linkPortTypes).exceptError
+        val linkNewName = namer.newName(linkName)
+        block.update(
+          _.blocks :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
+            bridgeName -> bridge
+          },
+          _.links :+= (linkNewName -> link),
+          _.constraints :++= linkConnects.map { case (innerPortPath, linkRef) =>
+            namer.newName(s"_new_${linkName}_connect") -> ElemBuilder.Constraint.Connected(
+              innerPortPath.postfixFromOption(focusPath).get,
+              (focusPath + linkNewName ++ linkRef).postfixFromOption(focusPath).get
+            )
+          },
+          _.constraints :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
+            namer.newName(s"_new_${linkName}_export") -> ElemBuilder.Constraint.Exported(
+              extPortPath.postfixFromOption(focusPath).get,
+              (focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeOuterPort).postfixFromOption(focusPath).get
+            )
+          }
+        )
+      }
 
       val blockUpdateFn = action match {
         case ConnectToolAction.None(focusPath, initialPort) =>
           block: elem.HierarchyBlock => block
         case ConnectToolAction.AppendToLink(focusPath, linkName,
-            initialPort, priorPorts, linkPorts, bridgePorts) =>
-          { block: elem.HierarchyBlock =>
-            val namer = NameCreator.fromBlock(block)
-            block
+            initialPort, priorPorts, priorBridgedPorts, linkPorts, bridgePorts) =>
+          { block: elem.HierarchyBlock =>  // TODO in-place append?
+            val cleanedBlock = block.update(
+              _.constraints := block.constraints.filter { case (name, constraint) =>  // disconnect existing link
+                constraint.expr match {
+                  case expr.ValueExpr.Expr.Connected(connected) =>
+                    connected.getLinkPort.getRef.steps.head.getName != linkName
+                  case _ => true
+                }
+              },
+              _.links := block.links - linkName,
+            )
+            transformBlockMakeLink(cleanedBlock, linkName, focusPath, priorPorts ++ linkPorts, bridgePorts)
           }
         case ConnectToolAction.NewLink(focusPath, initialPort, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>
-            val namer = NameCreator.fromBlock(block)
-            val bridgeNameBlockIntTypes = bridgePorts.map { extPortPath =>
-              val bridgeName = namer.newName(s"_new_${linkName}_bridge_${extPortPath.steps.last}")
-              val (bridge, intPortType) = fastPathUtil.instantiateStubBridgeLike(boundaryTypes(extPortPath)).exceptError
-              (extPortPath, bridgeName, bridge, intPortType)
-            }
-            val linkPortTypes = (linkPorts.map { innerPortPath =>
-              val portType = linkTargets(innerPortPath)
-              innerPortPath -> portType
-            } ++ bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
-              focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeLinkPort -> intPortType
-            }).toMap
-            val (link, linkConnects) = fastPathUtil.instantiateStubLinkLike(linkPortTypes).exceptError
-            val linkNewName = namer.newName(linkName)
-            block.update(
-              _.blocks :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
-                bridgeName -> bridge
-              },
-              _.links :+= (linkNewName -> link),
-              _.constraints :++= linkConnects.map { case (innerPortPath, linkRef) =>
-                namer.newName(s"_new_${linkName}_connect") -> ElemBuilder.Constraint.Connected(
-                  innerPortPath.postfixFromOption(focusPath).get,
-                  (focusPath + linkNewName ++ linkRef).postfixFromOption(focusPath).get
-                )
-              },
-              _.constraints :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
-                namer.newName(s"_new_${linkName}_export") -> ElemBuilder.Constraint.Exported(
-                  extPortPath.postfixFromOption(focusPath).get,
-                  (focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeLinkPort).postfixFromOption(focusPath).get
-                )
-              }
-            )
+            transformBlockMakeLink(block, linkName, focusPath, linkPorts, bridgePorts)
           }
         case ConnectToolAction.NewExport(focusPath, initialPort, exteriorPort, innerPort) =>
           { block: elem.HierarchyBlock =>
@@ -190,10 +205,11 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
         case ConnectToolAction.RefactorExportToLink(focusPath, constrName,
             initialPort, priorExteriorPort, priorInnerPort, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>
-            val namer = NameCreator.fromBlock(block)
-            block.update(
+            val cleanedBlock = block.update(
               _.constraints := block.constraints - constrName,
             )
+            transformBlockMakeLink(cleanedBlock, linkName, focusPath,
+              priorInnerPort +: linkPorts, priorExteriorPort +:bridgePorts)
           }
       }
       visualizerPanel.currentDesignModifyBlock(action.getFocusPath)(blockUpdateFn(_))
@@ -321,13 +337,13 @@ object ConnectToolAction {
     override def getAppendPortPaths: Seq[DesignPath] = Seq()
   }
   case class AppendToLink(focusPath: DesignPath, linkName: String,
-                          initialPort: DesignPath, priorPorts: Seq[DesignPath],
+                          initialPort: DesignPath, priorPorts: Seq[DesignPath], priorBridgedPorts: Seq[DesignPath],
                           linkPorts: Seq[DesignPath], bridgePorts: Seq[DesignPath]) extends AppendConnectAction {
     override def getDesc: String = s"Append ports to $linkName: ${(linkPorts ++ bridgePorts).mkString(", ")}"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
 
-    override def getAllPortPaths: Seq[DesignPath] = priorPorts ++ linkPorts ++ bridgePorts
+    override def getAllPortPaths: Seq[DesignPath] = priorPorts ++ priorBridgedPorts ++ linkPorts ++ bridgePorts
     override def getAppendPortPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
   }
   case class NewLink(focusPath: DesignPath, initialPort: DesignPath,
@@ -410,9 +426,10 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
       }
     case Connection.Link(linkName, linkConnects, bridgedExports) =>  // prior link, add new links but no exports
       val (linkPorts, bridgePorts) = selected.toSeq.partition(!isExteriorPort(_))
-      val priorPorts = (linkConnects.map(_._1) ++ bridgedExports.map(_._1)).map(focusPath ++ _)
+      val priorPorts = linkConnects.map(focusPath ++ _._1)
+      val priorBridgedPorts = bridgedExports.map(focusPath ++ _._1)
       ConnectToolAction.AppendToLink(focusPath, linkName, portPath,
-        priorPorts, linkPorts, bridgePorts)
+        priorPorts, priorBridgedPorts, linkPorts, bridgePorts)
   }
 
   // returns all available ports to connect

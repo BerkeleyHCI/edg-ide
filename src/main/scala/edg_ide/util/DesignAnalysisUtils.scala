@@ -28,6 +28,9 @@ object DesignAnalysisUtils {
     * If within the same function, does a simple after analysis without accounting for runtime
     * behavior.
     *
+    * TODO: could use better naming - more formally, the intent is beforeElement is visible
+    * immediately after afterElement
+    *
     * It is assumed both are in the same class.
     */
   def elementAfterEdg(beforeElement: PsiElement, afterElement: PsiElement, project: Project): Option[Boolean] = {
@@ -56,7 +59,7 @@ object DesignAnalysisUtils {
     } else {
       // compare positions within a function
       // the length is used so after includes the contents of the entire sub-tree
-      Some(beforeElement.getTextOffset + beforeElement.getTextLength <
+      Some(beforeElement.getTextOffset + beforeElement.getTextLength <=
           afterElement.getTextOffset + afterElement.getTextLength)
     }
   }
