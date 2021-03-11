@@ -10,15 +10,15 @@ import edg.elem.elem
 import edg.util.Errorable
 import edg.{IrPort, wir}
 import edg_ide.actions.{InsertAction, InsertBlockAction}
-import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel}
+import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, FilteredTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify, exceptionPopup, requireExcept}
 import edg_ide.{EdgirUtils, PsiUtils}
 
-import java.awt.BorderLayout
+import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.awt.event.{MouseAdapter, MouseEvent}
-import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
-import javax.swing.{JLabel, JPanel, JPopupMenu, SwingUtilities}
+import javax.swing.event.{DocumentEvent, DocumentListener, TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.{JLabel, JPanel, JPopupMenu, JTextField, SwingUtilities}
 
 
 class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends JPopupMenu {
@@ -108,7 +108,14 @@ class LibraryPanel(project: Project) extends JPanel {
   private val visualizer = new JBTextArea("TODO Library Visualizer here")
   splitter.setSecondComponent(visualizer)
 
-  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
+  private val libraryTreePanel = new JPanel(new GridBagLayout())
+  private val libraryTreeSearch = new JTextField()
+  libraryTreePanel.add(libraryTreeSearch, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
+  private val libraryTreeStatus = new JLabel("All Library Elements")
+  libraryTreePanel.add(libraryTreeStatus, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
+
+  private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(library))
+  private val libraryTree = new TreeTable(libraryTreeModel)
   new TreeTableSpeedSearch(libraryTree)
   private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
@@ -148,8 +155,35 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.addMouseListener(libraryMouseListener)
   libraryTree.setRootVisible(false)
   libraryTree.setShowColumns(true)
+
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
-  splitter.setFirstComponent(libraryTreeScrollPane)
+  libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 2, GridBagConstraints.BOTH))
+
+  splitter.setFirstComponent(libraryTreePanel)
+
+  def updateFilter(): Unit = {
+    val searchText = libraryTreeSearch.getText
+    if (searchText.isEmpty) {
+      libraryTreeStatus.setText("All Library Elements")
+      libraryTreeModel.setFilter(_ => true)
+    } else {
+      libraryTreeStatus.setText(s"Filter By '$searchText'")
+      libraryTreeModel.setFilter {
+        case node: EdgirLibraryTreeNode.BlockNode =>
+          EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchText.toLowerCase())
+        case other => false
+      }
+    }
+  }
+  libraryTreeSearch.getDocument.addDocumentListener(new DocumentListener() {
+    override def insertUpdate(e: DocumentEvent): Unit = update(e)
+    override def removeUpdate(e: DocumentEvent): Unit = update(e)
+    override def changedUpdate(e: DocumentEvent): Unit = update(e)
+
+    def update(e: DocumentEvent): Unit = {
+      updateFilter()
+    }
+  })
 
   setLayout(new BorderLayout())
   add(splitter)
@@ -158,7 +192,9 @@ class LibraryPanel(project: Project) extends JPanel {
   //
   def setLibrary(library: wir.Library): Unit = {
     this.library = library
-    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
+    this.libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(this.library))
+    libraryTree.setModel(this.libraryTreeModel)
+    updateFilter()
     libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
     libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
   }
