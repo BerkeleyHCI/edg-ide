@@ -168,11 +168,15 @@ class LibraryPanel(project: Project) extends JPanel {
       libraryTreeModel.setFilter(_ => true)
     } else {
       libraryTreeStatus.setText(s"Filter By '$searchText'")
-      libraryTreeModel.setFilter {
+      val filteredPaths = libraryTreeModel.setFilter {
         case node: EdgirLibraryTreeNode.BlockNode =>
           EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchText.toLowerCase())
         case other => false
       }
+      filteredPaths.foreach { filteredPath =>
+        libraryTree.getTree.expandPath(filteredPath)
+      }
+
     }
   }
   libraryTreeSearch.getDocument.addDocumentListener(new DocumentListener() {

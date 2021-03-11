@@ -15,44 +15,52 @@ class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeTy
     extends SeqTreeTableModel[NodeType] {
   /** Applies the filter on nodes. Computation happens immediately, traversing all nodes to rebuild the tree.
     */
-  def setFilter(filter: NodeType => Boolean): Unit = {
-    filteredChildren = computeFilteredChildren(filter)
+  def setFilter(filter: NodeType => Boolean): Seq[TreePath] = {
+    val (newFilteredChildren, filterMatchPaths) = computeFilteredChildren(filter)
+    filteredChildren = newFilteredChildren
     listeners.foreach { listener =>
         // TODO maybe be more accurate about tree ops to preserve tree state
       listener.treeStructureChanged(
         new TreeModelEvent(getRootNode.asInstanceOf[Object],
           Array(getRootNode.asInstanceOf[Object])))
     }
+    filterMatchPaths
   }
 
   // TODO also listen to model events to update tree?
-  private def computeFilteredChildren(filter: NodeType => Boolean): Map[NodeType, Seq[NodeType]] = {
+  // Computes filtered children, and returns paths to all children that match the filter
+  private def computeFilteredChildren(filter: NodeType => Boolean): (Map[NodeType, Seq[NodeType]], Seq[TreePath]) = {
     val treeBuilder = mutable.Map[NodeType, Seq[NodeType]]()
+    val filterMatchPaths = mutable.ListBuffer[TreePath]()
 
     // traverses a node (recursively), returning whether it (or its children) have passed the filter
     // and should be included in the filtered set
-    def traverse(node: NodeType, parentPassedFilter: Boolean): Boolean = {
+    def traverse(node: NodeType, nodePath: TreePath, parentPassedFilter: Boolean): Boolean = {
       val originalChildren = model.getNodeChildren(node)
       require(!treeBuilder.contains(node), s"reinsertion of $node")
-      if (parentPassedFilter || filter(node)) {  // include the entire subtree
+      val filterMatches = filter(node)
+      if (parentPassedFilter || filterMatches) {  // include the entire subtree
+        if (filterMatches) {
+          filterMatchPaths += nodePath
+        }
         originalChildren.foreach { child =>
-          traverse(child, true)
+          traverse(child, nodePath.pathByAddingChild(child), true)
         }
         treeBuilder.put(node, originalChildren)
         true
       } else {
         val filteredChildren = originalChildren.map { child =>
-          (child, traverse(child, false))
+          (child, traverse(child, nodePath.pathByAddingChild(child), false))
         } .collect { case (child, true) => child }
         treeBuilder.put(node, filteredChildren)
         filteredChildren.nonEmpty
       }
     }
-    traverse(model.getRootNode, false)
-    treeBuilder.to(Map)
+    traverse(model.getRootNode, new TreePath(model.getRootNode), false)
+    (treeBuilder.toMap, filterMatchPaths.toSeq)
   }
 
-  private var filteredChildren = computeFilteredChildren(_ => true)
+  private var filteredChildren = computeFilteredChildren(_ => true)._1
 
   override def getRootNode: NodeType = model.getRootNode
   override def getNodeChildren(node: NodeType): Seq[NodeType] = filteredChildren.getOrElse(node, Seq())
