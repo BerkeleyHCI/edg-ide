@@ -30,14 +30,14 @@ class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeTy
   // TODO also listen to model events to update tree?
   // Computes filtered children, and returns paths to all children that match the filter
   private def computeFilteredChildren(filter: NodeType => Boolean): (Map[NodeType, Seq[NodeType]], Seq[TreePath]) = {
-    val treeBuilder = mutable.Map[NodeType, Seq[NodeType]]()
+    val treeBuilder = mutable.Map[NodeType, Seq[NodeType]]()  // TODO use identity map and eq
     val filterMatchPaths = mutable.ListBuffer[TreePath]()
 
     // traverses a node (recursively), returning whether it (or its children) have passed the filter
     // and should be included in the filtered set
     def traverse(node: NodeType, nodePath: TreePath, parentPassedFilter: Boolean): Boolean = {
       val originalChildren = model.getNodeChildren(node)
-      require(!treeBuilder.contains(node), s"reinsertion of $node")
+
       val filterMatches = filter(node)
       if (parentPassedFilter || filterMatches) {  // include the entire subtree
         if (filterMatches) {
@@ -46,13 +46,23 @@ class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeTy
         originalChildren.foreach { child =>
           traverse(child, nodePath.pathByAddingChild(child), true)
         }
+
+        if (treeBuilder.contains(node)) {
+          require(treeBuilder(node) == originalChildren, s"inconsistent reinsertion at $node")
+        }
         treeBuilder.put(node, originalChildren)
+
         true
       } else {
         val filteredChildren = originalChildren.map { child =>
           (child, traverse(child, nodePath.pathByAddingChild(child), false))
         } .collect { case (child, true) => child }
+
+        if (treeBuilder.contains(node)) {
+          require(treeBuilder(node) == originalChildren, s"inconsistent reinsertion at $node")
+        }
         treeBuilder.put(node, filteredChildren)
+
         filteredChildren.nonEmpty
       }
     }

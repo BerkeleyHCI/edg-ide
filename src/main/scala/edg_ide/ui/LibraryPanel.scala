@@ -18,6 +18,7 @@ import edg_ide.{EdgirUtils, PsiUtils}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.awt.event.{MouseAdapter, MouseEvent}
 import javax.swing.event.{DocumentEvent, DocumentListener, TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.tree.TreePath
 import javax.swing.{JLabel, JPanel, JPopupMenu, JTextField, SwingUtilities}
 
 
@@ -162,6 +163,13 @@ class LibraryPanel(project: Project) extends JPanel {
   splitter.setFirstComponent(libraryTreePanel)
 
   def updateFilter(): Unit = {
+    def recursiveExpandPath(path: TreePath): Unit = {
+      if (path != null) {
+        recursiveExpandPath(path.getParentPath)
+        libraryTree.getTree.expandPath(path)
+      }
+    }
+
     val searchText = libraryTreeSearch.getText
     if (searchText.isEmpty) {
       libraryTreeStatus.setText("All Library Elements")
@@ -174,7 +182,7 @@ class LibraryPanel(project: Project) extends JPanel {
         case other => false
       }
       filteredPaths.foreach { filteredPath =>
-        libraryTree.getTree.expandPath(filteredPath)
+        recursiveExpandPath(filteredPath)
       }
 
     }
