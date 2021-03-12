@@ -68,60 +68,73 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
     val fontMetrics = g.getFontMetrics(g.getFont)
 
+    def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+      if (selected.contains(element)) {  // emphasis for selected
+        val newGraphics = base.create().asInstanceOf[Graphics2D]
+        newGraphics.setStroke(new BasicStroke(3/zoomLevel))
+        newGraphics
+      } else if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+        val newGraphics = base.create().asInstanceOf[Graphics2D]
+        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
+        newGraphics
+      } else {
+        base
+      }
+    }
+
+    def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+      // Main difference is stroke isn't bolded
+      if (!selected.contains(element) &&
+          highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+        val newGraphics = base.create().asInstanceOf[Graphics2D]
+        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
+        newGraphics
+      } else {
+        base
+      }
+    }
+
+    def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+      if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+        val newGraphics = base.create().asInstanceOf[Graphics2D]
+        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.05))
+        newGraphics
+      } else {  // semitransparent so overlays are apparent
+        val newGraphics = base.create().asInstanceOf[Graphics2D]
+        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.20))
+        newGraphics
+      }
+    }
+
     def paintBlock(node: ElkNode, parentX: Int, parentY: Int): Unit = {
       val nodeX = parentX + node.getX.toInt
       val nodeY = parentY + node.getY.toInt
 
-      val rectG = g.create()
-      if (highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out
-        rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.05))
-      } else {  // normal color
-        rectG.setColor(UIUtil.shade(rectG.getColor, 1, 0.20))
-      }
-      rectG.fillRect(nodeX, nodeY,
+      fillGraphics(g, node).fillRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
 
-      val rectStrokeG = g.create().asInstanceOf[Graphics2D]
-      if (selected.contains(node)) {  // emphasis for selected element
-        rectStrokeG.setStroke(new BasicStroke(3/zoomLevel))  // TODO: maybe should be based off the current stroke?
-      } else if (highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out if not highlighted
-        rectStrokeG.setColor(UIUtil.shade(rectStrokeG.getColor, 1, 0.25))
-      }
-      rectStrokeG.drawRect(nodeX, nodeY,
+      strokeGraphics(g, node).drawRect(nodeX, nodeY,
         node.getWidth.toInt, node.getHeight.toInt)
 
-      val rectTextG = g.create().asInstanceOf[Graphics2D]
-      if (!selected.contains(node) && highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out
-        rectTextG.setColor(UIUtil.shade(rectTextG.getColor, 1, 0.25))
-      }
       node.getLabels.asScala.foreach { label =>
         // convert the center x, y to top left aligned coordinates
         val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
         val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
 
-        rectTextG.drawString(label.getText, labelX + nodeX, labelY + nodeY)
+        textGraphics(g, node).drawString(label.getText, labelX + nodeX, labelY + nodeY)
       }
 
       node.getPorts.asScala.foreach { port =>
-        val portStrokeG = g.create().asInstanceOf[Graphics2D]
-        if (selected.contains(port)) {  // emphasis for selected element
-          portStrokeG.setStroke(new BasicStroke(3/zoomLevel))
-        } else if (highlighted.isDefined && !highlighted.get.contains(port)) {  // dimmed out if not highlighted
-          portStrokeG.setColor(UIUtil.shade(portStrokeG.getColor, 1, 0.25))
-        }
-        portStrokeG.drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
+        strokeGraphics(g, port).drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
           port.getWidth.toInt, port.getHeight.toInt)
 
-        val portTextG = g.create().asInstanceOf[Graphics2D]
-        if (!selected.contains(port) && highlighted.isDefined && !highlighted.get.contains(port)) {  // dimmed out
-          portTextG.setColor(UIUtil.shade(portTextG.getColor, 1, 0.25))
-        }
         port.getLabels.asScala.foreach { label =>
           // convert the center x, y to top left aligned coordinates
           val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
           val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
 
-          portTextG.drawString(label.getText, labelX + nodeX + port.getX.toInt, labelY + nodeY + port.getY.toInt)
+          textGraphics(g, port).drawString(label.getText, labelX + nodeX + port.getX.toInt,
+            labelY + nodeY + port.getY.toInt)
         }
       }
       paintBlockContents(node, parentX, parentY)
@@ -136,13 +149,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
-        val edgeStrokeG = g.create().asInstanceOf[Graphics2D]
-        if (selected.contains(edge)) {  // emphasis for selected element
-          edgeStrokeG.setStroke(new BasicStroke(3/zoomLevel))
-        } else if (highlighted.isDefined && !highlighted.get.contains(edge)) {  // dimmed out if not highlighted
-          edgeStrokeG.setColor(UIUtil.shade(edgeStrokeG.getColor, 1, 0.25))
-        }
-        paintEdge(edgeStrokeG, edge, nodeX, nodeY)
+        paintEdge(strokeGraphics(g, edge), edge, nodeX, nodeY)
       }
     }
 
