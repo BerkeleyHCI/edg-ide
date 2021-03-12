@@ -5,6 +5,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
+import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.ref.ref
 import edg.elem.elem
 import edg.util.Errorable
@@ -17,11 +18,13 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, Exc
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify, exceptionPopup, requireExcept}
 import edg_ide.{EdgirUtils, PsiUtils}
 
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.{BorderLayout, Color, GridBagConstraints, GridBagLayout}
 import java.awt.event.{MouseAdapter, MouseEvent}
+import javax.swing.border.LineBorder
 import javax.swing.event.{DocumentEvent, DocumentListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel, JPopupMenu, JTextField, SwingUtilities}
+import javax.swing.{JEditorPane, JLabel, JPanel, JPopupMenu, JTextArea, JTextField, SwingUtilities}
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 
 class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends JPopupMenu {
@@ -105,38 +108,76 @@ class LibraryPreview(project: Project) extends JPanel {
 
   // GUI Components
   //
-  setLayout(new GridBagLayout)
-  private val nameLabel = new JLabel("No Library Element Selected")
-  add(nameLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
+  private val splitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
+
+  val defaultFont = this.getFont
+  val htmlBody = s"""<body style="font-family:${defaultFont.getFamily()}; font-size:${defaultFont.getSize}">"""
+  private val textField = new JEditorPane()
+  textField.setContentType("text/html")
+  textField.setEditable(false)
+  textField.setBackground(null)
+  private val textFieldScrollPane = new JBScrollPane(textField)
+  textFieldScrollPane.setBorder(null)
+  splitter.setFirstComponent(textFieldScrollPane)
 
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()))
-
   private val graph = new JElkGraph(emptyHGraph)
-  add(graph, Gbc(0, 1, GridBagConstraints.BOTH))
+  splitter.setSecondComponent(graph)
+
+  setLayout(new BorderLayout())
+  add(splitter)
 
   // Actions
   //
   def setBlock(library: wir.Library, blockType: ref.LibraryPath): Unit = {
     val blockGraph = exceptable {
       val fastPath = new DesignFastPathUtil(library)
-      val block = fastPath.instantiateStubBlock(blockType).exceptError
-      val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
+      val block = library.getBlock(blockType).exceptError
+      val stubBlock = fastPath.instantiateStubBlock(blockType).exceptError
+      val edgirGraph = EdgirGraph.blockToNode(DesignPath(), stubBlock)
       val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
         InferEdgeDirectionTransform(SimplifyPortTransform(
           PruneDepthTransform(edgirGraph, 2)))))
-      HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+      val blockGraph = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
         Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
         true)  // need to make a root so root doesn't have ports
+      (block, blockGraph)
     }
+    val docstring = exceptable {
+      val pyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
+      val ancestors = pyClass.getAncestorClasses(TypeEvalContext.codeCompletion(project, null))
+
+      ancestors.map(_.getName).mkString(", ") + "\n" + Option(pyClass.getDocStringValue).getOrElse("")
+    }
+
     blockGraph match {
-      case Errorable.Success(blockGraph) =>
+      case Errorable.Success((block, blockGraph)) =>
         graph.setGraph(blockGraph)
-        nameLabel.setText(EdgirUtils.SimpleLibraryPath(blockType))
+        val superclassString = if (block.superclasses.isEmpty) {
+          "(none)"
+        } else {
+          EdgirUtils.SimpleSuperclass(block.superclasses)
+        }
+        val docstringString = docstring.mapToString(identity)
+        val textFieldText = s"<b>${EdgirUtils.SimpleLibraryPath(blockType)}</b> " +
+            s"extends: ${superclassString}<hr>\n" +
+            docstringString
+        textField.setText(s"<html>$htmlBody${textFieldText.replaceAll("\n", "<br/>")}</html>")
       case Errorable.Error(errMsg) =>
         graph.setGraph(emptyHGraph)
-        nameLabel.setText(s"Error loading ${EdgirUtils.SimpleLibraryPath(blockType)}: $errMsg")
+        textField.setText(s"<html>${htmlBody}Error loading ${EdgirUtils.SimpleLibraryPath(blockType)}: $errMsg</html>")
     }
+  }
+
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+    state.libraryPreviewSplitterPos = splitter.getProportion
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
+    splitter.setProportion(state.libraryPreviewSplitterPos)
   }
 }
 
@@ -156,6 +197,7 @@ class LibraryPanel(project: Project) extends JPanel {
   private val libraryTreePanel = new JPanel(new GridBagLayout())
   private val libraryTreeSearch = new JTextField()
   libraryTreePanel.add(libraryTreeSearch, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
+
   private val libraryTreeStatus = new JLabel("All Library Elements")
   libraryTreePanel.add(libraryTreeStatus, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
 
@@ -258,9 +300,11 @@ class LibraryPanel(project: Project) extends JPanel {
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
     state.panelLibrarySplitterPos = splitter.getProportion
+    preview.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
     splitter.setProportion(state.panelLibrarySplitterPos)
+    preview.loadState(state)
   }
 }
