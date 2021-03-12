@@ -1,5 +1,7 @@
 package edg_ide.edgir_graph
 
+import scala.collection.SeqMap
+
 
 /**
   * Removes all nodes below a certain depth
@@ -15,10 +17,10 @@ object PruneDepthTransform extends CollapseNodeTransform {
       }
       EdgirGraph.EdgirNode(node.data, filteredMembers, Seq())  // no internal components, discard edges
     } else {
-      val mappedMembers = node.members.mapValues {
+      val mappedMembers = node.members.to(SeqMap).mapValues {
         case member: EdgirGraph.EdgirPort => member
         case member: EdgirGraph.EdgirNode => apply(member, depth - 1)
-      }.toMap
+      }.to(SeqMap)
       EdgirGraph.EdgirNode(node.data, mappedMembers, node.edges)
     }
 

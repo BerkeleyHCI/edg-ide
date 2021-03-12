@@ -49,11 +49,38 @@ object ElkEdgirGraphUtils {
         }
 
         case "DigitalSource" => Some(PortSide.EAST)
+        case "DigitalSingleSource" => Some(PortSide.EAST)
         case "DigitalSink" => Some(PortSide.WEST)
         case "DigitalBidir" => None
 
         case "AnalogSource" => Some(PortSide.EAST)
         case "AnalogSink" => Some(PortSide.WEST)
+
+        case "CanControllerPort" => Some(PortSide.EAST)
+        case "CanTransceiverPort" => Some(PortSide.WEST)
+        case "CanDiffPort" => None
+
+        case "CrystalDriver" => Some(PortSide.EAST)
+        case "CrystalPort" => Some(PortSide.WEST)
+
+        case "I2cMaster" => Some(PortSide.EAST)
+        case "I2cPullupPort" => Some(PortSide.EAST)
+        case "I2cSlave" => Some(PortSide.WEST)
+
+        case "SpeakerDriverPort" => Some(PortSide.EAST)
+        case "SpeakerPort" => Some(PortSide.WEST)
+
+        case "SpiMaster" => Some(PortSide.EAST)
+        case "SpiSlave" => Some(PortSide.WEST)
+
+        case "SwdHostPort" => Some(PortSide.EAST)
+        case "SwdTargetPort" => Some(PortSide.WEST)
+
+        case "UartPrt" => None
+
+        case "UsbHostPort" => Some(PortSide.EAST)
+        case "UsbDevicePort" => Some(PortSide.WEST)
+        case "UsbPassivePort" => None
 
         case _ => None
       }
@@ -69,7 +96,7 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[PortConstraints] = PORT_CONSTRAINTS
 
-    override def nodeConv(node: NodeDataWrapper): Option[PortConstraints] = Some(PortConstraints.FIXED_SIDE)
+    override def nodeConv(node: NodeDataWrapper): Option[PortConstraints] = Some(PortConstraints.FIXED_ORDER)
     override def portConv(port: PortWrapper): Option[PortConstraints] = None
     override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
   }

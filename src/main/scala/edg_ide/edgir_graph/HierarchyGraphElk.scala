@@ -11,6 +11,8 @@ import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.properties.IProperty
 import org.eclipse.elk.graph.util.ElkGraphUtil
 
+import scala.collection.SeqMap
+
 
 class HierarchyGraphElk {
 }
@@ -91,7 +93,7 @@ object HierarchyGraphElk {
   def HGraphNodeToElkNode[NodeType, PortType, EdgeType](
       node: HGraphNode[NodeType, PortType, EdgeType], name: String, parent: Option[ElkNode],
       mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq()):
-      (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
+      (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
     val elkNode = parent match {
       case Some(parent) => addNode(parent, name)
       case None => makeGraphRoot()

@@ -10,6 +10,8 @@ import edg.wir.DesignPath
 import edg_ide.edgir_graph.{BlockWrapper, ConnectWrapper, EdgirGraph, LinkWrapper, PortWrapper}
 import edg_ide.edgir_graph.EdgirGraph.EdgirNode
 
+import scala.collection.SeqMap
+
 
 class EdgirGraphTest extends AnyFlatSpec with Matchers {
   behavior of "EdgirGraph"
@@ -64,10 +66,10 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
 
     val refGraph = EdgirGraph.EdgirNode(
       data = BlockWrapper(DesignPath(), blocklikeIr),
-      members = Map(
+      members = SeqMap(
         "source" -> EdgirGraph.EdgirNode(
           data = BlockWrapper(DesignPath() + "source", blockIr.blocks("source")),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = PortWrapper(DesignPath() + "source" + "port",
                 blockIr.blocks("source").`type`.hierarchy.get.ports("port"))
@@ -77,7 +79,7 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         ),
         "sink" -> EdgirGraph.EdgirNode(
           data = BlockWrapper(DesignPath() + "sink", blockIr.blocks("sink")),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = PortWrapper(DesignPath() + "sink" + "port",
                 blockIr.blocks("sink").`type`.hierarchy.get.ports("port"))
@@ -87,7 +89,7 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         ),
         "link" -> EdgirGraph.EdgirNode(
           data = LinkWrapper(DesignPath() + "link", blockIr.links("link")),
-          members = Map(
+          members = SeqMap(
             "source" -> EdgirGraph.EdgirPort(
               data = PortWrapper(DesignPath() + "link" + "source",
                 blockIr.links("link").`type`.link.get.ports("source"))
@@ -164,16 +166,16 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
 
     val refGraph = EdgirGraph.EdgirNode(
       data = BlockWrapper(DesignPath(), blocklikeIr),
-      members = Map(
+      members = SeqMap(
         "outer" -> EdgirGraph.EdgirNode(
           data = BlockWrapper(DesignPath() + "outer", blockIr.blocks("outer")),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = PortWrapper(DesignPath() + "outer" + "port", outerBlockIr.ports("port"))
             ),
             "inner" -> EdgirGraph.EdgirNode(
               data = BlockWrapper(DesignPath() + "outer" + "inner", outerBlockIr.blocks("inner")),
-              members = Map(
+              members = SeqMap(
                 "port" -> EdgirGraph.EdgirPort(
                   data = PortWrapper(DesignPath() + "outer" + "inner" + "port",
                     outerBlockIr.blocks("inner").`type`.hierarchy.get.ports("port"))

@@ -5,6 +5,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import edg_ide.edgir_graph.{EdgirGraph, SimplifyPortTransform}
 
+import scala.collection.SeqMap
+
 
 class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
   behavior of "SimplifyPortTransform"
@@ -12,10 +14,10 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
   it should "work on a flat source-to-sink design" in {
     val testGraph = EdgirGraph.EdgirNode(
       data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
-      members = Map(
+      members = SeqMap(
         "source" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source"),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "port")
             ),
@@ -24,7 +26,7 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
         ),
         "sink" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink"),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "port")
             ),
@@ -33,7 +35,7 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
         ),
         "link" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath() + "link"),
-          members = Map(
+          members = SeqMap(
             "source" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "source")
             ),

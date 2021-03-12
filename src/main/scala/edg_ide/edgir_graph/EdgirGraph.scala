@@ -5,6 +5,8 @@ import edg.expr.expr
 import edg_ide.EdgirUtils
 import edg.wir.DesignPath
 
+import scala.collection.SeqMap
+
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(
 sealed trait NodeDataWrapper {
@@ -51,7 +53,7 @@ object EdgirGraph {
 
   case class EdgirNode(
     override val data: NodeDataWrapper,
-    override val members: Map[String, EdgirNodeMember],
+    override val members: SeqMap[String, EdgirNodeMember],
     override val edges: Seq[HGraphEdge[EdgeWrapper]]
   ) extends HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper] with EdgirNodeMember {  }
 
@@ -114,7 +116,7 @@ object EdgirGraph {
           block.ports.map { case (name, port) => name -> portLikeToPort(path + name, port) },
           block.blocks.map { case (name, subblock) => name -> blockLikeToNode(path + name, subblock) },
           block.links.map{ case (name, sublink) => name -> linkLikeToNode(path + name, sublink) },
-        )
+        ).to(SeqMap)
 
         // Read edges from constraints
         val edges: Seq[EdgirEdge] = constraintsToEdges(path, block.constraints)
@@ -122,9 +124,9 @@ object EdgirGraph {
         EdgirNode(BlockWrapper(path, blockLike), allMembers, edges)
       case elem.BlockLike.Type.LibElem(block) =>
         // TODO implement me
-        EdgirNode(BlockWrapper(path, blockLike), Map(), Seq())
+        EdgirNode(BlockWrapper(path, blockLike), SeqMap(), Seq())
       case _ =>  // create an empty error block
-        EdgirNode(BlockWrapper(path, blockLike), Map(), Seq())
+        EdgirNode(BlockWrapper(path, blockLike), SeqMap(), Seq())
     }
   }
 
@@ -135,8 +137,8 @@ object EdgirGraph {
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(
           link.ports.map { case (name, port) => name -> portLikeToPort(path + name, port) },
-          link.links.map{ case (name, sublink) => name -> linkLikeToNode(path + name, sublink) },
-        )
+          link.links.map { case (name, sublink) => name -> linkLikeToNode(path + name, sublink) },
+        ).to(SeqMap)
 
         // Read edges from constraints
         val edges: Seq[EdgirEdge] = constraintsToEdges(path, link.constraints)
@@ -144,9 +146,9 @@ object EdgirGraph {
         EdgirNode(LinkWrapper(path, linkLike), allMembers, edges)
       case elem.LinkLike.Type.LibElem(link) =>
         // TODO implement me
-        EdgirNode(LinkWrapper(path, linkLike), Map(), Seq())
+        EdgirNode(LinkWrapper(path, linkLike), SeqMap(), Seq())
       case _ =>  // create an empty error block
-        EdgirNode(LinkWrapper(path, linkLike), Map(), Seq())
+        EdgirNode(LinkWrapper(path, linkLike), SeqMap(), Seq())
     }
   }
 
