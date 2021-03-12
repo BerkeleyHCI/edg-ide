@@ -2,9 +2,15 @@ package edg_ide.ui
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
+// Kicad IR
+sealed trait KicadComponent
+case class Rectangle(x:Float, y:Float, width:Float, height:Float) extends KicadComponent
+case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
+
+
 class KicadParser {
 
-  private var kicadFile:String = "/Users/nikhiljain/Downloads/Connector_Audio.pretty/Jack_3.5mm_CUI_SJ-3523-SMT_Horizontal.kicad_mod"
+  private var kicadFile:String = "/Users/nikhiljain/college/edg-research/edg-ide/src/main/scala/edg_ide/ui/ryan.mod"
 
   def getKicadFile(): String = {
     this.kicadFile
@@ -14,25 +20,22 @@ class KicadParser {
     this.kicadFile = kicadFile
   }
 
-  def parseKicadFile(): Unit = {
+  def parseKicadFile(): ArrayBuffer[KicadComponent] = {
     val fileReader = Source.fromFile(this.getKicadFile())
     val lines = fileReader.getLines()
-    println("printing file contents")
+//    println("printing file contents")
     var s = ""
     for (l <- lines.toList) {
-      println(l)
+//      println(l)
       s += l
     }
-    println("DONE file contents")
-
-
-    println("parse")
+//    println("DONE file contents")
+//
+//
+//    println("parse")
 
     val parsed = ExpressionParser.parse(s)
-    println("done parse")
-
-    println("printing dump")
-    var i = 0
+//    println("done parse")
 
     var kicadComponents = new ArrayBuffer[KicadComponent]
 
@@ -54,7 +57,8 @@ class KicadParser {
                         val first = s.values.head
                         val second = s.values.tail.head
                         if (first.isInstanceOf[Atom] && second.isInstanceOf[Atom]) {
-                          second.asInstanceOf[Atom].symbol.equalsIgnoreCase("F.SilkS")
+                          second.asInstanceOf[Atom].symbol.contains("F")
+//                          true
                         }
                         else {
                           false
@@ -114,9 +118,10 @@ class KicadParser {
                 else if (atom.symbol.equalsIgnoreCase("pad")) {
                   // match on "rect" for rectangles
                   val rect = values.filter {
-                    case a:Atom => a.symbol.equalsIgnoreCase("rect")
+                    case a:Atom => a.symbol.contains("rect")
                     case _ => false
                   }
+                  // TODO parse all pads as rect?
                   if (rect.length == 1) {
                     // We have a valid rect, parse params
                     val startPos = values.filter {
@@ -175,24 +180,18 @@ class KicadParser {
 
       }
 
-      for (k <- kicadComponents) {
-        println(k)
-      }
-
 //      case p: Atom => println(p)
 //      case p: SList => println("")
     }
-    println("done dump")
 
+//    println("_______________________")
+//    for (k <- kicadComponents) {
+//      println(k)
+//    }
 
     fileReader.close()
+    kicadComponents
   }
-
-
-  // Kicad IR
-  sealed trait KicadComponent
-  case class Rectangle(x:Float, y:Float, width:Float, height:Float) extends KicadComponent
-  case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
 
   /*
   Source: https://github.com/ZenBowman/sexpr
@@ -233,19 +232,20 @@ class KicadParser {
           elements.append(new Atom(first))
         }
       }
-      println("elements", elements.length)
-      for (p <- elements) {
-        p match {
-          case Atom(symbol) =>
-            println("symbol", symbol.toString)
-            for (c <- 1 until symbol.length) {
-              print(symbol.charAt(c))
-            }
-            printf("%s", symbol)
-          case SList(values) => println("list", values.length)
-        }
 
-      }
+//      println("elements", elements.length)
+//      for (p <- elements) {
+//        p match {
+//          case Atom(symbol) =>
+////            println("symbol", symbol.toString)
+//            for (c <- 1 until symbol.length) {
+////              print(symbol.charAt(c))
+//            }
+//            printf("%s", symbol)
+//          case SList(values) => println("list", values.length)
+//        }
+//
+//      }
 
       try {
         elements.head.asInstanceOf[SList]

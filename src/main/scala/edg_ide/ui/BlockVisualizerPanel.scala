@@ -17,6 +17,7 @@ import edg.ElemBuilder
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir
+//import edg_ide.ui.KicadParser.{KicadComponent}
 import edg.wir.{DesignPath, Refinements}
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
@@ -27,6 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JPanel, JTextField}
+
+import scala.collection.mutable.ArrayBuffer
 
 
 object Gbc {
@@ -398,18 +401,19 @@ class KicadVizPanel() extends JPanel {
   splitter.setFirstComponent(libraryTreeScrollPane)
 
   // Handler to manage parsing
-  private val kicadParser = new KicadParser
+  // TODO how to import KicadComponent properly?
 
   private val updateButton = new JButton("Update")
   updateButton.addActionListener(new ActionListener {
     override def actionPerformed(actionEvent: ActionEvent): Unit = {
       println("[Drawer] Updating Kicad Panel")
-      repaint()
-      kicadParser.parseKicadFile()
+      // Reparse the file TODO put this in constructor or something?
+      visualizer.repaint()
     }
   })
 
-  private val visualizer = new JPanel()
+  private val visualizer = new KicadVizDrawPanel()
+  visualizer.offset = this.libraryTreeScrollPane.getWidth
   visualizer.add(updateButton)
   splitter.setSecondComponent(visualizer)
 
@@ -419,11 +423,11 @@ class KicadVizPanel() extends JPanel {
 
   // Actions
   //
-  def setLibrary(library: wir.Library): Unit = {
-    this.library = library
-    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
-    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
-  }
+//  def setLibrary(library: wir.Library): Unit = {
+//    this.library = library
+//    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
+//    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
+//  }
 
   def setKicadFile(kicadFile: String): Unit = {
     this.kicadFile = kicadFile
@@ -436,19 +440,58 @@ class KicadVizPanel() extends JPanel {
     // TODO maybe separate concerns / code? i.e. put the processing code elsewhere?
     // 1. Load kicad file and parse into data structures -- lines + rectangles
     // 2. Draw
-
+//    g.drawRect(this.libraryTreeScrollPane.getWidth + 5, 1, 20, 200)
   }
 
+}
 
-  // Configuration State
-  //
-//  def saveState(state: BlockVisualizerServiceState): Unit = {
-//    state.panelLibrarySplitterPos = splitter.getProportion
-//  }
-//
-//  def loadState(state: BlockVisualizerServiceState): Unit = {
-//    splitter.setProportion(state.panelLibrarySplitterPos)
-//  }
+// To draw on the Kicad Splitter
+class KicadVizDrawPanel extends JPanel {
+  private val kicadParser = new KicadParser
+  var offset = 0
+  var mul_factor: Int = 10
+
+  override def paintComponent(g: Graphics): Unit = {
+    // TODO put reparsing somewhere else?
+
+    val components = kicadParser.parseKicadFile()
+
+    val min_x = components.map(c => (c match {
+      case Rectangle(x, y, width, height) => x
+      case Line(x0, y0, x1, y1) => math.min(x0,x1)
+    })).min.abs
+
+    val min_y = components.map(c => (c match {
+      case Rectangle(x, y, width, height) => y
+      case Line(x0, y0, x1, y1) => math.min(y0,y1)
+    })).min.abs
+
+    println("[Kicad Viz] Drawing components:")
+    for (c <- components) {
+      println(c)
+      c match {
+        // TODO
+        // 1. Lose precision converting int to float
+        // 2. Scale
+        // 3. It's negative
+        case Line(x0, y0, x1, y1) => // TODO float to int...?
+          g.drawLine(
+            offset + ((min_x + x0) * mul_factor).asInstanceOf[Int],
+            ((min_y + y0) * mul_factor).asInstanceOf[Int],
+            offset + ((min_x + x1) * mul_factor).asInstanceOf[Int],
+            ((min_y + y1) * mul_factor).asInstanceOf[Int]
+          )
+        case Rectangle(x, y, width, height) =>
+          g.drawRect(
+            offset + ((min_x + x) * mul_factor).asInstanceOf[Int],
+            ((min_y + y) * mul_factor).asInstanceOf[Int],
+            (width * mul_factor).asInstanceOf[Int],
+            (height * mul_factor).asInstanceOf[Int])
+        case _ =>
+      }
+    }
+
+  }
 }
 
 
