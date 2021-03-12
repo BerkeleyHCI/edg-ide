@@ -8,9 +8,11 @@ import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import edg.ref.ref
 import edg.elem.elem
 import edg.util.Errorable
+import edg.wir.DesignPath
 import edg.{IrPort, wir}
 import edg_ide.actions.{InsertAction, InsertBlockAction}
-import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, FilteredTreeTableModel}
+import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
+import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, FilteredTreeTableModel, JElkGraph}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify, exceptionPopup, requireExcept}
 import edg_ide.{EdgirUtils, PsiUtils}
@@ -97,6 +99,48 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
 }
 
 
+class LibraryPreview(project: Project) extends JPanel {
+  // State
+  //
+
+  // GUI Components
+  //
+  setLayout(new GridBagLayout)
+  private val nameLabel = new JLabel("No Library Element Selected")
+  add(nameLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
+
+  private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
+    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()))
+
+  private val graph = new JElkGraph(emptyHGraph)
+  add(graph, Gbc(0, 1, GridBagConstraints.BOTH))
+
+  // Actions
+  //
+  def setBlock(library: wir.Library, blockType: ref.LibraryPath): Unit = {
+    val blockGraph = exceptable {
+      val fastPath = new DesignFastPathUtil(library)
+      val block = fastPath.instantiateStubBlock(blockType).exceptError
+      val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
+      val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
+        InferEdgeDirectionTransform(SimplifyPortTransform(
+          PruneDepthTransform(edgirGraph, 2)))))
+      HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+        Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
+        true)  // need to make a root so root doesn't have ports
+    }
+    blockGraph match {
+      case Errorable.Success(blockGraph) =>
+        graph.setGraph(blockGraph)
+        nameLabel.setText(EdgirUtils.SimpleLibraryPath(blockType))
+      case Errorable.Error(errMsg) =>
+        graph.setGraph(emptyHGraph)
+        nameLabel.setText(s"Error loading ${EdgirUtils.SimpleLibraryPath(blockType)}: $errMsg")
+    }
+  }
+}
+
+
 class LibraryPanel(project: Project) extends JPanel {
   // State
   //
@@ -106,8 +150,8 @@ class LibraryPanel(project: Project) extends JPanel {
   //
   private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
 
-  private val visualizer = new JBTextArea("TODO Library Visualizer here")
-  splitter.setSecondComponent(visualizer)
+  private val preview = new LibraryPreview(project)
+  splitter.setSecondComponent(preview)
 
   private val libraryTreePanel = new JPanel(new GridBagLayout())
   private val libraryTreeSearch = new JTextField()
@@ -122,10 +166,7 @@ class LibraryPanel(project: Project) extends JPanel {
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       e.getPath.getLastPathComponent match {
         case node: EdgirLibraryTreeNode.BlockNode =>
-          visualizer.setText(
-            s"${EdgirUtils.SimpleLibraryPath(node.path)}\n" +
-                s"Superclasses: ${node.block.superclasses.map{EdgirUtils.SimpleLibraryPath}.mkString(", ")}"
-          )
+          preview.setBlock(library, node.path)
         case node =>
       }
     }
@@ -178,6 +219,8 @@ class LibraryPanel(project: Project) extends JPanel {
       libraryTreeStatus.setText(s"Filter By '$searchText'")
       val filteredPaths = libraryTreeModel.setFilter {
         case node: EdgirLibraryTreeNode.BlockNode =>
+          EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchText.toLowerCase())
+        case node: EdgirLibraryTreeNode.PortNode =>
           EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchText.toLowerCase())
         case other => false
       }

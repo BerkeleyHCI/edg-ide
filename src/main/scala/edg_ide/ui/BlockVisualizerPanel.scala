@@ -367,9 +367,9 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
     val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
-        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
+        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-      Some(ElkEdgirGraphUtils.DesignPathMapper),
+      Seq(ElkEdgirGraphUtils.DesignPathMapper),
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)

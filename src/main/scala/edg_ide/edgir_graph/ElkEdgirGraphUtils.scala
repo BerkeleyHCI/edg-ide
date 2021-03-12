@@ -1,6 +1,7 @@
 package edg_ide.edgir_graph
 
-import edg.wir.DesignPath
+import edg.wir.{BlockConnectivityAnalysis, DesignPath}
+import edg_ide.EdgirUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import scala.annotation.tailrec
@@ -10,7 +11,9 @@ import scala.jdk.CollectionConverters._
 object ElkEdgirGraphUtils {
   import org.eclipse.elk.graph.properties.IProperty
   object DesignPathMapper
-      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper, DesignPath] {
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    type PropertyType = DesignPath
+
     object DesignPathProperty extends IProperty[DesignPath] {
       override def getDefault: DesignPath = null
       override def getId: String = "DesignPath"
@@ -20,9 +23,55 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[DesignPath] = DesignPathProperty
 
-    override def nodeConv(node: NodeDataWrapper): DesignPath = node.path
-    override def portConv(port: PortWrapper): DesignPath = port.path
-    override def edgeConv(edge: EdgeWrapper): DesignPath = edge.path
+    override def nodeConv(node: NodeDataWrapper): Option[DesignPath] = Some(node.path)
+    override def portConv(port: PortWrapper): Option[DesignPath] = Some(port.path)
+    override def edgeConv(edge: EdgeWrapper): Option[DesignPath] = Some(edge.path)
+  }
+
+  import org.eclipse.elk.core.options.PortSide
+  object PortSideMapper
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    import org.eclipse.elk.core.options.CoreOptions.PORT_SIDE
+    type PropertyType = PortSide
+
+    override val property: IProperty[PortSide] = PORT_SIDE
+
+    override def nodeConv(node: NodeDataWrapper): Option[PortSide] = None
+    override def portConv(port: PortWrapper): Option[PortSide] = {
+      val portType = BlockConnectivityAnalysis.typeOfPortLike(port.portLike)
+      val portName = port.path.steps.last
+
+      EdgirUtils.SimpleLibraryPath(portType) match {
+        case "ElectricalSource" => Some(PortSide.EAST)
+        case "ElectricalSink" => portName match {
+          case "gnd" | "vss" => Some(PortSide.SOUTH)
+          case _ => Some(PortSide.NORTH)
+        }
+
+        case "DigitalSource" => Some(PortSide.EAST)
+        case "DigitalSink" => Some(PortSide.WEST)
+        case "DigitalBidir" => None
+
+        case "AnalogSource" => Some(PortSide.EAST)
+        case "AnalogSink" => Some(PortSide.WEST)
+
+        case _ => None
+      }
+    }
+    override def edgeConv(edge: EdgeWrapper): Option[PortSide] = None
+  }
+
+  import org.eclipse.elk.core.options.PortConstraints
+  object PortConstraintMapper
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    import org.eclipse.elk.core.options.CoreOptions.PORT_CONSTRAINTS
+    type PropertyType = PortConstraints
+
+    override val property: IProperty[PortConstraints] = PORT_CONSTRAINTS
+
+    override def nodeConv(node: NodeDataWrapper): Option[PortConstraints] = Some(PortConstraints.FIXED_SIDE)
+    override def portConv(port: PortWrapper): Option[PortConstraints] = None
+    override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
   }
 
   /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath.

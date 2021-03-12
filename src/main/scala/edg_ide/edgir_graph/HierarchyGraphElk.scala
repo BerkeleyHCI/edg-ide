@@ -77,26 +77,29 @@ object HierarchyGraphElk {
 
   // Internal functions for converting HGraph* to ELK objects
   //
-  trait PropertyMapper[NodeType, PortType, EdgeType, PropType] {
-    val property: IProperty[PropType]
-    def nodeConv(node: NodeType): PropType
-    def portConv(port: PortType): PropType
-    def edgeConv(edge: EdgeType): PropType
+  trait PropertyMapper[NodeType, PortType, EdgeType] {
+    type PropertyType
+    val property: IProperty[PropertyType]
+    def nodeConv(node: NodeType): Option[PropertyType]
+    def portConv(port: PortType): Option[PropertyType]
+    def edgeConv(edge: EdgeType): Option[PropertyType]
   }
 
   /**
     * Converts a HGraphNode to a ELK node, returning a map of its ports
     */
-  def HGraphNodeToElkNode[NodeType, PortType, EdgeType, PropType](
+  def HGraphNodeToElkNode[NodeType, PortType, EdgeType](
       node: HGraphNode[NodeType, PortType, EdgeType], name: String, parent: Option[ElkNode],
-      mapper: Option[PropertyMapper[NodeType, PortType, EdgeType, PropType]] = None):
+      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq()):
       (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
     val elkNode = parent match {
       case Some(parent) => addNode(parent, name)
       case None => makeGraphRoot()
     }
-    mapper.foreach { mapper =>
-      elkNode.setProperty(mapper.property, mapper.nodeConv(node.data))
+    mappers.foreach { mapper =>
+      mapper.nodeConv(node.data).foreach { mapperResult =>
+        elkNode.setProperty(mapper.property, mapperResult)
+      }
     }
 
     ElkGraphUtil.createLabel(name, elkNode)
@@ -108,9 +111,12 @@ object HierarchyGraphElk {
     val myElkPorts = node.members.collect {
       case (childName, childElt: HGraphPort[PortType]) =>
         val childElkPort = addPort(elkNode, name)
-        mapper.foreach { mapper =>
-          childElkPort.setProperty(mapper.property, mapper.portConv(childElt.data))
+        mappers.foreach { mapper =>
+          mapper.portConv(childElt.data).foreach { mapperResult =>
+            childElkPort.setProperty(mapper.property, mapperResult)
+          }
         }
+
         ElkGraphUtil.createLabel(childName, childElkPort)
         // TODO: currently only name label is displayed. Is there a sane way to display additional data?
         // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)
@@ -120,7 +126,7 @@ object HierarchyGraphElk {
     val myElkChildren = node.members.collect {
       // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
       case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
-        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName, Some(elkNode), mapper)
+        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName, Some(elkNode), mappers)
         // Add the outer element into the inner namespace path
         childConnectables.map { case (childPath, childElk) =>
           Seq(childName) ++ childPath -> childElk
@@ -136,8 +142,10 @@ object HierarchyGraphElk {
         case (_, None) => logger.warn(s"edge with invalid target ${edge.target}")
         case (Some(elkSource), Some(elkTarget)) =>
           val childEdge = addEdge(elkNode, elkSource, elkTarget)
-          mapper.foreach { mapper =>
-            childEdge.setProperty(mapper.property, mapper.edgeConv(edge.data))
+          mappers.foreach { mapper =>
+            mapper.edgeConv(edge.data).foreach { mapperResult =>
+              childEdge.setProperty(mapper.property, mapperResult)
+            }
           }
       }
     }
@@ -148,17 +156,17 @@ object HierarchyGraphElk {
   /**
     * Converts a HGraphNode to a ELK Node, and performs layout
     */
-  def HGraphNodeToElk[NodeType, PortType, EdgeType, PropType](
+  def HGraphNodeToElk[NodeType, PortType, EdgeType](
       node: HGraphNode[NodeType, PortType, EdgeType],
-      mapper: Option[PropertyMapper[NodeType, PortType, EdgeType, PropType]] = None,
+      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq(),
       makeRoot: Boolean = false): ElkNode = {
     // TODO avoid passing through this 4 parameter nightmare
     val root = if (makeRoot) {
       val root = makeGraphRoot()
-      HGraphNodeToElkNode(node, "design", Some(root), mapper)
+      HGraphNodeToElkNode(node, "design", Some(root), mappers)
       root
     } else {
-      val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None, mapper)
+      val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None, mappers)
       root
     }
 
