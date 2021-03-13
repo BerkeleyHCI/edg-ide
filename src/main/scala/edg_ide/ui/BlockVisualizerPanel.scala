@@ -395,65 +395,33 @@ class KicadVizPanel() extends JPanel {
   //
   private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
 
+  // TODO placeholder, add custom tree models here
   private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
   libraryTree.setShowColumns(true)
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   splitter.setFirstComponent(libraryTreeScrollPane)
 
-  // Handler to manage parsing
-  // TODO how to import KicadComponent properly?
-
-  private val updateButton = new JButton("Update")
-  updateButton.addActionListener(new ActionListener {
-    override def actionPerformed(actionEvent: ActionEvent): Unit = {
-      println("[Drawer] Updating Kicad Panel")
-      // Reparse the file TODO put this in constructor or something?
-      visualizer.repaint()
-    }
-  })
-
   private val visualizer = new KicadVizDrawPanel()
   visualizer.offset = this.libraryTreeScrollPane.getWidth
-  visualizer.add(updateButton)
   splitter.setSecondComponent(visualizer)
 
   setLayout(new BorderLayout())
   add(splitter)
 
 
-  // Actions
-  //
-//  def setLibrary(library: wir.Library): Unit = {
-//    this.library = library
-//    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
-//    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
-//  }
-
   def setKicadFile(kicadFile: String): Unit = {
     this.kicadFile = kicadFile
   }
 
-  // Update GUI
-  override def paintComponent(g: Graphics): Unit = {
-    super.paintComponent(g)
-
-    // TODO maybe separate concerns / code? i.e. put the processing code elsewhere?
-    // 1. Load kicad file and parse into data structures -- lines + rectangles
-    // 2. Draw
-//    g.drawRect(this.libraryTreeScrollPane.getWidth + 5, 1, 20, 200)
-  }
-
 }
 
-// To draw on the Kicad Splitter
 class KicadVizDrawPanel extends JPanel {
   private val kicadParser = new KicadParser
   var offset = 0
   var mul_factor: Int = 10
 
   override def paintComponent(g: Graphics): Unit = {
-    // TODO put reparsing somewhere else?
-
+    // TODO don't reparse kicad file on gui update?
     val components = kicadParser.parseKicadFile()
 
     val min_x = components.map(c => (c match {
@@ -466,15 +434,13 @@ class KicadVizDrawPanel extends JPanel {
       case Line(x0, y0, x1, y1) => math.min(y0,y1)
     })).min.abs
 
-    println("[Kicad Viz] Drawing components:")
     for (c <- components) {
-      println(c)
       c match {
-        // TODO
+        // Notes
         // 1. Lose precision converting int to float
         // 2. Scale
         // 3. It's negative
-        case Line(x0, y0, x1, y1) => // TODO float to int...?
+        case Line(x0, y0, x1, y1) =>
           g.drawLine(
             offset + ((min_x + x0) * mul_factor).asInstanceOf[Int],
             ((min_y + y0) * mul_factor).asInstanceOf[Int],

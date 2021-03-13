@@ -10,9 +10,10 @@ case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
 
 class KicadParser {
 
-  private var kicadFile:String = "/Users/nikhiljain/college/edg-research/edg-ide/src/main/scala/edg_ide/ui/ryan.mod"
+  // TODO have user select with FootprintBrowserPanel
+  private var kicadFile:String = "/Users/nikhiljain/college/edg-research/edg-ide/src/main/scala/edg_ide/ui/tmp.mod"
 
-  def getKicadFile(): String = {
+  def getKicadFile: String = {
     this.kicadFile
   }
 
@@ -21,27 +22,19 @@ class KicadParser {
   }
 
   def parseKicadFile(): ArrayBuffer[KicadComponent] = {
-    val fileReader = Source.fromFile(this.getKicadFile())
+    val fileReader = Source.fromFile(this.getKicadFile)
     val lines = fileReader.getLines()
-//    println("printing file contents")
     var s = ""
     for (l <- lines.toList) {
-//      println(l)
       s += l
     }
-//    println("DONE file contents")
-//
-//
-//    println("parse")
 
     val parsed = ExpressionParser.parse(s)
-//    println("done parse")
-
     var kicadComponents = new ArrayBuffer[KicadComponent]
 
     for (p <- parsed.values) {
-
       // Iterate over the parsed values, seeing if they are a rect / line, and if so, parse into appropriate data structure
+
       // TODO this code sucks
       p match {
         case SList(values) =>
@@ -105,7 +98,7 @@ class KicadParser {
                       case _ => false
                     }.head
 
-                    // TODO jesus christ
+                    // TODO is there a better way?
                     val x0 = startPos.asInstanceOf[SList].values.tail.head.asInstanceOf[Atom].symbol.toFloat
                     val y0 = startPos.asInstanceOf[SList].values.tail.tail.head.asInstanceOf[Atom].symbol.toFloat
 
@@ -158,7 +151,7 @@ class KicadParser {
                       case _ => false
                     }.head
 
-                    // TODO jesus christ
+                    // TODO is there a better way?
                     val x0 = startPos.asInstanceOf[SList].values.tail.head.asInstanceOf[Atom].symbol.toFloat
                     val y0 = startPos.asInstanceOf[SList].values.tail.tail.head.asInstanceOf[Atom].symbol.toFloat
 
@@ -180,14 +173,7 @@ class KicadParser {
 
       }
 
-//      case p: Atom => println(p)
-//      case p: SList => println("")
     }
-
-//    println("_______________________")
-//    for (k <- kicadComponents) {
-//      println(k)
-//    }
 
     fileReader.close()
     kicadComponents
@@ -233,25 +219,11 @@ class KicadParser {
         }
       }
 
-//      println("elements", elements.length)
-//      for (p <- elements) {
-//        p match {
-//          case Atom(symbol) =>
-////            println("symbol", symbol.toString)
-//            for (c <- 1 until symbol.length) {
-////              print(symbol.charAt(c))
-//            }
-//            printf("%s", symbol)
-//          case SList(values) => println("list", values.length)
-//        }
-//
-//      }
-
       try {
         elements.head.asInstanceOf[SList]
       } catch {
         case e: Exception =>
-          println("erra", e)
+          println(e.getMessage)
           println(elements.head.asInstanceOf[Atom].symbol)
           throw new InvalidSExpressionException
       }
