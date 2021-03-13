@@ -50,7 +50,7 @@ class KicadParser {
                         val first = s.values.head
                         val second = s.values.tail.head
                         if (first.isInstanceOf[Atom] && second.isInstanceOf[Atom]) {
-                          second.asInstanceOf[Atom].symbol.contains("F")
+                          second.asInstanceOf[Atom].symbol.contains("Silk")
 //                          true
                         }
                         else {

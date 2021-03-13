@@ -1,5 +1,7 @@
 package edg_ide.ui
 
+import java.awt.event.{MouseWheelEvent, MouseWheelListener}
+
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
@@ -382,9 +384,11 @@ class LibraryPanel() extends JPanel {
   def loadState(state: BlockVisualizerServiceState): Unit = {
     splitter.setProportion(state.panelLibrarySplitterPos)
   }
+
+
 }
 
-class KicadVizPanel() extends JPanel {
+class KicadVizPanel() extends JPanel with MouseWheelListener {
   // State
   //
 
@@ -402,7 +406,7 @@ class KicadVizPanel() extends JPanel {
   splitter.setFirstComponent(libraryTreeScrollPane)
 
   private val visualizer = new KicadVizDrawPanel()
-  visualizer.offset = this.libraryTreeScrollPane.getWidth
+  visualizer.offset = (this.libraryTreeScrollPane.getWidth * 1.2).asInstanceOf[Int]
   splitter.setSecondComponent(visualizer)
 
   setLayout(new BorderLayout())
@@ -413,14 +417,28 @@ class KicadVizPanel() extends JPanel {
     this.kicadFile = kicadFile
   }
 
+  override def mouseWheelMoved(mouseWheelEvent: MouseWheelEvent): Unit = {
+    println(mouseWheelEvent.getWheelRotation, "scrolliosis")
+  }
+
 }
 
 class KicadVizDrawPanel extends JPanel {
   private val kicadParser = new KicadParser
+  // TODO offset and offset_mul_factor are messy, should be in one var
   var offset = 0
+  var offset_mul_factor = 0.1
   var mul_factor: Int = 10
 
+  addMouseWheelListener((mouseWheelEvent: MouseWheelEvent) => {
+    mul_factor += mouseWheelEvent.getWheelRotation
+    mul_factor = math.max(mul_factor, 1)
+    this.repaint()
+  })
+
   override def paintComponent(g: Graphics): Unit = {
+    super.paintComponent(g)
+
     // TODO don't reparse kicad file on gui update?
     val components = kicadParser.parseKicadFile()
 
@@ -442,22 +460,35 @@ class KicadVizDrawPanel extends JPanel {
         // 3. It's negative
         case Line(x0, y0, x1, y1) =>
           g.drawLine(
-            offset + ((min_x + x0) * mul_factor).asInstanceOf[Int],
+            (offset + this.getWidth * offset_mul_factor + (min_x + x0) * mul_factor).asInstanceOf[Int],
             ((min_y + y0) * mul_factor).asInstanceOf[Int],
-            offset + ((min_x + x1) * mul_factor).asInstanceOf[Int],
+            (offset + this.getWidth * offset_mul_factor + (min_x + x1) * mul_factor).asInstanceOf[Int],
             ((min_y + y1) * mul_factor).asInstanceOf[Int]
           )
         case Rectangle(x, y, width, height) =>
-          g.drawRect(
-            offset + ((min_x + x) * mul_factor).asInstanceOf[Int],
-            ((min_y + y) * mul_factor).asInstanceOf[Int],
-            (width * mul_factor).asInstanceOf[Int],
-            (height * mul_factor).asInstanceOf[Int])
+          val scaledWidth = (width * mul_factor).asInstanceOf[Int]
+          val scaledHeight = (height * mul_factor).asInstanceOf[Int]
+          val scaledX = ((offset + this.getWidth * offset_mul_factor + (min_x + x) * mul_factor).asInstanceOf[Int]) - (scaledWidth / 2)
+          val scaledY = (((min_y + y) * mul_factor).asInstanceOf[Int]) - (scaledHeight / 2)
+
+          g.fillRect(
+              scaledX,
+              scaledY,
+              scaledWidth,
+              scaledHeight)
         case _ =>
       }
     }
 
   }
+
+//  override def mouseWheelMoved(mouseWheelEvent: MouseWheelEvent): Unit = {
+//    println(mouseWheelEvent.getWheelRotation, "scrolliosis")
+//
+//    mul_factor = mouseWheelEvent.getWheelRotation
+//    println(mul_factor)
+//    this.repaint()
+//  }
 }
 
 
