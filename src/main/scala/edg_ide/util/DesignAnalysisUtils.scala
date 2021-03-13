@@ -11,8 +11,9 @@ import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.actions.InsertConnectAction
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.collection.mutable
 
 
@@ -22,6 +23,97 @@ object DesignAnalysisUtils {
   def pyClassOf(path: ref.LibraryPath, project: Project): Errorable[PyClass] = {
     val pyPsi = PyPsiFacade.getInstance(project)
     Errorable(pyPsi.findClass(path.getTarget.getName), "no class")
+  }
+
+  /** For a PyClass, traverses down the init MRO chain, and returns all the arguments
+    * accepted by the init accounting for **kwargs propagation.
+    *
+    * Returns (positional-capable args, keyword-only args)
+    */
+  def initParamsOf(pyClass: PyClass, project: Project):
+      Errorable[(Seq[PyNamedParameter], Seq[PyNamedParameter])] = exceptable {
+    val argsList = mutable.ListBuffer[PyNamedParameter]()  // parameters that can be positional args
+    val kwargsList = mutable.ListBuffer[PyNamedParameter]()  // parameters that can only be kwargs
+
+    def processInitOfClass(remainingClasses: Seq[PyClass], ignoredNames: Set[String],
+                           argsDiscard: Int,
+                           argsAllowed: Boolean, kwargsAllowed: Boolean): Unit = remainingClasses match {
+      case Seq() =>  // reached the bottom of the call chain, nothing else to be done here
+      case Seq(thisClass, tail @ _*) => Option(thisClass.findInitOrNew(false, null)) match {
+        case None =>  // no init function, traverse to next class in MRO
+          processInitOfClass(tail, ignoredNames, argsDiscard, argsAllowed, kwargsAllowed)
+        case Some(initFn) =>
+          var canBePositional: Boolean = argsAllowed
+          var argsDiscardRemain: Int = argsDiscard
+          var argsName: Option[String] = None
+          var kwargsName: Option[String] = None
+          initFn.getParameterList.getParameters.foreach { param =>
+            if (param.isSelf) {
+              // discard
+            } else if (param.getText.startsWith("**")) {
+              requireExcept(kwargsName.isEmpty, s"duplicate kwargs in ${thisClass.getName}")
+              kwargsName = Some(param.getName)
+            } else if (param.getText.startsWith("*")) {
+              requireExcept(argsName.isEmpty, s"duplicate args in ${thisClass.getName}")
+              argsName = Some(param.getName)
+            } else if (param.isInstanceOf[PySingleStarParameter]) {
+              canBePositional = false
+            } else {  // normal argument
+              if (canBePositional) {
+                if (argsDiscardRemain == 0) {
+                  argsList += param.instanceOfExcept[PyNamedParameter]("" +
+                      s"non-named parameter ${param.getName} in ${thisClass.getName}")
+                } else {
+                  argsDiscardRemain -= 1
+                }
+              } else if (kwargsAllowed) {
+                kwargsList += param.instanceOfExcept[PyNamedParameter]("" +
+                    s"non-named parameter ${param.getName} in ${thisClass.getName}")
+              } else {
+                // ignored - nothing can be passed into that param
+              }
+            }
+          }
+
+          initFn.getStatementList.getStatements.headOption match {
+            case Some(pyExpr: PyExpressionStatement) => pyExpr.getExpression match {
+              case pyCall: PyCallExpression if pyCall.getCallee.textMatches("super().__init__") =>
+                var positionalArgsLegal: Boolean = true
+                var numPositionalArgs: Int = 0
+                val keywordArgsUsed = mutable.Set[String]()
+                var takesArgs: Boolean = false
+                var takesKwargs: Boolean = false
+                pyCall.getArgumentList.getArguments.foreach {
+                  case pyStar: PyStarArgument =>  // note is a type of PyExpression
+                    if (argsName.isDefined && pyStar.textMatches(s"*${argsName.get}")) {
+                      positionalArgsLegal = false
+                      takesArgs = true
+                    } else if (kwargsName.isDefined && pyStar.textMatches(s"**${kwargsName.get}")) {
+                      takesKwargs = true
+                    } else {
+                      // ignored TODO should this error?
+                    }
+                  case pyKeyword: PyKeywordArgument =>  // note is a type of PyExpression
+                    positionalArgsLegal = false
+                    keywordArgsUsed += pyKeyword.getKeyword
+                  case pyExpr: PyExpression =>
+                    requireExcept(positionalArgsLegal, s"invalid superclass call in ${thisClass.getName}")
+                    numPositionalArgs += 1  // assumes well-formatted expr
+                  case _ =>
+                }
+                if (takesArgs || takesKwargs) {  // if it doesn't take either, this don't do anything
+                  processInitOfClass(tail, keywordArgsUsed.toSet, numPositionalArgs, takesArgs, takesKwargs)
+                }
+              case _ =>  // ignored
+            }
+            case _ =>  // ignored, nothing else to do if first isn't an init call
+          }
+      }
+    }
+
+    val ancestors = pyClass.getAncestorClasses(TypeEvalContext.codeCompletion(project, null))
+    processInitOfClass(pyClass +: ancestors.toSeq, Set(), 0, true, true)
+    (argsList.toSeq, kwargsList.toSeq)
   }
 
   /** Returns whether an element is after another element accounting for EDG function call semantics.

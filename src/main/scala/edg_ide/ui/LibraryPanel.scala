@@ -2,9 +2,11 @@ package edg_ide.ui
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
+import com.jetbrains.python.psi.{PyClass, PyFunction, PyNamedParameter}
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.ref.ref
 import edg.elem.elem
@@ -21,7 +23,7 @@ import edg_ide.{EdgirUtils, PsiUtils}
 import java.awt.{BorderLayout, Color, GridBagConstraints, GridBagLayout}
 import java.awt.event.{MouseAdapter, MouseEvent}
 import javax.swing.border.LineBorder
-import javax.swing.event.{DocumentEvent, DocumentListener, TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.event.{DocumentEvent, DocumentListener, HyperlinkEvent, HyperlinkListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JEditorPane, JLabel, JPanel, JPopupMenu, JTextArea, JTextField, SwingUtilities}
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
@@ -116,6 +118,11 @@ class LibraryPreview(project: Project) extends JPanel {
   textField.setContentType("text/html")
   textField.setEditable(false)
   textField.setBackground(null)
+  textField.addHyperlinkListener(new HyperlinkListener {
+    override def hyperlinkUpdate(e: HyperlinkEvent): Unit = {
+      println(e.getDescription)
+    }
+  })
   private val textFieldScrollPane = new JBScrollPane(textField)
   textFieldScrollPane.setBorder(null)
   splitter.setFirstComponent(textFieldScrollPane)
@@ -144,11 +151,20 @@ class LibraryPreview(project: Project) extends JPanel {
         true)  // need to make a root so root doesn't have ports
       (block, blockGraph)
     }
-    val docstring = exceptable {
-      val pyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
-      val ancestors = pyClass.getAncestorClasses(TypeEvalContext.codeCompletion(project, null))
+    val pyClassErrorable = DesignAnalysisUtils.pyClassOf(blockType, project)
+    val callString = exceptable {
+      val pyClass = pyClassErrorable.exceptError
+      val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
+      def formatArg(arg: PyNamedParameter): String = {
+        val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
+        s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
+      }
 
-      ancestors.map(_.getName).mkString(", ") + "\n" + Option(pyClass.getDocStringValue).getOrElse("")
+      ((initArgs.map(formatArg) :+ "*") ++ initKwargs.map(formatArg)).mkString(", ")
+    }
+    val docstring = exceptable {
+      val pyClass = pyClassErrorable.exceptError
+      Option(pyClass.getDocStringValue).getOrElse("")
     }
 
     blockGraph match {
@@ -157,12 +173,15 @@ class LibraryPreview(project: Project) extends JPanel {
         val superclassString = if (block.superclasses.isEmpty) {
           "(none)"
         } else {
-          EdgirUtils.SimpleSuperclass(block.superclasses)
+          block.superclasses.map { superclass =>
+            s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
+          }.mkString(", ")
         }
-        val docstringString = docstring.mapToString(identity)
         val textFieldText = s"<b>${EdgirUtils.SimpleLibraryPath(blockType)}</b> " +
-            s"extends: ${superclassString}<hr>\n" +
-            docstringString
+            s"extends: ${superclassString}\n" +
+            s"takes: ${callString.mapToString(identity)}<hr>" +
+            docstring.mapToString(identity)
+
         textField.setText(s"<html>$htmlBody${textFieldText.replaceAll("\n", "<br/>")}</html>")
       case Errorable.Error(errMsg) =>
         graph.setGraph(emptyHGraph)
