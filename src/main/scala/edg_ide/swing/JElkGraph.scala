@@ -2,6 +2,7 @@ package edg_ide.swing
 
 import com.intellij.util.ui.UIUtil
 import org.eclipse.elk.graph._
+import org.eclipse.elk.core.options._
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.geom.AffineTransform
@@ -106,7 +107,38 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       }
     }
 
+    def transformLabelCoords(label: ElkLabel, placement: Set[NodeLabelPlacement]): (Double, Double) = {
+      val textWidth = fontMetrics.stringWidth(label.getText)
+      val textHeight = fontMetrics.getMaxAscent
+
+      if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
+        (label.getX + label.getWidth / 2 - textWidth / 2,  // shift X to centerline
+            label.getY + textHeight)
+      } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP,
+        NodeLabelPlacement.OUTSIDE).subsetOf(placement)) {  // inside means bottom-anchored
+        (label.getX,
+            label.getY + label.getHeight)
+      } else if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM).subsetOf(placement)) {
+        (label.getX + label.getWidth / 2 - textWidth / 2,
+            label.getY + label.getHeight)
+      } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
+        (label.getX,
+            label.getY + textHeight)
+      } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
+        (label.getX,
+            label.getY + label.getHeight / 2 + textHeight / 2)
+      } else if (Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
+        (label.getX + label.getWidth - textWidth,
+            label.getY + label.getHeight / 2 + textHeight / 2)
+      } else {  // fallback: center anchored
+        (label.getX + label.getWidth / 2 - textWidth / 2,
+            label.getY + label.getHeight / 2 + textHeight / 2)
+      }
+    }
+
     def paintBlock(node: ElkNode, parentX: Int, parentY: Int): Unit = {
+
+
       val nodeX = parentX + node.getX.toInt
       val nodeY = parentY + node.getY.toInt
 
@@ -117,24 +149,27 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
         node.getWidth.toInt, node.getHeight.toInt)
 
       node.getLabels.asScala.foreach { label =>
-        // convert the center x, y to top left aligned coordinates
-        val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
-        val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
-
-        textGraphics(g, node).drawString(label.getText, labelX + nodeX, labelY + nodeY)
+        val (labelX, labelY) = transformLabelCoords(label,
+          label.getProperty(CoreOptions.NODE_LABELS_PLACEMENT).asScala.toSet)
+        textGraphics(g, node).drawString(label.getText, (labelX + nodeX).toInt, (labelY + nodeY).toInt)
       }
 
       node.getPorts.asScala.foreach { port =>
         strokeGraphics(g, port).drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
           port.getWidth.toInt, port.getHeight.toInt)
 
-        port.getLabels.asScala.foreach { label =>
-          // convert the center x, y to top left aligned coordinates
-          val labelX = (label.getX + label.getWidth / 2).toInt - fontMetrics.stringWidth(label.getText) / 2
-          val labelY = (label.getY + label.getHeight / 2).toInt + fontMetrics.getHeight / 2
+        val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
+          case PortSide.NORTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP)
+          case PortSide.SOUTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM)
+          case PortSide.WEST => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
+          case PortSide.EAST => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
+          case _ => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
+        }
 
-          textGraphics(g, port).drawString(label.getText, labelX + nodeX + port.getX.toInt,
-            labelY + nodeY + port.getY.toInt)
+        port.getLabels.asScala.foreach { label =>
+          val (labelX, labelY) = transformLabelCoords(label, labelPlacement)
+          textGraphics(g, port).drawString(label.getText, (labelX + nodeX + port.getX).toInt,
+            (labelY + nodeY + port.getY).toInt)
         }
       }
       paintBlockContents(node, parentX, parentY)
@@ -248,6 +283,10 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       requestFocusInWindow()
     }
   })
+
+  override def getToolTipText(e: MouseEvent): String = {
+    null
+  }
 
   // Scrollable APIs
   //

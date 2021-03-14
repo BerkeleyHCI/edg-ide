@@ -105,7 +105,7 @@ object HierarchyGraphElk {
     }
 
     ElkGraphUtil.createLabel(name, elkNode)
-        .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopCenter())
+        .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopLeft())
     ElkGraphUtil.createLabel(node.data.toString, elkNode)
         .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.insideTopCenter())
 

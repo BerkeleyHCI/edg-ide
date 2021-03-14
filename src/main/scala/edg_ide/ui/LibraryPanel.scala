@@ -1,6 +1,8 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.components.{JBScrollPane, JBTextArea}
@@ -151,21 +153,29 @@ class LibraryPreview(project: Project) extends JPanel {
         true)  // need to make a root so root doesn't have ports
       (block, blockGraph)
     }
-    val pyClassErrorable = DesignAnalysisUtils.pyClassOf(blockType, project)
-    val callString = exceptable {
-      val pyClass = pyClassErrorable.exceptError
-      val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
-      def formatArg(arg: PyNamedParameter): String = {
-        val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
-        s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
-      }
 
-      ((initArgs.map(formatArg) :+ "*") ++ initKwargs.map(formatArg)).mkString(", ")
-    }
-    val docstring = exceptable {
-      val pyClass = pyClassErrorable.exceptError
-      Option(pyClass.getDocStringValue).getOrElse("")
-    }
+    val (callString, docstring) = ReadAction.compute(new ThrowableComputable[(Errorable[String], Errorable[String]), Throwable] {
+      override def compute: (Errorable[String], Errorable[String]) = {
+        val pyClassErrorable = DesignAnalysisUtils.pyClassOf(blockType, project)
+        val callString = exceptable {
+          val pyClass = pyClassErrorable.exceptError
+          val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
+
+          def formatArg(arg: PyNamedParameter): String = {
+            val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
+            s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
+          }
+
+          ((initArgs.map(formatArg) :+ "*") ++ initKwargs.map(formatArg)).mkString(", ")
+        }
+        val docstring = exceptable {
+          val pyClass = pyClassErrorable.exceptError
+          Option(pyClass.getDocStringValue).getOrElse("")
+        }
+
+        (callString, docstring)
+      }
+    } )
 
     blockGraph match {
       case Errorable.Success((block, blockGraph)) =>
