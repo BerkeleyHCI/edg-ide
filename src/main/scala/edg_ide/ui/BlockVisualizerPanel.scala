@@ -7,7 +7,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
+import edg.compiler.{BooleanValue, Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue, TextValue, hdl => edgrpc}
 import edg.elem.elem
 import edg.ref.ref
 import edg.schema.schema
@@ -374,7 +374,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)
-    val tooltipTextMap = new DesignToolTipTextMap
+    val tooltipTextMap = new DesignToolTipTextMap(compiler)
     tooltipTextMap.map(design)
     tooltipTextMap.getTextMap.foreach { case (path, tooltipText) =>
       pathsToGraphNodes(Set(path)).foreach { node =>
@@ -425,13 +425,66 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 }
 
 
-class DesignToolTipTextMap extends DesignMap[Unit, Unit, Unit] {
+class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
   private val textMap = mutable.Map[DesignPath, String]()
 
   def getTextMap: Map[DesignPath, String] = textMap.toMap
 
+  // TODO should this be in shared utils or something?
+  private def paramToString(path: DesignPath): String = {
+    compiler.getParamValue(path.asIndirect) match {
+      case Some(FloatValue(value)) => value.toString
+      case Some(IntValue(value)) => value.toString()
+      case Some(RangeValue(minValue, maxValue)) => s"($minValue, $maxValue)"
+      case Some(BooleanValue(value)) => value.toString
+      case Some(TextValue(value)) => value
+      case None => "unknown"
+    }
+  }
+
+  private val TOLERANCE_THRESHOLD = 0.25
+  private val PREFIXES_POW3_HIGH = Seq("k", "M", "G", "T", "P", "E", "Z", "Y")
+  private val PREFIXES_POW3_LOW = Seq("m", "μ", "n", "p", "f", "a", "z", "y")
+  private def unitsToString(path: DesignPath, units: String): String = {
+    compiler.getParamValue(path.asIndirect) match {
+      case Some(FloatValue(value)) => unitsToString(value, units)
+      case Some(IntValue(value)) => unitsToString(value.toDouble, units)
+      case Some(RangeValue(minValue, maxValue)) =>
+        val centerValue = (minValue + maxValue) / 2
+        if (centerValue != 0) {
+          val tolerance = (centerValue - minValue) / centerValue
+          if (tolerance <= TOLERANCE_THRESHOLD) {  // within tolerance, display as center + tol
+            s"${unitsToString(centerValue, units)}%s ± ${(tolerance*100).toInt}"
+          } else {  // out of tolerance, display as ranges
+            s"(${unitsToString(minValue, units)}, ${unitsToString(maxValue, units)})"
+          }
+        } else {
+          s"±${unitsToString(maxValue, units)}"
+        }
+      case Some(BooleanValue(value)) => s"unexpected BooleanValue($value)"
+      case Some(TextValue(value)) => s"unexpected TextValue($value)"
+      case None => "unknown"
+    }
+  }
+
+  private def unitsToString(value: Double, units: String): String = {
+    if (value.isPosInfinity) {
+      s"+∞ $units"
+    } else if (value.isNegInfinity) {
+      s"-∞ $units"
+    } else {
+      val signPrefix = if (value < 0) {
+        "-"
+      } else {
+        ""
+      }
+      val pwr3 = math.floor(math.log10(math.abs(value)) / 3)
+    }
+  }
+
   override def mapPort(path: DesignPath, port: elem.Port): Unit = {
-    textMap.put(path, s"${EdgirUtils.SimpleSuperclass(port.superclasses)}")
+    val classString = EdgirUtils.SimpleSuperclass(port.superclasses)
+    textMap.put(path, classString)
   }
   override def mapPortArray(path: DesignPath, port: elem.PortArray,
                    ports: SeqMap[String, Unit]): Unit = {
@@ -456,7 +509,12 @@ class DesignToolTipTextMap extends DesignMap[Unit, Unit, Unit] {
 
   override def mapLink(path: DesignPath, link: elem.Link,
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
-    textMap.put(path, s"${EdgirUtils.SimpleSuperclass(link.superclasses)}")
+    val classString = EdgirUtils.SimpleSuperclass(link.superclasses)
+    val text = classString match {
+      case "ElectricalLink" => s"$classString"
+      case _ => classString
+    }
+    textMap.put(path, s"$text")
   }
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
     textMap.put(path, s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}")
