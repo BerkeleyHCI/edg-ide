@@ -102,57 +102,32 @@ object ElkEdgirGraphUtils {
   }
 
   /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath.
-    * Returns (nodes to target, target node).
-    * target node: not None only if its path matches the input path
-    * nodes to target: follows the DesignPath as far as possible, but may be non-empty even if target node is None.
-    *   The last element is the target.
+    * Returns target node(s) matching the path.
     */
-  def follow(path: DesignPath, root: ElkNode): (Seq[ElkGraphElement], Option[ElkGraphElement]) = {
-
-    def inner(nodePrefix: Seq[ElkGraphElement], elkNode: ElkNode): (Seq[ElkGraphElement], Option[ElkGraphElement]) = {
+  def follow(path: DesignPath, root: ElkNode): Seq[ElkGraphElement] = {
+    def inner(elkNode: ElkNode): Seq[ElkGraphElement] = {
       if (elkNode.getProperty(DesignPathMapper.property) == path) {  // reached target node
-        (nodePrefix :+ elkNode, Some(elkNode))
+        Seq(elkNode)
       } else {
-        val nextChildNodes = elkNode.getChildren.asScala.filter { node =>
+        val nextNodeResults = elkNode.getChildren.asScala.toSeq.filter { node =>
           node.getProperty(DesignPathMapper.property) match {
             case DesignPath(steps) => path.steps.startsWith(steps)
             case _ => false
           }
+        }.flatMap { childNode =>
+          inner(childNode)
         }
 
-        nextChildNodes.toSeq match {
-          case Seq() =>  // continue to search my ports and edges
-          case Seq(childNode) => return inner(nodePrefix :+ elkNode, childNode)  // exactly one next step
-          case Seq(childNode, _) => return inner(nodePrefix :+ elkNode, childNode)  // multiple possible, just pick one
-          // TODO maybe this should error or warn
+        val nextPorts = elkNode.getPorts.asScala.toSeq.filter { node =>
+          node.getProperty(DesignPathMapper.property) == path
         }
-
-        val nextPorts = elkNode.getPorts.asScala.filter { node =>
-          node.getProperty(DesignPathMapper.property) match {
-            case DesignPath(steps) => path.steps.startsWith(steps)
-            case _ => false
-          }
+        val nextEdges = elkNode.getContainedEdges.asScala.toSeq.filter { node =>
+          node.getProperty(DesignPathMapper.property) == path
         }
-        val nextEdges = elkNode.getContainedEdges.asScala.filter { node =>
-          node.getProperty(DesignPathMapper.property) match {
-            case DesignPath(steps) => path.steps.startsWith(steps)
-            case _ => false
-          }
-        }
-        (nextPorts ++ nextEdges).toSeq match {
-          case Seq() => (nodePrefix :+ elkNode, None)  // continue to search my ports and edges
-          case Seq(childElt) if childElt.getProperty(DesignPathMapper.property) == path =>  // exact match
-            (nodePrefix :+ elkNode :+ childElt, Some(childElt))
-          case Seq(childElt) =>  // partial match
-            (nodePrefix :+ elkNode :+ childElt, None)
-          case Seq(childElt) if childElt.getProperty(DesignPathMapper.property) == path =>  // exact match
-            (nodePrefix :+ elkNode :+ childElt, Some(childElt))  // TODO warning
-          case Seq(childElt, _*) =>  // partial match
-            (nodePrefix :+ elkNode :+ childElt, None)  // TODO warning
-        }
+        nextNodeResults ++ nextPorts ++ nextEdges
       }
     }
 
-    inner(Seq(), root)
+    inner(root)
   }
 }

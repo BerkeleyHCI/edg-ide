@@ -9,11 +9,14 @@ import java.awt.geom.AffineTransform
 import java.awt._
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.JavaConverters._
+import collection.mutable
 
 
 class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     extends JComponent with Scrollable with Zoomable {
-  var zoomLevel: Float = 1.0f
+  private val elementToolTips = mutable.Map[ElkGraphElement, String]()
+
+  private var zoomLevel: Float = 1.0f
 
   override def setZoom(zoom: Float): Unit = {
     zoomLevel = zoom
@@ -38,6 +41,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   setGraph(rootNode)
 
   def setGraph(newGraph: ElkNode): Unit = {
+    elementToolTips.clear()
     rootNode = newGraph
     revalidate()
     repaint()
@@ -137,8 +141,6 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     }
 
     def paintBlock(node: ElkNode, parentX: Int, parentY: Int): Unit = {
-
-
       val nodeX = parentX + node.getX.toInt
       val nodeY = parentY + node.getY.toInt
 
@@ -199,7 +201,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   setAutoscrolls(true)
   // TODO proper drag support
 
-  val EDGE_CLICK_WIDTH = 3.0f  // how thick edges are for click detection purposes
+  val EDGE_CLICK_WIDTH = 5.0f  // how thick edges are for click detection purposes
 
   def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
     def shapeContainsPoint(shape: ElkShape, point: (Double, Double)): Boolean = {
@@ -278,14 +280,27 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     repaint()
   }
 
+
   addMouseListener(new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
       requestFocusInWindow()
     }
   })
 
+  // Tooltip operations
+  //
+  def setElementToolTip(element: ElkGraphElement, text: String): Unit = {
+    elementToolTips.put(element, text)
+  }
+
   override def getToolTipText(e: MouseEvent): String = {
-    null
+    getElementForLocation(e.getX, e.getY) match {
+      case None => null
+      case Some(element) => elementToolTips.get(element) match {
+        case None => null
+        case Some(text) => text
+      }
+    }
   }
 
   // Scrollable APIs

@@ -7,8 +7,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
+import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.elem.elem
+import edg.ref.ref
 import edg.schema.schema
 import edg.{ElemBuilder, ElemModifier}
 import edg.schema.schema.Design
@@ -25,6 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JPanel}
+import scala.collection.SeqMap
+import collection.mutable
 
 
 object Gbc {
@@ -69,14 +72,13 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // Tool
   //
-  private val toolInterface = new ToolInterface {
-    private def pathsToNodes(paths: Set[DesignPath]): Set[ElkGraphElement] = {
-      paths.flatMap { path =>
-        val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
-        targetElkNode
-      }
+  private def pathsToGraphNodes(paths: Set[DesignPath]): Set[ElkGraphElement] = {
+    paths.flatMap { path =>
+      ElkEdgirGraphUtils.follow(path, graph.getGraph)
     }
+  }
 
+  private val toolInterface = new ToolInterface {
     override def setDesignTreeSelection(path: Option[DesignPath]): Unit = {
       designTree.clearSelection()
       path match {
@@ -89,12 +91,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
 
     override def setGraphSelections(paths: Set[DesignPath]): Unit = {
-      graph.setSelected(pathsToNodes(paths))
+      graph.setSelected(pathsToGraphNodes(paths))
     }
 
     override def setGraphHighlights(paths: Option[Set[DesignPath]]): Unit = {
       paths match {
-        case Some(paths) => graph.setHighlighted(Some(pathsToNodes(paths)))
+        case Some(paths) => graph.setHighlighted(Some(pathsToGraphNodes(paths)))
         case None => graph.setHighlighted(None)
       }
     }
@@ -181,7 +183,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         case Some(clicked) => clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
           case path: DesignPath => activeTool.onPathMouse(e, path)
           case null =>  // TODO should this error out?
-
         }
         case None =>  // ignored
       }
@@ -373,6 +374,14 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)
+    val tooltipTextMap = new DesignToolTipTextMap
+    tooltipTextMap.map(design)
+    tooltipTextMap.getTextMap.foreach { case (path, tooltipText) =>
+      pathsToGraphNodes(Set(path)).foreach { node =>
+        graph.setElementToolTip(node, tooltipText)
+      }
+    }
+
   }
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {
@@ -412,6 +421,45 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     refinementsPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
+  }
+}
+
+
+class DesignToolTipTextMap extends DesignMap[Unit, Unit, Unit] {
+  private val textMap = mutable.Map[DesignPath, String]()
+
+  def getTextMap: Map[DesignPath, String] = textMap.toMap
+
+  override def mapPort(path: DesignPath, port: elem.Port): Unit = {
+    textMap.put(path, s"${EdgirUtils.SimpleSuperclass(port.superclasses)}")
+  }
+  override def mapPortArray(path: DesignPath, port: elem.PortArray,
+                   ports: SeqMap[String, Unit]): Unit = {
+    textMap.put(path, s"Array[${EdgirUtils.SimpleSuperclass(port.superclasses)}]")
+  }
+  override def mapBundle(path: DesignPath, port: elem.Bundle,
+                ports: SeqMap[String, Unit]): Unit = {
+    textMap.put(path, s"${EdgirUtils.SimpleSuperclass(port.superclasses)}")
+  }
+  override def mapPortLibrary(path: DesignPath, port: ref.LibraryPath): Unit = {
+    textMap.put(path, s"Unelaborated ${EdgirUtils.SimpleLibraryPath(port)}")
+  }
+
+  override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
+               ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
+               links: SeqMap[String, Unit]): Unit = {
+    // does nothing
+  }
+  override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
+    // does nothing
+  }
+
+  override def mapLink(path: DesignPath, link: elem.Link,
+              ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
+    textMap.put(path, s"${EdgirUtils.SimpleSuperclass(link.superclasses)}")
+  }
+  override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
+    textMap.put(path, s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}")
   }
 }
 
