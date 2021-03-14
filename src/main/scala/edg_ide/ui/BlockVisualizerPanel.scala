@@ -7,7 +7,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{BooleanValue, Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue, TextValue, hdl => edgrpc}
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue, TextValue, hdl => edgrpc}
 import edg.elem.elem
 import edg.ref.ref
 import edg.schema.schema
@@ -18,6 +18,7 @@ import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, Hierarch
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
+import edg_ide.util.SiPrefixUtil
 import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
@@ -433,52 +434,30 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   // TODO should this be in shared utils or something?
   private def paramToString(path: DesignPath): String = {
     compiler.getParamValue(path.asIndirect) match {
-      case Some(FloatValue(value)) => value.toString
-      case Some(IntValue(value)) => value.toString()
-      case Some(RangeValue(minValue, maxValue)) => s"($minValue, $maxValue)"
-      case Some(BooleanValue(value)) => value.toString
-      case Some(TextValue(value)) => value
+      case Some(value) => value.toStringValue
       case None => "unknown"
     }
   }
 
   private val TOLERANCE_THRESHOLD = 0.25
-  private val PREFIXES_POW3_HIGH = Seq("k", "M", "G", "T", "P", "E", "Z", "Y")
-  private val PREFIXES_POW3_LOW = Seq("m", "μ", "n", "p", "f", "a", "z", "y")
-  private def unitsToString(path: DesignPath, units: String): String = {
+  private def paramToUnitsString(path: DesignPath, units: String): String = {
     compiler.getParamValue(path.asIndirect) match {
-      case Some(FloatValue(value)) => unitsToString(value, units)
-      case Some(IntValue(value)) => unitsToString(value.toDouble, units)
+      case Some(FloatValue(value)) => SiPrefixUtil.unitsToString(value, units)
+      case Some(IntValue(value)) => SiPrefixUtil.unitsToString(value.toDouble, units)
       case Some(RangeValue(minValue, maxValue)) =>
         val centerValue = (minValue + maxValue) / 2
         if (centerValue != 0) {
           val tolerance = (centerValue - minValue) / centerValue
           if (tolerance <= TOLERANCE_THRESHOLD) {  // within tolerance, display as center + tol
-            s"${unitsToString(centerValue, units)}%s ± ${(tolerance*100).toInt}"
+            f"${SiPrefixUtil.unitsToString(centerValue, units)} ± ${(tolerance*100)}%.02f%%"
           } else {  // out of tolerance, display as ranges
-            s"(${unitsToString(minValue, units)}, ${unitsToString(maxValue, units)})"
+            s"(${SiPrefixUtil.unitsToString(minValue, units)}, ${SiPrefixUtil.unitsToString(maxValue, units)})"
           }
         } else {
-          s"±${unitsToString(maxValue, units)}"
+          s"±${SiPrefixUtil.unitsToString(maxValue, units)}"
         }
-      case Some(BooleanValue(value)) => s"unexpected BooleanValue($value)"
-      case Some(TextValue(value)) => s"unexpected TextValue($value)"
+      case Some(value) => s"unexpected ${value.getClass}(${value.toStringValue})"
       case None => "unknown"
-    }
-  }
-
-  private def unitsToString(value: Double, units: String): String = {
-    if (value.isPosInfinity) {
-      s"+∞ $units"
-    } else if (value.isNegInfinity) {
-      s"-∞ $units"
-    } else {
-      val signPrefix = if (value < 0) {
-        "-"
-      } else {
-        ""
-      }
-      val pwr3 = math.floor(math.log10(math.abs(value)) / 3)
     }
   }
 
@@ -511,7 +490,9 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
     val classString = EdgirUtils.SimpleSuperclass(link.superclasses)
     val text = classString match {
-      case "ElectricalLink" => s"$classString"
+      case "ElectricalLink" => s"$classString\n" +
+          s"voltage: ${paramToUnitsString(path + "voltage", "V")}\n" +
+          s"current: ${paramToUnitsString(path + "current_drawn", "A")}"
       case _ => classString
     }
     textMap.put(path, s"$text")

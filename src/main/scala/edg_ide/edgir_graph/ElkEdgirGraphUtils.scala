@@ -4,7 +4,6 @@ import edg.wir.{BlockConnectivityAnalysis, DesignPath}
 import edg_ide.EdgirUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
-import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 
