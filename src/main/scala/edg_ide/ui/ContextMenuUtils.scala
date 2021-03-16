@@ -6,7 +6,7 @@ import java.awt.event.ActionEvent
 import javax.swing.{JMenu, JMenuItem}
 
 
-object PopupMenuUtils {
+object ContextMenuUtils {
   def MenuItemFromErrorable(action: Errorable[() => Unit], label: String): JMenuItem = {
     val item = action match {
       case Errorable.Success(action) =>

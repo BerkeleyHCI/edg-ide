@@ -27,7 +27,7 @@ trait NavigationPopupMenu extends JPopupMenu {
       }
     }
 
-    PopupMenuUtils.MenuItemsFromErrorableSeq(actionPairs, s"Goto Instantiation")
+    ContextMenuUtils.MenuItemsFromErrorableSeq(actionPairs, s"Goto Instantiation")
         .foreach(add)
   }
 
@@ -45,7 +45,7 @@ trait NavigationPopupMenu extends JPopupMenu {
     }
     val actionName = s"Goto Definition$fileLine"
 
-    val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(action, actionName)
+    val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(action, actionName)
     add(gotoDefinitionItem)
   }
 }
@@ -79,7 +79,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       s"Focus In to $path"
     }
   }
-  private val setFocusItem = PopupMenuUtils.MenuItemFromErrorable(setFocusAction, setFocusName)
+  private val setFocusItem = ContextMenuUtils.MenuItemFromErrorable(setFocusAction, setFocusName)
   add(setFocusItem)
   addSeparator()
 
@@ -112,7 +112,7 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     val connectTool = ConnectTool(interface, path).exceptError
     () => interface.startNewTool(connectTool)
   }
-  private val startConnectItem = PopupMenuUtils.MenuItemFromErrorable(startConnectAction, "Start Connect")
+  private val startConnectItem = ContextMenuUtils.MenuItemFromErrorable(startConnectAction, "Start Connect")
   add(startConnectItem)
   addSeparator()
 
@@ -129,7 +129,7 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     }
   }
 
-  PopupMenuUtils.MenuItemsFromErrorableSeq(gotoConnectPairs, s"Goto Connect")
+  ContextMenuUtils.MenuItemsFromErrorableSeq(gotoConnectPairs, s"Goto Connect")
       .foreach(add)
 }
 

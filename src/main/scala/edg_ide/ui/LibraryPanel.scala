@@ -68,7 +68,7 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
     PsiUtils.fileNextLineOf(caretPsiElement.exceptError, project).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
-  private val caretInsertItem = PopupMenuUtils.MenuItemFromErrorable(
+  private val caretInsertItem = ContextMenuUtils.MenuItemFromErrorable(
     caretInsertAction, s"Insert at $contextPyName caret$caretFileLine")
   add(caretInsertItem)
 
@@ -86,7 +86,7 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
           case (fn, Errorable.Success(action)) => (fn, action)
         }.exceptEmpty("no insertion points")
   }
-  PopupMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
+  ContextMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
       .foreach(add)
   addSeparator()
 
@@ -97,7 +97,7 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
   }
   private val libFileLine = libPyClass.flatMap(PsiUtils.fileLineOf(_, project))
       .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-  private val gotoDefinitionItem = PopupMenuUtils.MenuItemFromErrorable(gotoDefinitionAction,
+  private val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(gotoDefinitionAction,
     s"Goto Definition$libFileLine")
   add(gotoDefinitionItem)
 }

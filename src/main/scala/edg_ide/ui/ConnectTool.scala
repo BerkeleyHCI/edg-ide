@@ -235,7 +235,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
     appendConnectAction.exceptError
     PsiUtils.fileLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-  private val appendConnectItem = PopupMenuUtils.MenuItemFromErrorable(
+  private val appendConnectItem = ContextMenuUtils.MenuItemFromErrorable(
     appendConnectAction, s"Append connect at $contextPyName caret$appendConnectCaretFileLine")
   add(appendConnectItem)
 
@@ -258,7 +258,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
       case (fn, Errorable.Success(action)) => (fn, action)
     }.exceptEmpty("no insertion points")
   }
-  PopupMenuUtils.MenuItemsFromErrorableSeq(appendPairs, s"Append connect into $contextPyName")
+  ContextMenuUtils.MenuItemsFromErrorableSeq(appendPairs, s"Append connect into $contextPyName")
       .foreach(add)
 
   val insertConnectAction: Errorable[() => Unit] = exceptable {
@@ -273,7 +273,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
     insertConnectAction.exceptError
     PsiUtils.fileNextLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-  private val insertConnectItem = PopupMenuUtils.MenuItemFromErrorable(
+  private val insertConnectItem = ContextMenuUtils.MenuItemFromErrorable(
     insertConnectAction, s"Insert connect at $contextPyName caret$insertConnectCaretFileLine")
   add(insertConnectItem)
 
@@ -294,14 +294,14 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
       case (fn, Errorable.Success(action)) => (fn, action)
     }.exceptEmpty("no insertion points")
   }
-  PopupMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert connect into $contextPyName")
+  ContextMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert connect into $contextPyName")
       .foreach(add)
   addSeparator()
 
   val cancelAction: Errorable[() => Unit] = exceptable {
     () => interface.endTool()
   }
-  private val cancelItem = PopupMenuUtils.MenuItemFromErrorable(cancelAction, "Cancel")
+  private val cancelItem = ContextMenuUtils.MenuItemFromErrorable(cancelAction, "Cancel")
   add(cancelItem)
 
   val defaultAction: Errorable[() => Unit] = if (action.getAppendPortPaths.nonEmpty) {
