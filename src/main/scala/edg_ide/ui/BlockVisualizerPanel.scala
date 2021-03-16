@@ -189,7 +189,14 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   })
 
-  private val graphScrollPane = new JScrollPane(graph) with ZoomingScrollPane
+  private val centeringGraph = new JPanel(new GridBagLayout)
+  centeringGraph.add(graph, new GridBagConstraints())
+
+  private val graphScrollPane = new JBScrollPane(centeringGraph) with ZoomDragScrollPanel {
+    val zoomable = graph
+  }
+  graph.addMouseListener(graphScrollPane.makeMouseAdapter)
+  graph.addMouseMotionListener(graphScrollPane.makeMouseAdapter)
   visualizationPanel.add(graphScrollPane, Gbc(0, 2, GridBagConstraints.BOTH, xsize=3))
 
   // GUI: Bottom half (design tree and task tabs)
@@ -461,18 +468,21 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
 
   override def mapPort(path: DesignPath, port: elem.Port): Unit = {
     val classString = EdgirUtils.SimpleSuperclass(port.superclasses)
-    textMap.put(path, classString)
+    textMap.put(path, s"<b>$classString</b> at $path")
   }
   override def mapPortArray(path: DesignPath, port: elem.PortArray,
                    ports: SeqMap[String, Unit]): Unit = {
-    textMap.put(path, s"Array[${EdgirUtils.SimpleSuperclass(port.superclasses)}]")
+    val classString = s"Array[${EdgirUtils.SimpleSuperclass(port.superclasses)}]"
+    textMap.put(path, s"<b>$classString</b> at $path")
   }
   override def mapBundle(path: DesignPath, port: elem.Bundle,
                 ports: SeqMap[String, Unit]): Unit = {
-    textMap.put(path, s"${EdgirUtils.SimpleSuperclass(port.superclasses)}")
+    val classString = EdgirUtils.SimpleSuperclass(port.superclasses)
+    textMap.put(path, s"<b>$classString</b> at $path")
   }
   override def mapPortLibrary(path: DesignPath, port: ref.LibraryPath): Unit = {
-    textMap.put(path, s"Unelaborated ${EdgirUtils.SimpleLibraryPath(port)}")
+    val classString = s"Unelaborated ${EdgirUtils.SimpleLibraryPath(port)}"
+    textMap.put(path, s"<b>$classString</b> at $path")
   }
 
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
@@ -509,10 +519,11 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
             s", <b>source impedance</b>: ${paramToUnitsString(path + "source_impedance", "Ω")}"
       case _ => ""
     }
-    textMap.put(path, s"<b>$classString</b>$additionalDesc")
+    textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
-    textMap.put(path, s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}")
+    val classString = s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}"
+    textMap.put(path, s"<b>$classString</b> at $path")
   }
 }
 
