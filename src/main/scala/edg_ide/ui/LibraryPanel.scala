@@ -5,30 +5,27 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.ui.components.{JBScrollPane, JBTextArea}
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
-import com.jetbrains.python.psi.{PyClass, PyFunction, PyNamedParameter}
-import com.jetbrains.python.psi.types.TypeEvalContext
-import edg.ref.ref
+import com.jetbrains.python.psi.{PyClass, PyNamedParameter}
 import edg.elem.elem
+import edg.ref.ref
 import edg.util.Errorable
+import edg.wir
 import edg.wir.DesignPath
-import edg.{IrPort, wir}
 import edg_ide.actions.{InsertAction, InsertBlockAction}
-import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, FilteredTreeTableModel, JElkGraph}
+import edg_ide.edgir_graph._
+import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, FilteredTreeTableModel, JElkGraph, SwingHtmlUtil}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionNotify, exceptionPopup, requireExcept}
+import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
 
-import java.awt.{BorderLayout, Color, GridBagConstraints, GridBagLayout}
 import java.awt.event.{MouseAdapter, MouseEvent}
-import javax.swing.border.LineBorder
-import javax.swing.event.{DocumentEvent, DocumentListener, HyperlinkEvent, HyperlinkListener, TreeSelectionEvent, TreeSelectionListener}
+import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import javax.swing.event._
 import javax.swing.tree.TreePath
-import javax.swing.{JEditorPane, JLabel, JPanel, JPopupMenu, JTextArea, JTextField, SwingUtilities}
-import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
+import javax.swing._
 
 
 class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends JPopupMenu {
@@ -114,8 +111,6 @@ class LibraryPreview(project: Project) extends JPanel {
   //
   private val splitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
 
-  val defaultFont = this.getFont
-  val htmlBody = s"""<body style="font-family:${defaultFont.getFamily()}; font-size:${defaultFont.getSize}">"""
   private val textField = new JEditorPane()
   textField.setContentType("text/html")
   textField.setEditable(false)
@@ -192,10 +187,12 @@ class LibraryPreview(project: Project) extends JPanel {
             s"takes: ${callString.mapToString(identity)}<hr>" +
             docstring.mapToString(identity)
 
-        textField.setText(s"<html>$htmlBody${textFieldText.replaceAll("\n", "<br/>")}</html>")
+        textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText,
+          this.getFont))
       case Errorable.Error(errMsg) =>
         graph.setGraph(emptyHGraph)
-        textField.setText(s"<html>${htmlBody}Error loading ${EdgirUtils.SimpleLibraryPath(blockType)}: $errMsg</html>")
+        textField.setText(SwingHtmlUtil.wrapInHtml(s"${EdgirUtils.SimpleLibraryPath(blockType)}: $errMsg",
+          this.getFont))
     }
   }
 

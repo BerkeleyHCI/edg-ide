@@ -1,10 +1,8 @@
 package edg_ide.swing
 
-import com.intellij.ui.components.JBScrollPane
-
 import java.awt.Point
 import java.awt.event.MouseWheelEvent
-import javax.swing.JComponent
+import javax.swing.{JComponent, JScrollPane}
 
 
 trait Zoomable extends JComponent {
@@ -17,7 +15,7 @@ trait Zoomable extends JComponent {
 }
 
 
-trait ZoomingScrollPane extends JBScrollPane {
+trait ZoomingScrollPane extends JScrollPane {
   override protected def processMouseWheelEvent(e: MouseWheelEvent) {
     val zoomable = getViewport.getView.asInstanceOf[Zoomable]  // crash otherwise
 

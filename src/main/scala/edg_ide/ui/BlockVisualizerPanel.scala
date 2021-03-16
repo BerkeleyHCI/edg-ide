@@ -4,20 +4,20 @@ import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
-import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{ArrayValue, BooleanValue, Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue, TextValue, hdl => edgrpc}
+import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
+import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue, hdl => edgrpc}
 import edg.elem.elem
 import edg.ref.ref
 import edg.schema.schema
-import edg.{ElemBuilder, ElemModifier}
 import edg.schema.schema.Design
-import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, HierarchyBlockNode, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir.{DesignPath, Library}
+import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
+import edg_ide.edgir_graph._
+import edg_ide.swing._
 import edg_ide.util.SiPrefixUtil
 import org.eclipse.elk.graph.ElkGraphElement
 
@@ -26,9 +26,8 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JPanel}
-import scala.collection.SeqMap
-import collection.mutable
+import javax.swing.{JButton, JLabel, JPanel, JScrollPane}
+import scala.collection.{SeqMap, mutable}
 
 
 object Gbc {
@@ -190,7 +189,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   })
 
-  private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
+  private val graphScrollPane = new JScrollPane(graph) with ZoomingScrollPane
   visualizationPanel.add(graphScrollPane, Gbc(0, 2, GridBagConstraints.BOTH, xsize=3))
 
   // GUI: Bottom half (design tree and task tabs)
@@ -321,8 +320,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           }
         } catch {
           case e: Throwable =>
-            import java.io.PrintWriter
-            import java.io.StringWriter
+            import java.io.{PrintWriter, StringWriter}
             val sw = new StringWriter
             e.printStackTrace(new PrintWriter(sw))
             status.setText(s"Compiler error: ${e.toString}")
@@ -379,7 +377,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     tooltipTextMap.map(design)
     tooltipTextMap.getTextMap.foreach { case (path, tooltipText) =>
       pathsToGraphNodes(Set(path)).foreach { node =>
-        graph.setElementToolTip(node, tooltipText)
+        graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
       }
     }
 
@@ -448,7 +446,7 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
         val centerValue = (minValue + maxValue) / 2
         if (centerValue != 0) {
           val tolerance = (centerValue - minValue) / centerValue
-          if (tolerance <= TOLERANCE_THRESHOLD) {  // within tolerance, display as center + tol
+          if (math.abs(tolerance) <= TOLERANCE_THRESHOLD) {  // within tolerance, display as center + tol
             f"${SiPrefixUtil.unitsToString(centerValue, units)} ± ${(tolerance*100)}%.02f%%"
           } else {  // out of tolerance, display as ranges
             s"(${SiPrefixUtil.unitsToString(minValue, units)}, ${SiPrefixUtil.unitsToString(maxValue, units)})"
@@ -489,13 +487,29 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   override def mapLink(path: DesignPath, link: elem.Link,
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
     val classString = EdgirUtils.SimpleSuperclass(link.superclasses)
-    val text = classString match {
-      case "ElectricalLink" => s"$classString\n" +
-          s"voltage: ${paramToUnitsString(path + "voltage", "V")}\n" +
-          s"current: ${paramToUnitsString(path + "current_drawn", "A")}"
-      case _ => classString
+    val additionalDesc = classString match {
+      case "ElectricalLink" =>
+        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
+            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}"
+      case "DigitalLink" =>
+        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
+            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
+            s"\n<b>output thresholds</b>: ${paramToUnitsString(path + "output_thresholds", "V")}" +
+            s", <b>input thresholds</b>: ${paramToUnitsString(path + "input_thresholds", "V")}"
+      case "AnalogLink" =>
+        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
+            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
+            s"\n<b>sink impedance</b>: ${paramToUnitsString(path + "sink_impedance", "Ω")}" +
+            s", <b>source impedance</b>: ${paramToUnitsString(path + "source_impedance", "Ω")}"
+      case _ => ""
     }
-    textMap.put(path, s"$text")
+    textMap.put(path, s"<b>$classString</b>$additionalDesc")
   }
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
     textMap.put(path, s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}")
