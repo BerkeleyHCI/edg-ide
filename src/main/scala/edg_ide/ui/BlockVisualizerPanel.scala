@@ -397,6 +397,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
       name,
       Seq(ElkEdgirGraphUtils.DesignPathMapper),
+      // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)

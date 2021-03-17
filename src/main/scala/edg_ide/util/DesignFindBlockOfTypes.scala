@@ -36,7 +36,7 @@ class DesignFindBlockOfTypes(targetTypes: Set[ref.LibraryPath])
     Seq()
   }
 
-  override def mapLink(path: DesignPath, block: elem.Link,
+  override def mapLink(path: DesignPath, link: elem.Link,
                        ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
   }
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {

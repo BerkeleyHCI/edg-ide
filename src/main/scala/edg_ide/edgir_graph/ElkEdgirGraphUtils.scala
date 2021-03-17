@@ -95,7 +95,7 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[PortConstraints] = PORT_CONSTRAINTS
 
-    override def nodeConv(node: NodeDataWrapper): Option[PortConstraints] = Some(PortConstraints.FIXED_ORDER)
+    override def nodeConv(node: NodeDataWrapper): Option[PortConstraints] = Some(PortConstraints.FIXED_SIDE)
     override def portConv(port: PortWrapper): Option[PortConstraints] = None
     override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
   }
