@@ -2,21 +2,25 @@ package edg_ide.actions
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
+import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyClass
+import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.ElemBuilder
 import edg.wir.DesignPath
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignFindBlockOfType, exceptionPopup}
+import edg_ide.util.{DesignFindBlockOfTypes, exceptionPopup}
+
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 class NavigateToBlockAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.NavigateToBlockAction")
 
-  case class NavigateNode(path: DesignPath, typeString: String, action: () => Unit) {
-    override def toString: String = s"$path of type $typeString"
+  case class NavigateNode(desc: String, action: () => Unit) {
+    override def toString: String = desc
   }
 
   override def actionPerformed(event: AnActionEvent): Unit = {
@@ -35,30 +39,50 @@ class NavigateToBlockAction() extends AnAction() {
       val offset = editor.getCaretModel.getOffset
       val element = psiFile.findElementAt(offset).exceptNull(s"invalid caret position in ${psiFile.getName}")
       val containingClass = PsiTreeUtil.getParentOfType(element, classOf[PyClass]).exceptNull("not in a class")
-      val modulePath = ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile)
-          .exceptNone("class has invalid module path")
 
       val refName = PsiUtils.selfReferenceOption(element).exceptError
 
-      // TODO search all known subclasses
-      val targetType = ElemBuilder.LibraryPath((modulePath :+ containingClass.getName).mkString("."))
-      val instancesOfClass = new DesignFindBlockOfType(targetType).map(design)
+      val extendedClasses = ReadAction.compute(() => {
+        val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
+        inheritors.toSeq :+ containingClass
+      })
+      val targetTypes = extendedClasses.map { pyClass =>
+        ElemBuilder.LibraryPath(pyClass.getQualifiedName)
+      }.toSet
+
+      val instancesOfClass = new DesignFindBlockOfTypes(targetTypes).map(design)
           .exceptEmpty(s"no ${containingClass.getName} in design")
+          .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
+            if (blockPath1 == contextPath && blockPath2 != contextPath) {
+              // Prefer exact match first
+              true
+            } else if (blockPath1.startsWith(contextPath) && !blockPath2.startsWith(contextPath)) {
+              // Prefer children next
+              true
+            } else if (contextPath.startsWith(blockPath1) && !contextPath.startsWith(blockPath2)) {
+              // Prefer parents next
+              true
+            } else {
+              false
+            }
+          }
 
       val matchBlockPathTypes = instancesOfClass.collect {
         case (blockPath, block) if block.ports.contains(refName) =>
-          (blockPath, blockPath + refName, EdgirUtils.typeOfPortLike(block.ports(refName)))
+          (blockPath, refName, block, EdgirUtils.typeOfPortLike(block.ports(refName)))
         case (blockPath, block) if block.blocks.contains(refName) =>
-          (blockPath, blockPath + refName, EdgirUtils.typeOfBlockLike(block.blocks(refName)))
+          (blockPath, refName, block, EdgirUtils.typeOfBlockLike(block.blocks(refName)))
         case (blockPath, block) if block.links.contains(refName) =>
-          (blockPath, blockPath + refName, EdgirUtils.typeOfLinkLike(block.links(refName)))
+          (blockPath, refName, block, EdgirUtils.typeOfLinkLike(block.links(refName)))
       }.exceptEmpty(s"no ${containingClass.getName} containing $refName")
 
-      val items = matchBlockPathTypes.map { case (blockPath, eltPath, desc) =>
-        val typeString = desc.map(EdgirUtils.SimpleLibraryPath).getOrElse("???")
-        NavigateNode(eltPath, typeString, () => {
+      val items = matchBlockPathTypes.map { case (blockPath, refName, block, desc) =>
+        val eltTypeStr = desc.map(EdgirUtils.SimpleLibraryPath).getOrElse("???")
+        val blockTypeStr = EdgirUtils.SimpleSuperclass(block.superclasses)
+        val descStr = s"$eltTypeStr $refName in $blockTypeStr $blockPath"
+        NavigateNode(descStr, () => {
           visualizer.setContext(blockPath)
-          visualizer.selectPath(eltPath)
+          visualizer.selectPath(blockPath + refName)
         })
       }.exceptEmpty("no navigation targets")
 

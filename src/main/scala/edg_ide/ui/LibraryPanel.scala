@@ -125,7 +125,8 @@ class LibraryPreview(project: Project) extends JPanel {
   splitter.setFirstComponent(textFieldScrollPane)
 
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()))
+    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()),
+    "")
   private val graph = new JElkGraph(emptyHGraph)
   splitter.setSecondComponent(graph)
 
@@ -144,6 +145,7 @@ class LibraryPreview(project: Project) extends JPanel {
         InferEdgeDirectionTransform(SimplifyPortTransform(
           PruneDepthTransform(edgirGraph, 2)))))
       val blockGraph = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+        "",  // no name, the class is already shown as the class name
         Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
         true)  // need to make a root so root doesn't have ports
       (block, blockGraph)

@@ -10,7 +10,7 @@ import scala.collection.SeqMap
 
 /** For a design, returns all elaborated blocks of a certain type
   */
-class DesignFindBlockOfType(targetType: ref.LibraryPath)
+class DesignFindBlockOfTypes(targetTypes: Set[ref.LibraryPath])
     extends DesignMap[Unit, Seq[(DesignPath, elem.HierarchyBlock)], Unit] {
   override def mapPort(path: DesignPath, port: elem.Port): Unit = {
   }
@@ -26,7 +26,7 @@ class DesignFindBlockOfType(targetType: ref.LibraryPath)
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                         ports: SeqMap[String, Unit], blocks: SeqMap[String, Seq[(DesignPath, elem.HierarchyBlock)]],
                         links: SeqMap[String, Unit]): Seq[(DesignPath, elem.HierarchyBlock)] = {
-    if (block.superclasses == Seq(targetType)) {
+    if (block.superclasses.toSet.subsetOf(targetTypes)) {
       blocks.values.flatten.toSeq :+ ((path, block))
     } else {
       blocks.values.flatten.toSeq

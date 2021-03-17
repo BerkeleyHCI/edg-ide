@@ -178,7 +178,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()))
+    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()), "empty")
 
   private val graph = new JElkGraph(emptyHGraph)
   graph.addMouseListener(new MouseAdapter {
@@ -389,7 +389,13 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
         PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))
+    val name = if (focusPath == DesignPath()) {
+      "(root)"
+    } else {
+      focusPath.steps.last
+    }
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+      name,
       Seq(ElkEdgirGraphUtils.DesignPathMapper),
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 

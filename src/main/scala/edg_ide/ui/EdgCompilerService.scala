@@ -78,9 +78,10 @@ class EdgCompilerService(project: Project) extends
       copy
     }
 
+    // TODO use library analysis search
     val extendedModifiedClassNames = ReadAction.compute(() => {
       copyModifiedClasses.flatMap { modifiedClass =>
-        val inheritors = PyClassInheritorsSearch.search(modifiedClass, false).findAll().asScala
+        val inheritors = PyClassInheritorsSearch.search(modifiedClass, true).findAll().asScala
         inheritors.toSeq :+ modifiedClass
       }.map (_.getQualifiedName)
     })

@@ -158,14 +158,13 @@ object HierarchyGraphElk {
   /**
     * Converts a HGraphNode to a ELK Node, and performs layout
     */
-  def HGraphNodeToElk[NodeType, PortType, EdgeType](
-      node: HGraphNode[NodeType, PortType, EdgeType],
-      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq(),
-      makeRoot: Boolean = false): ElkNode = {
-    // TODO avoid passing through this 4 parameter nightmare
+  def HGraphNodeToElk[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType],
+                                                    topName: String,
+                                                    mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq(),
+                                                    makeRoot: Boolean = false): ElkNode = {
     val root = if (makeRoot) {
       val root = makeGraphRoot()
-      HGraphNodeToElkNode(node, "design", Some(root), mappers)
+      HGraphNodeToElkNode(node, topName, Some(root), mappers)
       root
     } else {
       val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None, mappers)
