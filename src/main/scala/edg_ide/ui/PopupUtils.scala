@@ -60,4 +60,9 @@ object PopupUtils {
     popup.showInScreenCoordinates(e.getComponent,
       new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - height))
   }
+
+  def createErrorPopup(message: String, editor: Editor): Unit = {
+    val (popup, height) = createErrorPopup(message)
+    popup.showInBestPositionFor(editor)
+  }
 }

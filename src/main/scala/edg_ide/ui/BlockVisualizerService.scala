@@ -4,6 +4,7 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
 import edg.wir.DesignPath
+import edg.schema.schema
 import edg.elem.elem
 
 
@@ -49,7 +50,11 @@ class BlockVisualizerService(project: Project) extends
   }
 
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
-    visualizerPanelOption.get.getContextBlock
+    visualizerPanelOption.flatMap(_.getContextBlock)
+  }
+
+  def getDesign: Option[schema.Design] = {
+    visualizerPanelOption.map(_.getDesign)
   }
 
   override def getState: BlockVisualizerServiceState = {

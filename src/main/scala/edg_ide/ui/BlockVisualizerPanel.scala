@@ -266,6 +266,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))
   }
 
+  def getDesign: schema.Design = design
+
   def setContext(path: DesignPath): Unit = {
     focusPath = path
     updateDisplay()

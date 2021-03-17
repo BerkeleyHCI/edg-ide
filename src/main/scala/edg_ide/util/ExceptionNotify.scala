@@ -1,6 +1,7 @@
 package edg_ide.util
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import edg.util.Errorable
 import edg_ide.ui.PopupUtils
@@ -68,6 +69,15 @@ object exceptionPopup {
     } catch {
       case e: ExceptionNotifyException =>
         PopupUtils.createErrorPopup(e.errMsg, event)
+    }
+  }
+
+  def apply(editor: Editor)(fn: => Unit): Unit = {
+    try {
+      fn
+    } catch {
+      case e: ExceptionNotifyException =>
+        PopupUtils.createErrorPopup(e.errMsg, editor)
     }
   }
 }
