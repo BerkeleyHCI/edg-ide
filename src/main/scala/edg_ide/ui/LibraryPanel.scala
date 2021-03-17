@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ThrowableComputable
@@ -16,15 +17,16 @@ import edg.wir
 import edg.wir.DesignPath
 import edg_ide.actions.{InsertAction, InsertBlockAction}
 import edg_ide.edgir_graph._
-import edg_ide.swing.{EdgirLibraryTreeNode, EdgirLibraryTreeTableModel, FilteredTreeTableModel, JElkGraph, SwingHtmlUtil}
+import edg_ide.swing.{EdgirLibraryNodeTraits, EdgirLibraryTreeNode, EdgirLibraryTreeRenderer, EdgirLibraryTreeTableModel, FilteredTreeTableModel, JElkGraph, SwingHtmlUtil}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
+import icons.PlatformDebuggerImplIcons
 
 import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.{BorderLayout, Component, GridBagConstraints, GridBagLayout}
 import javax.swing.event._
-import javax.swing.tree.TreePath
+import javax.swing.tree.{DefaultTreeCellRenderer, TreePath}
 import javax.swing._
 
 
@@ -267,6 +269,8 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.addMouseListener(libraryMouseListener)
   libraryTree.setRootVisible(false)
   libraryTree.setShowColumns(true)
+  private val libraryTreeRenderer = new EdgirLibraryTreeRenderer()
+  libraryTree.setTreeCellRenderer(libraryTreeRenderer)
 
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 2, GridBagConstraints.BOTH))
@@ -321,6 +325,7 @@ class LibraryPanel(project: Project) extends JPanel {
     libraryTree.setModel(this.libraryTreeModel)
     updateFilter()
     libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+    libraryTree.setTreeCellRenderer(libraryTreeRenderer)
     libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
   }
 

@@ -5,11 +5,18 @@ import edg.expr.expr
 import edg.ref.ref
 import edg.schema.schema
 import edg.wir.DesignPath
-
-import scala.annotation.tailrec
+import edg.ElemBuilder
 
 
 object EdgirUtils {
+  // TODO this needs better flagging
+  def isCategory(blockType: ref.LibraryPath): Boolean = {
+    blockType.getTarget.getName.contains("Categories")
+  }
+
+  val FootprintBlockType: ref.LibraryPath =
+    ElemBuilder.LibraryPath("electronics_model.CircuitBlock.CircuitBlock")
+
   @deprecated("use ExprBuilder")
   def StringToLibraryPath(path: String): ref.LibraryPath = {
     ref.LibraryPath(target=Some(ref.LocalStep(step=ref.LocalStep.Step.Name(path))))

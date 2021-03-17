@@ -11,11 +11,22 @@ import javax.swing.event.TreeModelListener
 import javax.swing.tree._
 
 
+sealed trait EdgirLibraryNodeTraits  // categories to pass to the tree renderer icon
+
+object EdgirLibraryNodeTraits {
+  object Abstract extends EdgirLibraryNodeTraits
+  object Category extends EdgirLibraryNodeTraits
+  object Footprint extends EdgirLibraryNodeTraits
+}
+
+
 trait EdgirLibraryTreeNode {  // abstract base class for tree node model
   val children: Seq[EdgirLibraryTreeNode]
+  val traits: Set[EdgirLibraryNodeTraits] = Set()
 }
 
 object EdgirLibraryTreeNode {
+
   abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryTreeNode {
     override def toString: String = EdgirUtils.SimpleLibraryPath(path)
   }
@@ -32,6 +43,15 @@ object EdgirLibraryTreeNode {
 
   class BlockNode(val path: ref.LibraryPath, val block: elem.HierarchyBlock, root: BlockRootNode)
       extends LibraryElementNode(path) {
+    override val traits = {
+      Set(
+        if (EdgirUtils.isCategory(path)) Some(EdgirLibraryNodeTraits.Category) else None,
+        if (block.isAbstract) Some(EdgirLibraryNodeTraits.Abstract) else None,
+        if (root.allSuperclassesOf(path).contains(EdgirUtils.FootprintBlockType))
+          Some(EdgirLibraryNodeTraits.Footprint) else None,
+      ).flatten
+    }
+
     override lazy val children: Seq[EdgirLibraryTreeNode] = {
       root.childMap.getOrElse(path, Seq())
           .map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
@@ -41,6 +61,15 @@ object EdgirLibraryTreeNode {
 
   class BlockRootNode(val blocks: Map[ref.LibraryPath, elem.HierarchyBlock]) extends EdgirLibraryTreeNode {
     override def toString: String = "All Blocks"
+
+    def allSuperclassesOf(blockType: ref.LibraryPath): Seq[ref.LibraryPath] = {
+      blocks.get(blockType) match {
+        case Some(block) => Seq(blockType) ++ block.superclasses.flatMap { superclassType =>
+          allSuperclassesOf(superclassType)
+        }
+        case None => Seq(blockType)
+      }
+    }
 
     // Returns the reachable set from a node, including the starting if it is present in the graph
     def graphReachable[T](graph: Map[T, Seq[T]], from: T): Seq[T] = {
