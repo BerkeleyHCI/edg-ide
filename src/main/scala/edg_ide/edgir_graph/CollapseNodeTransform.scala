@@ -48,7 +48,8 @@ trait CollapseNodeTransform {
 
     val crossSourceTarget =
       fixedSources.flatMap(source =>
-      fixedTargets.map(target => (source, target)))
+        fixedTargets.collect{case target if source != target =>
+          (source, target)})
     val newEdges = crossSourceTarget.map { case ((sourcePath, _), (targetPath, _)) =>
       EdgirGraph.EdgirEdge(edgeFn(collapsedEdgesData),
         source=sourcePath, target=targetPath)
