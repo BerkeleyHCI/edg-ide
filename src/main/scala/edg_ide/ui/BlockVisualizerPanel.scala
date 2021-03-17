@@ -19,7 +19,7 @@ import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.SiPrefixUtil
-import org.eclipse.elk.graph.ElkGraphElement
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
@@ -88,6 +88,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
           designTree.addSelectedPath(treePath)
         case None =>  // do nothing
       }
+    }
+
+    override def scrollGraphToVisible(path: DesignPath): Unit = {
+      // TODO IMPLEMENT ME
     }
 
     override def setGraphSelections(paths: Set[DesignPath]): Unit = {
@@ -269,8 +273,16 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   def getDesign: schema.Design = design
 
   def setContext(path: DesignPath): Unit = {
-    focusPath = path
-    updateDisplay()
+    if (activeTool == defaultTool) {
+      focusPath = path
+      updateDisplay()
+    }
+  }
+
+  def selectPath(path: DesignPath): Unit = {
+    if (activeTool == defaultTool) {
+      defaultTool.onSelect(path)
+    }
   }
 
   def setFileBlock(module: String, block: String): Unit = {

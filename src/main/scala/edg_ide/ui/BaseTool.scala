@@ -20,6 +20,8 @@ trait ToolInterface {
   def endTool(): Unit
 
   // TODO should these have smarter error handling?
+  // Scrolls the graph so the selected elt is visible
+  def scrollGraphToVisible(path: DesignPath): Unit
   // Sets the selected design tree element in the graph.
   def setDesignTreeSelection(path: Option[DesignPath]): Unit
   // Sets the selected elements in the graph

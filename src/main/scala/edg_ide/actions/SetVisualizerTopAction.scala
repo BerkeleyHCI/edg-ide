@@ -7,7 +7,7 @@ import edg_ide.ui.BlockVisualizerService
 import edg_ide.util.ErrorableNotify._
 
 
-class BlockVisualizationAction() extends AnAction() {
+class SetVisualizerTopAction() extends AnAction() {
   override def actionPerformed(event: AnActionEvent): Unit = {
     val visualizer = Errorable(BlockVisualizerService(event.getProject).visualizerPanelOption,
       "No visualizer panel")

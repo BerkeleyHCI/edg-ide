@@ -37,6 +37,27 @@ object EdgirUtils {
     superclasses.map(SimpleLibraryPath).mkString(", ")
   }
 
+  // TODO refactor into common utils elsewher
+  def typeOfBlockLike(blockLike: elem.BlockLike): Option[ref.LibraryPath] = blockLike.`type` match {
+    case elem.BlockLike.Type.Hierarchy(block) if block.superclasses.length == 1 => Some(block.superclasses.head)
+    case elem.BlockLike.Type.LibElem(lib) => Some(lib)
+    case _ => None
+  }
+
+  def typeOfPortLike(portLike: elem.PortLike): Option[ref.LibraryPath] = portLike.is match {
+    case elem.PortLike.Is.Port(port) if port.superclasses.length == 1 => Some(port.superclasses.head)
+    case elem.PortLike.Is.Bundle(port) if port.superclasses.length == 1 => Some(port.superclasses.head)
+    case elem.PortLike.Is.Array(port) if port.superclasses.length == 1 => Some(port.superclasses.head)
+    case elem.PortLike.Is.LibElem(lib) => Some(lib)
+    case _ => None
+  }
+
+  def typeOfLinkLike(linkLike: elem.LinkLike): Option[ref.LibraryPath] = linkLike.`type` match {
+    case elem.LinkLike.Type.Link(link) if link.superclasses.length == 1 => Some(link.superclasses.head)
+    case elem.LinkLike.Type.LibElem(lib) => Some(lib)
+    case _ => None
+  }
+
   /**
     * Converts a ValueExpr containing a LocalPath ref to a Seq[String] of the ref's components
     * Errors out with an exception if things aren't just right

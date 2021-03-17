@@ -24,25 +24,24 @@
     </action>
 
 
-    <action id="edg_ide.action.BlockVisualizationAction" class="edg_ide.actions.BlockVisualizationAction"
-            text="Open Block Visualizer" description="Open the block visualizer at the currently selected class"
+    <action id="edg_ide.action.SetVisualizerTopAction" class="edg_ide.actions.SetVisualizerTopAction"
+            text="Set Visualizer Design" description="Sets the top-level design of the visualizer to the current class"
             icon="AllIcons.Toolwindows.ToolWindowHierarchy">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
-      <keyboard-shortcut first-keystroke="control alt R" keymap="$default"/>
     </action>
 
     <action id="edg_ide.actions.RefreshVisualizationAction" class="edg_ide.actions.RefreshVisualizationAction"
             text="Refresh File" description="Refreshes the visualization"
             icon="AllIcons.Actions.Rerun">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
-      <keyboard-shortcut first-keystroke="control alt W" keymap="$default"/>
+      <keyboard-shortcut first-keystroke="control alt R" keymap="$default"/>
     </action>
 
 
     <action id="edg_ide.action.NavigateToBlockAction" class="edg_ide.actions.NavigateToBlockAction"
             text="Navigate To Block" description="Select the block in the block diagram view of the element at the caret in the code view">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
-      <keyboard-shortcut first-keystroke="control alt A" second-keystroke="C" keymap="$default"/>
+      <keyboard-shortcut first-keystroke="control alt W" keymap="$default"/>
     </action>
 
 

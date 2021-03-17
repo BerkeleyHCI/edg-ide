@@ -31,6 +31,9 @@ class BlockVisualizerService(project: Project) extends
     created
   }
 
+  def selectPath(path: DesignPath): Unit = {
+    visualizerPanelOption.foreach(_.selectPath(path))
+  }
 
   def setContext(path: DesignPath): Unit = {
     visualizerPanelOption.foreach(_.setContext(path))
