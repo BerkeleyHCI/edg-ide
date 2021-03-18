@@ -19,7 +19,6 @@ import edg.ElemBuilder
 import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
 import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
 import edg.wir
-//import edg_ide.ui.KicadParser.{KicadComponent}
 import edg.wir.{DesignPath, Refinements}
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
@@ -30,8 +29,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JButton, JLabel, JPanel, JTextField}
-
-import scala.collection.mutable.ArrayBuffer
 
 
 object Gbc {
@@ -422,70 +419,6 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
   }
 
 }
-
-class FootprintBrowserPanel extends JPanel {
-
-}
-
-//class KicadVizDrawPanel extends JPanel {
-//  private val kicadParser = new KicadParser
-//  // TODO offset and offset_mul_factor are messy, should be in one var
-//  var offset = 0
-//  var offset_mul_factor = 0.1
-//  var mul_factor: Int = 10
-//
-//  addMouseWheelListener((mouseWheelEvent: MouseWheelEvent) => {
-//    mul_factor += mouseWheelEvent.getWheelRotation
-//    mul_factor = math.max(mul_factor, 1)
-//    this.repaint()
-//  })
-//
-//  override def paintComponent(g: Graphics): Unit = {
-//    super.paintComponent(g)
-//
-//    // TODO don't reparse kicad file on gui update?
-//    val components = kicadParser.parseKicadFile()
-//
-//    val min_x = components.map(c => (c match {
-//      case Rectangle(x, y, width, height) => x
-//      case Line(x0, y0, x1, y1) => math.min(x0, x1)
-//    })).min.abs
-//
-//    val min_y = components.map(c => (c match {
-//      case Rectangle(x, y, width, height) => y
-//      case Line(x0, y0, x1, y1) => math.min(y0, y1)
-//    })).min.abs
-//
-//    for (c <- components) {
-//      c match {
-//        // Notes
-//        // 1. Lose precision converting int to float
-//        // 2. Scale
-//        // 3. It's negative
-//        case Line(x0, y0, x1, y1) =>
-//          g.drawLine(
-//            (offset + this.getWidth * offset_mul_factor + (min_x + x0) * mul_factor).asInstanceOf[Int],
-//            ((min_y + y0) * mul_factor).asInstanceOf[Int],
-//            (offset + this.getWidth * offset_mul_factor + (min_x + x1) * mul_factor).asInstanceOf[Int],
-//            ((min_y + y1) * mul_factor).asInstanceOf[Int]
-//          )
-//        case Rectangle(x, y, width, height) =>
-//          val scaledWidth = (width * mul_factor).asInstanceOf[Int]
-//          val scaledHeight = (height * mul_factor).asInstanceOf[Int]
-//          val scaledX = ((offset + this.getWidth * offset_mul_factor + (min_x + x) * mul_factor).asInstanceOf[Int]) - (scaledWidth / 2)
-//          val scaledY = (((min_y + y) * mul_factor).asInstanceOf[Int]) - (scaledHeight / 2)
-//
-//          g.fillRect(
-//            scaledX,
-//            scaledY,
-//            scaledWidth,
-//            scaledHeight)
-//        case _ =>
-//      }
-//    }
-//
-//  }
-//}
 
 class RefinementsPanel extends JPanel {
   private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
