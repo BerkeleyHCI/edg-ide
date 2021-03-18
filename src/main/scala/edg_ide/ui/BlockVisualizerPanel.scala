@@ -180,7 +180,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()), "empty")
 
-  private val graph = new JElkGraph(emptyHGraph)
+  private val graph = new JBlockDiagramVisualizer(emptyHGraph)
   graph.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       graph.getElementForLocation(e.getX, e.getY) match {
@@ -388,12 +388,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
-    val bridgelessGraph = CollapseBridgeTransform(
+    val highFanoutTransform = new RemoveHighFanoutLinkTransform(
+      4, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))
+    val transformedGraph = CollapseLinkTransform(highFanoutTransform(
+      CollapseBridgeTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
-        PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))
-    val (highFanoutlessGraph, highFanoutConnects) = new RemoveHighFanoutLinkTransform(
-      4, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))(bridgelessGraph)
-    val transformedGraph = CollapseLinkTransform(highFanoutlessGraph)
+        PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))))
 
     val name = if (focusPath == DesignPath()) {
       "(root)"

@@ -43,32 +43,23 @@ class RemoveHighFanoutLinkTransformTest extends AnyFlatSpec with Matchers {
     ))
 
   it should "remove high fanout links" in {
-    val (transformed, removed) = new RemoveHighFanoutLinkTransform(3,
+    val transformed = new RemoveHighFanoutLinkTransform(3,
       Set(LibraryPath("testLink")))(testGraph)
 
     transformed.members.size should equal(0)
-    removed should equal(Map(
-      ((DesignPath(), "link") -> Seq(
-        DesignPath() + "sourceBlock" + "port",
-        DesignPath() + "sinkBlock1" + "port",
-        DesignPath() + "sinkBlock2" + "port",
-      ))
-    ))
   }
 
   it should "not remove on fewer than specified connects" in {
-    val (transformed, removed) = new RemoveHighFanoutLinkTransform(4,
+    val transformed = new RemoveHighFanoutLinkTransform(4,
       Set(LibraryPath("testLink")))(testGraph)
 
     transformed should equal(testGraph)
-    removed should equal(Map())
   }
 
   it should "not remove on link name mismatch" in {
-    val (transformed, removed) = new RemoveHighFanoutLinkTransform(3,
+    val transformed = new RemoveHighFanoutLinkTransform(3,
       Set(LibraryPath("notAName")))(testGraph)
 
     transformed should equal(testGraph)
-    removed should equal(Map())
   }
 }

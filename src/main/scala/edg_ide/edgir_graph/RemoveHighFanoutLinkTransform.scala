@@ -15,14 +15,14 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
   /** Does the transform, returning the node minus eliminated link nodes, and returning the eliminated links
     * as a map of (containing block, link name) to paths of ports involved in the connection.
     */
-  def apply(node: EdgirGraph.EdgirNode): (EdgirGraph.EdgirNode, Map[(DesignPath, String), Seq[DesignPath]]) = {
-    val allowedLinkNodes = node.members.collect {  // filter by nodes that are links, extract type
-      case (name, EdgirGraph.EdgirNode(LinkWrapper(linkPath, linkLike), _, _)) =>
-        (name, linkLike.`type`)
-    } .collect { case (name, elem.LinkLike.Type.Link(link)) =>  // extract elaborated link, discard the rest
-      (name, link)
-    } .collect { case (name, link) if link.superclasses.toSet.subsetOf(allowedLinkTypes) =>  // filter by type
-      name
+  def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
+    val allowedLinkNameWraps = node.members.collect {  // filter by nodes that are links, keep wrapper, extract type
+      case (name, EdgirGraph.EdgirNode(linkWrap @ LinkWrapper(linkPath, linkLike), _, _)) =>
+        (name, linkWrap, linkLike.`type`)
+    } .collect { case (name, linkWrap, elem.LinkLike.Type.Link(link)) =>  // extract elaborated link, discard the rest
+      (name, linkWrap, link)
+    } .collect { case (name, linkWrap, link) if link.superclasses.toSet.subsetOf(allowedLinkTypes) =>  // filter by type
+      (name, linkWrap)
     }
 
     // edges associated with a node, structured as node -> (port name within node, path of other port, edge)
@@ -48,38 +48,33 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
           }
         }.toMap
 
-    val highFanoutLinkNames = allowedLinkNodes.map { linkName =>
+    val highFanoutLinkNameWraps = allowedLinkNameWraps.map { case (linkName, linkWrap) =>
       val connectedCount = allNodeEdges.getOrElse(linkName, Seq()).length
-      (linkName, connectedCount)
+      (linkName, linkWrap, connectedCount)
     } .collect {
-      case (linkName, connectedCount) if connectedCount >= minConnects => linkName
-    }.toSet
-
-    val filteredMembers = node.members.filter { case (name, node) =>  // remove high fanout nodes
-      !highFanoutLinkNames.contains(name)
-    }
-    val filteredEdges = node.edges.filter {  // remove edges connecting to that node
-      case EdgirEdge(data, Seq(sourceNode, sourcePort), target) if highFanoutLinkNames.contains(sourceNode) => false
-      case EdgirEdge(data, source, Seq(targetNode, targetPort)) if highFanoutLinkNames.contains(targetNode) => false
-      case _ => true
-    }
-
-    val eliminatedLinks = highFanoutLinkNames.map { linkName =>
-      val connectedPaths = allNodeEdges.getOrElse(linkName, Seq()).map { case (portName, otherPath, edge) =>
-        otherPath
-      }
-      (node.data.path, linkName) -> connectedPaths
+      case (linkName, linkWrap, connectedCount) if connectedCount >= minConnects => (linkName, linkWrap)
     }.toMap
 
-    val recursiveResults = filteredMembers.map {
-      case (name, member: EdgirGraph.EdgirNode) => name -> apply(member)
-      case (name, member: EdgirGraph.EdgirPort) => name -> (member, Map())
+    val filteredEdges = node.edges.map {
+          // Transform to degenerate edges
+      case EdgirEdge(data, Seq(sourceNode, sourcePort), target) if highFanoutLinkNameWraps.contains(sourceNode) =>
+        val linkWrap = highFanoutLinkNameWraps(sourceNode)
+        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), target, target)
+      case EdgirEdge(data, source, Seq(targetNode, targetPort)) if highFanoutLinkNameWraps.contains(targetNode) =>
+        val linkWrap = highFanoutLinkNameWraps(targetNode)
+        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), source, source)
+      case edge => edge
     }
-    val recursiveMembers = recursiveResults.mapValues(_._1).to(SeqMap)
-    val recursiveEliminated = recursiveResults.values.map(_._2).flatten
 
-    val filteredNode = EdgirGraph.EdgirNode(node.data, recursiveMembers, filteredEdges)
+    val filteredMembers = node.members.filter { case (name, node) =>  // remove high fanout nodes
+      !highFanoutLinkNameWraps.contains(name)
+    }.map {
+      case (name, member: EdgirGraph.EdgirNode) => name -> apply(member)
+      case (name, member: EdgirGraph.EdgirPort) => name -> (member)
+    }
 
-    (filteredNode, eliminatedLinks ++ recursiveEliminated)
+    val filteredNode = EdgirGraph.EdgirNode(node.data, filteredMembers, filteredEdges)
+
+    filteredNode
   }
 }
