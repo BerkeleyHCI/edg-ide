@@ -11,4 +11,7 @@
 .project
 *.iml
 
+*.mod
+*.kicad_mod
+
 worksheet.*
