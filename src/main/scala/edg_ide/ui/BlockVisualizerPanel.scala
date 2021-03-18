@@ -392,7 +392,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       InferEdgeDirectionTransform(SimplifyPortTransform(
         PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))
     val (highFanoutlessGraph, highFanoutConnects) = new RemoveHighFanoutLinkTransform(
-      3, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))(bridgelessGraph)
+      4, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))(bridgelessGraph)
     val transformedGraph = CollapseLinkTransform(highFanoutlessGraph)
 
     val name = if (focusPath == DesignPath()) {

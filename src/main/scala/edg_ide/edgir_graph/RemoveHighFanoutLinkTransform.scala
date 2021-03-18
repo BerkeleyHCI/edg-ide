@@ -12,10 +12,6 @@ import scala.collection.SeqMap
   * based on the link type allowlist and parameterized number of sink connections.
   */
 class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[LibraryPath]) {
-//  private val minConnects = 4  // TODO sink only?
-//  private val allowedLinkTypes = ,
-//  )
-
   /** Does the transform, returning the node minus eliminated link nodes, and returning the eliminated links
     * as a map of (containing block, link name) to paths of ports involved in the connection.
     */
