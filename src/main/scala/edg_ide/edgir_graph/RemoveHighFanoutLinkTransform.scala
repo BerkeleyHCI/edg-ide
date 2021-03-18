@@ -2,17 +2,19 @@ package edg_ide.edgir_graph
 
 import edg.elem.elem
 import edg.ElemBuilder.LibraryPath
+import edg.ref.ref.LibraryPath
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.EdgirGraph.EdgirEdge
+
+import scala.collection.SeqMap
 
 /** Removes links (as nodes - must run before they are collapsed) that are "high-fanout",
   * based on the link type allowlist and parameterized number of sink connections.
   */
-object RemoveHighFanoutLinkTransform {
-  private val minConnects = 4  // TODO sink only?
-  private val allowedLinkTypes = Set(
-    LibraryPath("electronics_model.ElectricalPorts.ElectricalLink"),
-  )
+class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[LibraryPath]) {
+//  private val minConnects = 4  // TODO sink only?
+//  private val allowedLinkTypes = ,
+//  )
 
   /** Does the transform, returning the node minus eliminated link nodes, and returning the eliminated links
     * as a map of (containing block, link name) to paths of ports involved in the connection.
@@ -73,10 +75,15 @@ object RemoveHighFanoutLinkTransform {
       (node.data.path, linkName) -> connectedPaths
     }.toMap
 
+    val recursiveResults = filteredMembers.map {
+      case (name, member: EdgirGraph.EdgirNode) => name -> apply(member)
+      case (name, member: EdgirGraph.EdgirPort) => name -> (member, Map())
+    }
+    val recursiveMembers = recursiveResults.mapValues(_._1).to(SeqMap)
+    val recursiveEliminated = recursiveResults.values.map(_._2).flatten
 
-    // TODO RECURSIVE CALL
-    val filteredNode = EdgirGraph.EdgirNode(node.data, filteredMembers, filteredEdges)
+    val filteredNode = EdgirGraph.EdgirNode(node.data, recursiveMembers, filteredEdges)
 
-    (filteredNode, eliminatedLinks)
+    (filteredNode, eliminatedLinks ++ recursiveEliminated)
   }
 }

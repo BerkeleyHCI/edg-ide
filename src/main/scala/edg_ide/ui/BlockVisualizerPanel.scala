@@ -380,15 +380,21 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
+    import ElemBuilder.LibraryPath
+
     val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, design)
     focusPath = blockPath
 
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
-    val transformedGraph = CollapseLinkTransform(CollapseBridgeTransform(
+    val bridgelessGraph = CollapseBridgeTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
-        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))
+        PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))
+    val (highFanoutlessGraph, highFanoutConnects) = new RemoveHighFanoutLinkTransform(
+      3, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))(bridgelessGraph)
+    val transformedGraph = CollapseLinkTransform(highFanoutlessGraph)
+
     val name = if (focusPath == DesignPath()) {
       "(root)"
     } else {
