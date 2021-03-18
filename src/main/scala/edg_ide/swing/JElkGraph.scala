@@ -49,151 +49,169 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   def getGraph: ElkNode = rootNode
 
-  def paintEdge(g: Graphics2D, edge: ElkEdge, parentX: Int, parentY: Int): Unit = {
+  // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
+  // text should be drawn.
+  def transformLabelCoords(g: Graphics2D, label: ElkLabel, placement: Set[NodeLabelPlacement]): (Double, Double) = {
+    val fontMetrics = g.getFontMetrics(g.getFont)
+
+    val textWidth = fontMetrics.stringWidth(label.getText)
+    val textHeight = fontMetrics.getMaxAscent
+
+    if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
+      (label.getX + label.getWidth / 2 - textWidth / 2,  // shift X to centerline
+          label.getY + textHeight)
+    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP,
+      NodeLabelPlacement.OUTSIDE).subsetOf(placement)) {  // inside means bottom-anchored
+      (label.getX,
+          label.getY + label.getHeight)
+    } else if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM).subsetOf(placement)) {
+      (label.getX + label.getWidth / 2 - textWidth / 2,
+          label.getY + label.getHeight)
+    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
+      (label.getX,
+          label.getY + textHeight)
+    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
+      (label.getX,
+          label.getY + label.getHeight / 2 + textHeight / 2)
+    } else if (Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
+      (label.getX + label.getWidth - textWidth,
+          label.getY + label.getHeight / 2 + textHeight / 2)
+    } else {  // fallback: center anchored
+      (label.getX + label.getWidth / 2 - textWidth / 2,
+          label.getY + label.getHeight / 2 + textHeight / 2)
+    }
+  }
+
+  // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
+  protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+    if (selected.contains(element)) {  // emphasis for selected
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setStroke(new BasicStroke(3/zoomLevel))
+      newGraphics
+    } else if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
+      newGraphics
+    } else {
+      base
+    }
+  }
+
+  // Modify the base graphics for drawing some text, eg by highlighted status
+  protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+    // Main difference is stroke isn't bolded
+    if (!selected.contains(element) &&
+        highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
+      newGraphics
+    } else {
+      base
+    }
+  }
+
+  // Modify the base graphics for filling some element, eg by highlighted status
+  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+    if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.05))
+      newGraphics
+    } else {  // semitransparent so overlays are apparent
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.20))
+      newGraphics
+    }
+  }
+
+  // Render an edge, including all its sections
+  def paintEdge(g: Graphics2D, edge: ElkEdge): Unit = {
     edge.getSections.asScala.foreach { section =>
       edgeSectionPairs(section).foreach { case (line1, line2) =>
-        g.drawLine(line1._1.toInt + parentX, line1._2.toInt + parentY,
-          line2._1.toInt + parentX, line2._2.toInt + parentY
+        g.drawLine(line1._1.toInt, line1._2.toInt,
+          line2._1.toInt, line2._2.toInt
         )
       }
     }
   }
 
+  // Render a node, including its labels, but not its ports
+  def paintNode(g: Graphics2D, node: ElkNode): Unit = {
+    val nodeX = node.getX.toInt
+    val nodeY = node.getY.toInt
+
+    fillGraphics(g, node).fillRect(nodeX, nodeY,
+      node.getWidth.toInt, node.getHeight.toInt)
+
+    strokeGraphics(g, node).drawRect(nodeX, nodeY,
+      node.getWidth.toInt, node.getHeight.toInt)
+
+    node.getLabels.asScala.foreach { label =>
+      val (labelX, labelY) = transformLabelCoords(g, label,
+        label.getProperty(CoreOptions.NODE_LABELS_PLACEMENT).asScala.toSet)
+      textGraphics(g, node).drawString(label.getText, (labelX + nodeX).toInt, (labelY + nodeY).toInt)
+    }
+  }
+
+  // Render a port, including its labels
+  def paintPort(g: Graphics2D, port: ElkPort): Unit = {
+    strokeGraphics(g, port).drawRect(port.getX.toInt, port.getY.toInt,
+      port.getWidth.toInt, port.getHeight.toInt)
+
+    val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
+      case PortSide.NORTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP)
+      case PortSide.SOUTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM)
+      case PortSide.WEST => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
+      case PortSide.EAST => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
+      case _ => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
+    }
+
+    port.getLabels.asScala.foreach { label =>
+      val (labelX, labelY) = transformLabelCoords(g, label, labelPlacement)
+      textGraphics(g, port).drawString(label.getText,
+        (labelX + port.getX).toInt,
+        (labelY + port.getY).toInt)
+    }
+  }
+
+
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val scaling = new AffineTransform()
     scaling.scale(zoomLevel, zoomLevel)
-    val g = paintGraphics.create().asInstanceOf[Graphics2D]
-    g.transform(scaling)
-    g.setStroke(new BasicStroke(1/zoomLevel))  // keep stroke at 1px
+    val scaledG = paintGraphics.create().asInstanceOf[Graphics2D]
+    scaledG.transform(scaling)
+    scaledG.setStroke(new BasicStroke(1/zoomLevel))  // keep stroke at 1px
 
     // Keep the real font size constant, regardless of zoom
-    val currentFont = g.getFont
+    val currentFont = scaledG.getFont
     val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
-    g.setFont(newFont)
+    scaledG.setFont(newFont)
 
-    val fontMetrics = g.getFontMetrics(g.getFont)
+    def paintBlock(blockG: Graphics2D, node: ElkNode): Unit = {
+      paintNode(blockG, node)
 
-    def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-      if (selected.contains(element)) {  // emphasis for selected
-        val newGraphics = base.create().asInstanceOf[Graphics2D]
-        newGraphics.setStroke(new BasicStroke(3/zoomLevel))
-        newGraphics
-      } else if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
-        val newGraphics = base.create().asInstanceOf[Graphics2D]
-        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
-        newGraphics
-      } else {
-        base
-      }
-    }
-
-    def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-      // Main difference is stroke isn't bolded
-      if (!selected.contains(element) &&
-          highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
-        val newGraphics = base.create().asInstanceOf[Graphics2D]
-        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
-        newGraphics
-      } else {
-        base
-      }
-    }
-
-    def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-      if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
-        val newGraphics = base.create().asInstanceOf[Graphics2D]
-        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.05))
-        newGraphics
-      } else {  // semitransparent so overlays are apparent
-        val newGraphics = base.create().asInstanceOf[Graphics2D]
-        newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.20))
-        newGraphics
-      }
-    }
-
-    def transformLabelCoords(label: ElkLabel, placement: Set[NodeLabelPlacement]): (Double, Double) = {
-      val textWidth = fontMetrics.stringWidth(label.getText)
-      val textHeight = fontMetrics.getMaxAscent
-
-      if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
-        (label.getX + label.getWidth / 2 - textWidth / 2,  // shift X to centerline
-            label.getY + textHeight)
-      } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP,
-        NodeLabelPlacement.OUTSIDE).subsetOf(placement)) {  // inside means bottom-anchored
-        (label.getX,
-            label.getY + label.getHeight)
-      } else if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM).subsetOf(placement)) {
-        (label.getX + label.getWidth / 2 - textWidth / 2,
-            label.getY + label.getHeight)
-      } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
-        (label.getX,
-            label.getY + textHeight)
-      } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
-        (label.getX,
-            label.getY + label.getHeight / 2 + textHeight / 2)
-      } else if (Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
-        (label.getX + label.getWidth - textWidth,
-            label.getY + label.getHeight / 2 + textHeight / 2)
-      } else {  // fallback: center anchored
-        (label.getX + label.getWidth / 2 - textWidth / 2,
-            label.getY + label.getHeight / 2 + textHeight / 2)
-      }
-    }
-
-    def paintBlock(node: ElkNode, parentX: Int, parentY: Int): Unit = {
-      val nodeX = parentX + node.getX.toInt
-      val nodeY = parentY + node.getY.toInt
-
-      fillGraphics(g, node).fillRect(nodeX, nodeY,
-        node.getWidth.toInt, node.getHeight.toInt)
-
-      strokeGraphics(g, node).drawRect(nodeX, nodeY,
-        node.getWidth.toInt, node.getHeight.toInt)
-
-      node.getLabels.asScala.foreach { label =>
-        val (labelX, labelY) = transformLabelCoords(label,
-          label.getProperty(CoreOptions.NODE_LABELS_PLACEMENT).asScala.toSet)
-        textGraphics(g, node).drawString(label.getText, (labelX + nodeX).toInt, (labelY + nodeY).toInt)
-      }
+      val childG = blockG.create().asInstanceOf[Graphics2D]
+      childG.translate(node.getX, node.getY)
 
       node.getPorts.asScala.foreach { port =>
-        strokeGraphics(g, port).drawRect(nodeX + port.getX.toInt, nodeY + port.getY.toInt,
-          port.getWidth.toInt, port.getHeight.toInt)
-
-        val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
-          case PortSide.NORTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP)
-          case PortSide.SOUTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM)
-          case PortSide.WEST => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
-          case PortSide.EAST => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
-          case _ => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
-        }
-
-        port.getLabels.asScala.foreach { label =>
-          val (labelX, labelY) = transformLabelCoords(label, labelPlacement)
-          textGraphics(g, port).drawString(label.getText, (labelX + nodeX + port.getX).toInt,
-            (labelY + nodeY + port.getY).toInt)
-        }
+        paintPort(childG, port)
       }
-      paintBlockContents(node, parentX, parentY)
+      paintBlockContents(childG, node)
     }
 
-    def paintBlockContents(node: ElkNode, parentX: Int, parentY: Int): Unit = {
-      val nodeX = parentX + node.getX.toInt
-      val nodeY = parentY + node.getY.toInt
-
+    def paintBlockContents(blockG: Graphics2D, node: ElkNode): Unit = {
       node.getChildren.asScala.foreach { childNode =>
-        paintBlock(childNode, nodeX, nodeY)
+        paintBlock(blockG, childNode)
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
-        paintEdge(strokeGraphics(g, edge), edge, nodeX, nodeY)
+        paintEdge(strokeGraphics(blockG, edge), edge)
       }
     }
 
     if (showTop) {
-      paintBlock(rootNode, 0, 0)
+      paintBlock(scaledG, rootNode)
     } else {
-      paintBlockContents(rootNode, 0, 0)
+      paintBlockContents(scaledG, rootNode)
     }
   }
 
