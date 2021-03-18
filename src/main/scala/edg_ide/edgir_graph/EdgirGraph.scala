@@ -54,7 +54,7 @@ object EdgirGraph {
   case class EdgirNode(
     override val data: NodeDataWrapper,
     override val members: SeqMap[String, EdgirNodeMember],
-    override val edges: Seq[HGraphEdge[EdgeWrapper]]
+    override val edges: Seq[EdgirEdge]
   ) extends HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper] with EdgirNodeMember {  }
 
   case class EdgirPort(

@@ -386,7 +386,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
-    val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
+    val transformedGraph = CollapseLinkTransform(CollapseBridgeTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
         PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))
     val name = if (focusPath == DesignPath()) {
