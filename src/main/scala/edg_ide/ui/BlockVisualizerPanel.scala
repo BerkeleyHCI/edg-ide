@@ -1,5 +1,7 @@
 package edg_ide.ui
 
+import java.awt.event.{MouseWheelEvent, MouseWheelListener}
+
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
@@ -16,6 +18,11 @@ import edg.wir.{DesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
+import org.eclipse.elk.graph.ElkGraphElement
+import java.awt.event.{ActionEvent, ActionListener}
+import java.awt.{BorderLayout, Graphics, GridBagConstraints, GridBagLayout}
+import java.util.concurrent.atomic.AtomicBoolean
+
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.SiPrefixUtil
@@ -258,6 +265,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
   val TAB_INDEX_ERRORS = 3
+
+  // add a tab for kicad visualization
+  private val kicadVizPanel = new KicadVizPanel()
+  tabbedPane.addTab("Kicad", kicadVizPanel)
+  val TAB_KICAD_VIZ = 4
+
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -552,8 +565,9 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
     val classString = s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}"
     textMap.put(path, s"<b>$classString</b> at $path")
   }
-}
 
+
+}
 
 class RefinementsPanel extends JPanel {
   private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
