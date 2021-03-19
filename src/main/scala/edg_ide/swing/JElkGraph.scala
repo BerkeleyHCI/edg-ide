@@ -233,8 +233,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
     scaledG.setFont(newFont)
 
-    // parentG is a hack to support degenerate edges which seem to be in parents coordinate space
-    def paintBlock(parentG: Graphics2D, containingG: Graphics2D, node: ElkNode): Unit = {
+    def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
       paintNode(containingG, node)
 
       val nodeG = containingG.create().asInstanceOf[Graphics2D]
@@ -245,15 +244,17 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       }
 
       node.getChildren.asScala.foreach { childNode =>
-        paintBlock(containingG, nodeG, childNode)
+        paintBlock(nodeG, childNode)
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
+          // containing is passed in here as a hack around Elk not using container coordinates
+          // for self edges
         paintEdge(strokeGraphics(containingG, edge), strokeGraphics(nodeG, edge), edge)
       }
     }
 
-    paintBlock(scaledG, scaledG, rootNode)
+    paintBlock(scaledG, rootNode)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
