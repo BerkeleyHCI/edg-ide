@@ -17,6 +17,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   private val elementToolTips = mutable.Map[ElkGraphElement, String]()
 
   private var zoomLevel: Float = 1.0f
+  private val margin: Int = 32  // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
 
   override def setZoom(zoom: Float): Unit = {
     zoomLevel = zoom
@@ -124,10 +125,26 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   // Render an edge, including all its sections
-  def paintEdge(g: Graphics2D, edge: ElkEdge): Unit = {
+  def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
+    // HACK PATCH around a (probable?) ELK bug
+    // If a self-edge between parent's ports, use parent's transforms
+    // TODO: is this generally correct? it's good enough for what we need though
+    val thisG = if (edge.getSources == edge.getTargets) {
+      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect {
+        case sourcePort: ElkPort => sourcePort.getParent
+      }
+      if (edgeTargetBlockOption == Some(edge.getContainingNode)) {
+        parentG
+      } else {
+        blockG
+      }
+    } else {
+      blockG
+    }
+
     edge.getSections.asScala.foreach { section =>
       edgeSectionPairs(section).foreach { case (line1, line2) =>
-        g.drawLine(line1._1.toInt, line1._2.toInt,
+        thisG.drawLine(line1._1.toInt, line1._2.toInt,
           line2._1.toInt, line2._2.toInt
         )
       }
@@ -179,6 +196,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     scaling.scale(zoomLevel, zoomLevel)
     val scaledG = paintGraphics.create().asInstanceOf[Graphics2D]
     scaledG.transform(scaling)
+    scaledG.translate(margin, margin)
     scaledG.setStroke(new BasicStroke(1/zoomLevel))  // keep stroke at 1px
 
     // Keep the real font size constant, regardless of zoom
@@ -195,23 +213,24 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       node.getPorts.asScala.foreach { port =>
         paintPort(childG, port)
       }
-      paintBlockContents(childG, node)
+      paintBlockContents(blockG, childG, node)
     }
 
-    def paintBlockContents(blockG: Graphics2D, node: ElkNode): Unit = {
+    // parentG is a hack to support degenerate edges which seem to be in parents coordinate space
+    def paintBlockContents(parentG: Graphics2D, blockG: Graphics2D, node: ElkNode): Unit = {
       node.getChildren.asScala.foreach { childNode =>
         paintBlock(blockG, childNode)
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
-        paintEdge(strokeGraphics(blockG, edge), edge)
+        paintEdge(strokeGraphics(parentG, edge), strokeGraphics(blockG, edge), edge)
       }
     }
 
     if (showTop) {
       paintBlock(scaledG, rootNode)
     } else {
-      paintBlockContents(scaledG, rootNode)
+      paintBlockContents(scaledG, scaledG, rootNode)
     }
   }
 
@@ -278,7 +297,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       (containedPorts ++ containedNodes).headOption
     }
 
-    val elkPoint = (x / zoomLevel.toDouble, y / zoomLevel.toDouble)  // transform points to elk-space
+    val elkPoint = ((x - margin) / zoomLevel.toDouble, (y - margin) / zoomLevel.toDouble)  // transform points to elk-space
     intersectNode(rootNode, elkPoint)
   }
 
@@ -324,7 +343,8 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   // Scrollable APIs
   //
   override def getPreferredSize: Dimension =
-    new Dimension((rootNode.getWidth * zoomLevel).toInt, (rootNode.getHeight * zoomLevel).toInt)
+    new Dimension((rootNode.getWidth * zoomLevel + 2 * margin).toInt,
+      (rootNode.getHeight * zoomLevel + 2 * margin).toInt)
 
   override def getPreferredScrollableViewportSize: Dimension = getPreferredSize
 
