@@ -137,7 +137,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   // Modify the base graphics for filling some element, eg by highlighted status
-  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement, depth: Int): Graphics2D = {
+  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
     if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))
