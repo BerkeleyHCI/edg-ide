@@ -2,9 +2,9 @@ package edg_ide.swing
 
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
-import org.eclipse.elk.graph.{ElkEdge, ElkNode, ElkPort}
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
 
-import java.awt.Graphics2D
+import java.awt.{Color, Graphics2D}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
@@ -16,6 +16,41 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
   */
 class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) extends
     JElkGraph(rootNode, showTop) {
+
+  private var errorElts: Set[ElkGraphElement] = Set()
+  def setError(elts: Set[ElkGraphElement]): Unit = {
+    errorElts = elts
+    validate()
+    repaint()
+  }
+
+  private var staleElts: Set[ElkGraphElement] = Set()
+  def setStale(elts: Set[ElkGraphElement]): Unit = {
+    staleElts = elts
+    validate()
+    repaint()
+  }
+
+  override def setGraph(newGraph: ElkNode): Unit = {
+    errorElts = Set()
+    staleElts = Set()
+    super.setGraph(newGraph)
+  }
+
+  override def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+    val newBase = if (errorElts.contains(element)) {
+      val newColor = new Color(
+        base.getColor.getRed, (base.getColor.getGreen * 0.25).toInt, (base.getColor.getBlue * 0.25).toInt,
+        base.getColor.getAlpha)
+      val newBase = base.create().asInstanceOf[Graphics2D]
+      newBase.setColor(newColor)
+      newBase
+    } else {
+      base
+    }
+    super.strokeGraphics(newBase, element)
+
+  }
 
   sealed trait DrawAnchor  // position on the "label" where the drawing point is
   object DrawAnchor {

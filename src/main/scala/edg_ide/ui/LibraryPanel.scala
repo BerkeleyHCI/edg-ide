@@ -162,10 +162,26 @@ class LibraryPreview(project: Project) extends JPanel {
 
           def formatArg(arg: PyNamedParameter): String = {
             val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
-            s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
+            // TODO hyperlinks? s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
+            s"""<b>${arg.getName}</b>"""
           }
 
-          ((initArgs.map(formatArg) :+ "*") ++ initKwargs.map(formatArg)).mkString(", ")
+          val initString = if (initArgs.nonEmpty) {
+            Some(s"positional args: ${initArgs.map(formatArg).mkString(", ")}")
+          } else {
+            None
+          }
+          val initKwString = if (initKwargs.nonEmpty) {
+            Some(s"keyword args: ${initKwargs.map(formatArg).mkString(", ")}")
+          } else {
+            None
+          }
+
+          if (initString.isEmpty && initKwString.isEmpty) {
+            "(no args)"
+          } else {
+            Seq(initString, initKwString).flatten.mkString("; ")
+          }
         }
         val docstring = exceptable {
           val pyClass = pyClassErrorable.exceptError
@@ -183,7 +199,8 @@ class LibraryPreview(project: Project) extends JPanel {
           "(none)"
         } else {
           block.superclasses.map { superclass =>
-            s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
+            // TODO hyperlinks? s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
+            s"""<b>${EdgirUtils.SimpleLibraryPath(superclass)}</b>"""
           }.mkString(", ")
         }
         val textFieldText = s"<b>${EdgirUtils.SimpleLibraryPath(blockType)}</b> " +

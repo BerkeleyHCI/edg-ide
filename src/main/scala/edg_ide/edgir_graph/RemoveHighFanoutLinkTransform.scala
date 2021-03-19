@@ -1,12 +1,9 @@
 package edg_ide.edgir_graph
 
 import edg.elem.elem
-import edg.ElemBuilder.LibraryPath
 import edg.ref.ref.LibraryPath
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.EdgirGraph.EdgirEdge
-
-import scala.collection.SeqMap
 
 /** Removes links (as nodes - must run before they are collapsed) that are "high-fanout",
   * based on the link type allowlist and parameterized number of sink connections.

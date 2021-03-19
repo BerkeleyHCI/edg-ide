@@ -38,11 +38,28 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     }.toSeq
   }
 
+  // Selection operations
+  //
+  private var selected: Set[ElkGraphElement] = Set()
+  def setSelected(elts: Set[ElkGraphElement]): Unit = {
+    selected = elts
+    validate()
+    repaint()
+  }
+
+  private var highlighted: Option[Set[ElkGraphElement]] = None
+  def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
+    highlighted = elts
+    validate()
+    repaint()
+  }
 
   setGraph(rootNode)
 
   def setGraph(newGraph: ElkNode): Unit = {
     elementToolTips.clear()
+    highlighted = None
+    selected = Set()
     rootNode = newGraph
     revalidate()
     repaint()
@@ -300,23 +317,6 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     val elkPoint = ((x - margin) / zoomLevel.toDouble, (y - margin) / zoomLevel.toDouble)  // transform points to elk-space
     intersectNode(rootNode, elkPoint)
   }
-
-  // Selection operations
-  //
-  private var selected: Set[ElkGraphElement] = Set()
-  def setSelected(elts: Set[ElkGraphElement]): Unit = {
-    selected = elts
-    validate()
-    repaint()
-  }
-
-  private var highlighted: Option[Set[ElkGraphElement]] = None
-  def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
-    highlighted = elts
-    validate()
-    repaint()
-  }
-
 
   addMouseListener(new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
