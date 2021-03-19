@@ -8,7 +8,6 @@ import com.intellij.openapi.project.Project;
 
 // PersistentStateComponent doesn't seem to like Scala classes, so here it is in Java.
 class BlockVisualizerServiceState {
-  public String panelBlockFile = "";
   public String panelBlockModule = "";
   public String panelBlockName = "";
   public int depthSpinner = 1;
@@ -16,6 +15,7 @@ class BlockVisualizerServiceState {
   public float panelBottomSplitterPos = 0.33f;
   public float panelLibrarySplitterPos = 0.5f;
   public int panelTabIndex = 0;
+  public float libraryPreviewSplitterPos = 0.5f;
 }
 
 

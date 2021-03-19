@@ -13,35 +13,41 @@
   </extensions>
 
   <actions>
-    <action id="edg_ide.action.NavigateToBlockAction" class="edg_ide.actions.NavigateToBlockAction"
-            text="Navigate To Block" description="Select the block in the block diagram view of the element at the caret in the code view">
+    <action id="edg_ide.actions.EmptyCacheAction" class="edg_ide.actions.EmptyCacheAction"
+            text="Empty IDE Cache" description="Empty the IDE cache">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
-      <keyboard-shortcut first-keystroke="control alt A" second-keystroke="C" keymap="$default"/>
     </action>
 
-    <action id="edg_ide.action.BlockVisualizationAction" class="edg_ide.actions.BlockVisualizationAction"
-            text="Open Block Visualizer" description="Open the block visualizer at the currently selected class"
+    <action id="edg_ide.actions.FillCacheAction" class="edg_ide.actions.FillCacheAction"
+            text="Fill Cache" description="Fill the IDE cache by compiling all libraries visible from the current design">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
+    </action>
+
+
+    <action id="edg_ide.action.SetVisualizerTopAction" class="edg_ide.actions.SetVisualizerTopAction"
+            text="Set Visualizer Design" description="Sets the top-level design of the visualizer to the current class"
             icon="AllIcons.Toolwindows.ToolWindowHierarchy">
+      <add-to-group group-id="ToolsMenu" anchor="first"/>
+    </action>
+
+    <action id="edg_ide.actions.RefreshVisualizationAction" class="edg_ide.actions.RefreshVisualizationAction"
+            text="Refresh File" description="Refreshes the visualization"
+            icon="AllIcons.Actions.Rerun">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt R" keymap="$default"/>
     </action>
 
-    <action id="edg_ide.actions.EmptyCacheAction" class="edg_ide.actions.EmptyCacheAction"
-            text="Empty IDE Cache" description="Empty the IDE cache only (does not affect the Python cache)">
-      <add-to-group group-id="ToolsMenu" anchor="first"/>
-      <keyboard-shortcut first-keystroke="control alt Q" keymap="$default"/>
-    </action>
 
-    <action id="edg_ide.actions.DiscardCachedModuleAction" class="edg_ide.actions.DiscardCachedModuleAction"
-            text="Discard Cached Module" description="Discard the currently opened Python module (file) from the cache">
-      <add-to-group group-id="ToolsMenu" anchor="first"/>
-    </action>
-
-    <action id="edg_ide.actions.RefreshFileAction" class="edg_ide.actions.RefreshFileAction"
-            text="Refresh File" description="Refreshes the visualization, discarding the currently opened Python module (file) from the cache"
-            icon="AllIcons.Actions.Rerun">
+    <action id="edg_ide.action.NavigateToBlockAction" class="edg_ide.actions.NavigateToBlockAction"
+            text="Navigate To Block" description="Select the block in the block diagram view of the element at the caret in the code view">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control alt W" keymap="$default"/>
+    </action>
+
+
+    <action id="edg_ide.actions.TestAction" class="edg_ide.actions.TestAction"
+            text="Test Action" description="Whatever we want this to do">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
   </actions>
 </idea-plugin>

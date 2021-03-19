@@ -2,6 +2,8 @@ package edg_ide.edgir_graph
 
 import com.intellij.openapi.diagnostic.Logger
 
+import scala.collection.SeqMap
+
 
 /**
   * An HGraph transform that eliminates sub-ports from edge connects,
@@ -38,10 +40,10 @@ object SimplifyPortTransform {
           None
       }
     }
-    val newMembers = node.members.mapValues {
+    val newMembers = node.members.to(SeqMap).mapValues {
       case member: EdgirGraph.EdgirNode => apply(member)
       case member: EdgirGraph.EdgirPort => member
-    }.toMap
+    }.to(SeqMap)
     EdgirGraph.EdgirNode(node.data, newMembers, newEdges)
   }
 }

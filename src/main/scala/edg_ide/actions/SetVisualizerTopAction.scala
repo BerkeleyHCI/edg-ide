@@ -7,7 +7,7 @@ import edg_ide.ui.BlockVisualizerService
 import edg_ide.util.ErrorableNotify._
 
 
-class BlockVisualizationAction() extends AnAction() {
+class SetVisualizerTopAction() extends AnAction() {
   override def actionPerformed(event: AnActionEvent): Unit = {
     val visualizer = Errorable(BlockVisualizerService(event.getProject).visualizerPanelOption,
       "No visualizer panel")
@@ -22,11 +22,10 @@ class BlockVisualizationAction() extends AnAction() {
       ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile)
     }
 
-    (visualizer + ((psiFile + module) + containingClass)).mapOrNotify(
+    (visualizer + (module + containingClass)).mapOrNotify(
       this.getClass.getCanonicalName, event.getProject) {
-      case (visualizer, ((psiFile, module), containingClass)) =>
-        visualizer.setFileBlock(psiFile.getVirtualFile,
-          module.mkString("."), containingClass.getNameIdentifier.getText)
+      case (visualizer, (module, containingClass)) =>
+        visualizer.setFileBlock(module.mkString("."), containingClass.getNameIdentifier.getText)
     }
   }
 }

@@ -6,7 +6,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.JavaConverters._
 import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.util.ElkGraphUtil
-import edg_ide.edgir_graph.{HierarchyGraphElk, HGraphEdge, HGraphNode, HGraphNodeMember, HGraphPort}
+import edg_ide.edgir_graph.{HGraphEdge, HGraphNode, HGraphNodeMember, HGraphPort, HierarchyGraphElk}
+
+import scala.collection.SeqMap
 
 
 class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
@@ -15,7 +17,7 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
 
   case class SimpleNode(
     override val data: String,
-    override val members: Map[String, SimpleNodeMember],
+    override val members: SeqMap[String, SimpleNodeMember],
     override val edges: Seq[HGraphEdge[String]],
   ) extends HGraphNode[String, String, String] with SimpleNodeMember {
   }
@@ -35,19 +37,19 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
 
   behavior of "HGraphNodeToElkNode"
 
-  def makeGraph(): (ElkNode, Map[Seq[String], ElkConnectableShape]) = {
+  def makeGraph(): (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
     val simpleGraph = SimpleNode("root",
-      members = Map(
+      members = SeqMap(
         "p1" -> SimplePort("p1data"),
         "n1" -> SimpleNode("n1data",
-          members = Map(
+          members = SeqMap(
             "n1p1" -> SimplePort("n1p1data"),
             "n1p2" -> SimplePort("n1p2data"),
           ),
           edges = Seq()
         ),
         "n2" -> SimpleNode("n2data",
-          members = Map(
+          members = SeqMap(
             "n2p1" -> SimplePort("n2p1data"),
           ),
           edges = Seq()

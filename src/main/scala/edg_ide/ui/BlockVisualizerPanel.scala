@@ -3,32 +3,38 @@ package edg_ide.ui
 import java.awt.event.{MouseWheelEvent, MouseWheelListener}
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
-import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.{TextBrowseFolderListener, TextFieldWithBrowseButton}
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.ui.{JBIntSpinner, JBSplitter}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{Compiler, CompilerError, DesignStructuralValidate}
+import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
+import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue, hdl => edgrpc}
 import edg.elem.elem
+import edg.ref.ref
 import edg.schema.schema
-import edg.compiler.{hdl => edgrpc}
-import edg.ElemBuilder
-import edg_ide.edgir_graph.{CollapseBridgeTransform, CollapseLinkTransform, EdgirGraph, ElkEdgirGraphUtils, HierarchyGraphElk, InferEdgeDirectionTransform, NodeDataWrapper, PortWrapper, PruneDepthTransform, SimplifyPortTransform}
-import edg_ide.swing.{BlockTreeTableModel, CompilerErrorTreeTableModel, EdgirLibraryTreeTableModel, JElkGraph, RefinementsTreeTableModel, ZoomingScrollPane}
-import edg.wir
-import edg.wir.{DesignPath, Refinements}
+import edg.schema.schema.Design
+import edg.wir.{DesignPath, Library}
+import edg.{ElemBuilder, ElemModifier}
+import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import org.eclipse.elk.graph.ElkGraphElement
 import java.awt.event.{ActionEvent, ActionListener}
 import java.awt.{BorderLayout, Graphics, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
 
-import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
+import edg_ide.edgir_graph._
+import edg_ide.swing._
+import edg_ide.util.SiPrefixUtil
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
+
+import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
+import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.util.concurrent.atomic.AtomicBoolean
+import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JPanel, JTextField}
+import javax.swing.{JButton, JLabel, JPanel, JScrollPane}
+import scala.collection.{SeqMap, mutable}
 
 
 object Gbc {
@@ -62,13 +68,82 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private var design = schema.Design()
   private var compiler = new Compiler(design, EdgCompilerService(project).pyLib)
 
+  private var blockModule = ""
+  private var blockName = ""
+
   // GUI-facing state
   //
-  private var selectedPath: DesignPath = DesignPath()  // root implicitly selected by default
-  // This hack ignores actions when programmatically synchronizing the design tree and graph
-  // TODO refactor w/ shared model eg https://docs.oracle.com/javase/tutorial/uiswing/examples/components/index.html#SharedModelDemo
-  private var ignoreActions: Boolean = false
-  private var compilerRunning = new AtomicBoolean(false)
+  private var focusPath: DesignPath = DesignPath()  // visualize from root by default
+
+  private val compilerRunning = new AtomicBoolean(false)
+
+  // Tool
+  //
+  private def pathsToGraphNodes(paths: Set[DesignPath]): Set[ElkGraphElement] = {
+    paths.flatMap { path =>
+      ElkEdgirGraphUtils.follow(path, graph.getGraph)
+    }
+  }
+
+  private val toolInterface = new ToolInterface {
+    override def setDesignTreeSelection(path: Option[DesignPath]): Unit = {
+      designTree.clearSelection()
+      path match {
+        case Some(path) =>
+          val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
+          val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) { _.pathByAddingChild(_) }
+          designTree.addSelectedPath(treePath)
+        case None =>  // do nothing
+      }
+    }
+
+    override def scrollGraphToVisible(path: DesignPath): Unit = {
+      // TODO IMPLEMENT ME
+    }
+
+    override def setGraphSelections(paths: Set[DesignPath]): Unit = {
+      graph.setSelected(pathsToGraphNodes(paths))
+    }
+
+    override def setGraphHighlights(paths: Option[Set[DesignPath]]): Unit = {
+      paths match {
+        case Some(paths) => graph.setHighlighted(Some(pathsToGraphNodes(paths)))
+        case None => graph.setHighlighted(None)
+      }
+    }
+
+    override def setFocus(path: DesignPath): Unit = {
+      setContext(path)
+    }
+
+    override def setDetailView(path: DesignPath): Unit = {
+      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
+      detailPanel.setLoaded(path, design, compiler)
+    }
+
+    override def setStatus(statusText: String): Unit = {
+      status.setText(statusText)
+    }
+
+    override def getFocus: DesignPath = focusPath
+    override def getProject: Project = project
+    override def getLibrary: Library = EdgCompilerService(project).pyLib
+    override def getDesign: Design = design
+
+    override def startNewTool(tool: BaseTool): Unit = {
+      activeTool = tool
+      activeTool.init()
+    }
+    override def endTool(): Unit = {
+      activeTool = defaultTool
+      activeTool.init()
+      setStatus("Ready")
+    }
+  }
+
+  private val defaultTool: BaseTool = new DefaultTool(toolInterface)
+  private var activeTool: BaseTool = defaultTool
+
 
   // GUI Components
   //
@@ -81,60 +156,59 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val visualizationPanel = new JPanel(new GridBagLayout())
   mainSplitter.setFirstComponent(visualizationPanel)
 
-  private val blockFileLabel = new JLabel("Block File")
-  visualizationPanel.add(blockFileLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
-  private val blockFile = new TextFieldWithBrowseButton()
-  visualizationPanel.add(blockFile, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
-  private val fileDescriptor: FileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
-  blockFile.addBrowseFolderListener(new TextBrowseFolderListener(fileDescriptor, null) {
-    override def onFileChosen(chosenFile: VirtualFile) {
-      super.onFileChosen(chosenFile)  // TODO implement me
-    }
-  })
-
-  private val blockModuleLabel = new JLabel("Block Module")
-  visualizationPanel.add(blockModuleLabel, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
-  private val blockModule = new JTextField()
-  visualizationPanel.add(blockModule, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
-
-  private val blockNameLabel = new JLabel("Block Name")
-  visualizationPanel.add(blockNameLabel, Gbc(2, 0, GridBagConstraints.HORIZONTAL))
-  private val blockName = new JTextField()
-  visualizationPanel.add(blockName, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
+  private val blockNameLabel = new JLabel("")
+  visualizationPanel.add(blockNameLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val button = new JButton("Update")
-  visualizationPanel.add(button, Gbc(3, 0, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(button, Gbc(1, 0))
   button.addActionListener(new ActionListener() {
     override def actionPerformed(e: ActionEvent) {
-      update()
+      recompile()
     }
   })
 
   // TODO max value based on depth of tree?
-  private val depthSpinner = new JBIntSpinner(1, 1, 100)
+  private val depthSpinner = new JBIntSpinner(1, 1, 8)
+  depthSpinner.addChangeListener(new ChangeListener {
+    override def stateChanged(e: ChangeEvent): Unit = {
+      updateDisplay()
+    }
+  })
   // TODO update visualization on change?
-  visualizationPanel.add(depthSpinner, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
+  visualizationPanel.add(depthSpinner, Gbc(2, 0))
 
   private val status = new JLabel(s"Ready " +
       s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
       s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
   )
-  visualizationPanel.add(status, Gbc(0, 2, GridBagConstraints.HORIZONTAL, xsize=4))
+  visualizationPanel.add(status, Gbc(0, 1, GridBagConstraints.HORIZONTAL, xsize=3))
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()))
+    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()), "empty")
 
-  private val graph = new JElkGraph(emptyHGraph) {
-    override def onSelected(node: ElkGraphElement): Unit = {
-      if (ignoreActions) {
-        return
+  private val graph = new JBlockDiagramVisualizer(emptyHGraph)
+  graph.addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      graph.getElementForLocation(e.getX, e.getY) match {
+        case Some(clicked) => clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
+          case path: DesignPath => activeTool.onPathMouse(e, path)
+          case null =>  // TODO should this error out?
+        }
+        case None =>  // ignored
       }
-      Option(node.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)).foreach(select)
     }
+  })
+
+  private val centeringGraph = new JPanel(new GridBagLayout)
+  centeringGraph.add(graph, new GridBagConstraints())
+
+  private val graphScrollPane = new JBScrollPane(centeringGraph) with ZoomDragScrollPanel {
+    val zoomable = graph
   }
-  private val graphScrollPane = new JBScrollPane(graph) with ZoomingScrollPane
-  visualizationPanel.add(graphScrollPane, Gbc(0, 3, GridBagConstraints.BOTH, xsize=4))
+  graph.addMouseListener(graphScrollPane.makeMouseAdapter)
+  graph.addMouseMotionListener(graphScrollPane.makeMouseAdapter)
+  visualizationPanel.add(graphScrollPane, Gbc(0, 2, GridBagConstraints.BOTH, xsize=3))
 
   // GUI: Bottom half (design tree and task tabs)
   //
@@ -143,21 +217,30 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private var designTreeModel = new BlockTreeTableModel(edg.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel)
+  new TreeTableSpeedSearch(designTree)
   private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
-      if (ignoreActions) {
-        return
-      }
       e.getPath.getLastPathComponent match {
-        case node: HierarchyBlockNode => select(node.path)
-        case value => notificationGroup.createNotification(
-          s"Unknown selection $value", NotificationType.WARNING)
-            .notify(project)
+        case selectedNode: HierarchyBlockNode =>
+          activeTool.onSelect(selectedNode.path)
+        case _ =>  // any other type ignored, not that there should be any other types
+          // TODO should this error out?
       }
     }
   }
   designTree.getTree.addTreeSelectionListener(designTreeListener)
+  designTree.addMouseListener(new MouseAdapter {  // right click context menu
+    override def mousePressed(e: MouseEvent): Unit = {
+      designTree.getTree.getPathForLocation(e.getX, e.getY) match {
+        case null =>  // ignored
+        case treePath: TreePath => treePath.getLastPathComponent match {
+          case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
+          case _ =>  // any other type ignored
+        }
+      }
+    }
+  })
   designTree.setShowColumns(true)
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
@@ -167,7 +250,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val tabbedPane = new JBTabbedPane()
   bottomSplitter.setSecondComponent(tabbedPane)
 
-  private val libraryPanel = new LibraryPanel()
+  private val libraryPanel = new LibraryPanel(project)
   tabbedPane.addTab("Library", libraryPanel)
   val TAB_INDEX_LIBRARY = 0
 
@@ -182,7 +265,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
   val TAB_INDEX_ERRORS = 3
-  tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)  // no errors by default
 
   // add a tab for kicad visualization
   private val kicadVizPanel = new KicadVizPanel()
@@ -195,29 +277,37 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   // Actions
   //
-  def select(path: DesignPath): Unit = {
-    if (path == DesignPath()) {
-      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (root)")
-    } else {
-      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.steps.last})")
-    }
-    detailPanel.setLoaded(path, design, compiler)
-    selectedPath = path
+  def getModule: String = blockModule
 
-    ignoreActions = true
-
-    val (targetElkPrefix, targetElkNode) = ElkEdgirGraphUtils.follow(path, graph.getGraph)
-    graph.setSelected(targetElkPrefix.last)
-
-    val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
-    designTree.clearSelection()
-    val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) { _.pathByAddingChild(_) }
-    designTree.addSelectedPath(treePath)
-
-    ignoreActions = false
+  def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
+    EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))
   }
 
-  def update(): Unit = {
+  def getDesign: schema.Design = design
+
+  def setContext(path: DesignPath): Unit = {
+    if (activeTool == defaultTool) {
+      focusPath = path
+      updateDisplay()
+    }
+  }
+
+  def selectPath(path: DesignPath): Unit = {
+    if (activeTool == defaultTool) {
+      defaultTool.onSelect(path)
+    }
+  }
+
+  def setFileBlock(module: String, block: String): Unit = {
+    blockModule = module
+    blockName = block
+    blockNameLabel.setText(s"$module.$blockName")
+  }
+
+  /** Recompiles the current blockModule / blockName, and updates the display
+    */
+  def recompile(): Unit = {
+    // TODO: should be in EdgCompilerService? Which is what really needs the lock
     if (!compilerRunning.compareAndSet(false, true)) {
       notificationGroup.createNotification(
         s"Compiler already running", NotificationType.WARNING)
@@ -225,44 +315,46 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       return
     }
 
+    // TODO: lock out tools?
+
+    val documentManager = FileDocumentManager.getInstance()
+    documentManager.saveAllDocuments()
+
     ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
       override def run(indicator: ProgressIndicator): Unit = {
         status.setText(s"Compiling")
         indicator.setIndeterminate(true)
 
-        EdgCompilerService(project).pyLib.reloadModule(blockModule.getText())
         try {
-          indicator.setText("EDG compiling ... design top")
-          val fullName = blockModule.getText() + "." + blockName.getText()
-          val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(ElemBuilder.LibraryPath(fullName))
-          val design = schema.Design(contents = Some(block))
+          indicator.setText("EDG compiling")
 
-          indicator.setText("EDG compiling ...")
-          val (compiled, compiler, time) = EdgCompilerService(project).compile(design, refinements, Some(indicator))
+          val designType = ElemBuilder.LibraryPath(blockModule + "." + blockName)
+          val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project)
+              .compile(blockModule, designType, Some(indicator))
 
-          indicator.setText("EDG compiling ... validating")
+          indicator.setText("EDG compiling: validating")
           val checker = new DesignStructuralValidate()
           val errors = compiler.getErrors() ++ checker.map(compiled)
           if (errors.isEmpty) {
-            status.setText(s"Compiled ($time ms)")
-            tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, false)
-            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
+            status.setText(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)")
           } else {
-            status.setText(s"Compiled, with ${errors.length} errors ($time ms)")
-            tabbedPane.setEnabledAt(TAB_INDEX_ERRORS, true)
-            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
+            status.setText(s"Compiled, with ${errors.length} errors (reload: $reloadTime ms, compile: $compileTime ms)")
           }
+          tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           indicator.setText("EDG compiling ... done")
 
-          libraryPanel.setLibrary(EdgCompilerService(project).pyLib)
+          updateLibrary(EdgCompilerService(project).pyLib)
           refinementsPanel.setRefinements(refinements)
           errorPanel.setErrors(errors)
 
           setDesign(compiled, compiler)
+
+          if (activeTool != defaultTool) {  // revert to the default tool
+            toolInterface.endTool()  // TODO should we also preserve state like selected?
+          }
         } catch {
           case e: Throwable =>
-            import java.io.PrintWriter
-            import java.io.StringWriter
+            import java.io.{PrintWriter, StringWriter}
             val sw = new StringWriter
             e.printStackTrace(new PrintWriter(sw))
             status.setText(s"Compiler error: ${e.toString}")
@@ -280,44 +372,81 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   }
 
-  def setFileBlock(file: VirtualFile, module: String, block: String): Unit = {
-    blockFile.setText(file.getCanonicalPath)
-    blockModule.setText(module)
-    blockName.setText(block)
-    update()
+  /** Sets the design and updates displays accordingly.
+    */
+  def setDesign(design: schema.Design, compiler: Compiler): Unit = {
+    // Update state
+    this.design = design
+    this.compiler = compiler
+
+    val block = design.contents.getOrElse(elem.HierarchyBlock())
+
+    // Update the design tree first, in case graph layout fails
+    designTreeModel = new BlockTreeTableModel(block)
+    designTree.setModel(designTreeModel)
+    designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+
+    updateDisplay()
   }
 
-  def setDesign(design: schema.Design, compiler: Compiler): Unit = design.contents match {
-    case Some(block) =>
-      this.design = design
-      this.compiler = compiler
+  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
+    * Does not update visualizations that are unaffected by operations that don't change the design.
+    */
+  def updateDisplay(): Unit = {
+    import ElemBuilder.LibraryPath
 
-      // Update the design tree first, in case graph layout fails
-      designTreeModel = new BlockTreeTableModel(block)
-      designTree.setModel(designTreeModel)
-      designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+    val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, design)
+    focusPath = blockPath
 
-      // TODO layout happens in background task?
-      val edgirGraph = EdgirGraph.blockToNode(DesignPath(), block)
-      val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
-        InferEdgeDirectionTransform(SimplifyPortTransform(
-          PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))  // TODO configurable depth
-      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-        Some(ElkEdgirGraphUtils.DesignPathMapper))
+    // For now, this only updates the graph visualization, which can change with focus.
+    // In the future, maybe this will also update or filter the design tree.
+    val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
+    val highFanoutTransform = new RemoveHighFanoutLinkTransform(
+      4, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))
+    val transformedGraph = CollapseLinkTransform(highFanoutTransform(
+      CollapseBridgeTransform(
+      InferEdgeDirectionTransform(SimplifyPortTransform(
+        PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))))
 
-      graph.setGraph(layoutGraphRoot)
+    val name = if (focusPath == DesignPath()) {
+      "(root)"
+    } else {
+      focusPath.steps.last
+    }
+    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+      name,
+      Seq(ElkEdgirGraphUtils.DesignPathMapper),
+      // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
+      focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
-      // TODO this should resolve as far as possible here, instead of passing a newly invalid path
-      select(selectedPath)  // reload previous selection to the extent possible
-    case None => graph.setGraph(emptyHGraph)
+    graph.setGraph(layoutGraphRoot)
+    val tooltipTextMap = new DesignToolTipTextMap(compiler)
+    tooltipTextMap.map(design)
+    tooltipTextMap.getTextMap.foreach { case (path, tooltipText) =>
+      pathsToGraphNodes(Set(path)).foreach { node =>
+        graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+      }
+    }
+
+  }
+
+  def updateLibrary(library: PythonInterfaceLibrary): Unit = {
+    libraryPanel.setLibrary(library)
+  }
+
+  // In place design tree modifications
+  //
+  def currentDesignModifyBlock(blockPath: DesignPath)
+                              (blockTransformFn: elem.HierarchyBlock => elem.HierarchyBlock): Unit = {
+    val newDesign = ElemModifier.modifyBlock(blockPath, design)(blockTransformFn)
+    setDesign(newDesign, compiler)
   }
 
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.panelBlockFile = blockFile.getText
-    state.panelBlockModule = blockModule.getText()
-    state.panelBlockName = blockName.getText()
+    state.panelBlockModule = blockModule
+    state.panelBlockName = blockName
     state.depthSpinner = depthSpinner.getNumber
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
@@ -329,9 +458,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
-    blockFile.setText(state.panelBlockFile)
-    blockModule.setText(state.panelBlockModule)
-    blockName.setText(state.panelBlockName)
+    setFileBlock(state.panelBlockModule, state.panelBlockName)
     depthSpinner.setNumber(state.depthSpinner)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
@@ -344,42 +471,99 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 }
 
 
-class LibraryPanel() extends JPanel {
-  // State
-  //
-  private var library: wir.Library = new wir.EdgirLibrary(schema.Library())
+class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
+  private val textMap = mutable.Map[DesignPath, String]()
 
-  // GUI Components
-  //
-  private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
+  def getTextMap: Map[DesignPath, String] = textMap.toMap
 
-  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
-  libraryTree.setShowColumns(true)
-  private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
-  splitter.setFirstComponent(libraryTreeScrollPane)
-
-  private val visualizer = new JLabel("TODO Library Visualizer here")
-  splitter.setSecondComponent(visualizer)
-
-  setLayout(new BorderLayout())
-  add(splitter)
-
-  // Actions
-  //
-  def setLibrary(library: wir.Library): Unit = {
-    this.library = library
-    libraryTree.setModel(new EdgirLibraryTreeTableModel(this.library))
-    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
+  // TODO should this be in shared utils or something?
+  private def paramToString(path: DesignPath): String = {
+    compiler.getParamValue(path.asIndirect) match {
+      case Some(value) => value.toStringValue
+      case None => "unknown"
+    }
   }
 
-  // Configuration State
-  //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.panelLibrarySplitterPos = splitter.getProportion
+  private val TOLERANCE_THRESHOLD = 0.25
+  private def paramToUnitsString(path: DesignPath, units: String): String = {
+    compiler.getParamValue(path.asIndirect) match {
+      case Some(FloatValue(value)) => SiPrefixUtil.unitsToString(value, units)
+      case Some(IntValue(value)) => SiPrefixUtil.unitsToString(value.toDouble, units)
+      case Some(RangeValue(minValue, maxValue)) =>
+        val centerValue = (minValue + maxValue) / 2
+        if (centerValue != 0) {
+          val tolerance = (centerValue - minValue) / centerValue
+          if (math.abs(tolerance) <= TOLERANCE_THRESHOLD) {  // within tolerance, display as center + tol
+            f"${SiPrefixUtil.unitsToString(centerValue, units)} ± ${(tolerance*100)}%.02f%%"
+          } else {  // out of tolerance, display as ranges
+            s"(${SiPrefixUtil.unitsToString(minValue, units)}, ${SiPrefixUtil.unitsToString(maxValue, units)})"
+          }
+        } else {
+          s"±${SiPrefixUtil.unitsToString(maxValue, units)}"
+        }
+      case Some(value) => s"unexpected ${value.getClass}(${value.toStringValue})"
+      case None => "unknown"
+    }
   }
 
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-    splitter.setProportion(state.panelLibrarySplitterPos)
+  override def mapPort(path: DesignPath, port: elem.Port): Unit = {
+    val classString = EdgirUtils.SimpleSuperclass(port.superclasses)
+    textMap.put(path, s"<b>$classString</b> at $path")
+  }
+  override def mapPortArray(path: DesignPath, port: elem.PortArray,
+                   ports: SeqMap[String, Unit]): Unit = {
+    val classString = s"Array[${EdgirUtils.SimpleSuperclass(port.superclasses)}]"
+    textMap.put(path, s"<b>$classString</b> at $path")
+  }
+  override def mapBundle(path: DesignPath, port: elem.Bundle,
+                ports: SeqMap[String, Unit]): Unit = {
+    val classString = EdgirUtils.SimpleSuperclass(port.superclasses)
+    textMap.put(path, s"<b>$classString</b> at $path")
+  }
+  override def mapPortLibrary(path: DesignPath, port: ref.LibraryPath): Unit = {
+    val classString = s"Unelaborated ${EdgirUtils.SimpleLibraryPath(port)}"
+    textMap.put(path, s"<b>$classString</b> at $path")
+  }
+
+  override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
+               ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
+               links: SeqMap[String, Unit]): Unit = {
+    // does nothing
+  }
+  override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
+    // does nothing
+  }
+
+  override def mapLink(path: DesignPath, link: elem.Link,
+              ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
+    val classString = EdgirUtils.SimpleSuperclass(link.superclasses)
+    val additionalDesc = classString match {
+      case "ElectricalLink" =>
+        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
+            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}"
+      case "DigitalLink" =>
+        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
+            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
+            s"\n<b>output thresholds</b>: ${paramToUnitsString(path + "output_thresholds", "V")}" +
+            s", <b>input thresholds</b>: ${paramToUnitsString(path + "input_thresholds", "V")}"
+      case "AnalogLink" =>
+        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
+            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
+            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
+            s"\n<b>sink impedance</b>: ${paramToUnitsString(path + "sink_impedance", "Ω")}" +
+            s", <b>source impedance</b>: ${paramToUnitsString(path + "source_impedance", "Ω")}"
+      case _ => ""
+    }
+    textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
+  }
+  override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
+    val classString = s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}"
+    textMap.put(path, s"<b>$classString</b> at $path")
   }
 
 
@@ -387,6 +571,7 @@ class LibraryPanel() extends JPanel {
 
 class RefinementsPanel extends JPanel {
   private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
+  new TreeTableSpeedSearch(tree)
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)

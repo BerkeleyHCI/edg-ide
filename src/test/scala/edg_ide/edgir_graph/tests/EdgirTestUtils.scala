@@ -7,6 +7,8 @@ import edg.wir.DesignPath
 import edg_ide.edgir_graph
 import edg_ide.edgir_graph.EdgirGraph
 
+import scala.collection.SeqMap
+
 
 object EdgirTestUtils {
   // Some definitions that need to be kept consistent with the Python HDL / frontend
@@ -43,10 +45,10 @@ object EdgirTestUtils {
       */
     val flatGraph = EdgirGraph.EdgirNode(
       data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
-      members = Map(
+      members = SeqMap(
         "source" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source"),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "port")
             ),
@@ -55,7 +57,7 @@ object EdgirTestUtils {
         ),
         "sink" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink"),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "port")
             ),
@@ -64,7 +66,7 @@ object EdgirTestUtils {
         ),
         "link" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath() + "link"),
-          members = Map(
+          members = SeqMap(
             "source" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "source")
             ),
@@ -95,16 +97,16 @@ object EdgirTestUtils {
       */
     val hierarchyGraph = EdgirGraph.EdgirNode(
       data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
-      members = Map(
+      members = SeqMap(
         "source" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source"),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "port")
             ),
             "inner" -> EdgirGraph.EdgirNode(
               data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source" + "inner"),
-              members = Map(
+              members = SeqMap(
                 "port" -> EdgirGraph.EdgirPort(
                   data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "inner" + "port")
                 ),
@@ -122,13 +124,13 @@ object EdgirTestUtils {
         ),
         "sink" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink"),
-          members = Map(
+          members = SeqMap(
             "port" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "port")
             ),
             "inner" -> EdgirGraph.EdgirNode(
               data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink" + "inner"),
-              members = Map(
+              members = SeqMap(
                 "port" -> EdgirGraph.EdgirPort(
                   data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "inner" + "port")
                 ),
@@ -146,7 +148,7 @@ object EdgirTestUtils {
         ),
         "link" -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath() + "link"),
-          members = Map(
+          members = SeqMap(
             "source" -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "source")
             ),

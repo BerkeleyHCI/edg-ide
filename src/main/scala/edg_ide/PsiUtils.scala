@@ -1,65 +1,54 @@
 package edg_ide
 
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
-import com.jetbrains.python.psi.{LanguageLevel, PyElementGenerator, PyReferenceExpression, PyTargetExpression}
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.jetbrains.python.psi.types.TypeEvalContext
+import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyRecursiveElementVisitor, PyReferenceExpression, PyTargetExpression}
+import edg.util.Errorable
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
+import edg_ide.util.{ExceptionNotifyException, exceptable}
+
+import scala.collection.mutable
 
 object PsiUtils {
-  // Return all siblings (including itself) of a PsiElement
-  def psiSiblings(element: PsiElement): Seq[PsiElement] = element match {
-    case element: PsiElement => Seq(element) ++ psiSiblings(element.getNextSibling)
-    case _ => Seq()  // null case
+  def fileLineOf(element: PsiElement, project: Project): Errorable[String] = {
+    exceptable {
+      val psiFile = element.getContainingFile.exceptNull("no file")
+      val psiDocumentManager = PsiDocumentManager.getInstance(project)
+      val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
+      val lineNumber = psiDocument.getLineNumber(element.getTextOffset)
+      s"${psiFile.getName}:$lineNumber"
+    }
   }
 
-  // Returns whether the two Seq of PsiElements produce text matches (individual element-wise)
-  def psiTextMatches(seq1: Seq[PsiElement], seq2: Seq[PsiElement]): Boolean = {  // TODO better match impl?
-    seq1.lengthCompare(seq2.length) == 0 && (seq1.zip(seq2).map { case (val1, val2) =>
-      val1.textMatches(val2)
-    }.forall(x => x))
+  def fileNextLineOf(element: PsiElement, project: Project): Errorable[String] = exceptable {
+    val psiFile = element.getContainingFile.exceptNull("no file")
+    val psiDocumentManager = PsiDocumentManager.getInstance(project)
+    val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
+    val endLineNumber = psiDocument.getLineNumber(element.getTextOffset + element.getTextLength)
+    s"${psiFile.getName}:${endLineNumber + 1}"
   }
 
-  /**
-    * For a PyReferenceExpression of the form self.something, return Some("something"), or None
+  /** If element is a ReferenceExpression or TargetExpression of the form 'self.xyz', returns Some(xyz).
+    * Does not truncate (will fail on self.xyz.abc).
+    * Accounts for different self names within a function.
     */
-  def psiSelfReference(project: Project, element: PyReferenceExpression): Option[String] = element match {
-    case element: PyReferenceExpression =>
-      val psiElementGenerator = PyElementGenerator.getInstance(project)
-      val refElement = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(element),
-        "self.placeholder"
-      ).asInstanceOf[PyReferenceExpression]
+  def selfReferenceOption(element: PsiElement): Errorable[String] = exceptable {
+    val containingFunction = PsiTreeUtil.getParentOfType(element, classOf[PyFunction])
+        .exceptNull("not in a function")
+    val selfName = containingFunction.getParameterList.getParameters.toSeq
+        .exceptEmpty(s"function ${containingFunction.getName} has no self")
+        .head.getName
 
-      val elemSiblings = psiSiblings(element.getChildren()(0))
-      val refSiblings = psiSiblings(refElement.getChildren()(0))
-
-      if (psiTextMatches(elemSiblings.slice(0, elemSiblings.length - 1),
-        refSiblings.slice(0, refSiblings.length - 1))) {
-        Some(elemSiblings.last.getText)
-      } else {
-        None
-      }
-    case _ => None
-  }
-
-  /**
-    * For a PyTargetExpression of the form self.something, return Some("something"), or None
-    */
-  def psiSelfTarget(project: Project, element: PyTargetExpression): Option[String] = element match {
-    case element: PyTargetExpression =>
-      val psiElementGenerator = PyElementGenerator.getInstance(project)
-      val refElement = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(element),
-        "self.placeholder"  // TODO: should actually use an assignment so this is a PyTargetExpression?
-      ).asInstanceOf[PyReferenceExpression]
-
-      val elemSiblings = psiSiblings(element.getChildren()(0))
-      val refSiblings = psiSiblings(refElement.getChildren()(0))
-
-      if (psiTextMatches(elemSiblings.slice(0, elemSiblings.length - 1),
-        refSiblings.slice(0, refSiblings.length - 1))) {
-        Some(elemSiblings.last.getText)
-      } else {
-        None
-      }
-    case _ =>
-      None
+    val optRef = Option(PsiTreeUtil.getTopmostParentOfType(element, classOf[PyReferenceExpression]))
+    val optTarget = Option(PsiTreeUtil.getTopmostParentOfType(element, classOf[PyTargetExpression]))
+    (optRef, optTarget) match {
+      case (Some(ref), _) if ref.getQualifier != null && ref.getQualifier.textMatches(selfName) =>
+        ref.getName
+      case (None, Some(target)) if target.getQualifier != null &&  target.getQualifier.textMatches(selfName) =>
+        target.getName
+      case _ => throw ExceptionNotifyException("not in a reference expression")
+    }
   }
 }

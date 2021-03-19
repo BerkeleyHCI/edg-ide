@@ -1,5 +1,7 @@
 package edg_ide.edgir_graph
 
+import scala.collection.SeqMap
+
 // Hierarchy graph data type
 
 // TODO this really should be a union type instead of a trait, but because of limitations of Scala
@@ -22,6 +24,6 @@ trait HGraphPort[PortType] extends HGraphNodeMember[Nothing, PortType, Nothing] 
 
 trait HGraphNode[NodeType, PortType, EdgeType] extends HGraphNodeMember[NodeType, PortType, EdgeType] {
   val data: NodeType
-  val members: Map[String, HGraphNodeMember[NodeType, PortType, EdgeType]]
+  val members: SeqMap[String, HGraphNodeMember[NodeType, PortType, EdgeType]]
   val edges: Seq[HGraphEdge[EdgeType]]
 }

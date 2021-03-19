@@ -62,14 +62,18 @@ object InferEdgeDirectionTransform {
       val bidirPorts = ports.collect { case (linkPort, blockPorts) if bidirs.contains(linkPort) =>
         blockPorts
       }.flatten
-      Set(bidirPorts.headOption.getOrElse(Seq()))  // only take the first bidir port
+      Set(bidirPorts.headOption).flatten  // only take the first bidir port
     } else {
       strongSourcePorts.toSet
     }
   }
 
+  def flipEdge(edge: EdgirGraph.EdgirEdge): EdgirGraph.EdgirEdge = {
+    EdgirGraph.EdgirEdge(edge.data, edge.target, edge.source)  // invert edge direction
+  }
+
   def apply(node: EdgirGraph.EdgirNode, mySourcePorts: Set[String] = Set()): EdgirGraph.EdgirNode = {
-    // Aggregate connected block ports by link and link port
+    // Aggregate connected block ports by link and link port, as link name -> (link port -> Seq(block path))
     val linkConnectedPorts: Map[String, Map[String, Seq[Seq[String]]]] = node.edges.flatMap { edge =>
       val edgeTargetTop = edge.target.head
       val targetMember = node.members(edgeTargetTop)
@@ -98,7 +102,7 @@ object InferEdgeDirectionTransform {
         if (blockSourcePorts.contains(edge.source)) {
           edge  // current order is correct, block is source
         } else {
-          EdgirGraph.EdgirEdge(edge.data, edge.target, edge.source)  // invert edge direction
+          flipEdge(edge)  // invert edge direction
         }
       } else {  // is (probably?) a hierarchy port
         require(edge.target.length == 1)
@@ -106,7 +110,7 @@ object InferEdgeDirectionTransform {
         if (mySourcePorts.contains(edgeBlockPort)) {  // correct is (port is target from inside)
           edge
         } else {
-          EdgirGraph.EdgirEdge(edge.data, edge.target, edge.source)
+          flipEdge(edge)
         }
       }
     }

@@ -29,153 +29,178 @@ object ElementDetailNode {
     override val children: Seq[ElementDetailNode] = Seq()
     override def toString: String = text
   }
+}
 
-  class PortNode(path: DesignPath, port: elem.PortLike,
-                 root: schema.Design, compiler: Compiler, fromLink: Boolean=false) extends ElementDetailNode {
+
+class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
+  sealed trait BasePortNode extends ElementDetailNode {
+    val path: DesignPath
+    val fromLink: Boolean
+
+    lazy val linkNode: Seq[ElementDetailNode] = if (!fromLink) {
+      compiler.getConnectedLink(path) match {
+        case Some(linkPath) => EdgirUtils.resolveExactLink(linkPath, root) match {
+          case Some(link) =>
+            Seq(new LinkNode(linkPath, path.asIndirect + IndirectStep.ConnectedLink, link))
+          case None =>
+            Seq(new ElementDetailNode.Dummy(s"Invalid connected @ $path"))
+        }
+        case None => Seq(new ElementDetailNode.Dummy("Disconnected"))  // not connected
+      }
+    } else {
+      Seq()
+    }
+
+    override def toString = if (!fromLink) {
+      compiler.getConnectedLink(path) match {
+        case Some(linkPath) => s"$path @ $linkPath"
+        case None => path.lastString
+      }
+    } else {
+      path.lastString
+    }
+  }
+
+  class UnelaboratedNode(path: DesignPath, desc: String) extends ElementDetailNode {
+    override val children: Seq[ElementDetailNode] = Seq()
+    override def toString = path.toString
+    override def getColumns(index: Int): String = desc
+  }
+
+  class PortNode(val path: DesignPath, port: elem.Port,
+                 val fromLink: Boolean=false)
+      extends BasePortNode {
+    override lazy val children = {
+      val nameOrder = ProtoUtil.getNameOrder(port.meta)
+      (linkNode :+
+          new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)) ++
+          port.params.sortKeysFrom(nameOrder).map {
+            case (name, param) => new ParamNode(path.asIndirect + name, param)
+          }.toSeq
+    }
+
+    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(port.superclasses)
+  }
+
+  class BundleNode(val path: DesignPath, port: elem.Bundle,
+                   val fromLink: Boolean=false)
+      extends BasePortNode {
+    override lazy val children = {
+      val nameOrder = ProtoUtil.getNameOrder(port.meta)
+      (linkNode :+
+          new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)) ++
+          port.ports.sortKeysFrom(nameOrder).map {
+            case (name, subport) => PortLikeNode(path + name, subport, fromLink)
+          } ++
+          port.params.sortKeysFrom(nameOrder).map {
+            case (name, param) => new ParamNode(path.asIndirect + name, param)
+          }
+    }
+
+    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(port.superclasses)
+  }
+
+  class ArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
+      extends BasePortNode {
+    override lazy val children = {
+      val nameOrder = ProtoUtil.getNameOrder(port.meta)
+      (linkNode :+
+          new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)) ++
+          port.ports.sortKeysFrom(nameOrder).map {
+            case (name, subport) => PortLikeNode(path + name, subport, fromLink)
+          }.toSeq
+    }
+
+    override def getColumns(index: Int): String = s"Array[${EdgirUtils.SimpleSuperclass(port.superclasses)}]"
+  }
+
+  def PortLikeNode(path: DesignPath, port: elem.PortLike, fromLink: Boolean=false): ElementDetailNode = {
+    port.is match {
+      case elem.PortLike.Is.Port(port) => new PortNode(path, port, fromLink)
+      case elem.PortLike.Is.Bundle(port) => new BundleNode(path, port, fromLink)
+      case elem.PortLike.Is.Array(port) => new ArrayNode(path, port, fromLink)
+      case elem.PortLike.Is.LibElem(port) =>
+        new UnelaboratedNode(path, s"unelaborated ${EdgirUtils.SimpleLibraryPath(port)}")
+      case _ =>
+        new UnelaboratedNode(path, "unknown")
+    }
+  }
+
+
+  def BlockNode(path: DesignPath, block: elem.HierarchyBlock): BlockNode = new BlockNode(path, block)
+
+  class BlockNode(path: DesignPath, block: elem.HierarchyBlock) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = {  // don't recurse into blocks here
+      val nameOrder = ProtoUtil.getNameOrder(block.meta)
+      (((block.ports.sortKeysFrom(nameOrder).map {
+        case (name, port) => PortLikeNode(path + name, port)
+      } ++ block.links.sortKeysFrom(nameOrder).map { case (name, sublink) =>
+            LinkLikeNode(path + name, path.asIndirect + name, sublink)
+      }).toSeq :+ new ConstraintsNode(path, block.constraints.sortKeysFrom(nameOrder))
+      ) ++ block.params.sortKeysFrom(nameOrder).map {
+        case (name, param) => new ParamNode(path.asIndirect + name, param)
+      }).toSeq
+    }
+
+    override def toString: String = path.lastString
+
+    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(block.superclasses)
+  }
+
+  def BlockLikeNode(path: DesignPath, block: elem.BlockLike): ElementDetailNode = {
+    block.`type` match {
+      case elem.BlockLike.Type.Hierarchy(block) => new BlockNode(path, block)
+      case elem.BlockLike.Type.LibElem(block) =>
+        new UnelaboratedNode(path, s"unelaborated ${EdgirUtils.SimpleLibraryPath(block)}")
+      case _ =>
+        new UnelaboratedNode(path, "unknown")
+    }
+  }
+
+
+  class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.Link) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {
-      val connectedNode = if (!fromLink) {
-        compiler.getConnectedLink(path) match {
-          case Some(linkPath) => EdgirUtils.resolveFromBlock(linkPath, root.getContents) match {
-            case Some(link: elem.LinkLike) =>
-              Seq(new LinkNode(linkPath, path.asIndirect + IndirectStep.ConnectedLink, link, root, compiler))
-            case Some(target) =>
-              Seq(new ElementDetailNode.Dummy(s"Unknown connected ${target.getClass} @ $linkPath"))
-            case None =>
-              Seq(new ElementDetailNode.Dummy(s"Invalid connected @ $path"))
-          }
-          case None => Seq(new ElementDetailNode.Dummy("Disconnected"))  // not connected
-        }
-      } else {
+      val nameOrder = ProtoUtil.getNameOrder(link.meta)
+      val portNodes = if (path.asIndirect != relpath) {
+        // Don't display ports if this is a CONNECTED_LINK
         Seq()
-      }
-
-      port.is match {
-        case elem.PortLike.Is.Port(port) =>
-          val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          (connectedNode :+
-              new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
-              port.params.sortKeysFrom(nameOrder).map {
-                case (name, param) => new ParamNode(path.asIndirect + name, param, compiler)
-              }.toSeq
-        case elem.PortLike.Is.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
-          val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          (connectedNode :+
-              new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
-              port.ports.sortKeysFrom(nameOrder).map {
-                case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
-              } ++
-              port.params.sortKeysFrom(nameOrder).map {
-                case (name, param) => new ParamNode(path.asIndirect + name, param, compiler)
-              }
-        case elem.PortLike.Is.Array(port) =>
-          val nameOrder = ProtoUtil.getNameOrder(port.meta)
-          (connectedNode :+
-              new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean, compiler)) ++
-              port.ports.sortKeysFrom(nameOrder).map {
-                case (name, subport) => new PortNode(path + name, subport, root, compiler, fromLink)
-              }.toSeq
-        case _ => Seq()
-      }
-    }
-
-    override def toString: String = {
-      // TODO this should instead be replaced with a rendering thing
-      val thisName = path.steps match {
-        case Seq() => "(root)"
-        case steps => steps.last
-      }
-
-      if (!fromLink) {
-        compiler.getConnectedLink(path) match {
-          case Some(linkPath) => s"$thisName @ $linkPath"
-          case None => thisName
-        }
       } else {
-        thisName
-      }
-    }
-
-    override def getColumns(index: Int): String = port.is match {
-      case elem.PortLike.Is.Port(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
-      case elem.PortLike.Is.Bundle(port) => port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
-      case elem.PortLike.Is.Array(port) =>
-        val superclasses = port.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
-        s"Array[$superclasses]"
-      case elem.PortLike.Is.LibElem(port) => "unelaborated " + EdgirUtils.SimpleLibraryPath(port)
-      case _ => s"Unknown"
-    }
-  }
-
-  class BlockNode(path: DesignPath, block: elem.BlockLike,
-                  root: schema.Design, compiler: Compiler) extends ElementDetailNode {
-    override lazy val children: Seq[ElementDetailNode] = block.`type` match {
-      case elem.BlockLike.Type.Hierarchy(block) =>  // don't recurse into blocks here
-        val nameOrder = ProtoUtil.getNameOrder(block.meta)
-        (((block.ports.sortKeysFrom(nameOrder).map {
-          case (name, port) => new PortNode(path + name, port, root, compiler)
-        } ++ block.links.sortKeysFrom(nameOrder).map { case (name, sublink) =>
-              new LinkNode(path + name, path.asIndirect + name, sublink, root, compiler)
-        }).toSeq :+ new ConstraintsNode(path, block.constraints.sortKeysFrom(nameOrder), compiler)
-        ) ++ block.params.sortKeysFrom(nameOrder).map {
-          case (name, param) => new ParamNode(path.asIndirect + name, param, compiler)
-        }).toSeq
-      case _ => Seq()
-    }
-
-    override def toString: String = path.steps match {
-      case Seq() => "(root)"
-      case steps => steps.last
-    }
-
-    override def getColumns(index: Int): String = block.`type` match {
-      case elem.BlockLike.Type.Hierarchy(block) => block.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
-      case elem.BlockLike.Type.LibElem(block) => "unelaborated " + EdgirUtils.SimpleLibraryPath(block)
-      case _ => s"Unknown"
-    }
-  }
-
-  class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkLike,
-                 root: schema.Design, compiler: Compiler) extends ElementDetailNode {
-    override lazy val children: Seq[ElementDetailNode] = link.`type` match {
-      case elem.LinkLike.Type.Link(link) =>
-        val nameOrder = ProtoUtil.getNameOrder(link.meta)
-        val portNodes = if (path.asIndirect != relpath) {
-          // Don't display ports if this is a CONNECTED_LINK
-          Seq()
-        } else {
-          link.ports.sortKeysFrom(nameOrder).map {
-            case (name, port) => new PortNode(path + name, port, root, compiler, true)
-          }
+        link.ports.sortKeysFrom(nameOrder).map {
+          case (name, port) => PortLikeNode(path + name, port, true)
         }
-        (((portNodes ++
-            link.links.sortKeysFrom(nameOrder).map {
-              case (name, sublink) => new LinkNode(path + name, relpath + name, sublink, root, compiler)
-            }).toSeq :+ new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder), compiler)
-            ) ++ link.params.sortKeysFrom(nameOrder).map {
-              case (name, param) => new ParamNode(relpath + name, param, compiler)
-        }).toSeq
-      case _ => Seq()
+      }
+      (((portNodes ++
+          link.links.sortKeysFrom(nameOrder).map {
+            case (name, sublink) => LinkLikeNode(path + name, relpath + name, sublink)
+          }).toSeq :+ new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder))
+          ) ++ link.params.sortKeysFrom(nameOrder).map {
+            case (name, param) => new ParamNode(relpath + name, param)
+      }).toSeq
     }
 
     override def toString: String = {
       if (relpath.steps.nonEmpty && relpath.steps.last == IndirectStep.ConnectedLink) {
-        s"Connected @ ${path.steps.mkString(".")}"
+        s"Connected @ ${path}"
       } else {
-        path.steps match {
-          case Seq() => ""
-          case steps => steps.last
-        }
+        path.lastString
       }
     }
 
-    override def getColumns(index: Int): String = link.`type` match {
-      case elem.LinkLike.Type.Link(link) => link.superclasses.map(EdgirUtils.SimpleLibraryPath).mkString(", ")
-      case elem.LinkLike.Type.LibElem(link) => "unelaborated " + EdgirUtils.SimpleLibraryPath(link)
-      case _ => s"Unknown"
+    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(link.superclasses)
+  }
+
+  def LinkLikeNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkLike): ElementDetailNode = {
+    link.`type` match {
+      case elem.LinkLike.Type.Link(link) => new LinkNode(path, relpath, link)
+      case elem.LinkLike.Type.LibElem(link) =>
+        new UnelaboratedNode(path, s"unelaborated ${EdgirUtils.SimpleLibraryPath(link)}")
+      case _ =>
+        new UnelaboratedNode(path, "unknown")
     }
   }
 
-  class ParamNode(path: IndirectDesignPath, param: init.ValInit, compiler: Compiler) extends ElementDetailNode {
+
+  class ParamNode(path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = Seq()
 
     override def toString: String = path.steps match {
@@ -200,10 +225,10 @@ object ElementDetailNode {
     }
   }
 
-  class ConstraintsNode(root: DesignPath, constraints: SeqMap[String, expr.ValueExpr], compiler: Compiler)
+  class ConstraintsNode(root: DesignPath, constraints: SeqMap[String, expr.ValueExpr])
       extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = constraints.map { case (name, value) =>
-      new ConstraintNode(root, name, value, compiler) }.toSeq
+      new ConstraintNode(root, name, value) }.toSeq
 
     override def toString: String = "Constraints"
 
@@ -218,7 +243,7 @@ object ElementDetailNode {
     override def getColumns(index: Int): String = path.toString
   }
 
-  class ConstraintNode(root: DesignPath, name: String, constraint: expr.ValueExpr, compiler: Compiler)
+  class ConstraintNode(root: DesignPath, name: String, constraint: expr.ValueExpr)
       extends ElementDetailNode {
     private lazy val nameDescChildren: (String, String, Seq[ConstraintDetailNode]) = {
       val constraintStr = ExprToString(constraint)
@@ -247,15 +272,8 @@ object ElementDetailNode {
 
 
 class ElementDetailTreeModel(path: DesignPath, root: schema.Design, compiler: Compiler) extends SeqTreeTableModel[ElementDetailNode] {
-  val rootNode: ElementDetailNode = EdgirUtils.resolveFromBlock(path, root.getContents) match {
-    case Some(block: elem.BlockLike) => new ElementDetailNode.BlockNode(path, block, root, compiler)
-    case Some(port: elem.PortLike) => new ElementDetailNode.PortNode(path, port, root, compiler)
-    case Some(link: elem.LinkLike) => new ElementDetailNode.LinkNode(path, path.asIndirect, link, root, compiler)
-    case Some(target) =>
-      new ElementDetailNode.Dummy(s"Unknown $target @ $path")
-    case None =>
-      new ElementDetailNode.Dummy(s"Invalid path @ $path")
-  }
+  val (rootBlockPath, rootBlock) = EdgirUtils.resolveDeepestBlock(path, root)
+  val rootNode: ElementDetailNode = new ElementDetailNodes(root, compiler).BlockNode(rootBlockPath, rootBlock)
   val COLUMNS = Seq("Item", "Value")
 
   // TreeView abstract methods

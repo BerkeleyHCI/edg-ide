@@ -80,6 +80,10 @@ object CompilerErrorNodeBase {
         (s"Generator error, ${EdgirUtils.SimpleLibraryPath(target)}:$fnName", path.toString, Seq(
           new CompilerErrorDetailNode(err, "")
         ))
+      case CompilerError.RefinementSubclassError(path, refinedLibrary, designLibrary) =>
+        (s"Refinement class ${EdgirUtils.SimpleLibraryPath(refinedLibrary)} " +
+            s"not a subclass of design class ${EdgirUtils.SimpleLibraryPath(designLibrary)}",
+            path.toString, Seq())
 
       case CompilerError.OverAssign(target, causes) =>
         ("Conflicting assign", target.toString,

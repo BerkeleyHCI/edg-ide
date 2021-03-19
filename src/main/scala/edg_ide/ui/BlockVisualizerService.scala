@@ -3,6 +3,9 @@ package edg_ide.ui
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
+import edg.wir.DesignPath
+import edg.schema.schema
+import edg.elem.elem
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -28,6 +31,34 @@ class BlockVisualizerService(project: Project) extends
     created
   }
 
+  def selectPath(path: DesignPath): Unit = {
+    visualizerPanelOption.foreach(_.selectPath(path))
+  }
+
+  def setContext(path: DesignPath): Unit = {
+    visualizerPanelOption.foreach(_.setContext(path))
+  }
+
+  def setModuleClass(module: String, block: String): Unit = {
+    visualizerPanelOption.foreach(_.setFileBlock(module, block))
+    update()
+  }
+
+  def update(): Unit = {
+    visualizerPanelOption.foreach(_.recompile())
+  }
+
+  def getModule(): String = {
+    visualizerPanelOption.get.getModule
+  }
+
+  def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
+    visualizerPanelOption.flatMap(_.getContextBlock)
+  }
+
+  def getDesign: Option[schema.Design] = {
+    visualizerPanelOption.map(_.getDesign)
+  }
 
   override def getState: BlockVisualizerServiceState = {
     val state = new BlockVisualizerServiceState
