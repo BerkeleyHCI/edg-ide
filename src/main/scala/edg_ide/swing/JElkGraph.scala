@@ -102,7 +102,11 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
   protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-    if (selected.contains(element)) {  // emphasis for selected
+    if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))
+      newGraphics
+    } else if (selected.contains(element)) {  // emphasis for selected
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setStroke(new BasicStroke(3/zoomLevel))
       newGraphics
@@ -118,7 +122,11 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   // Modify the base graphics for drawing some text, eg by highlighted status
   protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
     // Main difference is stroke isn't bolded
-    if (!selected.contains(element) &&
+    if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))
+      newGraphics
+    } else if (!selected.contains(element) &&
         highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
@@ -130,7 +138,11 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   // Modify the base graphics for filling some element, eg by highlighted status
   protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-    if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+    if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
+      val newGraphics = base.create().asInstanceOf[Graphics2D]
+      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))
+      newGraphics
+    } else if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.05))
       newGraphics
@@ -221,34 +233,27 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
     scaledG.setFont(newFont)
 
-    def paintBlock(blockG: Graphics2D, node: ElkNode): Unit = {
-      paintNode(blockG, node)
+    // parentG is a hack to support degenerate edges which seem to be in parents coordinate space
+    def paintBlock(parentG: Graphics2D, containingG: Graphics2D, node: ElkNode): Unit = {
+      paintNode(containingG, node)
 
-      val childG = blockG.create().asInstanceOf[Graphics2D]
-      childG.translate(node.getX, node.getY)
+      val nodeG = containingG.create().asInstanceOf[Graphics2D]
+      nodeG.translate(node.getX, node.getY)
 
       node.getPorts.asScala.foreach { port =>
-        paintPort(childG, port)
+        paintPort(nodeG, port)
       }
-      paintBlockContents(blockG, childG, node)
-    }
 
-    // parentG is a hack to support degenerate edges which seem to be in parents coordinate space
-    def paintBlockContents(parentG: Graphics2D, blockG: Graphics2D, node: ElkNode): Unit = {
       node.getChildren.asScala.foreach { childNode =>
-        paintBlock(blockG, childNode)
+        paintBlock(containingG, nodeG, childNode)
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
-        paintEdge(strokeGraphics(parentG, edge), strokeGraphics(blockG, edge), edge)
+        paintEdge(strokeGraphics(containingG, edge), strokeGraphics(nodeG, edge), edge)
       }
     }
 
-    if (showTop) {
-      paintBlock(scaledG, rootNode)
-    } else {
-      paintBlockContents(scaledG, scaledG, rootNode)
-    }
+    paintBlock(scaledG, scaledG, rootNode)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html

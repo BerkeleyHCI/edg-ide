@@ -48,8 +48,7 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
     } else {
       base
     }
-    super.strokeGraphics(newBase, element)
-
+    super.fillGraphics(newBase, element)
   }
 
   sealed trait DrawAnchor  // position on the "label" where the drawing point is
