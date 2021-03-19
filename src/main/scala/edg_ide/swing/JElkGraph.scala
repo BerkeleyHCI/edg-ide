@@ -40,14 +40,14 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   // Selection operations
   //
-  private var selected: Set[ElkGraphElement] = Set()
+  protected var selected: Set[ElkGraphElement] = Set()
   def setSelected(elts: Set[ElkGraphElement]): Unit = {
     selected = elts
     validate()
     repaint()
   }
 
-  private var highlighted: Option[Set[ElkGraphElement]] = None
+  protected var highlighted: Option[Set[ElkGraphElement]] = None
   def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
     highlighted = elts
     validate()
@@ -137,7 +137,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   // Modify the base graphics for filling some element, eg by highlighted status
-  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement, depth: Int): Graphics2D = {
     if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))

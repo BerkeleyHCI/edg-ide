@@ -4,7 +4,9 @@ import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
 
-import java.awt.{Color, Graphics2D}
+import java.awt.geom.Rectangle2D
+import java.awt.image.BufferedImage
+import java.awt.{BasicStroke, Color, Graphics2D, TexturePaint}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
@@ -16,15 +18,22 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
   */
 class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) extends
     JElkGraph(rootNode, showTop) {
+  protected val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
+  private val hatchImage = new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
+  private val hatchGraphics = hatchImage.createGraphics()
+  protected val hatchTexture = new TexturePaint(hatchImage, hatchRect)
+  hatchGraphics.setColor(new Color(255, 255, 255, 64))
+  hatchGraphics.setStroke(new BasicStroke(2))
+  hatchGraphics.drawLine(0, 16, 16, 0)
 
-  private var errorElts: Set[ElkGraphElement] = Set()
+  protected var errorElts: Set[ElkGraphElement] = Set()
   def setError(elts: Set[ElkGraphElement]): Unit = {
     errorElts = elts
     validate()
     repaint()
   }
 
-  private var staleElts: Set[ElkGraphElement] = Set()
+  protected var staleElts: Set[ElkGraphElement] = Set()
   def setStale(elts: Set[ElkGraphElement]): Unit = {
     staleElts = elts
     validate()
@@ -38,17 +47,27 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
   }
 
   override def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-    val newBase = if (errorElts.contains(element)) {
+    if (errorElts.contains(element)) {
       val newColor = new Color(
         base.getColor.getRed, (base.getColor.getGreen * 0.25).toInt, (base.getColor.getBlue * 0.25).toInt,
         base.getColor.getAlpha)
       val newBase = base.create().asInstanceOf[Graphics2D]
       newBase.setColor(newColor)
+      super.fillGraphics(newBase, element)
+    } else {//if (staleElts.contains(element)) {
+      val newBase = base.create().asInstanceOf[Graphics2D]
+      if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
+
+        newBase.setPaint(hatchTexture)
+      } else {
+        newBase.setPaint(hatchTexture)
+      }
       newBase
-    } else {
-      base
-    }
-    super.fillGraphics(newBase, element)
+      }
+//    } else {
+//      base
+//    }
+
   }
 
   sealed trait DrawAnchor  // position on the "label" where the drawing point is
