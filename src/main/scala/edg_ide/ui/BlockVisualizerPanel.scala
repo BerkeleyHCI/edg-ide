@@ -18,7 +18,7 @@ import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
-import edg_ide.util.SiPrefixUtil
+import edg_ide.util.{DesignFindBlockOfTypes, SiPrefixUtil}
 import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
@@ -63,6 +63,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
 
   private var blockModule = ""
   private var blockName = ""
+
+  // Shared state, access should be synchronized on the variable
+  private val staleTypes = mutable.Set[ref.LibraryPath]()
+  private val stalePaths = mutable.Set[DesignPath]()
 
   // GUI-facing state
   //
@@ -193,11 +197,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   })
 
-  def addStale(paths: Seq[DesignPath]): Unit = {
-    val nodes = pathsToGraphNodes(paths.toSet)
-    graph.setStale(nodes)
-  }
-
   private val centeringGraph = new JPanel(new GridBagLayout)
   centeringGraph.add(graph, new GridBagConstraints())
 
@@ -326,6 +325,14 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         try {
           indicator.setText("EDG compiling")
 
+          // TODO if compilation fails clear libraries
+          staleTypes.synchronized {
+            staleTypes.clear()
+          }
+          stalePaths.synchronized {
+            stalePaths.clear()
+          }
+
           val designType = ElemBuilder.LibraryPath(blockModule + "." + blockName)
           val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project)
               .compile(blockModule, designType, Some(indicator))
@@ -361,7 +368,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
               s"${sw.toString}",
               NotificationType.WARNING)
                 .notify(project)
-          // TODO staleness indicator for graph / design tree
         }
 
         compilerRunning.set(false)
@@ -418,6 +424,8 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       focusPath != DesignPath())  // need to make a root so root doesn't have ports
 
     graph.setGraph(layoutGraphRoot)
+
+    // TODO refactor into its own thing?
     val tooltipTextMap = new DesignToolTipTextMap(compiler)
     tooltipTextMap.map(design)
     tooltipTextMap.getTextMap.foreach { case (path, tooltipText) =>
@@ -425,7 +433,37 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
         graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
       }
     }
+    updateStale()
+  }
 
+  protected def updateStale(): Unit = {
+    val staleTypesCopy = staleTypes.synchronized {
+      staleTypes.toSet
+    }
+    val stalePathsCopy = stalePaths.synchronized {
+      stalePaths.toSeq
+    }
+
+    val allStaleTypeBlocks = new DesignFindBlockOfTypes(staleTypesCopy).map(design).map {
+      case (path, block) => path
+    }
+
+    val nodes = pathsToGraphNodes((allStaleTypeBlocks ++ stalePathsCopy).toSet)
+    graph.setStale(nodes)
+  }
+
+  def addStaleBlocks(paths: Seq[DesignPath]): Unit = {
+    stalePaths.synchronized {
+      stalePaths.addAll(paths)
+    }
+    updateStale()
+  }
+
+  def addStaleTypes(types: Seq[ref.LibraryPath]): Unit = {
+    staleTypes.synchronized {
+      staleTypes.addAll(types)
+    }
+    updateStale()
   }
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {

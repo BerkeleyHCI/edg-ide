@@ -228,8 +228,8 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     val scaling = new AffineTransform()
     scaling.scale(zoomLevel, zoomLevel)
     val scaledG = paintGraphics.create().asInstanceOf[Graphics2D]
-    scaledG.transform(scaling)
     scaledG.translate(margin, margin)
+    scaledG.transform(scaling)
     scaledG.setStroke(new BasicStroke(1/zoomLevel))  // keep stroke at 1px
 
     // Keep the real font size constant, regardless of zoom

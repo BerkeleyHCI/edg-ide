@@ -57,6 +57,7 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
       visualizerPanel.currentDesignModifyBlock(contextPath) { _.update(
         _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(libType).exceptError)
       )}
+      visualizerPanel.addStaleBlocks(Seq(contextPath + name))
     }
   }
 

@@ -79,12 +79,10 @@ class EdgCompilerService(project: Project) extends
           }
           val newTypes = newClasses.map { newClass =>
             DesignAnalysisUtils.typeOf(newClass)
-          }
+          }.toSeq
+
           BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
-            val stalePaths = new DesignFindBlockOfTypes(newTypes).map(visualizerPanel.getDesign).map {
-              case (path, block) => path
-            }
-            visualizerPanel.addStale(stalePaths)
+            visualizerPanel.addStaleTypes(newTypes)
           }
           // TODO update library cached status, so incremental discard
         })
