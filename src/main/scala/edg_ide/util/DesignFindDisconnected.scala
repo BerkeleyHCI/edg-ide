@@ -1,5 +1,6 @@
 package edg_ide.util
 
+import edg.ExprBuilder
 import edg.compiler.DesignBlockMap
 import edg.elem.elem
 import edg.expr.expr
@@ -15,12 +16,7 @@ import scala.collection.SeqMap
   * This is a heuristic operation that relies on a specific constraint style, and will not catch
   * more complex (eg, conditional) required-connected ports
   */
-class DesignFindDisconnected(targetTypes: Set[ref.LibraryPath])
-    extends DesignBlockMap[(Seq[DesignPath], Seq[String])] {
-  private val IsConnectedStep = ref.LocalStep().update(
-    _.reservedParam := ref.Reserved.IS_CONNECTED
-  )
-
+object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[String])] {
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                         blocks: SeqMap[String, (Seq[DesignPath], Seq[String])]):
       (Seq[DesignPath], Seq[String]) = {
@@ -31,7 +27,8 @@ class DesignFindDisconnected(targetTypes: Set[ref.LibraryPath])
     val myRequiredPorts = myConstrExprs.collect {  // unpack ref steps, if a ref
       case expr.ValueExpr.Expr.Ref(path) => path.steps
     }.collect {
-      case Seq(ref.LocalStep(ref.LocalStep.Step.Name(portName), _), IsConnectedStep) => portName
+      case Seq(ref.LocalStep(ref.LocalStep.Step.Name(portName), _),
+        ExprBuilder.Ref.IsConnectedStep) => portName
     }
 
     val myConnectedPorts = myConstrExprs.collect {  // extract block side expr
