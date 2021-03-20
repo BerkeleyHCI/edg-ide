@@ -4,7 +4,7 @@ import com.intellij.notification.{NotificationGroup, NotificationType}
 
 import collection.mutable
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.{ApplicationManager, ReadAction}
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
@@ -61,11 +61,13 @@ class EdgCompilerService(project: Project) extends
 
     def childAction(event: PsiTreeChangeEvent): Unit = {
       val containingClass = PsiTreeUtil.getParentOfType(event.getParent, classOf[PyClass])
-      if (containingClass != null) {
-        modifiedPyClasses.synchronized {
-          modifiedPyClasses += containingClass
+      ApplicationManager.getApplication.invokeLater(() => {
+        if (containingClass != null) {
+          modifiedPyClasses.synchronized {
+            modifiedPyClasses += containingClass
+          }
         }
-      }
+      })
     }
   }, this)
 

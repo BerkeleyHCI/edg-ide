@@ -1,0 +1,72 @@
+package edg_ide.util
+
+import edg.compiler.DesignBlockMap
+import edg.elem.elem
+import edg.expr.expr
+import edg.ref.ref
+import edg.wir.DesignPath
+
+import scala.collection.SeqMap
+
+
+/** For a design, returns the DesignPath of all ports that are required but not connected in the parent,
+  * and the list of ports of the block that are required.
+  *
+  * This is a heuristic operation that relies on a specific constraint style, and will not catch
+  * more complex (eg, conditional) required-connected ports
+  */
+class DesignFindDisconnected(targetTypes: Set[ref.LibraryPath])
+    extends DesignBlockMap[(Seq[DesignPath], Seq[String])] {
+  private val IsConnectedStep = ref.LocalStep().update(
+    _.reservedParam := ref.Reserved.IS_CONNECTED
+  )
+
+  override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
+                        blocks: SeqMap[String, (Seq[DesignPath], Seq[String])]):
+      (Seq[DesignPath], Seq[String]) = {
+    val myConstrExprs = block.constraints.map { case (constrName, constr) =>  // unpack constraint expression type
+      constr.expr
+    }.toSeq  // allow multiple uses
+
+    val myRequiredPorts = myConstrExprs.collect {  // unpack ref steps, if a ref
+      case expr.ValueExpr.Expr.Ref(path) => path.steps
+    }.collect {
+      case Seq(ref.LocalStep(ref.LocalStep.Step.Name(portName), _), IsConnectedStep) => portName
+    }
+
+    val myConnectedPorts = myConstrExprs.collect {  // extract block side expr
+      case expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(Some(blockExpr), Some(linkExpr), _)) =>
+        blockExpr.expr
+      case expr.ValueExpr.Expr.Exported(expr.ExportedExpr(Some(exteriorExpr), Some(interiorExpr), _)) =>
+        interiorExpr.expr
+    } .collect {  // extract steps
+      case expr.ValueExpr.Expr.Ref(path) => path.steps
+    } .collect {
+      case Seq(ref.LocalStep(ref.LocalStep.Step.Name(blockName), _),
+        ref.LocalStep(ref.LocalStep.Step.Name(portName), _)) => (blockName, portName)
+    }
+
+    // Required ports of children, as (block, port) tuple
+    val childRequiredPorts = blocks.flatMap { case (childName, (_, childRequiredPorts)) =>
+      childRequiredPorts.map { childRequiredPort =>
+        (childName, childRequiredPort)
+      }
+    }
+
+    val missingChildRequiredPorts = (childRequiredPorts.toSet -- myConnectedPorts.toSet)
+        .map { case (blockName, portName) =>
+          path + blockName + portName
+        }.toSeq
+
+    val childUnconnectedPorts = blocks.flatMap { case (childName, (childUnconnectedPorts, _)) =>
+      childUnconnectedPorts
+    }
+
+    (missingChildRequiredPorts ++ childUnconnectedPorts, myRequiredPorts)
+  }
+
+  override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): (Seq[DesignPath], Seq[String]) = {
+    // shouldn't happen
+    (Seq(), Seq())
+  }
+}
