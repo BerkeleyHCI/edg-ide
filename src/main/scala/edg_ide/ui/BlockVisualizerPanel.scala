@@ -1,7 +1,5 @@
 package edg_ide.ui
 
-import java.awt.event.{MouseWheelEvent, MouseWheelListener}
-
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
@@ -18,22 +16,17 @@ import edg.wir.{DesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
-import org.eclipse.elk.graph.ElkGraphElement
-import java.awt.event.{ActionEvent, ActionListener}
-import java.awt.{BorderLayout, Graphics, GridBagConstraints, GridBagLayout}
-import java.util.concurrent.atomic.AtomicBoolean
-
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.SiPrefixUtil
-import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
+import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JPanel, JScrollPane}
+import javax.swing.{JButton, JLabel, JPanel}
 import scala.collection.{SeqMap, mutable}
 
 
@@ -199,6 +192,11 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       }
     }
   })
+
+  def addStale(paths: Seq[DesignPath]): Unit = {
+    val nodes = pathsToGraphNodes(paths.toSet)
+    graph.setStale(nodes)
+  }
 
   private val centeringGraph = new JPanel(new GridBagLayout)
   centeringGraph.add(graph, new GridBagConstraints())

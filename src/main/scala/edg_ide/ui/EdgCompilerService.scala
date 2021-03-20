@@ -18,6 +18,7 @@ import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.EdgirUtils
 import edg.ref.ref
+import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes}
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
@@ -61,13 +62,33 @@ class EdgCompilerService(project: Project) extends
 
     def childAction(event: PsiTreeChangeEvent): Unit = {
       val containingClass = PsiTreeUtil.getParentOfType(event.getParent, classOf[PyClass])
-      ApplicationManager.getApplication.invokeLater(() => {
-        if (containingClass != null) {
-          modifiedPyClasses.synchronized {
-            modifiedPyClasses += containingClass
+      val alreadyContained = (containingClass == null) || modifiedPyClasses.synchronized {
+        modifiedPyClasses.contains(containingClass)
+      }
+      if (containingClass != null && !alreadyContained) {
+        // do incremental analysis in a separate thread to avoid potential lag
+        ApplicationManager.getApplication.invokeLater(() => {
+          val extendedModifiedClasses = ReadAction.compute(() => {
+            val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
+            inheritors.toSeq :+ containingClass
+          }).toSet
+          val newClasses = modifiedPyClasses.synchronized {
+            val newClasses = extendedModifiedClasses -- modifiedPyClasses
+            modifiedPyClasses.addAll(newClasses)
+            newClasses
           }
-        }
-      })
+          val newTypes = newClasses.map { newClass =>
+            DesignAnalysisUtils.typeOf(newClass)
+          }
+          BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
+            val stalePaths = new DesignFindBlockOfTypes(newTypes).map(visualizerPanel.getDesign).map {
+              case (path, block) => path
+            }
+            visualizerPanel.addStale(stalePaths)
+          }
+          // TODO update library cached status, so incremental discard
+        })
+      }
     }
   }, this)
 
@@ -80,16 +101,9 @@ class EdgCompilerService(project: Project) extends
       copy
     }
 
-    // TODO use library analysis search
-    val extendedModifiedClassNames = ReadAction.compute(() => {
-      copyModifiedClasses.flatMap { modifiedClass =>
-        val inheritors = PyClassInheritorsSearch.search(modifiedClass, true).findAll().asScala
-        inheritors.toSeq :+ modifiedClass
-      }.map (_.getQualifiedName)
-    })
-
-    val discarded = extendedModifiedClassNames.flatMap { modifiedClassName =>
-      pyLib.discardCached(modifiedClassName)
+    val discarded = copyModifiedClasses.flatMap { modifiedClassName =>
+        // TODO should this use compiled library analysis or PSI analysis?
+      pyLib.discardCached(modifiedClassName.getQualifiedName)
     }
 
     if (discarded.isEmpty) {

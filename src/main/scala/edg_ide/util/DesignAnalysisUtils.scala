@@ -25,6 +25,10 @@ object DesignAnalysisUtils {
     Errorable(pyPsi.findClass(path.getTarget.getName), "no class")
   }
 
+  def typeOf(pyClass: PyClass): ref.LibraryPath = {
+    EdgirUtils.StringToLibraryPath(pyClass.getQualifiedName)
+  }
+
   /** For a PyClass, traverses down the init MRO chain, and returns all the arguments
     * accepted by the init accounting for **kwargs propagation.
     *

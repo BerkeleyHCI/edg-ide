@@ -67,7 +67,7 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
       }
       newBase
     } else {
-      base
+      super.fillGraphics(base, background, element)
     }
   }
 
