@@ -1,5 +1,6 @@
 package edg_ide.swing
 
+import com.intellij.util.ui.UIUtil
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
@@ -22,6 +23,8 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
   private val hatchImage = new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
   private val hatchGraphics = hatchImage.createGraphics()
   protected val hatchTexture = new TexturePaint(hatchImage, hatchRect)
+  hatchGraphics.setColor(UIUtil.shade(hatchGraphics.getColor, 0.25, 1))
+  hatchGraphics.fill(hatchRect)
   hatchGraphics.setColor(new Color(255, 255, 255, 64))
   hatchGraphics.setStroke(new BasicStroke(2))
   hatchGraphics.drawLine(0, 16, 16, 0)
@@ -46,29 +49,29 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
     super.setGraph(newGraph)
   }
 
-  override def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-    if (errorElts.contains(element)) {
-      val newColor = new Color(
-        base.getColor.getRed, (base.getColor.getGreen * 0.25).toInt, (base.getColor.getBlue * 0.25).toInt,
-        base.getColor.getAlpha)
-      val newBase = base.create().asInstanceOf[Graphics2D]
-      newBase.setColor(newColor)
-      super.fillGraphics(newBase, element)
-    } else {//if (staleElts.contains(element)) {
-      val newBase = base.create().asInstanceOf[Graphics2D]
-      if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-
-        newBase.setPaint(hatchTexture)
-      } else {
-        newBase.setPaint(hatchTexture)
-      }
-      newBase
-      }
-//    } else {
-//      base
-//    }
-
-  }
+//  override def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+//    if (errorElts.contains(element)) {
+//      val newColor = new Color(
+//        base.getColor.getRed, (base.getColor.getGreen * 0.25).toInt, (base.getColor.getBlue * 0.25).toInt,
+//        base.getColor.getAlpha)
+//      val newBase = base.create().asInstanceOf[Graphics2D]
+//      newBase.setColor(newColor)
+//      super.fillGraphics(newBase, background, element)
+//    } else {//if (staleElts.contains(element)) {
+//      val newBase = base.create().asInstanceOf[Graphics2D]
+//      if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
+//
+//        newBase.setPaint(hatchTexture)
+//      } else {
+//        newBase.setPaint(hatchTexture)
+//      }
+//      newBase
+//      }
+////    } else {
+////      base
+////    }
+//
+//  }
 
   sealed trait DrawAnchor  // position on the "label" where the drawing point is
   object DrawAnchor {
@@ -96,8 +99,8 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
     g.drawString(text, drawX.toInt, drawY.toInt)
   }
 
-  override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
-    super.paintEdge(parentG, blockG, edge)
+  override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, background: Color, edge: ElkEdge): Unit = {
+    super.paintEdge(parentG, blockG, background, edge)
 
     // TODO dedup from JElkGraph
     val thisG = if (edge.getSources == edge.getTargets) {
@@ -124,7 +127,7 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
         (bend.getX, bend.getY, section.getStartX, section.getStartY)
       }
 
-      val textG = textGraphics(thisG, edge)
+      val textG = textGraphics(thisG, background, edge)
       targetPointOpt match {
         case Some((x, y, x1, y1)) if (x1 == x) && (y > y1) =>
           drawLabel(textG, label, (x, y), DrawAnchor.Top)

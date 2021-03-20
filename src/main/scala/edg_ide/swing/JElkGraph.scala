@@ -101,10 +101,10 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
-  protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+  protected def strokeGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))
+      newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
     } else if (selected.contains(element)) {  // emphasis for selected
       val newGraphics = base.create().asInstanceOf[Graphics2D]
@@ -112,7 +112,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
       newGraphics
     } else if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
+      newGraphics.setColor(blendColor(background, newGraphics.getColor, 0.25))
       newGraphics
     } else {
       base
@@ -120,16 +120,16 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   // Modify the base graphics for drawing some text, eg by highlighted status
-  protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+  protected def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     // Main difference is stroke isn't bolded
     if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))
+      newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
     } else if (!selected.contains(element) &&
         highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.25))
+      newGraphics.setColor(blendColor(background, newGraphics.getColor, 0.25))
       newGraphics
     } else {
       base
@@ -137,24 +137,28 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   // Modify the base graphics for filling some element, eg by highlighted status
-  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+  protected def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     if (element == rootNode && !showTop) {  // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0))
+      newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
-    } else if (highlighted.isDefined && !highlighted.get.contains(element)) {  // dimmed out if not highlighted
+    } else {  // computation is handled by the background passed in
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.05))
-      newGraphics
-    } else {  // semitransparent so overlays are apparent
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(UIUtil.shade(newGraphics.getColor, 1, 0.20))
+      newGraphics.setColor(background)
       newGraphics
     }
   }
 
+  def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
+    new Color(
+      (baseColor.getRed * (1 - factor) + topColor.getRed * factor).toInt,
+      (baseColor.getGreen * (1 - factor) + topColor.getGreen * factor).toInt,
+      (baseColor.getBlue * (1 - factor) + topColor.getBlue * factor).toInt,
+    )
+  }
+
   // Render an edge, including all its sections
-  def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
+  def paintEdge(parentG: Graphics2D, blockG: Graphics2D, nodeBackground: Color, edge: ElkEdge): Unit = {
     // HACK PATCH around a (probable?) ELK bug
     // If a self-edge between parent's ports, use parent's transforms
     // TODO: is this generally correct? it's good enough for what we need though
@@ -181,26 +185,26 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   // Render a node, including its labels, but not its ports
-  def paintNode(g: Graphics2D, node: ElkNode): Unit = {
+  def paintNode(g: Graphics2D, nodeBackground: Color, node: ElkNode): Unit = {
     val nodeX = node.getX.toInt
     val nodeY = node.getY.toInt
 
-    fillGraphics(g, node).fillRect(nodeX, nodeY,
+    fillGraphics(g, nodeBackground, node).fillRect(nodeX, nodeY,
       node.getWidth.toInt, node.getHeight.toInt)
 
-    strokeGraphics(g, node).drawRect(nodeX, nodeY,
+    strokeGraphics(g, nodeBackground, node).drawRect(nodeX, nodeY,
       node.getWidth.toInt, node.getHeight.toInt)
 
     node.getLabels.asScala.foreach { label =>
       val (labelX, labelY) = transformLabelCoords(g, label,
         label.getProperty(CoreOptions.NODE_LABELS_PLACEMENT).asScala.toSet)
-      textGraphics(g, node).drawString(label.getText, (labelX + nodeX).toInt, (labelY + nodeY).toInt)
+      textGraphics(g, nodeBackground, node).drawString(label.getText, (labelX + nodeX).toInt, (labelY + nodeY).toInt)
     }
   }
 
   // Render a port, including its labels
-  def paintPort(g: Graphics2D, port: ElkPort): Unit = {
-    strokeGraphics(g, port).drawRect(port.getX.toInt, port.getY.toInt,
+  def paintPort(g: Graphics2D, nodeBackground: Color, port: ElkPort): Unit = {
+    strokeGraphics(g, nodeBackground, port).drawRect(port.getX.toInt, port.getY.toInt,
       port.getWidth.toInt, port.getHeight.toInt)
 
     val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
@@ -213,7 +217,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
     port.getLabels.asScala.foreach { label =>
       val (labelX, labelY) = transformLabelCoords(g, label, labelPlacement)
-      textGraphics(g, port).drawString(label.getText,
+      textGraphics(g, nodeBackground, port).drawString(label.getText,
         (labelX + port.getX).toInt,
         (labelY + port.getY).toInt)
     }
@@ -233,28 +237,35 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
     scaledG.setFont(newFont)
 
-    def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
-      paintNode(containingG, node)
+    def paintBlock(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Unit = {
+      val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out
+        blendColor(containingBackground, containingG.getColor, 0.05)
+      } else {
+        blendColor(containingBackground, containingG.getColor, 0.20)
+      }
+
+      paintNode(containingG, nodeBackground, node)
 
       val nodeG = containingG.create().asInstanceOf[Graphics2D]
       nodeG.translate(node.getX, node.getY)
 
       node.getPorts.asScala.foreach { port =>
-        paintPort(nodeG, port)
+        paintPort(nodeG, nodeBackground, port)
       }
 
       node.getChildren.asScala.foreach { childNode =>
-        paintBlock(nodeG, childNode)
+        paintBlock(nodeG, nodeBackground, childNode)
       }
 
       node.getContainedEdges.asScala.foreach { edge =>
           // containing is passed in here as a hack around Elk not using container coordinates
           // for self edges
-        paintEdge(strokeGraphics(containingG, edge), strokeGraphics(nodeG, edge), edge)
+        paintEdge(strokeGraphics(containingG, nodeBackground, edge), strokeGraphics(nodeG, nodeBackground, edge),
+          nodeBackground, edge)
       }
     }
 
-    paintBlock(scaledG, rootNode)
+    paintBlock(scaledG, this.getBackground, rootNode)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
