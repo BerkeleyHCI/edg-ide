@@ -239,9 +239,9 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
     def paintBlock(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Unit = {
       val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) {  // dimmed out
-        blendColor(containingBackground, containingG.getColor, 0.05)
+        blendColor(containingBackground, containingG.getColor, 0.375)
       } else {
-        blendColor(containingBackground, containingG.getColor, 0.20)
+        blendColor(containingBackground, containingG.getColor, 0.15)
       }
 
       paintNode(containingG, nodeBackground, node)
