@@ -191,7 +191,6 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
     fillGraphics(g, nodeBackground, node).fillRect(nodeX, nodeY,
       node.getWidth.toInt, node.getHeight.toInt)
-
     strokeGraphics(g, nodeBackground, node).drawRect(nodeX, nodeY,
       node.getWidth.toInt, node.getHeight.toInt)
 
@@ -204,6 +203,8 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   // Render a port, including its labels
   def paintPort(g: Graphics2D, nodeBackground: Color, port: ElkPort): Unit = {
+    fillGraphics(g, nodeBackground, port).fillRect(port.getX.toInt, port.getY.toInt,
+      port.getWidth.toInt, port.getHeight.toInt)
     strokeGraphics(g, nodeBackground, port).drawRect(port.getX.toInt, port.getY.toInt,
       port.getWidth.toInt, port.getHeight.toInt)
 

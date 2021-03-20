@@ -57,7 +57,7 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
     if (errorElts.contains(element)) {
       val newBase = base.create().asInstanceOf[Graphics2D]
       newBase.setColor(blendColor(background, Color.RED, 0.25))
-      super.fillGraphics(newBase, background, element)
+      newBase  // explicitly ignores showTop invisibility if it's an error
     } else if (staleElts.contains(element)) {
       val newBase = base.create().asInstanceOf[Graphics2D]
       if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted

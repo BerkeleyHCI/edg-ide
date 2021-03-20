@@ -18,7 +18,7 @@ import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
-import edg_ide.util.{DesignFindBlockOfTypes, SiPrefixUtil}
+import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
@@ -391,6 +391,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 
     updateDisplay()
+    updateDisconnected()
   }
 
   /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
@@ -434,6 +435,12 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       }
     }
     updateStale()
+  }
+
+  protected def updateDisconnected(): Unit = {
+    val disconnectedPaths = DesignFindDisconnected.map(design)._1
+    val disconnectedNodes = pathsToGraphNodes(disconnectedPaths.toSet)
+    graph.setError(disconnectedNodes)
   }
 
   protected def updateStale(): Unit = {
