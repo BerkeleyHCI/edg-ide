@@ -22,15 +22,18 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
   //
   private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
 
-  // TODO placeholder, add custom tree models here
-  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
-  libraryTree.setShowColumns(true)
-  private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
-  splitter.setFirstComponent(libraryTreeScrollPane)
+  private val footprintBrowser = new FootprintBrowser
+  splitter.setSecondComponent(footprintBrowser)
 
   private val visualizer = new KicadVizDrawPanel()
-  visualizer.offset = (this.libraryTreeScrollPane.getWidth * 1.2).asInstanceOf[Int]
-  splitter.setSecondComponent(visualizer)
+  visualizer.offset = (this.footprintBrowser.getWidth * 1.2).asInstanceOf[Int] // @TODO clean this up with offset code
+  splitter.setFirstComponent(visualizer)
+
+//  private val libraryTree = new TreeTable(new EdgirLibraryTreeTableModel(library))
+//  libraryTree.setShowColumns(true)
+//  private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
+//
+
 
   setLayout(new BorderLayout())
   add(splitter)
