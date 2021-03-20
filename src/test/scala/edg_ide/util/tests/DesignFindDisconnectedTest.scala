@@ -25,6 +25,16 @@ class DesignFindDisconnectedTest extends AnyFlatSpec with Matchers {
           "required" -> ValueExpr.Ref(Ref.IsConnected(Ref("port")))
         )
       ),
+      "requiredDisconnectedBlock2" -> Block.Block(
+        ports = Map(
+          "porta" -> Port.Port(),
+          "portb" -> Port.Port(),
+        ),
+        constraints = Map(
+          "requireda" -> ValueExpr.Ref(Ref.IsConnected(Ref("porta"))),
+          "requiredb" -> ValueExpr.Ref(Ref.IsConnected(Ref("portb"))),
+        )
+      ),
       "nonRequiredConnectedBlock" -> Block.Block(
         ports = Map("port" -> Port.Port())
       ),
@@ -40,8 +50,12 @@ class DesignFindDisconnectedTest extends AnyFlatSpec with Matchers {
 
   it should "find disconnected in the design top" in {
     val design = Design(testBlock)
-    DesignFindDisconnected.map(design) should equal(
-      (Seq(DesignPath() + "requiredDisconnectedBlock" + "port"), Seq()))
+    DesignFindDisconnected.map(design)._1.toSet should equal(
+      Set(
+        DesignPath() + "requiredDisconnectedBlock" + "port",
+        DesignPath() + "requiredDisconnectedBlock2" + "porta",
+        DesignPath() + "requiredDisconnectedBlock2" + "portb",
+      ))
   }
 
   it should "find disconnected in a nested block" in {
@@ -50,7 +64,19 @@ class DesignFindDisconnectedTest extends AnyFlatSpec with Matchers {
         "inner" -> testBlock
       )
     ))
-    DesignFindDisconnected.map(design) should equal(
-      (Seq(DesignPath() + "inner" + "requiredDisconnectedBlock" + "port"), Seq()))
+    DesignFindDisconnected.map(design)._1.toSet should equal(
+      Set(
+        DesignPath() + "inner" + "requiredDisconnectedBlock" + "port",
+        DesignPath() + "inner" + "requiredDisconnectedBlock2" + "porta",
+        DesignPath() + "inner" + "requiredDisconnectedBlock2" + "portb",
+      ))
+  }
+
+  it should "find required ports" in {
+    val design = Design(testBlock.getHierarchy.blocks("requiredDisconnectedBlock2"))
+    DesignFindDisconnected.map(design)._2 should equal(
+      Seq(
+        "porta", "portb"
+      ))
   }
 }

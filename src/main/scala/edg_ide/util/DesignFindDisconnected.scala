@@ -44,7 +44,7 @@ object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[Strin
     }
 
     // Required ports of children, as (block, port) tuple
-    val childRequiredPorts = blocks.flatMap { case (childName, (_, childRequiredPorts)) =>
+    val childRequiredPorts = blocks.toSeq.flatMap { case (childName, (_, childRequiredPorts)) =>
       childRequiredPorts.map { childRequiredPort =>
         (childName, childRequiredPort)
       }
