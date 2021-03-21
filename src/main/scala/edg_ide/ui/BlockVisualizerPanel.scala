@@ -391,7 +391,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 
     updateDisplay()
-    updateDisconnected()
   }
 
   /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
@@ -435,6 +434,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
       }
     }
     updateStale()
+    updateDisconnected()
   }
 
   protected def updateDisconnected(): Unit = {
