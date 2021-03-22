@@ -407,10 +407,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
       4, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))
-    val transformedGraph = highFanoutTransform(
+    val transformedGraph = PruneArrayPortsTransform(highFanoutTransform(
       CollapseLinkTransform(CollapseBridgeTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
-        PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))))
+        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))))
 
     val name = if (focusPath == DesignPath()) {
       "(root)"

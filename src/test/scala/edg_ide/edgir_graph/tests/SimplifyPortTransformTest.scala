@@ -1,9 +1,10 @@
 package edg_ide.edgir_graph.tests
 
 import edg.wir.DesignPath
+import edg_ide.edgir_graph.EdgirGraph.EdgirNode
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
-import edg_ide.edgir_graph.{EdgirGraph, SimplifyPortTransform}
+import edg_ide.edgir_graph.{EdgirGraph, PruneArrayPortsTransform, SimplifyPortTransform}
 
 import scala.collection.SeqMap
 
@@ -15,32 +16,35 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
     val testGraph = EdgirGraph.EdgirNode(
       data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
       members = SeqMap(
-        "source" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "source"),
+        "block" -> EdgirGraph.EdgirNode(
+          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "block"),
           members = SeqMap(
-            "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "port")
+            "conArray[0]" -> EdgirGraph.EdgirPort(  // port 0 is connected
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "block" + "conArray[0]")
             ),
-          ),
-          edges = Seq()
-        ),
-        "sink" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "sink"),
-          members = SeqMap(
-            "port" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "sink" + "port")
+            "conArray[1]" -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray[1]")
             ),
-          ),
-          edges = Seq()
-        ),
-        "link" -> EdgirGraph.EdgirNode(
-          data = EdgirTestUtils.Dummy.LinkWrapper(DesignPath() + "link"),
-          members = SeqMap(
-            "source" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "source")
+            "conArray[2]" -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray[2]")
             ),
-            "sinks" -> EdgirGraph.EdgirPort(
-              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks")
+            "conArray1[0]" -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray1[0]")
+            ),
+            "conArray1[1]" -> EdgirGraph.EdgirPort(  // port 1 is connected, but port 0 should show up
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray1[1]")
+            ),
+            "conArray1[2]" -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray1[2]")
+            ),
+            "unconArray[0]" -> EdgirGraph.EdgirPort(  // nothing connected, but retain port 0
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "unconArray[0]")
+            ),
+            "unconArray[1]" -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "unconArray[1]")
+            ),
+            "unconArray[2]" -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "unconArray[2]")
             ),
           ),
           edges = Seq()
@@ -48,32 +52,24 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
       ),
       edges = Seq(
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
-          source = Seq("source", "port", "subport"),
-          target = Seq("link", "source")
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "conArray"),
+          source = Seq("block", "conArray[0]"),
+          target = Seq("link", "whatevs")
         ),
         EdgirGraph.EdgirEdge(
-          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-          source = Seq("sink", "port"),
-          target = Seq("link", "sinks", "subport")
+          data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "conArray1"),
+          source = Seq("block", "conArray1[1]"),
+          target = Seq("link", "whatevs")
         ),
       )
     )
 
-    val transformed = SimplifyPortTransform(testGraph)
+    val transformed = PruneArrayPortsTransform(testGraph)
 
-    transformed.edges should equal(Seq(
-      EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
-        source = Seq("source", "port"),
-        target = Seq("link", "source")
-      ),
-      EdgirGraph.EdgirEdge(
-        data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-        source = Seq("sink", "port"),
-        target = Seq("link", "sinks")
-      ),
+    transformed.members("block").asInstanceOf[EdgirNode].members.keySet should equal(Set(
+      "conArray[0]", "conArray[1]",
+      "conArray1[0]", "conArray1[1]",
+      "unconArray[0]"
     ))
   }
-
 }
