@@ -218,6 +218,55 @@ class LibraryPreview(project: Project) extends JPanel {
     }
   }
 
+  def setPort(library: wir.Library, portType: ref.LibraryPath): Unit = {
+    // TODO combine w/ setBlock
+    val (callString, docstring) = ReadAction.compute(new ThrowableComputable[(Errorable[String], Errorable[String]), Throwable] {
+      override def compute: (Errorable[String], Errorable[String]) = {
+        val pyClassErrorable = DesignAnalysisUtils.pyClassOf(portType, project)
+        val callString = exceptable {
+          val pyClass = pyClassErrorable.exceptError
+          val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
+
+          def formatArg(arg: PyNamedParameter): String = {
+            // TODO hyperlinks? s"""<a href="arg:${arg.getName}">${arg.getName}</a>"""
+            s"""<b>${arg.getName}</b>"""
+          }
+
+          val initString = if (initArgs.nonEmpty) {
+            Some(s"positional args: ${initArgs.map(formatArg).mkString(", ")}")
+          } else {
+            None
+          }
+          val initKwString = if (initKwargs.nonEmpty) {
+            Some(s"keyword args: ${initKwargs.map(formatArg).mkString(", ")}")
+          } else {
+            None
+          }
+
+          if (initString.isEmpty && initKwString.isEmpty) {
+            "(no args)"
+          } else {
+            Seq(initString, initKwString).flatten.mkString("; ")
+          }
+        }
+        val docstring = exceptable {
+          val pyClass = pyClassErrorable.exceptError
+          Option(pyClass.getDocStringValue).getOrElse("")
+        }
+
+        (callString, docstring)
+      }
+    } )
+
+    graph.setGraph(emptyHGraph)
+    val textFieldText = s"<b>${EdgirUtils.SimpleLibraryPath(portType)}</b>\n" +
+        s"takes: ${callString.mapToString(identity)}<hr>" +
+        docstring.mapToString(identity)
+
+    textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText,
+      this.getFont))
+  }
+
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
@@ -257,6 +306,8 @@ class LibraryPanel(project: Project) extends JPanel {
       e.getPath.getLastPathComponent match {
         case node: EdgirLibraryTreeNode.BlockNode =>
           preview.setBlock(library, node.path)
+        case node: EdgirLibraryTreeNode.PortNode =>
+          preview.setPort(library, node.path)
         case node =>
       }
     }
@@ -268,20 +319,25 @@ class LibraryPanel(project: Project) extends JPanel {
       if (selectedTreePath == null) {
         return
       }
-      val selectedPath = selectedTreePath.getLastPathComponent match {
-        case selected: EdgirLibraryTreeNode.BlockNode => selected.path
+
+      selectedTreePath.getLastPathComponent match {
+        case selected: EdgirLibraryTreeNode.BlockNode =>  // insert actions / menu for blocks
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
+            // double click quick insert at caret
+            exceptionPopup(e) {
+              (new LibraryBlockPopupMenu(selected.path, project).caretInsertAction.exceptError)()
+            }
+          } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+            // right click context menu
+            new LibraryBlockPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
+          }
+        case selected: EdgirLibraryTreeNode.PortNode =>  // insert actions / menu for ports
+          // TODO implement me
+
         case _ => return  // any other type ignored
       }
 
-      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
-        // double click quick insert at caret
-        exceptionPopup(e) {
-          (new LibraryBlockPopupMenu(selectedPath, project).caretInsertAction.exceptError)()
-        }
-      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
-        // right click context menu
-        new LibraryBlockPopupMenu(selectedPath, project).show(e.getComponent, e.getX, e.getY)
-      }
+
     }
   }
   libraryTree.addMouseListener(libraryMouseListener)
