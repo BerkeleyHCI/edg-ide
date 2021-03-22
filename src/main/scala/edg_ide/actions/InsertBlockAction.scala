@@ -4,10 +4,10 @@ import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyStatementList}
+import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyFunction, PyKeywordArgument, PyStatementList}
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
-import edg_ide.util.exceptable
+import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
 
 object InsertBlockAction {
@@ -32,10 +32,28 @@ object InsertBlockAction {
         .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
         .head.getName
 
+    val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
+    val allParams = initParams._1 ++ initParams._2
+
     def insertBlockFlow: Unit = {
       InsertAction.createNameEntryPopup("Block Name", containingPsiClass, project) { name => exceptable {
-        val newAssign = psiElementGenerator.createFromText(LanguageLevel.forElement(after),
+        val languageLevel = LanguageLevel.forElement(after)
+        val newAssign = psiElementGenerator.createFromText(languageLevel,
           classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
+
+        for (initParam <- allParams) {
+          val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
+            initParam.getName, "...")
+
+          val defaultValue = initParam.getDefaultValue
+          if (defaultValue != null) {
+            kwArg.getValueExpression.replace(defaultValue)
+          }
+
+          newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
+              .getArgument(0, classOf[PyCallExpression])
+              .getArgumentList.addArgument(kwArg)
+        }
 
         val added = writeCommandAction(project).withName(actionName).compute(() => {
           containingPsiList.addAfter(newAssign, after)

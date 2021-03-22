@@ -14,9 +14,9 @@ class EdgirLibraryTreeRenderer extends DefaultTreeCellRenderer {
     value match {
       case node: EdgirLibraryTreeNode =>
         if (node.traits.contains(EdgirLibraryNodeTraits.Category)) {
-          setIcon(AllIcons.Hierarchy.Subtypes)
-        } else if (node.traits.contains(EdgirLibraryNodeTraits.Abstract)) {
           setIcon(AllIcons.Nodes.Folder)
+        } else if (node.traits.contains(EdgirLibraryNodeTraits.Abstract)) {
+          setIcon(AllIcons.Hierarchy.Subtypes)
         } else if (node.traits.contains(EdgirLibraryNodeTraits.Footprint)) {
           setIcon(PlatformDebuggerImplIcons.MemoryView.Active)
         } else {
