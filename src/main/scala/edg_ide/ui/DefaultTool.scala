@@ -9,7 +9,7 @@ import edg.schema.schema
 import edg.ref.ref
 import edg.util.Errorable
 import edg.wir.DesignPath
-import edg_ide.actions.{DeleteBlockAction, InsertAction}
+import edg_ide.actions.{DeleteElemAction, InsertAction}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup, requireExcept}
@@ -90,13 +90,13 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   def deleteContinuation(prev: PsiElement): Unit = {
     prev match {
       case prev: Navigatable => prev.navigate(true)
-      case other => println(s"got other =( $other")
+      case _ =>  // ignored
     }
 
     exceptionNotify("edg.ui.LibraryPanel", interface.getProject) {
       val visualizerPanel = BlockVisualizerService(interface.getProject).visualizerPanelOption
           .exceptNone("no visualizer panel")
-      visualizerPanel.currentDesignModifyBlock(interface.getFocus) { block =>
+      visualizerPanel.currentDesignModifyBlock(path.split._1) { block =>
         block.update(
           _.blocks := block.blocks - path.steps.last
         )}
@@ -105,9 +105,10 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
 
   // TODO: should this also check design connects? though it does check code references
   private val deletePairs = exceptable {
+    requireExcept(path != DesignPath(), "can't delete root")
     val assigns = DesignAnalysisUtils.allAssignsTo(path, interface.getDesign, interface.getProject).exceptError
     assigns.map { assign =>
-      val deleteFlow = DeleteBlockAction.createDeleteBlockFlow(assign, s"Delete ${path.steps.last}",
+      val deleteFlow = DeleteElemAction.createDeleteElemFlow(assign, s"Delete ${path.steps.last}",
         interface.getProject, deleteContinuation)
           .exceptError
       val fileLine = PsiUtils.fileLineOf(assign, interface.getProject)
@@ -153,6 +154,44 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   }
   private val startConnectItem = ContextMenuUtils.MenuItemFromErrorable(startConnectAction, "Start Connect")
   add(startConnectItem)
+  addSeparator()
+
+  def deleteContinuation(prev: PsiElement): Unit = {
+    println(prev)
+    println(PsiUtils.fileLineOf(prev, interface.getProject))
+    prev match {
+      case prev: Navigatable => prev.navigate(true)
+      case _ =>  // ignored
+    }
+
+    exceptionNotify("edg.ui.LibraryPanel", interface.getProject) {
+      val visualizerPanel = BlockVisualizerService(interface.getProject).visualizerPanelOption
+          .exceptNone("no visualizer panel")
+      val (containingBlockPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, interface.getDesign)
+      visualizerPanel.currentDesignModifyBlock(containingBlockPath) { block =>
+        block.update(
+          _.ports := block.ports - path.steps.last
+        )}
+    }
+  }
+
+  // TODO: should this also check design connects? though it does check code references
+  private val deletePairs = exceptable {
+    val assigns = DesignAnalysisUtils.allAssignsTo(path, interface.getDesign, interface.getProject).exceptError
+    assigns.map { assign =>
+      val deleteFlow = DeleteElemAction.createDeleteElemFlow(assign, s"Delete ${path.steps.last}",
+        interface.getProject, deleteContinuation)
+          .exceptError
+      val fileLine = PsiUtils.fileLineOf(assign, interface.getProject)
+          .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+      (s"Delete Port$fileLine", () => {
+        deleteFlow()
+      })
+    }
+  }
+
+  ContextMenuUtils.MenuItemsFromErrorableSeq(deletePairs, s"Delete")
+      .foreach(add)
   addSeparator()
 
   addGotoInstantiationItems(path, interface.getDesign, interface.getProject)

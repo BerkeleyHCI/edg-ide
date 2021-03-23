@@ -4,11 +4,10 @@ import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
 import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiElement
-import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.{GlobalSearchScope, LocalSearchScope}
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.impl.references.PyQualifiedReference
-import com.jetbrains.python.psi.{PyAssignmentExpression, PyAssignmentStatement, PyExpression, PyStatement}
+import com.jetbrains.python.psi.{PyAssignmentStatement, PyClass, PyExpression, PyFunction, PyStatement}
 import edg.util.Errorable
 import edg_ide.PsiUtils
 import edg_ide.ui.PopupUtils
@@ -16,17 +15,28 @@ import edg_ide.util.exceptable
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-object DeleteBlockAction {
+
+/** Action to delete an element (any member of a Block, including sub-Block and Ports).
+  */
+object DeleteElemAction {
   // TODO dedup w/ NavigateToBlockAction?
   case class NavigateNode(desc: String, action: () => Unit) {
     override def toString: String = desc
   }
 
-  def createDeleteBlockFlow(assignment: PyAssignmentStatement, actionName: String,
-                            project: Project,
-                            continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
+  def createDeleteElemFlow(assignment: PyAssignmentStatement, actionName: String,
+                           project: Project,
+                           continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
     val assignmentTargets = assignment.getRawTargets.toSet
-    val searchScope = GlobalSearchScope.projectScope(project)
+
+    val containingFunctionName = Option(PsiTreeUtil.getParentOfType(assignment, classOf[PyFunction]))
+        .map(_.getName).getOrElse("")
+    val (searchScope, scopeDesc) = if (containingFunctionName == "__init__") {  // assume only init visible elsewhere
+      (GlobalSearchScope.projectScope(project), "public variable")
+    } else {
+      val containingClass = Option(PsiTreeUtil.getParentOfType(assignment, classOf[PyClass])).getOrElse(assignment)
+      (new LocalSearchScope(containingClass), "internal variable")
+    }
     val allReferences = assignmentTargets.toSeq.flatMap { assignmentTarget =>
       ReferencesSearch.search(assignmentTarget, searchScope).findAll().asScala
     }
@@ -49,7 +59,12 @@ object DeleteBlockAction {
       })
     } :+ NavigateNode(
       "Unsafe Delete", () => {
-        val prev = assignment.getPrevSibling
+        val prev = Seq(
+          // Can't use getNextSibling (and related) because it can return a deleted whitespace
+          Option(PsiTreeUtil.getNextSiblingOfType(assignment, classOf[PyStatement])),
+          Option(PsiTreeUtil.getPrevSiblingOfType(assignment, classOf[PyStatement])),
+          Option(assignment.getParent),
+        ).flatten.head
         writeCommandAction(project).withName(actionName).compute(() => {
           assignment.delete()
         })
@@ -58,15 +73,15 @@ object DeleteBlockAction {
       }
     )
 
-    def deleteBlockFlow: Unit = {
+    def deleteElemFlow: Unit = {
       if (items.length == 1) {
         items.head.action()
       } else {
-        PopupUtils.createMenuPopup(s"Remaining references to ${assignment.getLeftHandSideExpression.getText}", items, project) { selected =>
+        PopupUtils.createMenuPopup(s"Remaining references to $scopeDesc ${assignment.getLeftHandSideExpression.getText}", items, project) { selected =>
           selected.action()
         }
       }
     }
-    () => deleteBlockFlow
+    () => deleteElemFlow
   }
 }
