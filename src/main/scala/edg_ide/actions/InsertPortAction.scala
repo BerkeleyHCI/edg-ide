@@ -4,26 +4,29 @@ import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyFunction, PyKeywordArgument, PyStatementList}
+import com.jetbrains.python.psi._
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
 
-object InsertBlockAction {
-  val VALID_FUNCTION_NAMES = Seq("__init__", "contents")  // TODO support generators
-  val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
+object InsertPortAction {
+  val VALID_FUNCTION_NAME = "__init__"  // unlike blocks, ports can only be in __init__ so they can be used
+  val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"  // TODO dedup w/ InsertBlockAction
 
-  /** Creates an action to insert a block of type libClass after some PSI element after.
+  /** Creates an action to insert a port of type libClass after some PSI element after.
     * Validation is performed before the action is generated, though the action itself may also return an error.
+    *
+    * TODO dedup w/ InsertBlockAction?
     */
-  def createInsertBlockFlow(after: PsiElement, libClass: PyClass, actionName: String,
-                            project: Project,
-                            continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
+  def createInsertPortFlow(after: PsiElement, libClass: PyClass, actionName: String,
+                           project: Project,
+                           continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
         .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
     val containingPsiFunction = containingPsiList.getParent
         .instanceOfExcept[PyFunction](s"not in a function in ${containingPsiList.getContainingFile.getName}")
+    requireExcept(containingPsiFunction.getName == VALID_FUNCTION_NAME, s"not in function $VALID_FUNCTION_NAME")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
         .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
 
@@ -35,12 +38,13 @@ object InsertBlockAction {
     val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
     val allParams = initParams._1 ++ initParams._2
 
-    def insertBlockFlow: Unit = {
-      InsertAction.createNameEntryPopup("Block Name", containingPsiClass, project) { name => exceptable {
+    def insertPortFlow: Unit = {
+      InsertAction.createNameEntryPopup("Port Name", containingPsiClass, project) { name => exceptable {
         val languageLevel = LanguageLevel.forElement(after)
         val newAssign = psiElementGenerator.createFromText(languageLevel,
-          classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
+          classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Port(${libClass.getName}())")
 
+        // TODO should this insert args for ports?
         for (initParam <- allParams) {
           val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
             initParam.getName, "...")
@@ -61,6 +65,6 @@ object InsertBlockAction {
         continuation(name, added)
       }}
     }
-    () => insertBlockFlow
+    () => insertPortFlow
   }
 }

@@ -8,6 +8,7 @@ import edg.wir
 import edg.wir.{BlockConnectivityAnalysis, LibraryConnectivityAnalysis, ProtoUtil}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util.{ExceptionNotifyException, exceptable}
+import edg.ExprBuilder.Ref
 
 
 /** Utility methods for fast-path modifications to the design from a UI action.
@@ -15,7 +16,7 @@ import edg_ide.util.{ExceptionNotifyException, exceptable}
 class DesignFastPathUtil(library: wir.Library) {
   lazy val libraryAnalysis = new LibraryConnectivityAnalysis(library)
 
-  private def instantiatePortLike(portType: ref.LibraryPath): Errorable[elem.PortLike] = exceptable {
+  def instantiatePortLike(portType: ref.LibraryPath): Errorable[elem.PortLike] = exceptable {
     library.getPort(portType).exceptError match {
       case IrPort.Port(port) => elem.PortLike().update(
         _.port := port.update(
@@ -50,7 +51,15 @@ class DesignFastPathUtil(library: wir.Library) {
           .mapValues(_.exceptError).toMap,
       _.blocks := Map(),
       _.links := Map(),
-      _.constraints := Map()
+      _.constraints := newBlock.constraints.filter { case (name, constr) =>
+        constr.expr.ref match {
+          case Some(ref) => ref.steps.lastOption match {
+            case Some(Ref.IsConnectedStep) => true
+            case _ => false
+          }
+          case _ => false
+        }
+      }
     ) // TODO pyLib.instantiateBlock(...)?
   }
 

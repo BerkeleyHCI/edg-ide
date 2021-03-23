@@ -40,9 +40,9 @@ object InsertAction {
     element
   }
 
-  def findInsertionPoints(container: PyClass, project: Project): Errorable[Seq[PyFunction]] = exceptable {
+  def findInsertionPoints(container: PyClass, validFunctions: Seq[String]): Errorable[Seq[PyFunction]] = exceptable {
     val methods = container.getMethods.toSeq.collect {
-      case method if InsertBlockAction.VALID_FUNCTION_NAMES.contains(method.getName) => method
+      case method if validFunctions.contains(method.getName) => method
     }.exceptEmpty(s"class ${container.getName} contains no insertion methods")
 
     methods

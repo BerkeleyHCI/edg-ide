@@ -9,7 +9,7 @@ import edg.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.{EdgirUtils, PsiUtils}
-import edg_ide.actions.{InsertAction, InsertConnectAction}
+import edg_ide.actions.{InsertAction, InsertBlockAction, InsertConnectAction}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup, requireExcept}
 
@@ -280,7 +280,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
   private val insertionPairs = exceptable {
     action.getAppendPortPaths.exceptEmpty("no selection to connect")  // TODO append maybe not perfect here
 
-    InsertAction.findInsertionPoints(contextPyClass.exceptError, interface.getProject).exceptError
+    InsertAction.findInsertionPoints(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES).exceptError
         .map { fn =>
           val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, interface.getProject)
               .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")

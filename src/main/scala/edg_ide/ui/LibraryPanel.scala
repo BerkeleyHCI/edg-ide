@@ -1,6 +1,5 @@
 package edg_ide.ui
 
-import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ThrowableComputable
@@ -12,30 +11,30 @@ import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.jetbrains.python.psi.{PyClass, PyNamedParameter}
 import edg.elem.elem
 import edg.ref.ref
-import edg.util.Errorable
+import edg.util.{Errorable, NameCreator}
 import edg.wir
 import edg.wir.DesignPath
-import edg_ide.actions.{InsertAction, InsertBlockAction}
+import edg_ide.actions.{InsertAction, InsertBlockAction, InsertPortAction}
 import edg_ide.edgir_graph._
-import edg_ide.swing.{EdgirLibraryNodeTraits, EdgirLibraryTreeNode, EdgirLibraryTreeRenderer, EdgirLibraryTreeTableModel, FilteredTreeTableModel, JElkGraph, SwingHtmlUtil}
+import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
-import icons.PlatformDebuggerImplIcons
+import edg.ExprBuilder.{ValueExpr, Ref}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{BorderLayout, Component, GridBagConstraints, GridBagLayout}
-import javax.swing.event._
-import javax.swing.tree.{DefaultTreeCellRenderer, TreePath}
+import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import javax.swing._
+import javax.swing.event._
+import javax.swing.tree.TreePath
 
 
-class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends JPopupMenu {
-  val libName = EdgirUtils.SimpleLibraryPath(libType)
-  add(new JLabel(s"Library Block: $libName"))
+class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extends JPopupMenu {
+  val blockTypeName = EdgirUtils.SimpleLibraryPath(blockType)
+  add(new JLabel(s"Library Block: $blockTypeName"))
   addSeparator()
 
-  private val libPyClass = DesignAnalysisUtils.pyClassOf(libType, project)
+  private val blockPyClass = DesignAnalysisUtils.pyClassOf(blockType, project)
   private val (contextPath, _) = BlockVisualizerService(project).getContextBlock.get
   private val contextPyClass = InsertAction.getPyClassOfContext(project)
   private val contextPyName = contextPyClass.mapToString(_.getName)
@@ -55,15 +54,15 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
       val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
           .exceptNone("no visualizer panel")
       visualizerPanel.currentDesignModifyBlock(contextPath) { _.update(
-        _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(libType).exceptError)
+        _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(blockType).exceptError)
       )}
       visualizerPanel.addStaleBlocks(Seq(contextPath + name))
     }
   }
 
   val caretInsertAction: Errorable[() => Unit] = exceptable {
-    InsertBlockAction.createInsertBlockFlow(caretPsiElement.exceptError, libPyClass.exceptError,
-        s"Insert $libName at $contextPyName caret",
+    InsertBlockAction.createInsertBlockFlow(caretPsiElement.exceptError, blockPyClass.exceptError,
+        s"Insert $blockTypeName at $contextPyName caret",
         project, insertContinuation).exceptError
   }
   private val caretFileLine = exceptable {
@@ -76,13 +75,13 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
   add(caretInsertItem)
 
   private val insertionPairs = exceptable {
-    InsertAction.findInsertionPoints(contextPyClass.exceptError, project).exceptError
+    InsertAction.findInsertionPoints(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES).exceptError
         .map { fn =>
           val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project)
               .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
           val label = s"Insert at ${contextPyName}.${fn.getName}$fileLine"
-          val action = InsertBlockAction.createInsertBlockFlow(fn.getStatementList.getStatements.last, libPyClass.exceptError,
-            s"Insert $libName at $contextPyName.${fn.getName}",
+          val action = InsertBlockAction.createInsertBlockFlow(fn.getStatementList.getStatements.last, blockPyClass.exceptError,
+            s"Insert $blockTypeName at $contextPyName.${fn.getName}",
             project, insertContinuation)
           (label, action)
         } .collect {
@@ -95,13 +94,94 @@ class LibraryBlockPopupMenu(libType: ref.LibraryPath, project: Project) extends 
 
   // Navigation actions
   val gotoDefinitionAction: Errorable[() => Unit] = exceptable {
-    requireExcept(libPyClass.exceptError.canNavigateToSource, "class not navigatable")
-    () => libPyClass.exceptError.navigate(true)
+    requireExcept(blockPyClass.exceptError.canNavigateToSource, "class not navigatable")
+    () => blockPyClass.exceptError.navigate(true)
   }
-  private val libFileLine = libPyClass.flatMap(PsiUtils.fileLineOf(_, project))
+  private val blockFileLine = blockPyClass.flatMap(PsiUtils.fileLineOf(_, project))
       .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(gotoDefinitionAction,
-    s"Goto Definition$libFileLine")
+    s"Goto Definition$blockFileLine")
+  add(gotoDefinitionItem)
+}
+
+
+class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends JPopupMenu {
+  val portTypeName = EdgirUtils.SimpleLibraryPath(portType)
+  add(new JLabel(s"Library Port: $portTypeName"))
+  addSeparator()
+
+  private val portPyClass = DesignAnalysisUtils.pyClassOf(portType, project)
+  private val (contextPath, _) = BlockVisualizerService(project).getContextBlock.get
+  private val contextPyClass = InsertAction.getPyClassOfContext(project)
+  private val contextPyName = contextPyClass.mapToString(_.getName)
+
+  // Edit actions
+  private val caretPsiElement = exceptable {
+    val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
+    InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, project).exceptError
+  }
+  private def insertContinuation(name: String, added: PsiElement): Unit = {
+    InsertAction.navigateElementFn(name, added)
+
+    val library = EdgCompilerService(project).pyLib
+    val fastPathUtil = new DesignFastPathUtil(library)
+
+    exceptionNotify("edg.ui.LibraryPanel", project) {
+      val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
+          .exceptNone("no visualizer panel")
+      visualizerPanel.currentDesignModifyBlock(contextPath) { block =>
+        val namer = NameCreator.fromBlock(block)
+        block.update(
+          _.ports :+= (name, fastPathUtil.instantiatePortLike(portType).exceptError),
+          _.constraints :+= (namer.newName(s"_new_(reqd)$name"), ValueExpr.Ref(Ref.IsConnected(Ref(name)))),
+      )}
+      visualizerPanel.addStaleBlocks(Seq(contextPath))
+    }
+  }
+
+  val caretInsertAction: Errorable[() => Unit] = exceptable {
+    requireExcept(contextPath != DesignPath(), "can't insert port at design top")
+    InsertPortAction.createInsertPortFlow(caretPsiElement.exceptError, portPyClass.exceptError,
+      s"Insert $portTypeName at $contextPyName caret",
+      project, insertContinuation).exceptError
+  }
+  private val caretFileLine = exceptable {
+    caretInsertAction.exceptError
+    PsiUtils.fileNextLineOf(caretPsiElement.exceptError, project).exceptError
+  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+
+  private val caretInsertItem = ContextMenuUtils.MenuItemFromErrorable(
+    caretInsertAction, s"Insert at $contextPyName caret$caretFileLine")
+  add(caretInsertItem)
+
+  private val insertionPairs = exceptable {
+    requireExcept(contextPath != DesignPath(), "can't insert port at design top")
+    InsertAction.findInsertionPoints(contextPyClass.exceptError, Seq(InsertPortAction.VALID_FUNCTION_NAME)).exceptError
+        .map { fn =>
+          val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project)
+              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+          val label = s"Insert at ${contextPyName}.${fn.getName}$fileLine"
+          val action = InsertPortAction.createInsertPortFlow(fn.getStatementList.getStatements.last, portPyClass.exceptError,
+            s"Insert $portTypeName at $contextPyName.${fn.getName}",
+            project, insertContinuation)
+          (label, action)
+        } .collect {
+      case (fn, Errorable.Success(action)) => (fn, action)
+    }.exceptEmpty("no insertion points")
+  }
+  ContextMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
+      .foreach(add)
+  addSeparator()
+
+  // Navigation actions
+  val gotoDefinitionAction: Errorable[() => Unit] = exceptable {
+    requireExcept(portPyClass.exceptError.canNavigateToSource, "class not navigatable")
+    () => portPyClass.exceptError.navigate(true)
+  }
+  private val portFileLine = portPyClass.flatMap(PsiUtils.fileLineOf(_, project))
+      .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+  private val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(gotoDefinitionAction,
+    s"Goto Definition$portFileLine")
   add(gotoDefinitionItem)
 }
 
@@ -331,8 +411,17 @@ class LibraryPanel(project: Project) extends JPanel {
             // right click context menu
             new LibraryBlockPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
           }
+
         case selected: EdgirLibraryTreeNode.PortNode =>  // insert actions / menu for ports
-          // TODO implement me
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
+            // double click quick insert at caret
+            exceptionPopup(e) {
+              (new LibraryPortPopupMenu(selected.path, project).caretInsertAction.exceptError)()
+            }
+          } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+            // right click context menu
+            new LibraryPortPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
+          }
 
         case _ => return  // any other type ignored
       }
