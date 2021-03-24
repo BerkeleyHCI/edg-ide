@@ -94,9 +94,10 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   addSeparator()
 
   // Refinements action
-  private val selectedPathType = exceptable {
+  private val selectedPathClass = exceptable {
     val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
         .exceptNone("no visualizer panel")
+    val blockClass = blockPyClass.exceptError
 
     val selectedPath = visualizerPanel.getSelectedPath.exceptNone("no selection")
     val (resolvedPath, resolvedElt) = EdgirUtils.resolveDeepest(selectedPath, visualizerPanel.getDesign)
@@ -105,13 +106,12 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     val selectedBlock = resolvedElt.instanceOfExcept[elem.HierarchyBlock]("selected not a block")
     val selectedType = selectedBlock.prerefineClass.getOrElse(
       selectedBlock.superclasses.onlyExcept("invalid class of selected"))
-
     val selectedClass = DesignAnalysisUtils.pyClassOf(selectedType, project).exceptError
-    val blockClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
+
     requireExcept(blockClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
       s"${blockClass.getName} not a subtype of ${selectedClass.getName}")
 
-    (selectedPath, selectedType)
+    (selectedPath, selectedClass)
   }
   private val topClass = exceptable {
     val topType = BlockVisualizerService(project).visualizerPanelOption
@@ -121,18 +121,32 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     DesignAnalysisUtils.pyClassOf(topType, project).exceptError
   }
   private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
-    val (selectedPath, selectedType) = selectedPathType.exceptError
+    val (selectedPath, selectedClass) = selectedPathClass.exceptError
 
-    val insertAction = InsertRefinementAction.createInstanceRefinement(topClass.exceptError, selectedPath, blockType, project)
+    val insertAction = InsertRefinementAction.createInstanceRefinement(
+      topClass.exceptError, selectedPath, blockPyClass.exceptError, project)
         .exceptError
     () => {  // TODO standardized continuation?
       val inserted = insertAction()
       inserted.navigate(true)
     }
   }
-  private val selectedPathName = selectedPathType.map(_._1.toString).toOption.getOrElse("selection")
-  add(ContextMenuUtils.MenuItemFromErrorable(insertInstanceRefinementAction, s"Refine $selectedPathName to $blockTypeName"))
+  private val selectedPathName = selectedPathClass.map(_._1.toString).toOption.getOrElse("selection")
+  add(ContextMenuUtils.MenuItemFromErrorable(insertInstanceRefinementAction, s"Refine instance $selectedPathName to $blockTypeName"))
 
+  private val insertClassRefinementAction: Errorable[() => Unit] = exceptable {
+    val (selectedPath, selectedClass) = selectedPathClass.exceptError
+
+    val insertAction = InsertRefinementAction.createClassRefinement(
+      topClass.exceptError, selectedClass, blockPyClass.exceptError, project)
+        .exceptError
+    () => {  // TODO standardized continuation?
+      val inserted = insertAction()
+      inserted.navigate(true)
+    }
+  }
+  private val selectedClassName = selectedPathClass.map(_._2.getName).toOption.getOrElse("of selection")
+  add(ContextMenuUtils.MenuItemFromErrorable(insertClassRefinementAction, s"Refine class $selectedClassName to $blockTypeName"))
   addSeparator()
 
   // Navigation actions

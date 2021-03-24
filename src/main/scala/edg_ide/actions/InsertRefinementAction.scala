@@ -138,17 +138,29 @@ object InsertRefinementAction {
     }
   }
 
-  def createInstanceRefinement(cls: PyClass, path: DesignPath, refinementType: ref.LibraryPath,
+  def createInstanceRefinement(container: PyClass, path: DesignPath, refinementClass: PyClass,
                                project: Project): Errorable[() => PyExpression] = exceptable {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
-    val languageLevel = LanguageLevel.forElement(cls)
+    val languageLevel = LanguageLevel.forElement(container)
     val keyExpr = psiElementGenerator.createExpressionFromText(languageLevel,
       s"""[${path.steps.map(step => s"'$step'").mkString(", ")}]""")
-    val valueClass = DesignAnalysisUtils.pyClassOf(refinementType, project).exceptError
     val valueExpr = psiElementGenerator.createExpressionFromText(languageLevel,
-      valueClass.getName)
+      refinementClass.getName)
 
-    createInsertRefinement("instance_refinements", cls, keyExpr, valueExpr,
-      s"Refine $path to ${EdgirUtils.SimpleLibraryPath(refinementType)}", project).exceptError
+    createInsertRefinement("instance_refinements", container, keyExpr, valueExpr,
+      s"Refine $path to ${refinementClass.getName}", project).exceptError
+  }
+
+  def createClassRefinement(container: PyClass, refinedClass: PyClass, refinementClass: PyClass,
+                               project: Project): Errorable[() => PyExpression] = exceptable {
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+    val languageLevel = LanguageLevel.forElement(container)
+    val keyExpr = psiElementGenerator.createExpressionFromText(languageLevel,
+      refinedClass.getName)
+    val valueExpr = psiElementGenerator.createExpressionFromText(languageLevel,
+      refinementClass.getName)
+
+    createInsertRefinement("class_refinements", container, keyExpr, valueExpr,
+      s"Refine ${refinedClass.getName} to ${refinementClass.getName}", project).exceptError
   }
 }
