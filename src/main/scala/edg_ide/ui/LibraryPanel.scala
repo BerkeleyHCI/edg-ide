@@ -8,6 +8,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
+import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{PyClass, PyNamedParameter}
 import edg.elem.elem
 import edg.ref.ref
@@ -102,10 +103,17 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
         .exceptNone(s"can't resolve $selectedPath")
     requireExcept(selectedPath == resolvedPath, s"mismatch resolving $selectedPath")
     val selectedBlock = resolvedElt.instanceOfExcept[elem.HierarchyBlock]("selected not a block")
-    val selectedType = selectedBlock.superclasses.onlyExcept("invalid class of selected")
+    val selectedType = selectedBlock.prerefineClass.getOrElse(
+      selectedBlock.superclasses.onlyExcept("invalid class of selected"))
+
+    val selectedClass = DesignAnalysisUtils.pyClassOf(selectedType, project).exceptError
+    val blockClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
+    requireExcept(blockClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
+      s"${blockClass.getName} not a subtype of ${selectedClass.getName}")
+
     (selectedPath, selectedType)
   }
-  private val topType = exceptable {
+  private val topClass = exceptable {
     val topType = BlockVisualizerService(project).visualizerPanelOption
         .exceptNone("no visualizer panel")
         .getDesign.getContents
@@ -114,8 +122,8 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   }
   private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
     val (selectedPath, selectedType) = selectedPathType.exceptError
-    // TODO Filter by allowed type!
-    val insertAction = InsertRefinementAction.createInstanceRefinement(topType.exceptError, selectedPath, blockType, project)
+
+    val insertAction = InsertRefinementAction.createInstanceRefinement(topClass.exceptError, selectedPath, blockType, project)
         .exceptError
     () => {  // TODO standardized continuation?
       val inserted = insertAction()
