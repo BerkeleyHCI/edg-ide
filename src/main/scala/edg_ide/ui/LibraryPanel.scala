@@ -113,8 +113,6 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     DesignAnalysisUtils.pyClassOf(topType, project).exceptError
   }
   private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
-    val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
-        .exceptNone("no visualizer panel")
     val (selectedPath, selectedType) = selectedPathType.exceptError
     // TODO Filter by allowed type!
     val insertAction = InsertRefinementAction.createInstanceRefinement(topType.exceptError, selectedPath, blockType, project)
@@ -124,7 +122,8 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
       inserted.navigate(true)
     }
   }
-  add(ContextMenuUtils.MenuItemFromErrorable(insertInstanceRefinementAction, s"Refine selected to $blockTypeName"))
+  private val selectedPathName = selectedPathType.map(_._1.toString).toOption.getOrElse("selection")
+  add(ContextMenuUtils.MenuItemFromErrorable(insertInstanceRefinementAction, s"Refine $selectedPathName to $blockTypeName"))
 
   addSeparator()
 

@@ -2,12 +2,13 @@ package edg_ide.actions
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
-import com.jetbrains.python.psi.{LanguageLevel, PyArgumentList, PyAssignmentStatement, PyBinaryExpression, PyCallExpression, PyClass, PyElementGenerator, PyExpression, PyFunction, PyListLiteralExpression, PyParenthesizedExpression, PyPsiFacade, PyReturnStatement}
-import edg.wir.DesignPath
+import com.intellij.psi.PsiParserFacade
+import com.jetbrains.python.psi._
 import edg.ref.ref
 import edg.util.Errorable
+import edg.wir.DesignPath
 import edg_ide.EdgirUtils
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
 
@@ -32,15 +33,26 @@ object InsertRefinementAction {
   }
 
   // Given an argument list to Refinements(), the refinement type, and key, returns the expression if it exists.
-  protected def findRefinementsExprByKey(args: PyArgumentList, kwarg: String,
-                                         key: PyExpression): Option[PyParenthesizedExpression] = {
-    ???
+  protected def findRefinementsExprByKey(list: PyListLiteralExpression,
+                                         key: PyExpression): Option[PyExpression] = {
+    list.getElements.filter {
+      case elt: PyParenthesizedExpression =>
+        elt.getContainedExpression match {
+          case elt: PyTupleExpression =>
+            elt.getElements.headOption match {
+              case Some(head) => head.textMatches(key)
+              case _ => false
+            }
+          case _ => false
+        }
+      case _ => false
+    }.lastOption
   }
 
   /** Creates an action that inserts a refinement in the specified class as a key and value (as PSI exprs).
     * Validation is done before-hand, and will insert the refinements method if none exists.
     */
-  protected def createInsertRefinement(kwarg: String, cls: PyClass, key: PyExpression, value: PyExpression,
+  protected def createInsertRefinement(kwargName: String, cls: PyClass, key: PyExpression, value: PyExpression,
                                        actionName: String, project: Project): Errorable[() => PyExpression] = exceptable {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
     val languageLevel = LanguageLevel.forElement(cls)
@@ -58,12 +70,54 @@ object InsertRefinementAction {
             .getRightExpression.instanceOfExcept[PyCallExpression]("unexpected expr in refinements() return rhs")
             .getArgumentList
 
-        () => {
-          ???
+        Option(argList.getKeywordArgument(kwargName)) match {
+          case Some(kwarg) =>  // potentially append to keyword arg
+            val valueList = kwarg.getValueExpression.instanceOfExcept[PyListLiteralExpression](s"Refinements kwarg $kwarg not a list")
+            findRefinementsExprByKey(valueList, key) match {
+              case Some(parenExpr) => // replace existing
+                val insertTuple = psiElementGenerator.createExpressionFromText(languageLevel,
+                  s"(${key.getText}, ${value.getText})")  // note, no trailing comma
+                () => {
+                  writeCommandAction(project).withName(actionName).compute(() => {
+                    parenExpr.replace(insertTuple)
+                  }).asInstanceOf[PyExpression]
+                }
+
+              case None => // create new tuple
+                val insertTuple = psiElementGenerator.createExpressionFromText(languageLevel,
+                  s"(${key.getText}, ${value.getText}),")  // note, trailing comma
+                () => {
+                  // for some reason, PyElementGenerator.getInstance(project).createNewLine inserts two spaces
+                  val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
+
+                  val inserted = writeCommandAction(project).withName(actionName).compute(() => {
+                    val inserted = valueList.add(insertTuple)
+                    // can't do valueList.addBefore, since that does a check for PyExpr, which whitespace is not
+                    inserted.addBefore(newline, inserted.getFirstChild)
+                    inserted
+                  }).asInstanceOf[PyExpression]
+                  inserted
+                }
+            }
+          case None =>  // create new keyword arg
+            // TODO: dedup w/ create kwarg below
+            val kwargExpr = psiElementGenerator.createKeywordArgument(languageLevel,
+              kwargName,
+              s"""[
+                 |  (${key.getText}, ${value.getText}),
+                 |]""".stripMargin.replace("\r\n", "\n")
+            )
+
+            () => {
+              writeCommandAction(project).withName(actionName).compute(() => {
+                argList.addArgument(kwargExpr)
+              })
+              argList.getArguments.head
+            }
         }
       case None =>
         val kwargExpr = psiElementGenerator.createKeywordArgument(languageLevel,
-          kwarg,
+          kwargName,
           s"""[
              |  (${key.getText}, ${value.getText}),
              |]""".stripMargin.replace("\r\n", "\n")
