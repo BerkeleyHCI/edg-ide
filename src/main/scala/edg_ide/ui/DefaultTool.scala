@@ -157,8 +157,6 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   addSeparator()
 
   def deleteContinuation(prev: PsiElement): Unit = {
-    println(prev)
-    println(PsiUtils.fileLineOf(prev, interface.getProject))
     prev match {
       case prev: Navigatable => prev.navigate(true)
       case _ =>  // ignored
