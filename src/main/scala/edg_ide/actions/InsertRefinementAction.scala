@@ -61,6 +61,7 @@ object InsertRefinementAction {
       method.getName == REFINEMENT_FN_NAME
     }
 
+    // TODO: seriously dedup this across the create new / insert existing paths, perhaps breaking steps into functions
     refinementsMethod match {
       case Some(refinementsMethod) =>
         val argList = refinementsMethod.getStatementList.getStatements.toSeq
