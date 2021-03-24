@@ -138,7 +138,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     }
   }
 
-  private val defaultTool: BaseTool = new DefaultTool(toolInterface)
+  private val defaultTool: DefaultTool = new DefaultTool(toolInterface)
   private var activeTool: BaseTool = defaultTool
 
 
@@ -281,6 +281,10 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   }
 
   def getDesign: schema.Design = design
+
+  def getSelectedPath: Option[DesignPath] = {
+    defaultTool.getSelected
+  }
 
   def setContext(path: DesignPath): Unit = {
     if (activeTool == defaultTool) {

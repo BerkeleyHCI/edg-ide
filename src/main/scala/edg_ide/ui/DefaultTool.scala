@@ -211,7 +211,15 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
 
 
 class DefaultTool(val interface: ToolInterface) extends BaseTool {
-  private var ignoreSelect: Boolean = false
+  private var ignoreSelect: Boolean = false  // TODO synchronization?
+  private var selected: Option[DesignPath] = None  // TODO synchronization?
+
+  def getSelected: Option[DesignPath] = selected
+
+  override def init(): Unit = {
+    super.init()
+    selected = None
+  }
 
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
   override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
@@ -254,6 +262,7 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
     interface.setDesignTreeSelection(Some(containingPath))
     interface.setGraphSelections(Set(path))
     interface.setDetailView(containingPath)
+    selected = Some(path)
     ignoreSelect = false
   }
 }

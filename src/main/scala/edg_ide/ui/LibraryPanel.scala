@@ -14,13 +14,13 @@ import edg.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir
 import edg.wir.DesignPath
-import edg_ide.actions.{InsertAction, InsertBlockAction, InsertPortAction}
+import edg_ide.actions.{InsertAction, InsertBlockAction, InsertPortAction, InsertRefinementAction}
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
-import edg.ExprBuilder.{ValueExpr, Ref}
+import edg.ExprBuilder.{Ref, ValueExpr}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
@@ -90,6 +90,42 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   }
   ContextMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
       .foreach(add)
+  addSeparator()
+
+  // Refinements action
+  private val selectedPathType = exceptable {
+    val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
+        .exceptNone("no visualizer panel")
+
+    val selectedPath = visualizerPanel.getSelectedPath.exceptNone("no selection")
+    val (resolvedPath, resolvedElt) = EdgirUtils.resolveDeepest(selectedPath, visualizerPanel.getDesign)
+        .exceptNone(s"can't resolve $selectedPath")
+    requireExcept(selectedPath == resolvedPath, s"mismatch resolving $selectedPath")
+    val selectedBlock = resolvedElt.instanceOfExcept[elem.HierarchyBlock]("selected not a block")
+    val selectedType = selectedBlock.superclasses.onlyExcept("invalid class of selected")
+    (selectedPath, selectedType)
+  }
+  private val topType = exceptable {
+    val topType = BlockVisualizerService(project).visualizerPanelOption
+        .exceptNone("no visualizer panel")
+        .getDesign.getContents
+        .superclasses.onlyExcept("invalid class of top")
+    DesignAnalysisUtils.pyClassOf(topType, project).exceptError
+  }
+  private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
+    val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
+        .exceptNone("no visualizer panel")
+    val (selectedPath, selectedType) = selectedPathType.exceptError
+    // TODO Filter by allowed type!
+    val insertAction = InsertRefinementAction.createInstanceRefinement(topType.exceptError, selectedPath, blockType, project)
+        .exceptError
+    () => {  // TODO standardized continuation?
+      val inserted = insertAction()
+      inserted.navigate(true)
+    }
+  }
+  add(ContextMenuUtils.MenuItemFromErrorable(insertInstanceRefinementAction, s"Refine selected to $blockTypeName"))
+
   addSeparator()
 
   // Navigation actions
