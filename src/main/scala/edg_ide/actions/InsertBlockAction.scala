@@ -41,21 +41,25 @@ object InsertBlockAction {
         val newAssign = psiElementGenerator.createFromText(languageLevel,
           classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
 
-        // TODO: we don't want to add all the parameters, but once we have a notion of required parameters
-        // we can instantiate those.
-        /* for (initParam <- allParams) {
-          val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
-            initParam.getName, "...")
-
+        for (initParam <- allParams) {
+          // Only create default values for required arguments, ignoring defaults
+          // TODO: better detection of "required" args
           val defaultValue = initParam.getDefaultValue
-          if (defaultValue != null) {
-            kwArg.getValueExpression.replace(defaultValue)
-          }
+          if (defaultValue.textMatches("RangeExpr()") || defaultValue.textMatches("FloatExpr()")
+              || defaultValue.textMatches("IntExpr()") || defaultValue.textMatches("BoolExpr()")
+              || defaultValue.textMatches("StringExpr()") || defaultValue == null) {
+            val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
+              initParam.getName, "...")
 
-          newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
-              .getArgument(0, classOf[PyCallExpression])
-              .getArgumentList.addArgument(kwArg)
-        } */
+            if (defaultValue != null) {
+              kwArg.getValueExpression.replace(defaultValue)
+            }
+
+            newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
+                .getArgument(0, classOf[PyCallExpression])
+                .getArgumentList.addArgument(kwArg)
+          }
+        }
 
         val added = writeCommandAction(project).withName(actionName).compute(() => {
           containingPsiList.addAfter(newAssign, after)
