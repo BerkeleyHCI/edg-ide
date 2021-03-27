@@ -3,6 +3,7 @@ package edg_ide.ui
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindow
 import edg.wir.DesignPath
 import edg.schema.schema
 import edg.elem.elem
@@ -23,9 +24,9 @@ class BlockVisualizerService(project: Project) extends
 
   def visualizerPanelOption: Option[BlockVisualizerPanel] = visualizerPanel
 
-  def createBlockVisualizerPanel(): BlockVisualizerPanel = {
+  def createBlockVisualizerPanel(toolWindow: ToolWindow): BlockVisualizerPanel = {
     require(visualizerPanel.isEmpty)
-    val created = new BlockVisualizerPanel(project)
+    val created = new BlockVisualizerPanel(project, toolWindow)
     initialState.foreach { state => created.loadState(state) }
     visualizerPanel = Some(created)
     created

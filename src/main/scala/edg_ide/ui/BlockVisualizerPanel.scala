@@ -4,6 +4,7 @@ import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
@@ -55,7 +56,7 @@ object Gbc {
 }
 
 
-class BlockVisualizerPanel(val project: Project) extends JPanel {
+class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
   // Internal State
   //
   private var design = schema.Design()
@@ -153,8 +154,11 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   private val visualizationPanel = new JPanel(new GridBagLayout())
   mainSplitter.setFirstComponent(visualizationPanel)
 
-  private val blockNameLabel = new JLabel("")
-  visualizationPanel.add(blockNameLabel, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
+  private val status = new JLabel(s"Ready " +
+      s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
+      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
+  )
+  visualizationPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val button = new JButton("Update")
   visualizationPanel.add(button, Gbc(1, 0))
@@ -173,12 +177,6 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   })
   // TODO update visualization on change?
   visualizationPanel.add(depthSpinner, Gbc(2, 0))
-
-  private val status = new JLabel(s"Ready " +
-      s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
-      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
-  )
-  visualizationPanel.add(status, Gbc(0, 1, GridBagConstraints.HORIZONTAL, xsize=3))
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
@@ -205,7 +203,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   }
   graph.addMouseListener(graphScrollPane.makeMouseAdapter)
   graph.addMouseMotionListener(graphScrollPane.makeMouseAdapter)
-  visualizationPanel.add(graphScrollPane, Gbc(0, 2, GridBagConstraints.BOTH, xsize=3))
+  visualizationPanel.add(graphScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize=3))
 
   // GUI: Bottom half (design tree and task tabs)
   //
@@ -302,12 +300,15 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
   def setFileBlock(module: String, block: String): Unit = {
     blockModule = module
     blockName = block
-    blockNameLabel.setText(s"$module.$blockName")
+    toolWindow.setTitle(blockName)
   }
 
   /** Recompiles the current blockModule / blockName, and updates the display
     */
   def recompile(): Unit = {
+    // TODO a hack to get the title to update, because the initial setFileBlock on loadState doesn't work for w/e reason
+    toolWindow.setTitle(blockName)
+
     // TODO: should be in EdgCompilerService? Which is what really needs the lock
     if (!compilerRunning.compareAndSet(false, true)) {
       notificationGroup.createNotification(
