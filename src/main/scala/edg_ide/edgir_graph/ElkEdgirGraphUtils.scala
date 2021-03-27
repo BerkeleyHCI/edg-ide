@@ -41,8 +41,8 @@ object ElkEdgirGraphUtils {
       val portName = port.path.steps.last
 
       EdgirUtils.SimpleLibraryPath(portType) match {
-        case "ElectricalSource" => Some(PortSide.EAST)
-        case "ElectricalSink" => portName match {
+        case "VoltageSource" => Some(PortSide.EAST)
+        case "VoltageSink" => portName match {
           case "gnd" | "vss" => Some(PortSide.SOUTH)
           case _ => Some(PortSide.NORTH)
         }

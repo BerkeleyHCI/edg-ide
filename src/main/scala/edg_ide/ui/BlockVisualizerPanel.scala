@@ -410,7 +410,7 @@ class BlockVisualizerPanel(val project: Project) extends JPanel {
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-      4, Set(LibraryPath("electronics_model.ElectricalPorts.ElectricalLink")))
+      4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
     val transformedGraph = PruneArrayPortsTransform(highFanoutTransform(
       CollapseLinkTransform(CollapseBridgeTransform(
       InferEdgeDirectionTransform(SimplifyPortTransform(
@@ -585,7 +585,7 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
     val classString = EdgirUtils.SimpleSuperclass(link.superclasses)
     val additionalDesc = classString match {
-      case "ElectricalLink" =>
+      case "VoltageLink" =>
         s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
             s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
             s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +

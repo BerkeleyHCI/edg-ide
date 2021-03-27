@@ -41,7 +41,9 @@ object InsertBlockAction {
         val newAssign = psiElementGenerator.createFromText(languageLevel,
           classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
 
-        for (initParam <- allParams) {
+        // TODO: we don't want to add all the parameters, but once we have a notion of required parameters
+        // we can instantiate those.
+        /* for (initParam <- allParams) {
           val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
             initParam.getName, "...")
 
@@ -53,7 +55,7 @@ object InsertBlockAction {
           newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
               .getArgument(0, classOf[PyCallExpression])
               .getArgumentList.addArgument(kwArg)
-        }
+        } */
 
         val added = writeCommandAction(project).withName(actionName).compute(() => {
           containingPsiList.addAfter(newAssign, after)

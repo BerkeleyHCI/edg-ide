@@ -13,12 +13,12 @@ import scala.collection.SeqMap
 object EdgirTestUtils {
   // Some definitions that need to be kept consistent with the Python HDL / frontend
   object Ports {
-    val PowerSource = EdgirUtils.StringToLibraryPath("electronics_model.ElectricalPorts.ElectricalSource")
-    val PowerSink = EdgirUtils.StringToLibraryPath("electronics_model.ElectricalPorts.ElectricalSink")
+    val PowerSource = EdgirUtils.StringToLibraryPath("electronics_model.VoltagePorts.VoltageSource")
+    val PowerSink = EdgirUtils.StringToLibraryPath("electronics_model.VoltagePorts.VoltageSink")
   }
 
   object Links {
-    val Power = EdgirUtils.StringToLibraryPath("electronics_model.ElectricalPorts.ElectricalLink")
+    val Power = EdgirUtils.StringToLibraryPath("electronics_model.VoltagePorts.VoltageLink")
   }
 
   object Dummy {

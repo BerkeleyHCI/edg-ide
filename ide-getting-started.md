@@ -36,7 +36,7 @@ There are a couple of basic operations, which you'll get to try in the tutorial:
 - **Block Instantiation**: creates a sub-block in the current block
   - For example, `self.led = self.Block(IndicatorLed())` instantiates a `IndicatorLed` block and names it `led` in the current block
 - **Port Instantiation**: creates an exterior port in the current block, used for building library blocks.
-  - For example, `self.vdd = self.Port(ElectricalSink(voltage_limits=(2.3, 5.5)*Volt, current_draw=(0, 15)*uAmp))` instantiates a port of type `ElectricalSink` (voltage input) with defined voltage limits and current draw ranges, and names it `vdd`.
+  - For example, `self.vdd = self.Port(VoltageSink(voltage_limits=(2.3, 5.5)*Volt, current_draw=(0, 15)*uAmp))` instantiates a port of type `VoltageSink` (voltage input) with defined voltage limits and current draw ranges, and names it `vdd`.
 - **Connect**: connects two ports
   - For example, `self.connect(self.mcu.digital[0], self.led.signal)` connects a digital IO port on `mcu` to the signal port of `led`
 
@@ -60,15 +60,20 @@ Start by opening `blinky_skeleton.py`, which is pre-populated with this skeleton
 from edg import *
 
 
-class BlinkyExample(BoardTop):
+class BlinkyExample(SimpleBoardTop):
   def contents(self) -> None:
     super().contents()
     # your implementation here
+
+    
+if __name__ == "__main__":
+  compile_board_inplace(BlinkyExample)
 ```
 
-- `from edg import *` brings in the base classes for circuit construction, like `BoardTop` and the library parts we'll use in the rest of this tutorial.
-- `class BlinkyExample` contains the (top-level) circuit you're going to build, and it extends the top-level board type `BoardTop`.
+- `from edg import *` brings in the base classes for circuit construction, like `SimpleBoardTop` and the library parts we'll use in the rest of this tutorial.
+- `class BlinkyExample` contains the (top-level) circuit you're going to build, and it extends the top-level board type `SimpleBoardTop`.
   It's empty for now, but we'll fill it in the next section.
+- The stuff in `if __name__ == "__main__":` allows the design to compile (and generate netlists) by running the file.
 
 Your IDE should look something like this (minus the red annotation text):
 
@@ -145,23 +150,18 @@ and the connect line should appear in the code editor:
 self.connect(self.mcu.digital[0], self.led.signal)
 ```
 
+> Note that the connect statement is ordered with the starting item first, then the rest in order.
+> Stylistically, we prefer sources before sinks, defined loosely (including dataflow or power flow notations).
+> This convention is also used by the block diagram visualizer to define an order where it isn't apparent from the port types, for example if two bidirectional digital ports are connected together, as opposed to a digital source to a digital sink connection.
+
 > Note that `mcu.digital` is an array-like port, and additional ports will appear as existing ones are connected.
+
+> Explicit pin assignments are supported, but `SimpleBoardTop` forces auto-assignment for simplicity in this tutorial.
 
 Repeat the same for the `gnd` port of both blocks.
 
 If you recompile now, the hatched fill should go away, but you'll get a bunch of errors.
 These mostly stem from the missing power source, which are indicated on the block visualizer with the red ports.
-
-Some of these errors are from the missing pin assignments.
-Add these magic line of code in `class BlinkyExample` to give it blank pin assignments:
-```python
-def refinements(self) -> Refinements:
-  return super().refinements() + Refinements(
-    instance_values=[
-      (['mcu', 'pin_assigns'], ''),
-    ]
-  )
-```
 
 ### Adding power and programming
 _In this section, you'll add and connect a power source and programming connector to fix errors._
@@ -230,7 +230,7 @@ def refinements(self) -> Refinements:
 Recompile, and there should be no more errors.
 
 > Abstract types are useful primarily in libraries to preserve alternatives, the refinement of which is left to the top-level designer.
-> For example, BoardTop defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract Resistor classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
+> For example, SimpleBoardTop defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract Resistor classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
 
 ### Advanced: arraying LEDs
 _In this section, you'll modify the GUI-inserted code to programmatically create an array of LEDs._
@@ -273,11 +273,36 @@ for i in range(4):
 
 
 ## Advanced tutorial: making parts
-_In this section, we build and add a digital magnetic field sensor (LF21215TMR) to our design._
+_In this section, we build and add a digital magnetic field sensor ([LF21215TMR](https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf)) to our design._
+_We do this in two stages, first defining a FootprintBlock for the chip itself, then building the wrapper application circuit around it._
+
+### Creating a part
+We start off by defining an empty block.
+
+```python
+class Lf21215tmr_Device(FootprintBlock):
+  def __init__(self) -> None:
+    super().__init__()
+    # block boundary (ports, parameters) definition here 
+
+  def contents(self) -> None:
+    super().contents()
+    # block implementation (subblocks, internal connections, footprint) here
+```
+
+> While `Block`s are arbitrary hierarchy blocks that only have ports, inner blocks, and connections, `FootprintBlock` also allows up to one PCB footprint, and a mapping from the block ports to footprint pins.
+> You can loosely think of `FootprintBlock` as analogous to a schematic symbol, while `Block` is closer to a hierarchy sheet.
+
+> `__init__` is meant to define the interface of a block (all Ports and Parameters), while `contents` is meant to define the contents of a block (largely Blocks, connections, and constraints).
+> This split is not enforced (and there are cases where it is desirable to mix them into just `__init__`), but the main benefits of this are performance (avoid elaborating the full design tree unnecessarily) and separation for readability.
+
+
+
+### Creating the application circuit
 
 
 
 
-## Sidenote: syntactic sugar
+## Syntactic sugar
 
 
