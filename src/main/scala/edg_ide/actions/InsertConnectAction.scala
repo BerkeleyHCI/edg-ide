@@ -17,7 +17,7 @@ object InsertConnectAction {
                      project: Project): Errorable[Seq[PyExpression]] = exceptable {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
-    container.getMethods.toSeq.map { psiFunction => exceptable {  //
+    container.getMethods.toSeq.map { psiFunction => exceptable {
       val selfName = psiFunction.getParameterList.getParameters.toSeq
           .exceptEmpty(s"function ${psiFunction.getName} has no self")
           .head.getName
@@ -41,14 +41,10 @@ object InsertConnectAction {
         }
       })
 
-      references.toSeq.map { reference => // from reference to call expression
-        PsiTreeUtil.getParentOfType(reference, classOf[PyCallExpression])
-      }.filter { call =>
-        if (call == null) {
-          false
-        } else {
-          call.getCallee.textMatches(connectReference)
-        }
+      references.toSeq.flatMap { reference => // from reference to call expression
+        Option(PsiTreeUtil.getParentOfType(reference, classOf[PyCallExpression]))
+      }.collect {
+        case call if call.getCallee.textMatches(connectReference) => call
       }
     }}.collect {
       case Errorable.Success(x) => x

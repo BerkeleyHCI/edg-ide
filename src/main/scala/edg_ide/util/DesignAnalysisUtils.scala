@@ -201,7 +201,7 @@ object DesignAnalysisUtils {
     requireExcept(containingBlock.superclasses.length == 1,
       s"invalid containing class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
     val containingPyClass = pyClassOf(containingBlock.superclasses.head, project).exceptError
-    val containingConnects = findGeneralConnectsTo(containingPyClass, ("", portName), project) match {
+    val containingConnects = findGeneralConnectsTo(containingPyClass, (parentName, portName), project) match {
       case Errorable.Success(connects) => connects
       case _ => Seq()
     }
@@ -213,16 +213,17 @@ object DesignAnalysisUtils {
 
   /** Returns all connections involving a port, specified relative from the container as a pair.
     * TODO: dedup w/ InsertConnectAction? But this is more general, and finds (some!) chains
-    * TODO needs to be aware of implicit port semantics, including chain, implicit blocks, and export
+    * TODO needs to be aware of implicit port semantics, including chain
+    * TODO needs to find exports
     */
-  def findGeneralConnectsTo(container: PyClass, pair: (String, String),
+  protected def findGeneralConnectsTo(container: PyClass, pair: (String, String),
                      project: Project): Errorable[Seq[PyExpression]] = exceptable {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
-    container.getMethods.toSeq.map { psiFunction => exceptable {  //
+    container.getMethods.toSeq.map { psiFunction => exceptable {
       val selfName = psiFunction.getParameterList.getParameters.toSeq
-          .exceptEmpty(s"function ${psiFunction.getName} has no self")
-          .head.getName
+          .headOption.exceptNone(s"function ${psiFunction.getName} has no self")
+          .getName
       val connectReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(container),
         s"$selfName.connect")
       val chainReference = psiElementGenerator.createExpressionFromText(LanguageLevel.forElement(container),
@@ -239,21 +240,19 @@ object DesignAnalysisUtils {
             super.visitPyCallExpression(node)
           }
         }
-        override def visitPyExpression(node: PyExpression): Unit = {
+        override def visitPyReferenceExpression(node: PyReferenceExpression): Unit = {
           if (node.textMatches(portReference)) {
             references += node
           }
+          // don't recurse any further, don't look at sub-references
         }
       })
 
-      references.toSeq.map { reference => // from reference to call expression
-        PsiTreeUtil.getParentOfType(reference, classOf[PyCallExpression])
-      }.filter { call =>
-        if (call == null) {
-          false
-        } else {
-          call.getCallee.textMatches(connectReference) || call.getCallee.textMatches(chainReference)
-        }
+      references.toSeq.flatMap { reference => // from reference to call expression
+        Option(PsiTreeUtil.getParentOfType(reference, classOf[PyCallExpression]))
+      }.collect {
+        case call if call.getCallee.textMatches(connectReference) => call
+        case call if call.getCallee.textMatches(chainReference) => call
       }
     }}.collect {
       case Errorable.Success(x) => x
