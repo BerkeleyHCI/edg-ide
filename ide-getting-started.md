@@ -173,7 +173,7 @@ Parameterization can only be done in the code editor.
 We're going to arbitrarily pick 5 volts with a ±10% tolerance, so change the line of code to
 
 ```python
-self.pwr_in = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
+self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
 ```
 
 Repeat the connection flow with the `swd` and `pwr` lines (making sure to power both the microcontroller and SWD header).
@@ -272,6 +272,41 @@ for i in range(4):
 > Feel free to refactor or clean up the code if you'd like.
 
 
+## Syntactic sugar
+_In this section, we clean up the prior example by consolidating some repetitive connections through implicit scopes._
+
+> Syntactic sugar refers to syntax within programming languages that makes things more usable.
+
+> The IDE does not provide any special support or understanding for these operations, but will render the final outcome.
+
+Because some connections (like power and ground) are very common, the HDL provides the idea of an implicit connection scope to automatically make them when a block is instantiated.
+In our example, if we wanted to create a scope with an implicit power connection from the buck converter output, and an implicit ground connection from the barrel jack input, we can write:
+
+```python
+with self.implicit_connect(
+    ImplicitConnect(self.buck.pwr_out, [Power]),
+    ImplicitConnect(self.jack.gnd, [Common]),
+) as imp:
+  ...
+```
+
+If we move the microcontroller, SWD, and LED instantiations inside this scope, we no longer need to have connect statements for their power and ground ports.
+_Note the use of `imp.Block(...)` instead of `self.Block(...)`!_
+
+```python
+  self.mcu = imp.Block(Lpc1549_48())
+  self.swd = imp.Block(SwdCortexTargetHeader())
+  
+  self.led = imp.Block(IndicatorLed())
+```
+
+Note that we still have to make the connections for the SWD interface and the LED signal.
+Those do not need to be placed in the implicit scope, but may be for stylistic purposes. 
+
+There also exists a chain connect that allows a block instantiation and connection on one line, but as this tutorial focuses on the IDE, we'll skip that.
+If you're interested, the HDL getting started doc has [a section on chain connects](PolymorphicBlocks/getting-started.md#chain-connects).
+
+
 ## Advanced tutorial: making parts
 _In this section, we build and add a digital magnetic field sensor ([LF21215TMR](https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf)) to our design._
 _We do this in two stages, first defining a FootprintBlock for the chip itself, then building the wrapper application circuit around it._
@@ -301,8 +336,5 @@ class Lf21215tmr_Device(FootprintBlock):
 ### Creating the application circuit
 
 
-
-
-## Syntactic sugar
 
 
