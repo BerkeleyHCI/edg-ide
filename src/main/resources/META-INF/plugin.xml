@@ -18,11 +18,6 @@
       <add-to-group group-id="ToolsMenu" anchor="first"/>
     </action>
 
-    <action id="edg_ide.actions.FillCacheAction" class="edg_ide.actions.FillCacheAction"
-            text="Fill Cache" description="Fill the IDE cache by compiling all libraries visible from the current design">
-      <add-to-group group-id="ToolsMenu" anchor="first"/>
-    </action>
-
 
     <action id="edg_ide.action.SetVisualizerTopAction" class="edg_ide.actions.SetVisualizerTopAction"
             text="Set Visualizer Design" description="Sets the top-level design of the visualizer to the current class"

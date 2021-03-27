@@ -43,7 +43,9 @@ class EdgCompilerService(project: Project) extends
   val pyLib = new PythonInterfaceLibrary(new PythonInterface())
 
   // Tracks modified classes, so the appropriate library elements can be discarded on the next refresh.
-  val modifiedPyClasses = mutable.Set[PyClass]()
+  // This works in terms of ref.LibraryPath to avoid possibly outdated PSI references and needing
+  // PSI read operations.
+  val modifiedTypes = mutable.Set[ref.LibraryPath]()
 
   PsiManager.getInstance(project).addPsiTreeChangeListener(new PsiTreeChangeListener {
     override def beforeChildAddition(event: PsiTreeChangeEvent): Unit = { }
@@ -62,46 +64,42 @@ class EdgCompilerService(project: Project) extends
 
     def childAction(event: PsiTreeChangeEvent): Unit = {
       val containingClass = PsiTreeUtil.getParentOfType(event.getParent, classOf[PyClass])
-      val alreadyContained = (containingClass == null) || modifiedPyClasses.synchronized {
-        modifiedPyClasses.contains(containingClass)
+      if (containingClass == null) {
+        return
       }
-      if (containingClass != null && !alreadyContained) {
-        // do incremental analysis in a separate thread to avoid potential lag
-        ApplicationManager.getApplication.invokeLater(() => {
-          val extendedModifiedClasses = ReadAction.compute(() => {
-            val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
-            inheritors.toSeq :+ containingClass
-          }).toSet
-          val newClasses = modifiedPyClasses.synchronized {
-            val newClasses = extendedModifiedClasses -- modifiedPyClasses
-            modifiedPyClasses.addAll(newClasses)
-            newClasses
-          }
-          val newTypes = newClasses.map { newClass =>
-            DesignAnalysisUtils.typeOf(newClass)
-          }.toSeq
 
-          BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
-            visualizerPanel.addStaleTypes(newTypes)
+      ApplicationManager.getApplication.invokeLater(() => {
+        val extendedModifiedTypes = ReadAction.compute(() => {
+          val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
+          (inheritors.toSeq :+ containingClass).map { modifiedClass =>
+            DesignAnalysisUtils.typeOf(modifiedClass)
           }
-          // TODO update library cached status, so incremental discard
-        })
-      }
+        }).toSet
+        val newTypes = modifiedTypes.synchronized {
+          val newTypes = extendedModifiedTypes -- modifiedTypes
+          modifiedTypes.addAll(newTypes)
+          newTypes
+        }
+        BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
+          visualizerPanel.addStaleTypes(newTypes.toSeq)
+        }
+        // TODO update library cached status, so incremental discard
+      })
     }
   }, this)
 
   /** Discards stale elements from modifiedPyClasses
     */
   def discardStale(): Unit = {
-    val copyModifiedClasses = modifiedPyClasses.synchronized {
-      val copy = modifiedPyClasses.toSet
-      modifiedPyClasses.clear()
+    val copyModifiedTypes = modifiedTypes.synchronized {
+      val copy = modifiedTypes.toSet
+      modifiedTypes.clear()
       copy
     }
 
-    val discarded = copyModifiedClasses.flatMap { modifiedClassName =>
+    val discarded = copyModifiedTypes.filter { modifiedType =>
         // TODO should this use compiled library analysis or PSI analysis?
-      pyLib.discardCached(modifiedClassName.getQualifiedName)
+      pyLib.discardCached(modifiedType)
     }
 
     if (discarded.isEmpty) {
@@ -116,41 +114,35 @@ class EdgCompilerService(project: Project) extends
     }
   }
 
-  /** Loads all library elements visible from some module.
-    * Returns (loaded elements, error elements)
+  /** Recompiles a design and all libraries not present in cache
     */
-  def fillCache(module: String, indicator: Option[ProgressIndicator]): (Seq[ref.LibraryPath], Seq[ref.LibraryPath]) = {
-    indicator.foreach(_.setIndeterminate(true))
-    indicator.foreach(_.setText(s"EDG library compiling: indexing"))
-    val allLibraries = pyLib.reloadModule(module)
-    indicator.foreach(_.setIndeterminate(false))
-
-    val loadSuccess = mutable.ListBuffer[ref.LibraryPath]()
-    val loadFailure = mutable.ListBuffer[ref.LibraryPath]()
-
-    for ((libraryPath, i) <- allLibraries.zipWithIndex) {
-      indicator.foreach(_.setFraction(i.toFloat / allLibraries.size))
-      indicator.foreach(_.setText(s"EDG library compiling: ${EdgirUtils.SimpleLibraryPath(libraryPath)}"))
-      pyLib.getLibrary(libraryPath) match {
-        case Errorable.Success(_) => loadSuccess += libraryPath
-        case Errorable.Error(_) => loadFailure += libraryPath
-      }
-    }
-
-    (loadSuccess.toSeq, loadFailure.toSeq)
-  }
-
   def compile(topModule: String, designType: ref.LibraryPath,
               indicator: Option[ProgressIndicator]): (schema.Design, Compiler, edgrpc.Refinements, Long, Long) = {
     indicator.foreach(_.setText(s"EDG compiling: cleaning cache"))
     discardStale()
 
     indicator.foreach(_.setText(s"EDG compiling: reloading"))
-    val (_, reloadTime) = timeExec {
+    val (allLibraries, reloadTime) = timeExec {
       pyLib.reloadModule(topModule)
     }
 
+    indicator.foreach(_.setIndeterminate(false))
+    for ((libraryType, i) <- allLibraries.zipWithIndex) {
+      indicator.foreach(_.setFraction(i.toFloat / allLibraries.size))
+      indicator.foreach(_.setText(s"EDG compiling: library ${EdgirUtils.SimpleLibraryPath(libraryType)}"))
+      pyLib.getLibrary(libraryType) match {
+        case Errorable.Success(_) => // ignored
+        case Errorable.Error(errMsg) =>
+          notificationGroup.createNotification(
+            s"Failed to compile ${EdgirUtils.SimpleLibraryPath(libraryType)}", s"",
+            s"$errMsg",
+            NotificationType.WARNING)
+              .notify(project)
+      }
+    }
+
     indicator.foreach(_.setText(s"EDG compiling: design top"))
+    indicator.foreach(_.setIndeterminate(true))
     val ((compiled, compiler, refinements), compileTime) = timeExec {
       val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType).get  // TODO propagate Errorable
       val design = schema.Design(contents = Some(block.copy(superclasses = Seq(designType))))  // TODO dedup w/ superclass resolution in BlockLink.Block

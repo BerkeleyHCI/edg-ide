@@ -325,7 +325,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
       override def run(indicator: ProgressIndicator): Unit = {
         status.setText(s"Compiling")
-        indicator.setIndeterminate(true)
 
         try {
           indicator.setText("EDG compiling")
