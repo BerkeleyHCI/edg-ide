@@ -427,6 +427,14 @@ self.vout = self.Port(DigitalSource.from_supply(
 ))
 ```
 
+> With a relatively simple example like this, you may be wondering why this needs an HDL instead of a ports with property grid interface that supports mathematical expressions.
+> That interface would have a few shortcomings:
+> - First, as seen with `DigitalSource.from_supply`, it would be less straightforward to support these simple wrappers for common cases.
+>   While possible, these wrappers would also likely be baked into the tool (and limited to what the tool designers support), instead of being user-defineable.
+> - Second, interfaces that don't allow multi-line code (think spreadsheets) generally have issues with duplication for re-use.
+>   While this example only had one port, consider if we had several outputs with the same electrical characteristics.
+>   In code, we could define one port model and instantiate it multiple times, while the GUI equivalent is trickier.
+
 ### Creating the application circuit
 
 
