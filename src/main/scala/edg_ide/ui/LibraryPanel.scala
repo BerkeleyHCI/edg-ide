@@ -46,7 +46,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, project).exceptError
   }
   private def insertContinuation(name: String, added: PsiElement): Unit = {
-    InsertAction.navigateElementFn(name, added)
+    InsertAction.navigateToEnd(added)
 
     val library = EdgCompilerService(project).pyLib
     val fastPathUtil = new DesignFastPathUtil(library)
@@ -128,7 +128,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
         .exceptError
     () => {  // TODO standardized continuation?
       val inserted = insertAction()
-      inserted.navigate(true)
+      InsertAction.navigateToEnd(inserted)
     }
   }
   private val selectedPathName = selectedPathClass.map(_._1.toString).toOption.getOrElse("selection")
@@ -142,7 +142,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
         .exceptError
     () => {  // TODO standardized continuation?
       val inserted = insertAction()
-      inserted.navigate(true)
+      InsertAction.navigateToEnd(inserted)
     }
   }
   private val selectedClassName = selectedPathClass.map(_._2.getName).toOption.getOrElse("of selection")
@@ -178,7 +178,7 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
     InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, project).exceptError
   }
   private def insertContinuation(name: String, added: PsiElement): Unit = {
-    InsertAction.navigateElementFn(name, added)
+    InsertAction.navigateToEnd(added)
 
     val library = EdgCompilerService(project).pyLib
     val fastPathUtil = new DesignFastPathUtil(library)

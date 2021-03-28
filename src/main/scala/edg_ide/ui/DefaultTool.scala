@@ -88,10 +88,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   addSeparator()
 
   def deleteContinuation(prev: PsiElement): Unit = {
-    prev match {
-      case prev: Navigatable => prev.navigate(true)
-      case _ =>  // ignored
-    }
+    InsertAction.navigateToEnd(prev)
 
     exceptionNotify("edg.ui.LibraryPanel", interface.getProject) {
       val visualizerPanel = BlockVisualizerService(interface.getProject).visualizerPanelOption
@@ -157,10 +154,7 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   addSeparator()
 
   def deleteContinuation(prev: PsiElement): Unit = {
-    prev match {
-      case prev: Navigatable => prev.navigate(true)
-      case _ =>  // ignored
-    }
+    InsertAction.navigateToEnd(prev)
 
     exceptionNotify("edg.ui.LibraryPanel", interface.getProject) {
       val visualizerPanel = BlockVisualizerService(interface.getProject).visualizerPanelOption

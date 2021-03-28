@@ -1,8 +1,9 @@
 package edg_ide.actions
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiElement, PsiParserFacade}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyCallExpression, PyClass, PyElementGenerator, PyFunction, PyKeywordArgument, PyStatementList}
 import edg.util.Errorable
@@ -61,8 +62,13 @@ object InsertBlockAction {
           }
         }
 
+        val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
+        newAssign.addAfter(newline, newAssign.getLastChild)
+
         val added = writeCommandAction(project).withName(actionName).compute(() => {
-          containingPsiList.addAfter(newAssign, after)
+          val added = containingPsiList.addAfter(newAssign, after)
+          PsiTreeUtil.getDeepestLast(added)
+
         })
         continuation(name, added)
       }}

@@ -123,7 +123,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
 
   def continuation(linkName: String, psiElement: PsiElement): Unit = {  // TODO can we use compose or something?
     interface.endTool()
-    InsertAction.navigateElementFn(linkName, psiElement)
+    InsertAction.navigateToEnd(psiElement)
 
     // Fast-path add to visualization
     exceptionNotify("edg.ui.ConnectTool", interface.getProject) {

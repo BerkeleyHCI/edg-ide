@@ -1,13 +1,13 @@
 package edg_ide.actions
 
 import com.intellij.lang.LanguageNamesValidation
-import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
+import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.pom.Navigatable
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.jetbrains.python.PythonLanguage
-import com.jetbrains.python.psi.{PyClass, PyFunction}
+import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatementList}
 import edg.util.Errorable
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits._
@@ -24,6 +24,10 @@ object InsertAction {
     DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project).exceptError
   }
 
+  /** Returns the PSI element immediately before the cursor of a given file.
+    *
+    * TODO: this is PyStatementList-aware (generates an insertion location). Needs a more specific name!
+    */
   def getCaretAtFile(file: PsiFile, expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
     val editors = FileEditorManager.getInstance(project).getSelectedEditors
         .filter { editor => editor.getFile == file.getVirtualFile }
@@ -33,11 +37,43 @@ object InsertAction {
     val contextOffset = contextEditor.getEditor.getCaretModel.getOffset
     val element = file.findElementAt(contextOffset).exceptNull(s"invalid caret position in ${file.getName}")
 
-    val containingPsiClass = PsiTreeUtil.getParentOfType(element, classOf[PyClass])
+    // given the leaf element at the caret, returns the rootmost element right before the caret
+    def prevElementOf(element: PsiElement): PsiElement = {
+      if (element.getTextRange.getStartOffset == contextOffset) {  // caret at beginning of element, so take the previous
+        val prev = PsiTreeUtil.prevLeaf(element)
+        if (prev == null) {
+          val parent = element.getParent
+          // can only traverse up to parent if the parent also begins at the caret
+          requireExcept(parent.getTextRange.getStartOffset == contextOffset, "TODO: first position")
+          prevElementOf(parent)
+        } else {
+          prevElementOf(prev)  // may still need to go up
+        }
+      } else if (element.getTextRange.getEndOffset == contextOffset) {  // caret at end of element, try to go up
+        val parent = element.getParent
+        if (parent.getTextRange.getEndOffset == contextOffset &&
+            !parent.isInstanceOf[PyStatementList]) {  // can go up if parent at boundary, but don't go above a statement list
+          prevElementOf(parent)
+        } else {  // otherwise, this is it
+          element
+        }
+      } else {
+        element
+      }
+    }
+    val prevElement = prevElementOf(element)
+
+    val containingPsiClass = PsiTreeUtil.getParentOfType(prevElement, classOf[PyClass])
         .exceptNull(s"not in a class in ${file.getName}")
     requireExcept(containingPsiClass == expectedClass, s"not in expected class ${expectedClass.getName} in ${file.getName}")
 
-    element
+    prevElement
+  }
+
+  def navigateToEnd(element: PsiElement): Unit = {
+    new OpenFileDescriptor(element.getProject, element.getContainingFile.getVirtualFile,
+      element.getTextRange.getEndOffset)
+        .navigate(true)
   }
 
   def findInsertionPoints(container: PyClass, validFunctions: Seq[String]): Errorable[Seq[PyFunction]] = exceptable {
@@ -63,12 +99,5 @@ object InsertAction {
 
       accept(name).exceptError
     }}
-  }
-
-  /** If the element is navigatable, navigates to it.
-    * Used as a continuation to the createInsertBlockFlow.
-    */
-  def navigateElementFn(name: String, element: PsiElement): Unit = element match {
-    case navigatable: Navigatable => navigatable.navigate(true)
   }
 }
