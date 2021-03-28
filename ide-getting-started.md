@@ -168,9 +168,11 @@ _In this section, you'll add and connect a power source and programming connecto
 
 Repeat the add block flow with the `Pj_102a` barrel jack connector (you can search for `BarrelJack`), and the  `SwdCortexTargetHeader` (you can search for `swd` to find all the SWD connectors).
 
-Note that you'll have to give the barrel jack a voltage specification.
-Parameterization can only be done in the code editor.
-We're going to arbitrarily pick 5 volts with a ±10% tolerance, so change the line of code to
+Note that the inserted code for the barrel jack connector also has a, `voltage_out=RangeExpr()`.
+In general, the block insertion action will find required parameters (that don't have defaults) of blocks and insert them as arguments for you to fill out.
+Here, RangeExpr() means this parameter takes a range-valued (think numerical intervals) expression.
+Parameter values can only be set in the code editor.
+We'll arbitrarily pick 5 volts with a ±10% tolerance, so change the line of code to
 
 ```python
 self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
@@ -200,8 +202,9 @@ You can double-click on the root block to navigate out of the microcontroller bl
 _In this section, you'll insert an abstract power converter to fix the prior error, and refine it with a specific part number._
 
 Repeat the add block flow with the abstract `BuckConverter` block.
-As this requires an output_voltage parameter, you'll again need to write this in code.
+As with the barrel jack, the inserted code also takes a parameter `output_voltage`.
 Let's ask for a 3.3v converter with a ±5% tolerance:
+
 ```python
 self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
 ```
