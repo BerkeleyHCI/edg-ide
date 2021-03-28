@@ -23,7 +23,9 @@ This allows for a more powerful design correctness check (think ERC++), and prov
 **Links** are connections between ports, which defines how parameters propagate between those ports and any constraints on them.
 Continuing the digital IO example, the link would check the output thresholds against the input thresholds, and provide the worst-case voltage levels given all connected drivers.
 These could be viewed as a block-like object (diamonds on the diagram) instead of direct wire connections:
-![Blinky Hierarchy Block Diagram](docs/blinky_model_full.png)
+![Blinky Hierarchy Block Diagram](PolymorphicBlocks/docs/blinky_model_full.png)
+
+> In the design model, links are inferred based on the types of connected ports and not explicit.
 
 Finally, **generators** allow a block's internal contents to be automatically and dynamically constructed, possibly based on parameters on it and its ports.
 For example, the `IndicatorLed` block might automatically size the resistor based on the input voltage on the `sig` pin, or a DC-DC converter block might automatically size inductors and capacitors based on the expected output voltage and current.
@@ -42,10 +44,10 @@ There are a couple of basic operations, which you'll get to try in the tutorial:
 
 ### Graphical Editor and Integrated Development Environment (IDE)
 While an HDL is needed to support parameter computation and programmatic construction, some operations (like building a top-level design with an LED connected to a microcontroller) may not require the full power provided by an HDL and may be more intuitive or familiar within a graphical environment.
-However, because this design makes use of generator blocks (the LED), and because blocks may also take parameters (such as the target output voltage of a DC-DC converter), we have kept the HDL as the primary design input. 
+However, because this design makes use of generator blocks (the LED), and because blocks may also take parameters (such as the target output voltage of a DC-DC converter), the HDL is still the primary design input. 
 
-To help with these more basic operations and to support those more familiar with a graphical schematic capture flow, we provide is an IDE to help bridge the graphical schematic-like and HDL code representations. Specifically, it:
-- provides a schematic-like visualization of the design
+To help with these more basic operations and to support those more familiar with a graphical schematic capture flow, we provide an IDE to help bridge the graphical schematic-like and HDL code representations. Specifically, it:
+- provides a block diagram visualization of the design
 - allows inspection of solved / computed parameters in the design
 - generates and inserts HDL code from schematic editor-like actions
 
@@ -53,7 +55,7 @@ In the rest of this tutorial, we'll cover IDE operations with an example project
 
 
 ## IDE basics tutorial: Blinky
-_In this example, we will create a circuit consisting of a LED and switch connected to a microcontroller._
+_In this example, we will create a circuit consisting of an LED and switch connected to a microcontroller._
 
 Start by opening `blinky_skeleton.py`, which is pre-populated with this skeleton code:
 ```python
@@ -80,8 +82,8 @@ Your IDE should look something like this (minus the red annotation text):
 ![Annotated IDE screen](docs/ide_start_annotated.png)
 
 The major components are:
-- **Block Diagram Visualization**: the compiled design is visualized as a block diagram here.
-  - **Tree View**: shows the tree view block hierarchy of the compiled design.
+- **Block Diagram Visualization**: shows the compiled design visualized as a block diagram here.
+  - **Tree View**: shows the compiled design as a tree structure of the block hierarchy.
 - **Block Depth Selection**: selects the maximum depth of blocks shown in the Block Diagram Visualization. 1 means show only one level, 2 means show the top-level blocks and one level of internal blocks, and so on.  
 - **Update Button**: click to re-compile and update the visualization. Also available through hotkey Ctrl + Alt + R.
 - **Library Browser**: shows all the library blocks, ports, and links. The text box at the top allows filtering by keyword.
@@ -124,12 +126,12 @@ and the block instantiation line should appear in the code editor:
 self.mcu = self.Block(Lpc1549_48())
 ```
 
-The hatched fill generally indicates that the block may be out-of-sync with the code until the next re-compile.
-In this case, the Lpc1549_48 block is only a preview, while the enclosing BlinkyExample has been modified.
+The hatched fill indicates that the block may be out-of-sync with the code until the next re-compile.
+In this case, the **Lpc1549_48 block** is only a preview, while the enclosing BlinkyExample has been modified.
 
 The red boxes indicate a missing required connection, in this example including the power and ground pair, and the SWD programming line.
 
-Then, repeat the above with an IndicatorLed block, and name it `led`.
+Then, repeat the above with an **IndicatorLed block**, and name it `led`.
 
 ### Connecting the microcontroller and LED
 
@@ -151,28 +153,28 @@ self.connect(self.mcu.digital[0], self.led.signal)
 ```
 
 > Note that the connect statement is ordered with the starting item first, then the rest in order.
-> Stylistically, we prefer sources before sinks, defined loosely (including dataflow or power flow notations).
+> Stylistically, we prefer sources before sinks, defined loosely (such as dataflow or power flow notations).
 > This convention is also used by the block diagram visualizer to define an order where it isn't apparent from the port types, for example if two bidirectional digital ports are connected together, as opposed to a digital source to a digital sink connection.
 
-> Note that `mcu.digital` is an array-like port, and additional ports will appear as existing ones are connected.
-
-> Explicit pin assignments are supported, but `SimpleBoardTop` forces auto-assignment for simplicity in this tutorial.
+As `mcu.digital` is an array-like port, an additional empty port will appear as existing ones are connected.
 
 Repeat the same for the `gnd` port of both blocks.
 
 If you recompile now, the hatched fill should go away, but you'll get a bunch of errors.
 These mostly stem from the missing power source, which are indicated on the block visualizer with the red ports.
 
+> Explicit pin assignments are supported, but `SimpleBoardTop` forces auto-assignment for simplicity in this tutorial.
+
 ### Adding power and programming
 _In this section, you'll add and connect a power source and programming connector to fix errors._
 
-Repeat the add block flow with the `Pj_102a` barrel jack connector (you can search for `BarrelJack`), and the  `SwdCortexTargetHeader` (you can search for `swd` to find all the SWD connectors).
+Repeat the add block flow with the **Pj_102a** barrel jack connector (you can search for `BarrelJack`), and the **SwdCortexTargetHeader** (you can search for `swd` to find all the SWD connectors).
 
 Note that the inserted code for the barrel jack connector also has a, `voltage_out=RangeExpr()`.
 In general, the block insertion action will find required parameters (that don't have defaults) of blocks and insert them as arguments for you to fill out.
-Here, RangeExpr() means this parameter takes a range-valued (think numerical intervals) expression.
+Here, `RangeExpr()` means this parameter takes a range-valued (think numerical intervals) expression.
 Parameter values can only be set in the code editor.
-We'll arbitrarily pick 5 volts with a ±10% tolerance, so change the line of code to
+We'll arbitrarily pick **5v ±10%**, so change the line of code to
 
 ```python
 self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
@@ -186,35 +188,30 @@ Otherwise, a new connect statement is inserted.
 
 Re-compile, and you should get a lot less errors now.
 
-### Navigation and inspection
-However, overvoltage errors remain in links in the microcontroller block.
-You can navigate into the microcontroller block by double-clicking it.
-Inside, there's a bunch of decoupling capacitors and resistors, as well as the chip block `Lpc1549_48_Device` itself.
-If you mouse over the `vdd` pin connection, you should see the problem:
-
+### Inspection
+However, overvoltage errors remain.
+If you mouse over the power connection, you should see the problem
 ![Connected blocks](docs/ide_visualizer_overvolt.png)
 
 The microcontroller is seeing a 5.0v ±10% voltage on a 3.3v device (technically 2.4-3.6v, rendered as 3.0v ±20%).
 
-You can double-click on the root block to navigate out of the microcontroller block.
-
 ### Adding and refining a power converter
 _In this section, you'll insert an abstract power converter to fix the prior error, and refine it with a specific part number._
 
-Repeat the add block flow with the abstract `BuckConverter` block.
+Repeat the add block flow with the abstract **BuckConverter** block.
 As with the barrel jack, the inserted code also takes a parameter `output_voltage`.
-Let's ask for a 3.3v converter with a ±5% tolerance:
+Let's ask for a **3.3v ±5%** output voltage:
 
 ```python
 self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
 ```
 
 To insert the converter between the barrel jack and low-voltage components, we'll need to disconnect the barrel jack.
-Modifications like this need to be done in code, but you can right-click the port and navigate to connect statements it's involved in, then delete the port from the connection.
+**Modifications like this need to be done in code**, but you can right-click the port and navigate to connect statements it's involved in, then delete the port from the connection.
 Then, refresh the visualization by recompiling, and you can hook up the buck converter via the GUI.
 
-If you recompile, you'll still have a few errors.
-The buck converter is still an abstract type (it has no implementation), so we must give it one.
+If you recompile, you'll still have errors.
+The buck converter is still an abstract type (it has no implementation, and hence no output voltage, which confuses everything downstream), so we must give it one.
 
 Select the buck converter in the block diagram visualization.
 Then, search for `Buck` in the library browser, and pick the `Tps561201` under the BuckConverter.
@@ -235,11 +232,23 @@ Recompile, and there should be no more errors.
 > Abstract types are useful primarily in libraries to preserve alternatives, the refinement of which is left to the top-level designer.
 > For example, SimpleBoardTop defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract Resistor classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
 
+### Navigation
+
+If you're curious about what the Tps561201 block did, you can navigate into the block by double-clicking on it.
+
+![TPS561201 subcircuit](docs/ide_visualizer_tps561201_impl.png)
+
+You can see that it generated a feedback voltage divider, and if you mouse over the output line, it also calculated the output voltage accounting for resistor tolerance stackup and the chip's reference tolerance.
+If you want to see how this was implemented, you can also right click the block, and select "Goto Definition".
+
+You can double-click on the topmost block to navigate out of the microcontroller block.
+Or, double-click on a block in the design tree to zoom in / out to that block.
+
 ### Advanced: arraying LEDs
 _In this section, you'll modify the GUI-inserted code to programmatically create an array of LEDs._
 
 > In general, code offers you a lot more flexibility and power than can be achieved through the GUI.
-> For example, the buck converter automatically sizes the internal components (inductors, capacitors) based on standard design equations - you can even check out the buck converter code to see what's going on under the hood.
+> If you looked at the buck converter code, it automatically sizes the internal components (inductors, capacitors) based on standard design equations.
 > This functionality is probably more useful in those library components, but can also come in handy in some cases in the top-level design. 
 
 Since the circuit is "constructed" by executing Python code, we can actually write arbitrary Python to generate hardware.
@@ -272,13 +281,12 @@ for i in range(4):
 > While the block diagram visualization is automatically generated, the style of the code can impact readability and maintainability.
 > 
 > While GUI operations are useful in writing lines of code, it is up to you to determine where they should be placed to keep the HDL readable.
-> Feel free to refactor or clean up the code if you'd like.
+> We'll do a bit of light cleanup in the next section using advanced constructs.
 
 
 ## Syntactic sugar
+_Syntactic sugar refers to syntax within programming languages that makes things more usable._
 _In this section, we clean up the prior example by consolidating some repetitive connections through implicit scopes._
-
-> Syntactic sugar refers to syntax within programming languages that makes things more usable.
 
 > The IDE does not provide any special support or understanding for these operations, but will render the final outcome.
 
@@ -292,6 +300,8 @@ with self.implicit_connect(
 ) as imp:
   ...
 ```
+
+_Because this uses `self.buck` and `self.jack` (or however you named those components), those must be declared in code before they can be referenced._  
 
 If we move the microcontroller, SWD, and LED instantiations inside this scope, we no longer need to have connect statements for their power and ground ports.
 _Note the use of `imp.Block(...)` instead of `self.Block(...)`!_
@@ -308,6 +318,39 @@ Those do not need to be placed in the implicit scope, but may be for stylistic p
 
 There also exists a chain connect that allows a block instantiation and connection on one line, but as this tutorial focuses on the IDE, we'll skip that.
 If you're interested, the HDL getting started doc has [a section on chain connects](PolymorphicBlocks/getting-started.md#chain-connects).
+
+### Wrapping up
+
+At this point, the complete and refactored HDL might look something like this:
+
+```python
+class BlinkyExample(SimpleBoardTop):
+  def contents(self) -> None:
+    super().contents()
+
+    self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.1)))
+    self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+    self.connect(self.jack.pwr, self.buck.pwr_in)
+    self.connect(self.jack.gnd, self.buck.gnd)
+
+    with self.implicit_connect(
+        ImplicitConnect(self.buck.pwr_out, [Power]),
+        ImplicitConnect(self.jack.gnd, [Common]),
+    ) as imp:
+      self.mcu = imp.Block(Lpc1549_48())
+      self.swd = imp.Block(SwdCortexTargetHeader())
+      self.connect(self.swd.swd, self.mcu.swd)
+
+      self.led = ElementDict()
+      for i in range(4):
+        self.led[i] = imp.Block(IndicatorLed())
+        self.connect(self.mcu.digital[i], self.led[i].signal)
+
+  def refinements(self) -> Refinements:
+    return super().refinements() + Refinements(
+    instance_refinements=[
+      (['buck'], Tps561
+```
 
 
 ## Advanced tutorial: making parts

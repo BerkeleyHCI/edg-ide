@@ -62,12 +62,8 @@ object InsertBlockAction {
           }
         }
 
-        val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
-        newAssign.addAfter(newline, newAssign.getLastChild)
-
         val added = writeCommandAction(project).withName(actionName).compute(() => {
-          val added = containingPsiList.addAfter(newAssign, after)
-          PsiTreeUtil.getDeepestLast(added)
+          containingPsiList.addAfter(newAssign, after)
 
         })
         continuation(name, added)
