@@ -388,7 +388,44 @@ class Lf21215tmr_Device(FootprintBlock):
 > `__init__` is meant to define the interface of a block (all Ports and Parameters), while `contents` is meant to define the contents of a block (largely Blocks, connections, and constraints).
 > This split is not enforced (and there are cases where it is desirable to mix them into just `__init__`), but the main benefits of this are performance (avoid building the full design tree unnecessarily) and separation for readability.
 
+To work with this part in the visual editor, you can instantiate this block in your top-level design.
+Once you define the Block above (even empty) and recompile, it should show up in the library browser.
 
+The chip itself has three ports: Vcc (voltage input, type **VoltageSink**), GND (voltage input, type **VoltageSink**), and Vout (digital output, type **DigitalSource**).
+We can create ports through the library browser, by searching for the port name, then double-clicking to insert.
+Port show up at the end of the library browser, and can only be inserted with the caret in `__init__` (because it defines the block's interface).
+
+We will need to modify these with the appropriate parameters from the datasheet: operating supply voltage of 1.8-5.5v, supply current of 1.5uA (nominal), and output thresholds of 0.2v (low) and (Vcc-0.3) (high).
+
+Replace the `voltage_limits` and `current_draw` for Vcc accordingly:
+```python
+self.vcc = self.Port(
+  VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp))
+```
+
+For `gnd`, we have a special `Ground()` wrapper:
+```python
+self.gnd = self.Port(Ground())
+```
+
+For `DigitalSource`, while we could write the parameters explicitly:
+```python
+self.vout = self.Port(DigitalSource(
+  voltage_out=(self.gnd.link().voltage.lower(),
+               self.vcc.link().voltage.upper()),
+  current_limits=1.5 * uAmp(tol=0),
+  output_thresholds=(self.gnd.link().voltage.upper() + 0.2 * Volt,
+                     self.vcc.link().voltage.lower() - 0.3 * Volt)
+))
+```
+
+there's also a wrapper `DigitalSource.from_supply` that wraps the common way of specifying a digital output as offsets from voltage rails:
+```python
+self.vout = self.Port(DigitalSource.from_supply(
+  self.gnd, self.vcc,
+  output_threshold_offset=(0.2, -0.3)
+))
+```
 
 ### Creating the application circuit
 
