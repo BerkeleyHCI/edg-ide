@@ -1,6 +1,8 @@
 # IDE Getting Started
 
+
 ## Core Concepts
+
 The core abstraction is the hierarchical block diagram, which we will explain using an example design of a microcontroller driving an LED.
 
 In conventional schematic tools, such a design could be a flat schematic, consisting of the microcontroller module, LED, and resistor:
@@ -55,6 +57,7 @@ In the rest of this tutorial, we'll cover IDE operations with an example project
 
 
 ## IDE basics tutorial: Blinky
+
 _In this example, we will create a circuit consisting of an LED and switch connected to a microcontroller._
 
 Start by opening `blinky_skeleton.py`, which is pre-populated with this skeleton code:
@@ -134,7 +137,6 @@ The red boxes indicate a missing required connection, in this example including 
 Then, repeat the above with an **IndicatorLed block**, and name it `led`.
 
 ### Connecting the microcontroller and LED
-
 To start a connection operation on a port, double-click the port.
 For example, to connect the LED to the microcontroller, double click on `mcu`'s `digital[0]` port:
 
@@ -233,7 +235,6 @@ Recompile, and there should be no more errors.
 > For example, SimpleBoardTop defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract Resistor classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
 
 ### Navigation
-
 If you're curious about what the Tps561201 block did, you can navigate into the block by double-clicking on it.
 
 ![TPS561201 subcircuit](docs/ide_visualizer_tps561201_impl.png)
@@ -285,6 +286,7 @@ for i in range(4):
 
 
 ## Syntactic sugar
+
 _Syntactic sugar refers to syntax within programming languages that makes things more usable._
 _In this section, we clean up the prior example by consolidating some repetitive connections through implicit scopes._
 
@@ -301,9 +303,17 @@ with self.implicit_connect(
   ...
 ```
 
-_Because this uses `self.buck` and `self.jack` (or however you named those components), those must be declared in code before they can be referenced._  
+_Because this uses `self.buck` and `self.jack` (or however you named those components), those must be declared in code before they can be referenced._
 
-If we move the microcontroller, SWD, and LED instantiations inside this scope, we no longer need to have connect statements for their power and ground ports.
+This creates an implicit connection scope `imp`, with two `ImplicitConnect` rules:
+- The first connecting all ports with the tag `Power` to `self.buck.pwr_out`
+- The second connecting all ports with the tag `Common` to `self.jack.gnd`
+
+When blocks define ports, they can associate tags with them to specify implicit connectivity.
+To prevent errors, all ports with tags are required to be connected, either implicitly (as in this section) or explicitly (through `connect` statements).
+`Power` (for a general positive voltage rail) and `Common` (for ground) are the most common tags. 
+
+If we move the microcontroller, SWD port, and LED instantiations inside this scope, we no longer need to have connect statements for their power and ground ports.
 _Note the use of `imp.Block(...)` instead of `self.Block(...)`!_
 
 ```python
@@ -318,9 +328,9 @@ Those do not need to be placed in the implicit scope, but may be for stylistic p
 
 There also exists a chain connect that allows a block instantiation and connection on one line, but as this tutorial focuses on the IDE, we'll skip that.
 If you're interested, the HDL getting started doc has [a section on chain connects](PolymorphicBlocks/getting-started.md#chain-connects).
+Chain also makes use of the `Input`, `Output`, and `InOut` tags.
 
 ### Wrapping up
-
 At this point, the complete and refactored HDL might look something like this:
 
 ```python
@@ -354,6 +364,7 @@ class BlinkyExample(SimpleBoardTop):
 
 
 ## Advanced tutorial: making parts
+
 _In this section, we build and add a digital magnetic field sensor ([LF21215TMR](https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf)) to our design._
 _We do this in two stages, first defining a FootprintBlock for the chip itself, then building the wrapper application circuit around it._
 
