@@ -499,4 +499,21 @@ By default, we use a loose 20% tolerance for capacitors:
 self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
 ```
 
+### Export
+Instead of creating ports, we can also use the `self.Export(...)` function to export an inner port directly.
+The main benefit is you don't need to specify repeated type information for the port, which will be inferred from the inner port.
+
+With this style, `__init__` can be rewritten as follows:
+```python
+self.ic = self.Block(Lf21215tmr_Device())
+self.pwr = self.Export(self.ic.vcc, [Power])
+self.gnd = self.Export(self.ic.gnd, [Common])
+self.out = self.Export(self.ic.vout)
+
+self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
+self.connect(self.cap.pwr, self.pwr)
+self.connect(self.cap.gnd, self.gnd)
+```
+
+### Finishing Touches
 Connect things at the top level (if you haven't done so already), and we're done!
