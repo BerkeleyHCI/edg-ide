@@ -390,6 +390,7 @@ class Lf21215tmr_Device(FootprintBlock):
 
 To work with this part in the visual editor, you can instantiate this block in your top-level design.
 Once you define the Block above (even empty) and recompile, it should show up in the library browser.
+Then, double-click into the newly created `Lf21215tmr_Device` block to set it for editing.
 
 The chip itself has three ports: Vcc (voltage input, type **VoltageSink**), GND (voltage input, type **VoltageSink**), and Vout (digital output, type **DigitalSource**).
 We can create ports through the library browser, by searching for the port name, then double-clicking to insert.
@@ -435,8 +436,67 @@ self.vout = self.Port(DigitalSource.from_supply(
 >   While this example only had one port, consider if we had several outputs with the same electrical characteristics.
 >   In code, we could define one port model and instantiate it multiple times, while the GUI equivalent is trickier.
 
+### Defining the footprint
+`FootprintBlock` defines its footprint and pin mapping (from port to footprint pin) via a `self.footprint(...)` call.
+In `contents`, add these lines to add a SOT-23-3 footprint and pinmapping:
+
+```python
+self.footprint(
+  'U', 'Package_TO_SOT_SMD:SOT-23',
+  {
+    '1': self.vcc,
+    '2': self.vout,
+    '3': self.gnd,
+  },
+  mfr='Littelfuse', part='LF21215TMR',
+  datasheet='https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf'
+)
+```
+
+<!-- TODO GUI footprint flow? -->
+
 ### Creating the application circuit
+In most cases, individual components are not used alone but are instal part of an application circuit,
+As in the typical application circuit of the LF21215TMR datasheet, it requires a 0.1uF decoupling capacitor.
+We will build the application circuit as a block around the device defined above, then use this in the top-level design.
 
+Again, start by creating a new block:
+```python
+class Lf21215tmr(Block):
+  def __init__(self) -> None:
+    super().__init__()
+    # block boundary (ports, parameters) definition here 
 
+  def contents(self) -> None:
+    super().contents()
+    # block implementation (subblocks, internal connections, footprint) here
+```
 
+Note that in contrast to the previous one, this drops the `_Device` prefix (which is purely stylistic) and also extends `Block` instead of `FootprintBlock`.
 
+Again, if you want to work with this in the graphical editor, you can recompile once you've added the block code, then instantiate it from the library browser.
+If you had the `Lf21215tmr_Device` block in your top-level design, you can delete that. 
+Then, double-click into the newly created `Lf21215tmr` block to set it for editing.
+
+<!-- TODO GUI Export support -->
+
+<!-- TODO Create Wrapper Block? -->
+
+As indicated by the application circuit, this block would have the same ports as the device (two **VoltageSink** and one **DigitalSource**). It would have two parts, the `Lf21215tmr_Device` we just defined, and a `DecouplingCapacitor`.
+Instantiate them both, and connect them together.
+
+For the ports, because these are intermediate ports, they do not need parameters (they are derived from the connected devices), so you can delete all of them.
+You can also add the implicit connection `Power` and `Common` tags
+```python
+self.pwr = self.Port(VoltageSink(), [Power])
+self.gnd = self.Port(VoltageSink(), [Common])
+self.out = self.Port(DigitalSource())
+```
+
+For the DecouplingCapacitor, you'll need to specify it as 0.1uF.
+By default, we use a loose 20% tolerance for capacitors:
+```python
+self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
+```
+
+Connect things at the top level (if you haven't done so already), and we're done!
