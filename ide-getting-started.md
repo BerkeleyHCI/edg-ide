@@ -242,6 +242,8 @@ If you're curious about what the Tps561201 block did, you can navigate into the 
 You can see that it generated a feedback voltage divider, and if you mouse over the output line, it also calculated the output voltage accounting for resistor tolerance stackup and the chip's reference tolerance.
 If you want to see how this was implemented, you can also right click the block, and select "Goto Definition".
 
+<!-- TODO Inspect values -->
+
 You can double-click on the topmost block to navigate out of the microcontroller block.
 Or, double-click on a block in the design tree to zoom in / out to that block.
 
