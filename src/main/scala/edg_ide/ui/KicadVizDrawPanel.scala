@@ -6,7 +6,7 @@ import java.awt.event.MouseWheelEvent
 import javax.swing.JPanel
 
 class KicadVizDrawPanel extends JPanel {
-  private val kicadParser = new KicadParser
+  val kicadParser = new KicadParser(".")
   // TODO offset and offset_mul_factor are messy, should be in one var
   var offset = 0
   var offset_mul_factor = 0.1
@@ -23,6 +23,9 @@ class KicadVizDrawPanel extends JPanel {
 
     // TODO don't reparse kicad file on gui update?
     val components = kicadParser.parseKicadFile()
+
+    if (components.isEmpty)
+      return
 
     val min_x = components.map(c => (c match {
       case Rectangle(x, y, width, height) => x
