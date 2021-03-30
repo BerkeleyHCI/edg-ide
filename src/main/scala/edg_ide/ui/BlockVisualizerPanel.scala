@@ -1,6 +1,7 @@
 package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
@@ -19,7 +20,7 @@ import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
-import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
+import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
@@ -430,7 +431,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     graph.setGraph(layoutGraphRoot)
 
     // TODO refactor into its own thing?
-    val tooltipTextMap = new DesignToolTipTextMap(compiler)
+    val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
     tooltipTextMap.map(design)
     tooltipTextMap.getTextMap.foreach { case (path, tooltipText) =>
       pathsToGraphNodes(Set(path)).foreach { node =>
@@ -518,7 +519,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 }
 
 
-class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
+class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignMap[Unit, Unit, Unit] {
   private val textMap = mutable.Map[DesignPath, String]()
 
   def getTextMap: Map[DesignPath, String] = textMap.toMap
@@ -575,7 +576,43 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
                links: SeqMap[String, Unit]): Unit = {
-    // does nothing
+    import edg.ElemBuilder.LibraryPath
+
+    val classString = EdgirUtils.SimpleSuperclass(block.superclasses)
+    val thisClass = block.superclasses.headOption
+    val additionalDesc = ReadAction.compute(() => { thisClass match {
+      case Some(thisClass) =>
+        if (DesignAnalysisUtils.isSubclassOfPsi(
+          thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.Resistor"), project)) {
+          s"\n<b>resistance</b>: ${paramToUnitsString(path + "resistance", "Ω")}" +
+              s" <b>of spec</b>: ${paramToUnitsString(path + "spec_resistance", "Ω")}" +
+              s"\n<b>power</b>: ${paramToUnitsString(path + "power", "W")}"
+        } else if (DesignAnalysisUtils.isSubclassOfPsi(
+          thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.UnpolarizedCapacitor"), project)) {
+          s"\n<b>capacitance</b>: ${paramToUnitsString(path + "capacitance", "F")}"
+        } else if (DesignAnalysisUtils.isSubclassOfPsi(
+          thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.Inductor"), project)) {
+          s"\n<b>inductance</b>: ${paramToUnitsString(path + "inductance", "H")}" +
+              s"\n<b>current</b>: ${paramToUnitsString(path + "current", "A")}" +
+              s"\n<b>frequency</b>: ${paramToUnitsString(path + "frequency", "Hz")}"
+        } else if (DesignAnalysisUtils.isSubclassOfPsi(
+          thisClass, LibraryPath("electronics_abstract_parts.ResistiveDivider.ResistiveDivider"), project)) {
+          s"\n<b>ratio</b>: ${paramToUnitsString(path + "selected_ratio", "")}" +
+              s" <b>of spec</b>: ${paramToUnitsString(path + "ratio", "")}" +
+              s"\n<b>impedance</b>: ${paramToUnitsString(path + "selected_impedance", "Ω")}" +
+              s" <b>of spec</b>: ${paramToUnitsString(path + "impedance", "Ω")}"
+        } else if (DesignAnalysisUtils.isSubclassOfPsi(
+          thisClass, LibraryPath("electronics_abstract_parts.ResistiveDivider.BaseVoltageDivider"), project)) {
+          s"\n<b>ratio</b>: ${paramToUnitsString(path + "selected_ratio", "")}" +
+              s" <b>of spec</b>: ${paramToUnitsString(path + "ratio", "")}" +
+              s"\n<b>impedance</b>: ${paramToUnitsString(path + "selected_impedance", "Ω")}" +
+              s" <b>of spec</b>: ${paramToUnitsString(path + "impedance", "Ω")}"
+        } else {
+          ""
+        }
+      case _ => ""
+    }})
+    textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
   override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
     // does nothing

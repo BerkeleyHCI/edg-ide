@@ -1,6 +1,8 @@
 package edg_ide.util
 
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -18,6 +20,16 @@ import scala.collection.mutable
 
 
 object DesignAnalysisUtils {
+  // Returns whether subclass is a subclass of superclass, using the PSI.
+  // If anything can't be found, returns false.
+  def isSubclassOfPsi(subclass: ref.LibraryPath, superclass: ref.LibraryPath, project: Project): Boolean = {
+    (pyClassOf(subclass, project).toOption, pyClassOf(superclass, project).toOption) match {
+      case (Some(subclass), Some(superclass)) => subclass.isSubclass(superclass,
+        TypeEvalContext.codeAnalysis(project, null))
+      case _ => false
+    }
+  }
+
   /** Returns the PyClass of a LibraryPath
     */
   def pyClassOf(path: ref.LibraryPath, project: Project): Errorable[PyClass] = {
