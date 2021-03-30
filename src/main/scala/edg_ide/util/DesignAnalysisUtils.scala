@@ -82,7 +82,7 @@ object DesignAnalysisUtils {
                 } else {
                   argsDiscardRemain -= 1
                 }
-              } else if (kwargsAllowed) {
+              } else if (kwargsAllowed && !ignoredNames.contains(param.getName)) {
                 kwargsList += param.instanceOfExcept[PyNamedParameter]("" +
                     s"non-named parameter ${param.getName} in ${thisClass.getName}")
               } else {
