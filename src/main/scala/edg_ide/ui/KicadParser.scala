@@ -13,7 +13,7 @@ case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
 class KicadParser(kicadFilePath:String) {
 
   // TODO have user select with FootprintBrowserPanel
-  private var kicadFile :String = "."
+  private var kicadFile:String = kicadFilePath
 
   def getKicadFile: String = {
     this.kicadFile
@@ -185,7 +185,6 @@ class KicadParser(kicadFilePath:String) {
     catch {
       // TODO better error handling
       case x:FileNotFoundException =>
-        println("[Parser] Invalid file parse")
         ArrayBuffer()
       case _ =>
         ArrayBuffer()
