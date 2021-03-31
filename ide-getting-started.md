@@ -129,8 +129,15 @@ and the block instantiation line should appear in the code editor:
 self.mcu = self.Block(Lpc1549_48())
 ```
 
+> In any IDE action where you double-click, you can also right-click to show other available actions.
+> For actions that inserts code, double-clicking inserts code at the caret position, while right-clicking displays a list of other suggested places to insert code, such as the end of a function.
+
 The hatched fill indicates that the block may be out-of-sync with the code until the next re-compile.
 In this case, the **Lpc1549_48 block** is only a preview, while the enclosing BlinkyExample has been modified.
+
+> While the insert action does some basic sanity checks (such as for syntax: it won't insert a `Block` call in a function call), it does not understand the context of where the code was inserted.
+> For example, if you inserted the `Block` call within an `if` block, it will assume the `Block` call is run.
+> Re-compiling will re-run the HDL and update the visualization to ground-truth.
 
 The red boxes indicate a missing required connection, in this example including the power and ground pair, and the SWD programming line.
 
@@ -192,7 +199,7 @@ Re-compile, and you should get a lot less errors now.
 
 ### Inspection
 However, overvoltage errors remain.
-If you mouse over the power connection, you should see the problem
+If you mouse over the power connection, you should see the problem:
 ![Connected blocks](docs/ide_visualizer_overvolt.png)
 
 The microcontroller is seeing a 5.0v ±10% voltage on a 3.3v device (technically 2.4-3.6v, rendered as 3.0v ±20%).
@@ -235,17 +242,24 @@ Recompile, and there should be no more errors.
 > For example, SimpleBoardTop defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract Resistor classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
 
 ### Navigation
-If you're curious about what the Tps561201 block did, you can navigate into the block by double-clicking on it.
+If you hover your mouse over the output line, you can see that it is now at 3.3v ±4.47%.
+Why?
+You can navigate into the Tps561201 by double-blocking on it.
 
 ![TPS561201 subcircuit](docs/ide_visualizer_tps561201_impl.png)
 
-You can see that it generated a feedback voltage divider, and if you mouse over the output line, it also calculated the output voltage accounting for resistor tolerance stackup and the chip's reference tolerance.
-If you want to see how this was implemented, you can also right click the block, and select "Goto Definition".
+You can see that it generated a feedback voltage divider, and if you mouseover the block, you can see that it generated a resistive divider with ratio of 0.23.
+If you go into the voltage divider block and mouseover the resistors, you can also see resistor values selected, 10k and 33k.
+The output voltage on the output line reflects the actual expected output voltage, accounting for resistor tolerance and the chip's feedback reference tolerance.
 
-<!-- TODO Inspect values -->
+Similarly, you can see details of other components (like capacitor capacitance, or inductor inductance) by mouseover as well:
 
-You can double-click on the topmost block to navigate out of the microcontroller block.
-Or, double-click on a block in the design tree to zoom in / out to that block.
+![Buck converter input capacitor](docs/ide_visualizer_buckcap.png)
+
+If you want to see how the buck converter block (or any block) was implemented, you can also right click the block, and select "Goto Definition".
+
+To zoom out, you can double-click on the topmost block.
+Or, double-click on any block in the design tree to zoom to that block.
 
 ### Advanced: arraying LEDs
 _In this section, you'll modify the GUI-inserted code to programmatically create an array of LEDs._
@@ -361,17 +375,24 @@ class BlinkyExample(SimpleBoardTop):
   def refinements(self) -> Refinements:
     return super().refinements() + Refinements(
     instance_refinements=[
-      (['buck'], Tps561
+      (['buck'], Tps561201),
+    ])
 ```
 
 
 ## Advanced tutorial: making parts
 
 _In this section, we build and add a digital magnetic field sensor ([LF21215TMR](https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf)) to our design._
-_We do this in two stages, first defining a FootprintBlock for the chip itself, then building the wrapper application circuit around it._
+_We do this in two stages, first defining a `FootprintBlock` for the chip itself, then building the wrapper application circuit `Block` around it._
+
+> While `Block`s are arbitrary hierarchy blocks that only have ports, inner blocks, and connections, `FootprintBlock` also allows up to one PCB footprint, and a mapping from the block ports to footprint pins.
+> You can loosely think of `FootprintBlock` as analogous to a schematic symbol, while `Block` is closer to a hierarchy sheet.
 
 ### Creating a part
-We start off by defining an empty block.
+A new block can be defined from the library browser.
+Since we will be making a `FootprintBlock`, search for that in the library browser.
+Then, select a point for insertion (top-level: outside any class or function) in the file being edited, right-click on FootprintBlock, and select Define New Subclass.
+It should insert this code:
 
 ```python
 class Lf21215tmr_Device(FootprintBlock):
@@ -384,19 +405,16 @@ class Lf21215tmr_Device(FootprintBlock):
     # block implementation (subblocks, internal connections, footprint) here
 ```
 
-> While `Block`s are arbitrary hierarchy blocks that only have ports, inner blocks, and connections, `FootprintBlock` also allows up to one PCB footprint, and a mapping from the block ports to footprint pins.
-> You can loosely think of `FootprintBlock` as analogous to a schematic symbol, while `Block` is closer to a hierarchy sheet.
-
 > `__init__` is meant to define the interface of a block (all Ports and Parameters), while `contents` is meant to define the contents of a block (largely Blocks, connections, and constraints).
 > This split is not enforced (and there are cases where it is desirable to mix them into just `__init__`), but the main benefits of this are performance (avoid building the full design tree unnecessarily) and separation for readability.
 
 To work with this part in the visual editor, you can instantiate this block in your top-level design.
-Once you define the Block above (even empty) and recompile, it should show up in the library browser.
+Once you recompile, it should show up in the library browser.
 Then, double-click into the newly created `Lf21215tmr_Device` block to set it for editing.
 
 The chip itself has three ports: Vcc (voltage input, type **VoltageSink**), GND (voltage input, type **VoltageSink**), and Vout (digital output, type **DigitalSource**).
 We can create ports through the library browser, by searching for the port name, then double-clicking to insert.
-Port show up at the end of the library browser, and can only be inserted with the caret in `__init__` (because it defines the block's interface).
+Ports show up at the end of the library browser, and can only be inserted with the caret in `__init__` (because it defines the block's interface).
 
 We will need to modify these with the appropriate parameters from the datasheet: operating supply voltage of 1.8-5.5v, supply current of 1.5uA (nominal), and output thresholds of 0.2v (low) and (Vcc-0.3) (high).
 

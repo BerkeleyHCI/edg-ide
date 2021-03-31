@@ -90,8 +90,8 @@ object InsertConnectAction {
                               continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
         .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
-    val containingPsiFunction = containingPsiList.getParent
-        .instanceOfExcept[PyFunction](s"not in a function in ${after.getContainingFile.getName}")
+    val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
+        .exceptNull(s"not in a function in ${after.getContainingFile.getName}")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyClass])
         .exceptNull(s"not in a class in ${after.getContainingFile.getName}")
 

@@ -24,8 +24,8 @@ object InsertPortAction {
                            continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val containingPsiList = after.getParent
         .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
-    val containingPsiFunction = containingPsiList.getParent
-        .instanceOfExcept[PyFunction](s"not in a function in ${containingPsiList.getContainingFile.getName}")
+    val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
+        .exceptNull(s"not in a function in ${containingPsiList.getContainingFile.getName}")
     requireExcept(containingPsiFunction.getName == VALID_FUNCTION_NAME, s"not in function $VALID_FUNCTION_NAME")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
         .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
