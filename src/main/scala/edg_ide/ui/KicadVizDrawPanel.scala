@@ -1,8 +1,9 @@
 package edg_ide.ui
 
-import java.awt.Graphics
-import java.awt.event.MouseWheelEvent
+import edg_ide.swing.DrawAnchored
 
+import java.awt.{Color, Graphics, Graphics2D}
+import java.awt.event.MouseWheelEvent
 import javax.swing.JPanel
 
 class KicadVizDrawPanel extends JPanel {
@@ -18,6 +19,8 @@ class KicadVizDrawPanel extends JPanel {
     this.repaint()
   })
 
+  var pinmap: Map[String, String] = Map()  // TODO shouldn't be public, should be set alongside the file
+
   override def paintComponent(g: Graphics): Unit = {
     super.paintComponent(g)
 
@@ -28,12 +31,12 @@ class KicadVizDrawPanel extends JPanel {
       return
 
     val min_x = components.map(c => (c match {
-      case Rectangle(x, y, width, height) => x
+      case Rectangle(x, y, width, height, name) => x
       case Line(x0, y0, x1, y1) => math.min(x0, x1)
     })).min.abs
 
     val min_y = components.map(c => (c match {
-      case Rectangle(x, y, width, height) => y
+      case Rectangle(x, y, width, height, name) => y
       case Line(x0, y0, x1, y1) => math.min(y0, y1)
     })).min.abs
 
@@ -50,17 +53,37 @@ class KicadVizDrawPanel extends JPanel {
             (offset + this.getWidth * offset_mul_factor + (min_x + x1) * mul_factor).asInstanceOf[Int],
             ((min_y + y1) * mul_factor).asInstanceOf[Int]
           )
-        case Rectangle(x, y, width, height) =>
+        case Rectangle(x, y, width, height, name) =>
           val scaledWidth = (width * mul_factor).asInstanceOf[Int]
           val scaledHeight = (height * mul_factor).asInstanceOf[Int]
           val scaledX = ((offset + this.getWidth * offset_mul_factor + (min_x + x) * mul_factor).asInstanceOf[Int]) - (scaledWidth / 2)
           val scaledY = (((min_y + y) * mul_factor).asInstanceOf[Int]) - (scaledHeight / 2)
 
-          g.fillRect(
+          g.drawRect(
             scaledX,
             scaledY,
             scaledWidth,
             scaledHeight)
+
+          val fillG = g.create().asInstanceOf[Graphics2D]  // TODO dedup w/ JElkGraph / JBlockDiagramVisualizer?
+          fillG.setColor(new Color(
+            fillG.getColor.getRed,
+            fillG.getColor.getGreen,
+            fillG.getColor.getBlue,
+            63
+          ))
+          fillG.fillRect(
+            scaledX,
+            scaledY,
+            scaledWidth,
+            scaledHeight)
+
+          DrawAnchored.drawLabel(g, name,
+            (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
+            DrawAnchored.Bottom)
+          DrawAnchored.drawLabel(g, pinmap.getOrElse(name, "unassigned"),
+            (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
+            DrawAnchored.Top)
         case _ =>
       }
     }

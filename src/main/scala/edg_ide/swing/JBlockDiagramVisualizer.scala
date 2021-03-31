@@ -71,31 +71,7 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
     }
   }
 
-  sealed trait DrawAnchor  // position on the "label" where the drawing point is
-  object DrawAnchor {
-    object Bottom extends DrawAnchor
-    object Top extends DrawAnchor
-    object Left extends DrawAnchor
-    object Right extends DrawAnchor
-    object Center extends DrawAnchor
-  }
 
-  def drawLabel(g: Graphics2D, text: String, point: (Double, Double), anchor: DrawAnchor): Unit = {
-    val fontMetrics = g.getFontMetrics(g.getFont)
-
-    val textWidth = fontMetrics.stringWidth(text)
-    val textHeight = fontMetrics.getMaxAscent
-
-    val (pointX, pointY) = point
-    val (drawX, drawY) = anchor match {
-      case DrawAnchor.Bottom => (pointX - textWidth / 2, pointY)
-      case DrawAnchor.Top => (pointX - textWidth / 2, pointY + textHeight)
-      case DrawAnchor.Left => (pointX, pointY + textHeight / 2)
-      case DrawAnchor.Right => (pointX - textWidth, pointY + textHeight / 2)
-      case DrawAnchor.Center => (pointX - textWidth / 2, pointY + textHeight / 2)
-    }
-    g.drawString(text, drawX.toInt, drawY.toInt)
-  }
 
   override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, background: Color, edge: ElkEdge): Unit = {
     super.paintEdge(parentG, blockG, background, edge)
@@ -128,15 +104,15 @@ class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) exten
       val textG = textGraphics(thisG, background, edge)
       targetPointOpt match {
         case Some((x, y, x1, y1)) if (x1 == x) && (y > y1) =>
-          drawLabel(textG, label, (x, y), DrawAnchor.Top)
+          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Top)
         case Some((x, y, x1, y1)) if (x1 == x) && (y < y1) =>
-          drawLabel(textG, label, (x, y), DrawAnchor.Bottom)
+          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Bottom)
         case Some((x, y, x1, y1)) if (y1 == y) && (x > x1) =>
-          drawLabel(textG, label, (x, y), DrawAnchor.Left)
+          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Left)
         case Some((x, y, x1, y1)) if (y1 == y) && (x < x1) =>
-          drawLabel(textG, label, (x, y), DrawAnchor.Right)
+          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Right)
         case Some((x, y, _, _)) =>
-          drawLabel(textG, label, (x, y), DrawAnchor.Center)
+          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Center)
         case None =>
       }
     }

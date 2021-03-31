@@ -6,7 +6,9 @@ import scala.io.Source
 
 // Kicad IR
 sealed trait KicadComponent
-case class Rectangle(x:Float, y:Float, width:Float, height:Float) extends KicadComponent
+// TODO: add layers to this data structure?
+// TODO distinguish pad names from other geometry
+case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent
 case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
 
 
@@ -162,7 +164,8 @@ class KicadParser(kicadFilePath:String) {
                       val width = size.asInstanceOf[SList].values.tail.head.asInstanceOf[Atom].symbol.toFloat
                       val height = size.asInstanceOf[SList].values.tail.tail.head.asInstanceOf[Atom].symbol.toFloat
 
-                      kicadComponents.addOne(new Rectangle(x0, y0, width, height))
+                      kicadComponents.addOne(Rectangle(x0, y0, width, height,
+                        values(1).asInstanceOf[Atom].symbol))
 
                     }
 

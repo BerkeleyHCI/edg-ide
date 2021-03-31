@@ -6,9 +6,10 @@ import edg.elem.elem
 import edg.schema.schema
 import edg.ref.ref
 import edg.common.common
+import edg.expr.expr
 import edg.wir.DesignPath
 import edg_ide.swing.{FootprintBrowserNode, FootprintBrowserTreeTableModel, SwingHtmlUtil}
-import edg.compiler.{Compiler, TextValue}
+import edg.compiler.{Compiler, ExprToString, TextValue}
 import edg_ide.EdgirUtils
 
 import java.awt.event.{MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
@@ -20,7 +21,7 @@ import javax.swing.event.{DocumentEvent, DocumentListener}
 class KicadVizPanel() extends JPanel with MouseWheelListener {
   // State
   //
-
+  var currentBlockPath: Option[DesignPath] = None  // should be a Block with a footprint and pinning field
 
 
   object FootprintBrowser extends JPanel {
@@ -155,14 +156,19 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
   // Actions
   //
   def pinningFromBlock(block: elem.HierarchyBlock): Option[Map[String, ref.LocalPath]] = {
+    // TODO better error handling, Option[ref.LocalPath]?
     // TODO move into EdgirUtils or something?
     block.meta.map(_.meta).collect {
       case common.Metadata.Meta.Members(members) => members.node.get("pinning")
     }.flatten.map(_.meta).collect {
       case common.Metadata.Meta.Members(members) =>
-        // TODO
-        Map()
-
+        members.node.map { case (pin, pinValue) =>
+          pin -> pinValue.meta
+        } .collect { case (pin, common.Metadata.Meta.BinLeaf(bin)) =>
+          pin -> expr.ValueExpr.parseFrom(bin.toByteArray).expr
+        } .collect { case (pin, expr.ValueExpr.Expr.Ref(ref)) =>
+          pin -> ref
+        }
     }
   }
 
@@ -180,20 +186,26 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
     } match {
       case Some((footprint, pinning)) =>
         val footprintStr = footprint.replace(":", ": ")  // TODO this allows a line break but is hacky
+        currentBlockPath = Some(blockPath)
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
         FootprintBrowser.footprintToFile(footprint) match {
           case Some(footprintFile) =>
+            println(pinning)
             visualizer.kicadParser.setKicadFile(footprintFile.getCanonicalPath)
+            visualizer.pinmap = pinning.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
             status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint ${footprintStr} at ${blockPath.lastString}",
               this.getFont))
 
           case _ =>
+            visualizer.pinmap = Map()
             status.setText(SwingHtmlUtil.wrapInHtml(s"Unknown footprint ${footprintStr} at ${blockPath.lastString}",
               this.getFont))
         }
 
       case None =>
+        currentBlockPath = None
+        visualizer.pinmap = Map()
         status.setText(SwingHtmlUtil.wrapInHtml(s"No footprint at ${blockPath.lastString}",
           this.getFont))
     }
