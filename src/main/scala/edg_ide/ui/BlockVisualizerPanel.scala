@@ -118,6 +118,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     override def setDetailView(path: DesignPath): Unit = {
       tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
       detailPanel.setLoaded(path, design, compiler)
+      kicadVizPanel.setBlock(path, design, compiler)
     }
 
     override def setStatus(statusText: String): Unit = {
