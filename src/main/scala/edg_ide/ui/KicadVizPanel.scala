@@ -190,7 +190,6 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
         FootprintBrowser.footprintToFile(footprint) match {
           case Some(footprintFile) =>
-            println(pinning)
             visualizer.kicadParser.setKicadFile(footprintFile.getCanonicalPath)
             visualizer.pinmap = pinning.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
