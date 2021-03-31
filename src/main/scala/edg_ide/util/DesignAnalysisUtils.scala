@@ -12,7 +12,7 @@ import edg.schema.schema
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
-import edg_ide.actions.InsertConnectAction
+import edg_ide.psi_edits.InsertConnectAction
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`

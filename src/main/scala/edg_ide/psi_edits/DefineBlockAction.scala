@@ -1,4 +1,4 @@
-package edg_ide.actions
+package edg_ide.psi_edits
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project

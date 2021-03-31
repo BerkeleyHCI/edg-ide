@@ -15,13 +15,13 @@ import edg.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir
 import edg.wir.DesignPath
-import edg_ide.actions.{DefineBlockAction, InsertAction, InsertBlockAction, InsertPortAction, InsertRefinementAction}
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg.ExprBuilder.{Ref, ValueExpr}
+import edg_ide.psi_edits.{DefineBlockAction, InsertAction, InsertBlockAction, InsertPortAction, InsertRefinementAction}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}

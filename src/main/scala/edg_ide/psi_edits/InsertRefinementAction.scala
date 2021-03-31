@@ -1,15 +1,13 @@
-package edg_ide.actions
+package edg_ide.psi_edits
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiParserFacade
 import com.jetbrains.python.psi._
-import edg.ref.ref
 import edg.util.Errorable
 import edg.wir.DesignPath
-import edg_ide.EdgirUtils
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable}
+import edg_ide.util.exceptable
 
 
 object InsertRefinementAction {

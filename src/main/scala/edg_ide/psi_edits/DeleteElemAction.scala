@@ -1,13 +1,13 @@
-package edg_ide.actions
+package edg_ide.psi_edits
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
 import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiElement
-import com.intellij.psi.search.{GlobalSearchScope, LocalSearchScope}
 import com.intellij.psi.search.searches.ReferencesSearch
+import com.intellij.psi.search.{GlobalSearchScope, LocalSearchScope}
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{PyAssignmentStatement, PyClass, PyExpression, PyFunction, PyStatement}
+import com.jetbrains.python.psi._
 import edg.util.Errorable
 import edg_ide.PsiUtils
 import edg_ide.ui.PopupUtils

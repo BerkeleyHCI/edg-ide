@@ -1,10 +1,10 @@
-package edg_ide.actions
+package edg_ide.psi_edits
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{LanguageLevel, PyCallExpression, PyClass, PyElementGenerator, PyExpression, PyFunction, PyRecursiveElementVisitor, PyReferenceExpression, PyStatement, PyStatementList}
+import com.jetbrains.python.psi._
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}

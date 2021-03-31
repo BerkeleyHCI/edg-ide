@@ -1,18 +1,16 @@
 package edg_ide.ui
 
 import com.intellij.openapi.project.Project
-import com.intellij.pom.Navigatable
 import com.intellij.psi.PsiElement
-import com.jetbrains.python.psi.{PyAssignmentExpression, PyAssignmentStatement}
 import edg.elem.elem
-import edg.schema.schema
 import edg.ref.ref
+import edg.schema.schema
 import edg.util.Errorable
 import edg.wir.DesignPath
-import edg_ide.actions.{DeleteElemAction, InsertAction}
+import edg_ide.psi_edits.{DeleteElemAction, InsertAction}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
+import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
-import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup, requireExcept}
 
 import java.awt.event.MouseEvent
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}

@@ -1,4 +1,4 @@
-package edg_ide.actions
+package edg_ide.psi_edits
 
 import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
