@@ -5,7 +5,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg_ide.swing.{FootprintBrowserNode, FootprintBrowserTreeTableModel}
 
 import java.awt.event.{MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
-import java.awt.{BorderLayout, Color, Dimension}
+import java.awt.{BorderLayout, Color, Dimension, GridBagConstraints, GridBagLayout}
 import java.io.File
 import javax.swing.event.{DocumentEvent, DocumentListener}
 import javax.swing._
@@ -57,11 +57,8 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
     })
 
     // Filter menu
-    private val filterMenu = new JPanel
-    private val filterTextBox = new JTextArea
+    private val filterTextBox = new JTextField()
     private val filterLabel = new JLabel("Filter")
-    filterTextBox.setPreferredSize(new Dimension(400, 25))
-    filterTextBox.setBorder(BorderFactory.createLineBorder(Color.WHITE))
     filterTextBox.getDocument.addDocumentListener(new DocumentListener {
       override def insertUpdate(e: DocumentEvent): Unit = update(e)
 
@@ -77,14 +74,12 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
 
     })
 
-    filterMenu.setLayout(new BoxLayout(filterMenu, BoxLayout.X_AXIS))
-    filterMenu.add(filterTextBox)
-    filterMenu.add(filterLabel)
-    filterMenu.setMaximumSize(new Dimension(500, 25))
+    setLayout(new GridBagLayout)
 
-    setLayout(new BoxLayout(this, BoxLayout.Y_AXIS))
-    add(filterMenu)
-    add(treeScrollPane)
+    add(filterLabel, Gbc(0, 0, GridBagConstraints.NONE))
+    add(filterTextBox, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
+
+    add(treeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize = 2))
   }
 
   // GUI Components
