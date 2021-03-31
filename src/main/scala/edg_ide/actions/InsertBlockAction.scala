@@ -37,7 +37,7 @@ object InsertBlockAction {
     val allParams = initParams._1 ++ initParams._2
 
     def insertBlockFlow: Unit = {
-      InsertAction.createNameEntryPopup("Block Name", containingPsiClass, project) { name => exceptable {
+      InsertAction.createClassMemberNameEntryPopup("Block Name", containingPsiClass, project) { name => exceptable {
         val languageLevel = LanguageLevel.forElement(after)
         val newAssign = psiElementGenerator.createFromText(languageLevel,
           classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
@@ -64,7 +64,6 @@ object InsertBlockAction {
 
         val added = writeCommandAction(project).withName(actionName).compute(() => {
           containingPsiList.addAfter(newAssign, after)
-
         })
         continuation(name, added)
       }}

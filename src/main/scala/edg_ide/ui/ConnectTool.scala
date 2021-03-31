@@ -219,8 +219,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)
   private val contextPyName = contextPyClass.mapToString(_.getName)
   private val caretPsiElement = exceptable {
-    val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
-    InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, interface.getProject).exceptError
+    InsertAction.getCaretForNewClassStatement(contextPyClass.exceptError, interface.getProject).exceptError
   }
 
   val appendConnectAction: Errorable[() => Unit] = exceptable {

@@ -3,7 +3,6 @@ package edg_ide.actions
 import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
-import com.intellij.pom.Navigatable
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.jetbrains.python.PythonLanguage
@@ -14,6 +13,7 @@ import edg_ide.util.ExceptionNotifyImplicits._
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
+import scala.reflect.ClassTag
 
 
 object InsertAction {
@@ -24,35 +24,31 @@ object InsertAction {
     DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project).exceptError
   }
 
-  /** Returns the PSI element immediately before the cursor of a given file.
-    *
-    * TODO: this is PyStatementList-aware (generates an insertion location). Needs a more specific name!
-    */
-  def getCaretAtFile(file: PsiFile, expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
+  def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project)
+                                           (implicit tag: ClassTag[T]): Errorable[PsiElement] = exceptable {
     val editors = FileEditorManager.getInstance(project).getSelectedEditors
         .filter { editor => editor.getFile == file.getVirtualFile }
     requireExcept(editors.length > 0, s"no editors for ${file.getName} open")
     requireExcept(editors.length == 1, s"multiple editors for ${file.getName} open")
-    val contextEditor = editors.head.instanceOfExcept[TextEditor]("not a text editor")
-    val contextOffset = contextEditor.getEditor.getCaretModel.getOffset
-    val element = file.findElementAt(contextOffset).exceptNull(s"invalid caret position in ${file.getName}")
+    val editor = editors.head.instanceOfExcept[TextEditor]("not a text editor")
+    val caretOffset = editor.getEditor.getCaretModel.getOffset
+    val element = file.findElementAt(caretOffset).exceptNull(s"invalid caret position in ${file.getName}")
 
     // given the leaf element at the caret, returns the rootmost element right before the caret
     def prevElementOf(element: PsiElement): PsiElement = {
-      if (element.getTextRange.getStartOffset == contextOffset) {  // caret at beginning of element, so take the previous
+      if (element.getTextRange.getStartOffset == caretOffset) {  // caret at beginning of element, so take the previous
         val prev = PsiTreeUtil.prevLeaf(element)
         if (prev == null) {
           val parent = element.getParent
           // can only traverse up to parent if the parent also begins at the caret
-          requireExcept(parent.getTextRange.getStartOffset == contextOffset, "TODO: first position")
           prevElementOf(parent)
         } else {
           prevElementOf(prev)  // may still need to go up
         }
-      } else if (element.getTextRange.getEndOffset == contextOffset) {  // caret at end of element, try to go up
+      } else if (element.getTextRange.getEndOffset == caretOffset) {  // caret at end of element, try to go up
         val parent = element.getParent
-        if (parent.getTextRange.getEndOffset == contextOffset &&
-            !parent.isInstanceOf[PyStatementList]) {  // can go up if parent at boundary, but don't go above a statement list
+        if (parent.getTextRange.getEndOffset == caretOffset &&
+            !containerPsiType.isAssignableFrom(parent.getClass)) {  // can go up if parent at boundary, but don't go above a statement list
           prevElementOf(parent)
         } else {  // otherwise, this is it
           element
@@ -61,7 +57,19 @@ object InsertAction {
         element
       }
     }
-    val prevElement = prevElementOf(element)
+
+    val prev = prevElementOf(element)
+    prev.getParent.instanceOfExcept[T](s"caret not in a ${containerPsiType.getSimpleName}")  // sanity check
+    prev
+  }
+
+  /** Returns the PSI element immediately before the cursor of a given file.
+    *
+    * TODO: this is PyStatementList-aware (generates an insertion location). Needs a more specific name!
+    */
+  def getCaretForNewClassStatement(expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
+    val file = expectedClass.getContainingFile.exceptNull("no file")
+    val prevElement = getCaretAtFileOfType(file, classOf[PyStatementList], project).exceptError
 
     val containingPsiClass = PsiTreeUtil.getParentOfType(prevElement, classOf[PyClass])
         .exceptNull(s"not in a class in ${file.getName}")
@@ -84,9 +92,21 @@ object InsertAction {
     methods
   }
 
-  def createNameEntryPopup(title: String, containingPsiClass: PyClass,
-                           project: Project,
-                           allowEmpty: Boolean = false)(accept: String => Errorable[Unit]): Unit = exceptable {
+  /** Name entry popup that checks for name legality */
+  def createNameEntryPopup(title: String,
+                           project: Project)(accept: String => Errorable[Unit]): Unit = exceptable {
+    PopupUtils.createStringEntryPopup(title, project) { name => exceptable {
+      LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)
+          .exceptFalse("not an identifier")
+
+      accept(name).exceptError
+    }}
+  }
+
+  /** Name entry popup that checks for name legality and collisions with other class members */
+  def createClassMemberNameEntryPopup(title: String, containingPsiClass: PyClass,
+                                      project: Project,
+                                      allowEmpty: Boolean = false)(accept: String => Errorable[Unit]): Unit = exceptable {
     val contextAttributeNames = containingPsiClass.getInstanceAttributes.toSeq.map(_.getName)
 
     PopupUtils.createStringEntryPopup(title, project) { name => exceptable {

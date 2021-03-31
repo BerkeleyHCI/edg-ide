@@ -124,7 +124,7 @@ object InsertConnectAction {
 
     def insertConnectFlow(): Unit = {
       if (requiresName) {
-        InsertAction.createNameEntryPopup("Connect Name (optional)", containingPsiClass, project,
+        InsertAction.createClassMemberNameEntryPopup("Connect Name (optional)", containingPsiClass, project,
           allowEmpty=true) { name => exceptable { insertConnectAction(name) } }
       } else {
         insertConnectAction("")

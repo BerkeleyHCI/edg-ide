@@ -39,7 +39,7 @@ object InsertPortAction {
     val allParams = initParams._1 ++ initParams._2
 
     def insertPortFlow: Unit = {
-      InsertAction.createNameEntryPopup("Port Name", containingPsiClass, project) { name => exceptable {
+      InsertAction.createClassMemberNameEntryPopup("Port Name", containingPsiClass, project) { name => exceptable {
         val languageLevel = LanguageLevel.forElement(after)
         val newAssign = psiElementGenerator.createFromText(languageLevel,
           classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Port(${libClass.getName}())")

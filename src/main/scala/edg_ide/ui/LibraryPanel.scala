@@ -3,19 +3,19 @@ package edg_ide.ui
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ThrowableComputable
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{PyClass, PyNamedParameter}
+import com.jetbrains.python.psi.{PyClass, PyNamedParameter, PyPsiFacade}
 import edg.elem.elem
 import edg.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir
 import edg.wir.DesignPath
-import edg_ide.actions.{InsertAction, InsertBlockAction, InsertPortAction, InsertRefinementAction}
+import edg_ide.actions.{DefineBlockAction, InsertAction, InsertBlockAction, InsertPortAction, InsertRefinementAction}
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
@@ -30,6 +30,42 @@ import javax.swing.event._
 import javax.swing.tree.TreePath
 
 
+class BlockRootPopupMenu(project: Project) extends JPopupMenu {
+  private val contextPyClass = InsertAction.getPyClassOfContext(project)
+  private val contextPyName = contextPyClass.mapToString(_.getName)
+
+  private val pyPsi = PyPsiFacade.getInstance(project)
+
+  add(new JLabel(s"Blocks"))
+  addSeparator()
+
+  // Create new block actions
+  private def createBlockContinuation(name: String, added: PsiElement): Unit = {
+    InsertAction.navigateToEnd(added)
+  }
+  val defineClassAfter = exceptable {
+    InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
+      classOf[PsiFile], project).exceptError
+  }
+  val defineClassAtEndAction: Errorable[() => Unit] = exceptable {
+    val blockClass = pyPsi.findClass("edg_core.HierarchyBlock.Block").exceptNull("can't resolve Block class")
+    DefineBlockAction.createDefineBlockFlow(
+      defineClassAfter.exceptError,
+      blockClass,
+      s"Define new Block",
+      project, createBlockContinuation).exceptError
+  }
+  private val defineFileLine = exceptable {
+    defineClassAtEndAction.exceptError
+    PsiUtils.fileNextLineOf(defineClassAfter.exceptError, project).exceptError
+  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+
+  private val createClassAtEndItem = ContextMenuUtils.MenuItemFromErrorable(
+    defineClassAtEndAction, s"Define new subclass at $contextPyName caret$defineFileLine")
+  add(createClassAtEndItem)
+}
+
+
 class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extends JPopupMenu {
   val blockTypeName = EdgirUtils.SimpleLibraryPath(blockType)
   add(new JLabel(s"Library Block: $blockTypeName"))
@@ -42,8 +78,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
   // Edit actions
   private val caretPsiElement = exceptable {
-    val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
-    InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, project).exceptError
+    InsertAction.getCaretForNewClassStatement(contextPyClass.exceptError, project).exceptError
   }
   private def insertContinuation(name: String, added: PsiElement): Unit = {
     InsertAction.navigateToEnd(added)
@@ -149,6 +184,31 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   add(ContextMenuUtils.MenuItemFromErrorable(insertClassRefinementAction, s"Refine class $selectedClassName to $blockTypeName"))
   addSeparator()
 
+  // Create new block actions
+  private def createBlockContinuation(name: String, added: PsiElement): Unit = {
+    InsertAction.navigateToEnd(added)
+  }
+  val defineClassAfter = exceptable {
+    InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
+      classOf[PsiFile], project).exceptError
+  }
+  val defineClassAtEndAction: Errorable[() => Unit] = exceptable {
+    DefineBlockAction.createDefineBlockFlow(
+      defineClassAfter.exceptError,
+      blockPyClass.exceptError,
+      s"Define new subclass of $blockTypeName",
+      project, createBlockContinuation).exceptError
+  }
+  private val defineFileLine = exceptable {
+    defineClassAtEndAction.exceptError
+    PsiUtils.fileNextLineOf(defineClassAfter.exceptError, project).exceptError
+  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+
+  private val createClassAtEndItem = ContextMenuUtils.MenuItemFromErrorable(
+    defineClassAtEndAction, s"Define new subclass at $contextPyName caret$defineFileLine")
+  add(createClassAtEndItem)
+  addSeparator()
+
   // Navigation actions
   val gotoDefinitionAction: Errorable[() => Unit] = exceptable {
     requireExcept(blockPyClass.exceptError.canNavigateToSource, "class not navigatable")
@@ -174,8 +234,7 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
 
   // Edit actions
   private val caretPsiElement = exceptable {
-    val contextPsiFile = contextPyClass.exceptError.getContainingFile.exceptNull("no file")
-    InsertAction.getCaretAtFile(contextPsiFile, contextPyClass.exceptError, project).exceptError
+    InsertAction.getCaretForNewClassStatement(contextPyClass.exceptError, project).exceptError
   }
   private def insertContinuation(name: String, added: PsiElement): Unit = {
     InsertAction.navigateToEnd(added)
@@ -458,26 +517,32 @@ class LibraryPanel(project: Project) extends JPanel {
       }
 
       selectedTreePath.getLastPathComponent match {
-        case selected: EdgirLibraryTreeNode.BlockNode =>  // insert actions / menu for blocks
+        case selected: EdgirLibraryTreeNode.BlockNode => // insert actions / menu for blocks
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryBlockPopupMenu(selected.path, project).caretInsertAction.exceptError)()
+              (new LibraryBlockPopupMenu(selected.path, project).caretInsertAction.exceptError) ()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
             new LibraryBlockPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
           }
 
-        case selected: EdgirLibraryTreeNode.PortNode =>  // insert actions / menu for ports
+        case selected: EdgirLibraryTreeNode.PortNode => // insert actions / menu for ports
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryPortPopupMenu(selected.path, project).caretInsertAction.exceptError)()
+              (new LibraryPortPopupMenu(selected.path, project).caretInsertAction.exceptError) ()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
             new LibraryPortPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
+          }
+
+        case selected: EdgirLibraryTreeNode.BlockRootNode => // action for root block
+          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+            // right click context menu
+            new BlockRootPopupMenu(project).show(e.getComponent, e.getX, e.getY)
           }
 
         case _ => return  // any other type ignored
