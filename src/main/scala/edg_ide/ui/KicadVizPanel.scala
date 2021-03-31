@@ -7,7 +7,7 @@ import edg.schema.schema
 import edg.ref.ref
 import edg.common.common
 import edg.wir.DesignPath
-import edg_ide.swing.{FootprintBrowserNode, FootprintBrowserTreeTableModel}
+import edg_ide.swing.{FootprintBrowserNode, FootprintBrowserTreeTableModel, SwingHtmlUtil}
 import edg.compiler.{Compiler, TextValue}
 import edg_ide.EdgirUtils
 
@@ -27,13 +27,19 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
     // TODO use GridBagLayout?
 
-    var libraryDirectory: String = ""  // TODO should be private / protected, but is in an object :s
+    var libraryDirectory: Option[File] = None  // TODO should be private / protected, but is in an object :s
 
     def setLibraryDirectory(directory: String): Unit = {
       // TODO use File instead of String
       val filterFunc = (x:String) => x.contains(filterTextBox.getText)
-      libraryDirectory = directory
-      tree.setModel(new FootprintBrowserTreeTableModel(new File(directory), filterFunc))
+      val directoryFile = new File(directory)
+      if (directoryFile.exists()) {
+        libraryDirectory = Some(directoryFile)
+        tree.setModel(new FootprintBrowserTreeTableModel(directoryFile, filterFunc))
+      } else {
+        libraryDirectory = None
+        // TODO clear tree model?
+      }
     }
 
     var model = new FootprintBrowserTreeTableModel(new File("."))
@@ -52,7 +58,17 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
     }
 
     def footprintToFile(footprint: String): Option[File] = {
-      ???
+      footprint match {
+        case s"$libraryName:$footprintName" =>
+          val footprintFile = libraryDirectory.map(new File(_, libraryName + ".pretty"))
+              .map(new File(_, footprintName + ".kicad_mod"))
+          footprintFile match {
+            case Some(footprintFile) if footprintFile.exists() =>
+              Some(footprintFile)
+            case _ => None
+          }
+        case _ => None
+      }
     }
 
     tree.addMouseListener(new MouseListener {
@@ -116,7 +132,10 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
 
   splitter.setSecondComponent(FootprintBrowser)
 
-  private val status = new JLabel("Ready")
+  private val status = new JEditorPane("text/html",
+      SwingHtmlUtil.wrapInHtml("No footprint selected", this.getFont))
+  status.setEditable(false)
+  status.setBackground(null)
   private val visualizer = new KicadVizDrawPanel()
   visualizer.offset = (this.FootprintBrowser.getWidth * 1.2).asInstanceOf[Int] // @TODO clean this up with offset code
 
@@ -141,6 +160,8 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
       case common.Metadata.Meta.Members(members) => members.node.get("pinning")
     }.flatten.map(_.meta).collect {
       case common.Metadata.Meta.Members(members) =>
+        // TODO
+        Map()
 
     }
   }
@@ -158,19 +179,30 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
       footprintFromBlock(blockPath, block, compiler)
     } match {
       case Some((footprint, pinning)) =>
-        // TODO IMPLEMENT ME
+        val footprintStr = footprint.replace(":", ": ")  // TODO this allows a line break but is hacky
+        // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
+        FootprintBrowser.footprintToFile(footprint) match {
+          case Some(footprintFile) =>
+            visualizer.kicadParser.setKicadFile(footprintFile.getCanonicalPath)
+            visualizer.repaint()
+            status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint ${footprintStr} at ${blockPath.lastString}",
+              this.getFont))
 
-        status.setText(s"Footprint at ${blockPath.lastString}")
-        ???
+          case _ =>
+            status.setText(SwingHtmlUtil.wrapInHtml(s"Unknown footprint ${footprintStr} at ${blockPath.lastString}",
+              this.getFont))
+        }
+
       case None =>
-        status.setText(s"No footprint at ${blockPath.lastString}")
+        status.setText(SwingHtmlUtil.wrapInHtml(s"No footprint at ${blockPath.lastString}",
+          this.getFont))
     }
   }
 
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.kicadLibraryDirectory = FootprintBrowser.libraryDirectory
+    state.kicadLibraryDirectory = FootprintBrowser.libraryDirectory.map(_.getAbsolutePath).getOrElse("")
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
