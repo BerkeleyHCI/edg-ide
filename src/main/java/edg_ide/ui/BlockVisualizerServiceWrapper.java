@@ -16,6 +16,7 @@ class BlockVisualizerServiceState {
   public float panelLibrarySplitterPos = 0.5f;
   public int panelTabIndex = 0;
   public float libraryPreviewSplitterPos = 0.5f;
+  public String kicadLibraryDirectory = "";
 }
 
 

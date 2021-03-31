@@ -304,6 +304,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     toolWindow.setTitle(blockName)
   }
 
+  def setKicadLibraryDirectory(directory: String): Unit = {
+    kicadVizPanel.FootprintBrowser.setLibraryDirectory(directory)
+  }
+
   /** Recompiles the current blockModule / blockName, and updates the display
     */
   def recompile(): Unit = {
@@ -503,6 +507,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     refinementsPanel.saveState(state)
     detailPanel.saveState(state)
     errorPanel.saveState(state)
+    kicadVizPanel.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
@@ -515,6 +520,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     refinementsPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
+    kicadVizPanel.loadState(state)
   }
 }
 

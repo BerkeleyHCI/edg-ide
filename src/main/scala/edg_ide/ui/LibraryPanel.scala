@@ -5,7 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.components.{JBScrollPane, JBTextField}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -488,11 +488,12 @@ class LibraryPanel(project: Project) extends JPanel {
   splitter.setSecondComponent(preview)
 
   private val libraryTreePanel = new JPanel(new GridBagLayout())
-  private val libraryTreeSearch = new JTextField()
-  libraryTreePanel.add(libraryTreeSearch, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
-  private val libraryTreeStatus = new JLabel("All Library Elements")
-  libraryTreePanel.add(libraryTreeStatus, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
+  private val libraryTreeSearchLabel = new JLabel("Filter")
+  libraryTreePanel.add(libraryTreeSearchLabel, Gbc(0, 0, GridBagConstraints.NONE))
+
+  private val libraryTreeSearch = new JTextField()
+  libraryTreePanel.add(libraryTreeSearch, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
 
   private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(library))
   private val libraryTree = new TreeTable(libraryTreeModel)
@@ -558,7 +559,7 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.setTreeCellRenderer(libraryTreeRenderer)
 
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
-  libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 2, GridBagConstraints.BOTH))
+  libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize = 2))
 
   splitter.setFirstComponent(libraryTreePanel)
 
@@ -572,10 +573,8 @@ class LibraryPanel(project: Project) extends JPanel {
 
     val searchText = libraryTreeSearch.getText
     if (searchText.isEmpty) {
-      libraryTreeStatus.setText("All Library Elements")
       libraryTreeModel.setFilter(_ => true)
     } else {
-      libraryTreeStatus.setText(s"Filter By '$searchText'")
       val filteredPaths = libraryTreeModel.setFilter {
         case node: EdgirLibraryTreeNode.BlockNode =>
           EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchText.toLowerCase())

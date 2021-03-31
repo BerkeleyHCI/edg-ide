@@ -1,46 +1,39 @@
 package edg_ide.ui
 
-import java.awt.{BorderLayout, Color, Dimension}
-import java.awt.event.{ActionEvent, MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
-import java.io.File
-
 import com.intellij.ui.JBSplitter
-import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.schema.schema
-import edg.wir
-import edg_ide.swing.{EdgirLibraryTreeTableModel, FootprintBrowserNode, FootprintBrowserTreeTableModel}
-import javax.swing.event.{DocumentEvent, DocumentListener, TreeModelEvent, TreeModelListener}
-import javax.swing.{BorderFactory, BoxLayout, JButton, JLabel, JPanel, JScrollPane, JTextArea, JTree}
+import edg_ide.swing.{FootprintBrowserNode, FootprintBrowserTreeTableModel}
+
+import java.awt.event.{MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
+import java.awt.{BorderLayout, Color, Dimension}
+import java.io.File
+import javax.swing.event.{DocumentEvent, DocumentListener}
+import javax.swing._
 
 class KicadVizPanel() extends JPanel with MouseWheelListener {
   // State
   //
 
 
+
   object FootprintBrowser extends JPanel {
+    // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
+    // TODO use GridBagLayout?
+
+    var libraryDirectory: String = ""  // TODO should be private / protected, but is in an object :s
+
+    def setLibraryDirectory(directory: String): Unit = {
+      // TODO use File instead of String
+      val filterFunc = (x:String) => x.contains(filterTextBox.getText)
+      libraryDirectory = directory
+      tree.setModel(new FootprintBrowserTreeTableModel(new File(directory), filterFunc))
+    }
 
     var model = new FootprintBrowserTreeTableModel(new File("."))
     private val tree = new TreeTable(model)
     tree.setShowColumns(true)
     tree.setRootVisible(false)
     private val treeScrollPane = new JScrollPane(tree)
-
-    // Top menu bar
-    private val filepathMenu = new JPanel
-    private val filepathTextbox = new JTextArea
-    private val filepathButton = new JButton("Set Path")
-    filepathTextbox.setPreferredSize(new Dimension(400, 25))
-    filepathMenu.setLayout(new BoxLayout(filepathMenu, BoxLayout.X_AXIS))
-    filepathMenu.add(filepathTextbox)
-    filepathMenu.add(filepathButton)
-    filepathMenu.setMaximumSize(new Dimension(500, 25))
-
-    filepathButton.addActionListener((actionEvent: ActionEvent) => {
-      // Refresh tree
-      val filterFunc = (x:String) => x.contains(filterTextBox.getText)
-      tree.setModel(new FootprintBrowserTreeTableModel(new File(filepathTextbox.getText), filterFunc))
-    })
 
     tree.addMouseListener(new MouseListener {
       override def mouseClicked(mouseEvent: MouseEvent): Unit = {
@@ -62,10 +55,6 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
 
       override def mouseExited(mouseEvent: MouseEvent): Unit = {}
     })
-
-    setLayout(new BoxLayout(this, BoxLayout.Y_AXIS))
-    add(filepathMenu)
-    add(treeScrollPane)
 
     // Filter menu
     private val filterMenu = new JPanel
@@ -94,14 +83,9 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
     filterMenu.setMaximumSize(new Dimension(500, 25))
 
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS))
-    add(filepathMenu)
     add(filterMenu)
     add(treeScrollPane)
-
-
   }
-
-
 
   // GUI Components
   //
@@ -121,4 +105,13 @@ class KicadVizPanel() extends JPanel with MouseWheelListener {
   override def mouseWheelMoved(mouseWheelEvent: MouseWheelEvent): Unit = {
   }
 
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+    state.kicadLibraryDirectory = FootprintBrowser.libraryDirectory
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
+    FootprintBrowser.setLibraryDirectory(state.kicadLibraryDirectory)
+  }
 }
