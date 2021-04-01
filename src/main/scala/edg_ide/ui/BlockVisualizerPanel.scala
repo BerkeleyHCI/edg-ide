@@ -358,6 +358,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           indicator.setText("EDG compiling ... done")
 
+          notificationGroup.createNotification(
+            s"Compilation complete", "",
+            s"reload: $reloadTime ms, compile: $compileTime ms",
+            NotificationType.INFORMATION)
+              .notify(project)
+
           updateLibrary(EdgCompilerService(project).pyLib)
           refinementsPanel.setRefinements(refinements)
           errorPanel.setErrors(errors)
