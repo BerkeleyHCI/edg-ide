@@ -1,6 +1,5 @@
 package edg_ide.ui
-import java.io.FileNotFoundException
-
+import java.io.{File, FileNotFoundException}
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
@@ -15,20 +14,16 @@ case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
 class KicadParser(kicadFilePath:String) {
 
   // TODO have user select with FootprintBrowserPanel
-  private var kicadFile:String = kicadFilePath
+  private var kicadFile: File = new File("")
 
-  def getKicadFile: String = {
-    this.kicadFile
-  }
-
-  def setKicadFile(kicadFile: String): Unit = {
+  def setKicadFile(kicadFile: File): Unit = {
     this.kicadFile = kicadFile
   }
 
   def parseKicadFile(): ArrayBuffer[KicadComponent] = {
     // TODO better error handling
     try {
-      val fileReader = Source.fromFile(this.getKicadFile)
+      val fileReader = Source.fromFile(kicadFile)
       val lines = fileReader.getLines()
       var s = ""
       for (l <- lines.toList) {

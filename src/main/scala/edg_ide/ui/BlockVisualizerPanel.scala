@@ -264,7 +264,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   val TAB_INDEX_ERRORS = 3
 
   // add a tab for kicad visualization
-  private val kicadVizPanel = new KicadVizPanel()
+  private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
   val TAB_KICAD_VIZ = 4
 

@@ -24,7 +24,8 @@ object InsertAction {
     DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project).exceptError
   }
 
-  def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project)
+  def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project,
+                                            requireClass: Boolean=true)
                                            (implicit tag: ClassTag[T]): Errorable[PsiElement] = exceptable {
     val editors = FileEditorManager.getInstance(project).getSelectedEditors
         .filter { editor => editor.getFile == file.getVirtualFile }
@@ -59,7 +60,9 @@ object InsertAction {
     }
 
     val prev = prevElementOf(element)
-    prev.getParent.instanceOfExcept[T](s"caret not in a ${containerPsiType.getSimpleName}")  // sanity check
+    if (requireClass) {
+      prev.getParent.instanceOfExcept[T](s"caret not in a ${containerPsiType.getSimpleName}") // sanity check
+    }
     prev
   }
 
