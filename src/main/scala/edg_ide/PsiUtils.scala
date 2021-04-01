@@ -18,7 +18,7 @@ object PsiUtils {
       val psiDocumentManager = PsiDocumentManager.getInstance(project)
       val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
       val lineNumber = psiDocument.getLineNumber(element.getTextOffset)
-      s"${psiFile.getName}:$lineNumber"
+      s"${psiFile.getName}:${lineNumber + 1}"
     }
   }
 
@@ -27,7 +27,7 @@ object PsiUtils {
     val psiDocumentManager = PsiDocumentManager.getInstance(project)
     val psiDocument = psiDocumentManager.getDocument(psiFile).exceptNull("no document")
     val endLineNumber = psiDocument.getLineNumber(element.getTextOffset + element.getTextLength)
-    s"${psiFile.getName}:${endLineNumber + 1}"
+    s"${psiFile.getName}:${endLineNumber + 2}"
   }
 
   /** If element is a ReferenceExpression or TargetExpression of the form 'self.xyz', returns Some(xyz).
