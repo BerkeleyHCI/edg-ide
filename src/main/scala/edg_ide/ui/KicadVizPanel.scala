@@ -246,7 +246,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     val footprintBlockType = ElemBuilder.LibraryPath("electronics_model.CircuitBlock.FootprintBlock")  // TODO belongs in shared place?
     val footprintBlockClass = DesignAnalysisUtils.pyClassOf(footprintBlockType, project).exceptError
     requireExcept(blockPyClass.isSubclass(footprintBlockClass, TypeEvalContext.codeAnalysis(project, null)),
-      s"${blockPyClass.getName} not a FootprintClass")
+      s"${blockPyClass.getName} not a FootprintBlock")
 
     def continuation(added: PsiElement): Unit = {
       InsertAction.navigateToEnd(added)
@@ -255,7 +255,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       footprintSynced = true
       visualizer.repaint()
 
-      // TODO update things
+      // TODO update in design itself - but this requires changing Compiler params which isn't well supported
     }
 
     InsertFootprintAction.createInsertFootprintFlow(blockPyClass, footprintName,
