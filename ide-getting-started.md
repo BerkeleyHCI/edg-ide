@@ -6,15 +6,15 @@
 The core abstraction is the hierarchical block diagram, which we will explain using an example design of a microcontroller driving an LED.
 
 In conventional schematic tools, such a design could be a flat schematic, consisting of the microcontroller module, LED, and resistor:
-![Blinky Hierarchy Block Diagram](PolymorphicBlocks/docs/blinky_model_flat.png)
+![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_flat.png)
 
 Many modern tools have the concept of hierarchy blocks, where a block could be a subcircuit:
-![Blinky Hierarchy Block Diagram](PolymorphicBlocks/docs/blinky_model_hierarchy1.png)
+![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_hierarchy1.png)
 In this example, the LED-resistor subcircuit is contained within a block, which can be manipulated as a unit, and exposes ports (circles on the diagram) while encapsulating internal pins.
 (note: in tools with this feature, the subcircuit is usually presented in its own sheet, instead of having its contents displayed in the block)
 
 Generalizing this model, components are blocks too, and component pins are also block ports:
-![Blinky Hierarchy Block Diagram](PolymorphicBlocks/docs/blinky_model_hierarchy2.png)
+![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_hierarchy2.png)
 
 The main concepts our model extends on top of the simple hierarchy blocks above are **parameters**, **links**, and **generators**.
 
@@ -25,7 +25,7 @@ This allows for a more powerful design correctness check (think ERC++), and prov
 **Links** are connections between ports, which defines how parameters propagate between those ports and any constraints on them.
 Continuing the digital IO example, the link would check the output thresholds against the input thresholds, and provide the worst-case voltage levels given all connected drivers.
 These could be viewed as a block-like object (diamonds on the diagram) instead of direct wire connections:
-![Blinky Hierarchy Block Diagram](PolymorphicBlocks/docs/blinky_model_full.png)
+![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_full.png)
 
 > In the design model, links are inferred based on the types of connected ports and not explicit.
 
@@ -458,7 +458,45 @@ self.vout = self.Port(DigitalSource.from_supply(
 
 ### Defining the footprint
 `FootprintBlock` defines its footprint and pin mapping (from port to footprint pin) via a `self.footprint(...)` call.
-In `contents`, add these lines to add a SOT-23-3 footprint and pinmapping:
+This can be inserted from the GUI.
+
+Select (but without necessarily focusing into) the newly created block in the GUI.
+Then, position the caret at where you want to insert the code in the class definition (you can also navigate to the class definition through the block's right-click menu) . 
+In the KiCad panel, search for a **SOT-23** footprint, and double-click to insert code. 
+This code should appear:
+
+```python
+self.footprint(
+  'U', 'Package_TO_SOT_SMD:SOT-23',
+  { },
+  mfr='', part='',
+  datasheet=''
+)
+```
+
+> If your caret is already inside a `self.footprint` call, it will instead modify the existing call to use the selected footprint.  
+
+> This section isn't yet implemented. Copypaste into the curly braces
+> ```python
+>   '1': self.vcc,
+>   '3': self.gnd,
+>   '2': self.vout,
+> ``` 
+
+To assign pins, double-click on the relevant pad on the footprint while the caret is within a `self.footprint` call.
+Then, select from the list of connectable pins.
+
+Assign these pins:
+- Pin 1: `vcc`
+- Pin 2: `vout`
+- Pin 3: `gnd`
+
+You can also fill in the other fields in the code (which would be propagated to BoMs and layout):
+- Manufacturer: `Littelfuse`
+- Part: `LF21215TMR`
+- Datasheet: `https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf`
+
+The complete code looks like:
 
 ```python
 self.footprint(
@@ -472,8 +510,6 @@ self.footprint(
   datasheet='https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf'
 )
 ```
-
-<!-- TODO GUI footprint flow? -->
 
 ### Creating the application circuit
 In most cases, individual components are not used alone but are instal part of an application circuit,
