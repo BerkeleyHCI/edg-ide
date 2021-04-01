@@ -17,6 +17,8 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 /** Action to delete an element (any member of a Block, including sub-Block and Ports).
+  *
+  * TODO: this isn't visible because the static analysis is so leaky it might as well not be useful
   */
 object DeleteElemAction {
   // TODO dedup w/ NavigateToBlockAction?

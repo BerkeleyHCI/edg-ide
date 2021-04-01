@@ -2,7 +2,7 @@ package edg_ide.ui
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.PyFunction
+import com.jetbrains.python.psi.{PyFunction, PyStatementList}
 import edg.elem.elem
 import edg.expr.expr
 import edg.ref.ref
@@ -219,7 +219,9 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)
   private val contextPyName = contextPyClass.mapToString(_.getName)
   private val caretPsiElement = exceptable {
-    InsertAction.getCaretForNewClassStatement(contextPyClass.exceptError, interface.getProject).exceptError
+    InsertAction.getCaretAtFileOfType(
+      contextPyClass.exceptError.getContainingFile, classOf[PyStatementList],
+      interface.getProject, requireClass = false).exceptError
   }
 
   val appendConnectAction: Errorable[() => Unit] = exceptable {
