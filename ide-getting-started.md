@@ -37,6 +37,13 @@ These could be viewed as a block-like object (diamonds on the diagram) instead o
 Finally, **generators** allow a block's internal contents to be automatically and dynamically constructed, possibly based on parameters on it and its ports.
 For example, the `IndicatorLed` block might automatically size the resistor based on the input voltage on the `sig` pin, or a DC-DC converter block might automatically size inductors and capacitors based on the expected output voltage and current.
 
+In this tutorial, you'll be building a slightly different version of the above circuit, using a discrete microcontroller and adding additional parts.
+Diagrams in the IDE will also look different than the manually drawn diagrams above.
+For example, the equivalent of the above in the IDE would be:
+
+![Nucleo and LED circuit](docs/vis_nucleo_led.png)
+
+
 ### Hardware Description Language (HDL)
 To support user-defined computation of parameters and generator blocks, the design system is implemented as a _hardware description language_ (HDL).
 That is, blocks are "placed" or instantiated, and their ports are connected, through lines in code instead of GUI actions in a graphical schematic.
@@ -84,6 +91,7 @@ if __name__ == "__main__":
 - `class BlinkyExample` contains the (top-level) circuit you're going to build, and it extends the top-level board type `SimpleBoardTop`.
   It's empty for now, but we'll fill it in the next section.
 - The stuff in `if __name__ == "__main__":` allows the design to compile (and generate netlists) by running the file.
+  We won't be using this.
 
 Your IDE should look something like this (minus the red annotation text):
 
@@ -120,7 +128,9 @@ The icons have these meanings:
   This is typically used for "jellybean" parts, to indicate that many parts can be used in place, depending on design requirements - such as surface-mount vs. through-hole.
 - ![Footprint](docs/intellij_icons/PlatformDebuggerImplIcons.MemoryView.Active.dark.svg) (footprint): this block is a PCB footprint directly (as opposed to, for example, an application circuit which contains PCB footprints indirectly).
   In general, footprints are low-level constructs are should not be used where a non-footprint application circuit is also defined.
-  But, in some cases, as with the Nucleo_F303k8, both are one and the same.
+  But, in some cases, such as the Nucleo_F303k8, the footprint is the application circuit.
+- Most will not have an icon, which means that they're none of the above.
+  These blocks can be instantiated.
 
 In the code editor, click at the end of `super().contents()` to set the caret position to insert code for a new block.
 Then, double-click the Lpc1549_48 block in the library panel, give it a name (let's say, `mcu`), hit enter, and the relevant line of code should pop up.
@@ -154,7 +164,7 @@ For example, to connect the LED to the microcontroller, double click on `mcu`'s 
 
 ![Connect view](docs/ide_visualizer_connect_mcu.png)
 
-Then, select the ports to connect by clicking on them (in this case, `led`'s `signal` port), and double-click anywhere to insert the connect code.
+Then, select the ports to connect by clicking on them (in this case, `led`'s `signal` port), and double-click anywhere (within a block) to insert the connect code.
 You can optionally give the new net a name, or leave it blank.
 The new connection should show up on the visualizer:
 
@@ -166,23 +176,54 @@ and the connect line should appear in the code editor:
 self.connect(self.mcu.digital[0], self.led.signal)
 ```
 
+> You can cancel a connect action by double-clicking anywhere (within a block) without additional ports selected, or through the right-click menu regardless of whether ports are selected.
+
 > Note that the connect statement is ordered with the starting item first, then the rest in order.
 > Stylistically, we prefer sources before sinks, defined loosely (such as dataflow or power flow notations).
 > This convention is also used by the block diagram visualizer to define an order where it isn't apparent from the port types, for example if two bidirectional digital ports are connected together, as opposed to a digital source to a digital sink connection.
 
-As `mcu.digital` is an array-like port, an additional empty port will appear as existing ones are connected.
+> Explicit pin assignments to microcontrollers (for cleaner layouts) are supported, but `SimpleBoardTop` forces auto-assignment for simplicity in this tutorial.
+
+As `mcu.digital` is an array-like port, a new empty port (in this case, `mcu.digital[1]`) will appear as existing ones are connected.
 
 Repeat the same for the `gnd` port of both blocks.
 
-If you recompile now, the hatched fill should go away, but you'll get a bunch of errors.
+If you recompile now, the hatched fill should go away, but you'll see a bunch of errors on the Errors tab.
 These mostly stem from the missing power source, which are indicated on the block visualizer with the red ports.
 
-> Explicit pin assignments are supported, but `SimpleBoardTop` forces auto-assignment for simplicity in this tutorial.
+![Errors tab](docs/errors_blinky_unpowered.png)
+
+<details>
+  <summary>At this point, your code might look like...</summary>
+
+  ```python
+  class BlinkyExample(SimpleBoardTop):
+    def contents(self) -> None:
+      super().contents()
+  
+      self.mcu = self.Block(Lpc1549_48())
+      self.led = self.Block(IndicatorLed())
+      self.connect(self.mcu.digital[0], self.led.signal)
+      self.connect(self.mcu.gnd, self.led.gnd)
+  ```
+</details>
 
 ### Adding power and programming
-_In this section, you'll add and connect a power source and programming connector to fix errors._
+_In this section, you'll add and connect a power source (PJ-102A barrel jack) and programming connector (SWD header) to fix errors._
 
-Repeat the add block flow with the **Pj_102a** barrel jack connector (you can search for `BarrelJack`), and the **SwdCortexTargetHeader** (you can search for `swd` to find all the SWD connectors).
+Because we're ultimately writing code, where we insert blocks in the code could matter.
+For example, this following code would be illegal because it attempts to reference a block in a `connect` statement before it has been instantiated:
+
+```python
+# DON'T DO THIS - THIS WON'T COMPILE
+self.mcu = self.Block(Lpc1549_48())
+self.connect(self.mcu.gnd, self.jack.gnd)
+self.jack = self.Block(Pj_102a())
+```
+
+As a general matter of style, blocks that are "upstream" (such as in power flow terms) of others should be instantiated before.
+As such, repeat the above add block flow with the **Pj_102a** barrel jack connector (you can search for `BarrelJack`), but with the caret before the microcontroller (since it will power the microcontroller).
+Do the same with the **SwdCortexTargetHeader** (you can search for `swd` to find all the SWD connectors), with the caret after the microcontroller (since the microcontroller ends up connecting to a lot of things).
 
 Note that the inserted code for the barrel jack connector also has a, `voltage_out=RangeExpr()`.
 In general, the block insertion action will find required parameters (that don't have defaults) of blocks and insert them as arguments for you to fill out.
@@ -197,10 +238,40 @@ self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
 Repeat the connection flow with the `swd` and `pwr` lines (making sure to power both the microcontroller and SWD header).
 
 To add additional ports to an existing connection (such as `gnd`), you must start the connect operation with a port in the existing connection.
-In this case, if your caret is also over the prior connect statement, the new port is inserted to the prior connect.
+In this case, if your caret is also in a prior connect statement, the new port is inserted to the prior connect.
 Otherwise, a new connect statement is inserted.
 
+> For a `connect` statement, the caret is within the statement if it is within the parentheses.
+> The caret is outside if it is immediately after the closing parentheses.
+
 Re-compile, and you should get a lot less errors now.
+
+<details>
+  <summary>At this point, your code and diagram might look like...</summary>
+
+  ```python
+  class BlinkyExample(SimpleBoardTop):
+    def contents(self) -> None:
+      super().contents()
+      
+      self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
+
+      self.mcu = self.Block(Lpc1549_48())
+      self.swd = self.Block(SwdCortexTargetHeader())
+      self.connect(self.swd.swd, self.mcu.swd)
+
+      self.led = self.Block(IndicatorLed())
+      self.connect(self.mcu.digital[0], self.led.signal)
+
+      self.connect(self.jack.pwr, self.mcu.pwr, self.swd.pwr)
+      self.connect(self.jack.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
+  ```
+
+  Note that I've chosen to consolidate all the power and ground connections at the end, instead of having separate `connect` statements for each block.
+  In a later section, we'll clean that up using an implicit connect construct.
+
+  ![Block diagram view](docs/vis_blinky_powered.png)  
+</details>
 
 ### Inspection
 However, overvoltage errors remain.
@@ -213,24 +284,74 @@ The microcontroller is seeing a 5.0v ±10% voltage on a 3.3v device (technically
 _In this section, you'll insert an abstract power converter to fix the prior error, and refine it with a specific part number._
 
 Repeat the add block flow with the abstract **BuckConverter** block.
-As with the barrel jack, the inserted code also takes a parameter `output_voltage`.
+Remember to select a logical location for insertion.
+Similar to the barrel jack, the inserted `BuckConverter` also takes a parameter `output_voltage`.
 Let's ask for a **3.3v ±5%** output voltage:
 
 ```python
 self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
 ```
 
-To insert the converter between the barrel jack and low-voltage components, we'll need to disconnect the barrel jack.
-**Modifications like this need to be done in code**, but you can right-click the port and navigate to connect statements it's involved in, then delete the port from the connection.
+To hook up the converter between the barrel jack and low-voltage components, we'll need to disconnect the barrel jack's power port from the rest of the system.
+**Modifications like this need to be done in code**, so find the connect statement where the barrel jack's power port is part of, and remove the barrel jack from that statement.
+You do not need to modify the ground connections.
+
+> If you need to locate where a port is connected, you can right click on the port in the block diagram, and use the Goto Connect options.
+
+> If the barrel jack is the only element holding several connect statements together (as if written in a chain), you will need to refactor the HDL so that is no longer the case.
+> <details>
+>   <summary>For example...</summary>
+>   if your code was written like this (which is not stylistically recommended!):
+>
+>   ```python
+>   self.connect(self.mcu.pwr, self.jack.pwr)
+>   self.connect(self.jack.pwr, self.swd.pwr)
+>   ```
+>
+>   removing `self.jack.pwr` from both `connect` statements would also disconnect `self.mcu.pwr` from `self.swd.pwr`.
+>   Instead, it would need to be refactored to combine the two `connect` statements:
+>
+>   ```python
+> self.connect(self.mcu.pwr, self.swd.pwr)
+>   ```
+> </details>
+
 Then, refresh the visualization by recompiling, and you can hook up the buck converter via the GUI.
 
-If you recompile, you'll still have errors.
+After recompiling with a connected buck converter, you'll still have errors.
 The buck converter is still an abstract type (it has no implementation, and hence no output voltage, which confuses everything downstream), so we must give it one.
+
+<details>
+  <summary>At this point, your code and diagram might look like...</summary>
+
+  ```python
+  class BlinkyExample(SimpleBoardTop):
+    def contents(self) -> None:
+      super().contents()
+
+      self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
+  
+      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+      self.connect(self.jack.pwr, self.buck.pwr_in)
+  
+      self.mcu = self.Block(Lpc1549_48())
+      self.swd = self.Block(SwdCortexTargetHeader())
+      self.connect(self.swd.swd, self.mcu.swd)
+  
+      self.led = self.Block(IndicatorLed())
+      self.connect(self.mcu.digital[0], self.led.signal)
+  
+      self.connect(self.buck.pwr_out, self.mcu.pwr, self.swd.pwr)
+      self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
+  ```
+
+![Block diagram view](docs/vis_blinky_buckabs.png)
+</details>
 
 Select the buck converter in the block diagram visualization.
 Then, search for `Buck` in the library browser, and pick the `Tps561201` under the BuckConverter.
-Right click on it, and select Refine Instance Selection to set a refinement for this particular block instance.
-The associated refinement lines should appear in the top-level design in the code editor:
+Right click on it, and select Refine Instance to set a refinement for this particular block instance.
+The following code should appear in the top-level design in the code editor:
 
 ```python
 def refinements(self) -> Refinements:
@@ -246,6 +367,43 @@ Recompile, and there should be no more errors.
 > Abstract types are useful primarily in libraries to preserve alternatives, the refinement of which is left to the top-level designer.
 > For example, SimpleBoardTop defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract Resistor classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
 
+> Refine instance refines that one particular block, by its name.
+> Refine class refines all blocks of that class.
+> 
+
+<details>
+  <summary>At this point, your code and diagram might look like...</summary>
+
+  ```python
+  class BlinkyExample(SimpleBoardTop):
+    def contents(self) -> None:
+      super().contents()
+  
+      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+  
+      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+      self.connect(self.jack.pwr, self.buck.pwr_in)
+  
+      self.mcu = self.Block(Lpc1549_48())
+      self.swd = self.Block(SwdCortexTargetHeader())
+      self.connect(self.swd.swd, self.mcu.swd)
+  
+      self.led = self.Block(IndicatorLed())
+      self.connect(self.mcu.digital[0], self.led.signal)
+  
+      self.connect(self.mcu.pwr, self.swd.pwr, self.buck.pwr_out)
+      self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
+  
+  def refinements(self) -> Refinements:
+    return super().refinements() + Refinements(
+      instance_refinements=[
+        (['buck'], Tps561201),
+      ])
+  ```
+
+  ![Block diagram view](docs/vis_blinky_buck.png)
+</details>
+
 ### Navigation
 If you hover your mouse over the output line, you can see that it is now at 3.3v ±4.47%.
 Why?
@@ -257,14 +415,14 @@ You can see that it generated a feedback voltage divider, and if you mouseover t
 If you go into the voltage divider block and mouseover the resistors, you can also see resistor values selected, 10k and 33k.
 The output voltage on the output line reflects the actual expected output voltage, accounting for resistor tolerance and the chip's feedback reference tolerance.
 
-Similarly, you can see details of other components (like capacitor capacitance, or inductor inductance) by mouseover as well:
+To zoom out, you can double-click on the topmost block.
+Or, double-click on any block in the design tree to zoom to that block.
+
+You can see details of some other components (like capacitor capacitance, or inductor inductance) by mouseover as well:
 
 ![Buck converter input capacitor](docs/ide_visualizer_buckcap.png)
 
 If you want to see how the buck converter block (or any block) was implemented, you can also right click the block, and select "Goto Definition".
-
-To zoom out, you can double-click on the topmost block.
-Or, double-click on any block in the design tree to zoom to that block.
 
 ### Advanced: arraying LEDs
 _In this section, you'll modify the GUI-inserted code to programmatically create an array of LEDs._
