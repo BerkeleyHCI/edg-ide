@@ -7,18 +7,18 @@ The core abstraction is the hierarchical block diagram, which we will explain us
 
 In conventional schematic tools, such a design could be a flat schematic, consisting of the microcontroller module, LED, and resistor:
 
-![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_flat.png)
+![Blinky Hierarchy Block Diagram](edg/blinky_model_flat.png)
 
 Many modern tools have the concept of hierarchy blocks, where a block could be a subcircuit:
 
-![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_hierarchy1.png)
+![Blinky Hierarchy Block Diagram](edg/blinky_model_hierarchy1.png)
 
 In this example, the LED-resistor subcircuit is contained within a block, which can be manipulated as a unit, and exposes ports (circles on the diagram) while encapsulating internal pins.
 (note: in tools with this feature, the subcircuit is usually presented in its own sheet, instead of having its contents displayed in the block)
 
 Generalizing this model, components are blocks too, and component pins are also block ports:
 
-![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_hierarchy2.png)
+![Blinky Hierarchy Block Diagram](edg/blinky_model_hierarchy2.png)
 
 The main concepts our model extends on top of the simple hierarchy blocks above are **parameters**, **links**, and **generators**.
 
@@ -30,7 +30,7 @@ This allows for a more powerful design correctness check (think ERC++), and prov
 Continuing the digital IO example, the link would check the output thresholds against the input thresholds, and provide the worst-case voltage levels given all connected drivers.
 These could be viewed as a block-like object (diamonds on the diagram) instead of direct wire connections:
 
-![Blinky Hierarchy Block Diagram](docs/edg/blinky_model_full.png)
+![Blinky Hierarchy Block Diagram](edg/blinky_model_full.png)
 
 > In the design model, links are inferred based on the types of connected ports and not explicit.
 
@@ -41,7 +41,7 @@ For example, the `IndicatorLed` block might automatically size the resistor base
 > Diagrams in the IDE will also look different than the manually drawn diagrams above.
 > For example, the equivalent of the above in the IDE would be:
 >
-> ![Nucleo and LED circuit](docs/vis_nucleo_led.png)
+> ![Nucleo and LED circuit](vis_nucleo_led.png)
 > 
 > Note that the links have been "flattened" down into the net.
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
 Your IDE should look something like this (minus the blue annotation text):
 
-![Annotated IDE screen](docs/ide_start_annotated.png)
+![Annotated IDE screen](ide_start_annotated.png)
 
 The major components are:
 - **Block Diagram Visualization**: shows the compiled design visualized as a block diagram here.
@@ -124,14 +124,14 @@ _In this section, you'll add and connect the microcontroller and LED blocks thro
 
 In the Library Browser search filter textbox, type in `microcontroller` to pre-filter the blocks.
 
-![Libraries filtered by microcontroller](docs/ide_library_microcontroller.png)
+![Libraries filtered by microcontroller](ide_library_microcontroller.png)
 
 The icons have these meanings:
-- ![Folder](docs/intellij_icons/AllIcons.Nodes.Folder.svg) (category): this "block" is actually a category organizer and should not be instantiated.
-- ![Abstract Type](docs/intellij_icons/AllIcons.Hierarchy.Subtypes.dark.svg) (abstract type): this block is an abstract type.
+- ![Folder](intellij_icons/AllIcons.Nodes.Folder.svg) (category): this "block" is actually a category organizer and should not be instantiated.
+- ![Abstract Type](intellij_icons/AllIcons.Hierarchy.Subtypes.dark.svg) (abstract type): this block is an abstract type.
   In most cases, it can be instantiated, but will need a choice of refinement ("concrete" subtype) before a design is complete.
   This is typically used for "jellybean" parts, to indicate that many parts can be used in place, depending on design requirements - such as surface-mount vs. through-hole.
-- ![Footprint](docs/intellij_icons/PlatformDebuggerImplIcons.MemoryView.Active.dark.svg) (footprint): this block is a PCB footprint directly (as opposed to, for example, an application circuit which contains PCB footprints indirectly).
+- ![Footprint](intellij_icons/PlatformDebuggerImplIcons.MemoryView.Active.dark.svg) (footprint): this block is a PCB footprint directly (as opposed to, for example, an application circuit which contains PCB footprints indirectly).
   In general, footprints are low-level constructs are should not be used where a non-footprint application circuit is also defined.
   But, in some cases, such as the Nucleo_F303k8, the footprint is the application circuit.
 - Most will not have an icon, which means that they're none of the above.
@@ -146,7 +146,7 @@ self.mcu = self.Block(Lpc1549_48())
 
 The block should also appear on the visualization:
 
-![New block preview](docs/ide_visualizer_mcu_preview.png)
+![New block preview](ide_visualizer_mcu_preview.png)
 
 > In any IDE action where you double-click, you can also right-click to show other available actions.
 > For actions that inserts code, double-clicking insert code at the caret position, while right-clicking displays a list of other suggested places to insert code, such as the end of a function.
@@ -171,13 +171,13 @@ The red boxes indicate a missing required connection, in this example including 
 To start a connection operation on a port, double-click the port.
 For example, to connect the LED to the microcontroller, double click on `mcu`'s `digital[0]` port:
 
-![Connect view](docs/ide_visualizer_connect_mcu.png)
+![Connect view](ide_visualizer_connect_mcu.png)
 
 Then, select the ports to connect by clicking on them (in this case, `led`'s `signal` port), and double-click anywhere (within a block) to insert the connect code.
 You can optionally give the new net a name, or leave it blank.
 The new connection should show up on the visualizer:
 
-![Connected blocks](docs/ide_visualizer_connected.png)
+![Connected blocks](ide_visualizer_connected.png)
 
 and the connect line should appear in the code editor:
 
@@ -200,7 +200,7 @@ Repeat the same for the `gnd` port of both blocks.
 If you recompile now, the hatched fill should go away, but you'll see a bunch of errors on the Errors tab.
 These mostly stem from the missing power source, which are indicated on the block visualizer with the red ports.
 
-![Errors tab](docs/errors_blinky_unpowered.png)
+![Errors tab](errors_blinky_unpowered.png)
 
 > <details>
 >   <summary>At this point, your code might look like...</summary>
@@ -285,14 +285,14 @@ Re-compile, and you should get a lot less errors now.
 >   Note that I've chosen to consolidate all the power and ground connections at the end, instead of having separate `connect` statements for each block.
 >   In a later section, we'll clean that up using an implicit connect construct.
 > 
->   ![Block diagram view](docs/vis_blinky_powered.png)  
+>   ![Block diagram view](vis_blinky_powered.png)  
 > </details>
 
 ### Inspection
 However, overvoltage errors remain.
 If you mouse over the power connection, you should see the problem:
 
-![Connected blocks](docs/ide_visualizer_overvolt.png)
+![Connected blocks](ide_visualizer_overvolt.png)
 
 The microcontroller is seeing a 5.0v ±10% voltage on a 3.3v device (technically 2.4-3.6v, rendered as 3.0v ±20%).
 
@@ -358,7 +358,7 @@ Then, refresh the visualization by recompiling, and you can hook up the buck con
 >       self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
 >   ```
 > 
->   ![Block diagram view](docs/vis_blinky_buckabs.png)
+>   ![Block diagram view](vis_blinky_buckabs.png)
 > </details>
 
 After recompiling with a connected buck converter, you'll still have errors.
@@ -417,7 +417,7 @@ Recompile, and there should be no more errors.
 >       ])
 >   ```
 > 
->   ![Block diagram view](docs/vis_blinky_buck.png)
+>   ![Block diagram view](vis_blinky_buck.png)
 > </details>
 
 ### Navigation
@@ -425,7 +425,7 @@ If you hover your mouse over the output line, you can see that it is now at 3.3v
 Why?
 You can navigate into the Tps561201 by double-blocking on it.
 
-![TPS561201 subcircuit](docs/ide_visualizer_tps561201_impl.png)
+![TPS561201 subcircuit](ide_visualizer_tps561201_impl.png)
 
 You can see that it generated a feedback voltage divider, and if you mouseover the block, you can see that it generated a resistive divider with ratio of 0.23.
 If you go into the voltage divider block and mouseover the resistors, you can also see resistor values selected, 10k and 33k.
@@ -436,7 +436,7 @@ Or, double-click on any block in the design tree to zoom to that block.
 
 You can see details of some other components (like capacitor capacitance, or inductor inductance) by mouseover as well:
 
-![Buck converter input capacitor](docs/ide_visualizer_buckcap.png)
+![Buck converter input capacitor](ide_visualizer_buckcap.png)
 
 If you want to see the code for the buck converter block (or any block), you can also right click the block and select "Goto Definition".
 
@@ -505,7 +505,7 @@ for i in range(4):
 >         ])
 >   ```
 > 
->   ![Block diagram view](docs/vis_blinky_array.png)
+>   ![Block diagram view](vis_blinky_array.png)
 > </details>
 
 
@@ -711,7 +711,7 @@ self.vout = self.Port(DigitalSource.from_supply(
 >       super().contents()
 >   ```
 > 
->   ![Block diagram view](docs/vis_magsense_device.png)
+>   ![Block diagram view](vis_magsense_device.png)
 > </details>
 
 ### Defining the footprint
@@ -781,7 +781,7 @@ You can also fill in the other fields in the code (which would be propagated to 
 >       )
 >   ```
 > 
->   ![Footprint view](docs/footprint_magsense.png)
+>   ![Footprint view](footprint_magsense.png)
 > </details>
 
 ### Creating the application circuit
@@ -842,7 +842,7 @@ self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
 >       super().contents()
 >   ```
 > 
->   ![Block diagram view](docs/vis_magsense_app.png)
+>   ![Block diagram view](vis_magsense_app.png)
 > </details>
 
 ### Export
@@ -926,5 +926,5 @@ The sensor output can be connected to any digital line of the microcontroller, s
 >         ])
 >   ```
 > 
->   ![Block diagram view](docs/vis_blinky_magsense.png)
+>   ![Block diagram view](vis_blinky_magsense.png)
 > </details>
