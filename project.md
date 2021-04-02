@@ -14,6 +14,12 @@ Consider building the rest of the circuit first, and modeling and inserting the 
 You should create a new top-level block (subclass of `SimpleBoardTop`) for this project.
 To set it as the visualizer's working design, click anywhere in the new class and, then go to main menu > Tools > Set Visualizer Design.
 
+Feel free to copy code from the tutorial (if desired) or start from scratch.
+Also, feel free to try other parts in the library.
+
+A [language reference section](#hdl-reference) is also at the bottom of this file. 
+
+
 ## Light Sensor: BH1620FVC
 
 [BH1620FVC](https://rohmfs.rohm.com/en/products/databook/datasheet/ic/sensor/light/bh1620fvc-e.pdf) is an analog light sensor with a current output.

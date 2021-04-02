@@ -95,16 +95,19 @@ if __name__ == "__main__":
 - The stuff in `if __name__ == "__main__":` allows the design to compile (and generate netlists) by running the file.
   We won't be using this.
 
-Your IDE should look something like this (minus the red annotation text):
+Your IDE should look something like this (minus the blue annotation text):
 
 ![Annotated IDE screen](docs/ide_start_annotated.png)
 
 The major components are:
 - **Block Diagram Visualization**: shows the compiled design visualized as a block diagram here.
   - **Tree View**: shows the compiled design as a tree structure of the block hierarchy.
-- **Block Depth Selection**: selects the maximum depth of blocks shown in the Block Diagram Visualization. 1 means show only one level, 2 means show the top-level blocks and one level of internal blocks, and so on.  
-- **Update Button**: click to re-compile and update the visualization. Also available through hotkey Ctrl + Alt + R.
-- **Library Browser**: shows all the library blocks, ports, and links. The text box at the top allows filtering by keyword.
+- **Block Depth Selection**: selects the maximum depth of blocks shown in the Block Diagram Visualization.
+  1 means show only one level, 2 means show the top-level blocks and one level of internal blocks, and so on.  
+- **Update Button**: click to re-compile and update the visualization.
+  Also available through the main menu > Tools and the hotkey shown there.
+- **Library Browser**: shows all the library blocks, ports, and links.
+  The text box at the top allows filtering by keyword.
   - **Library Preview**: shows more information on the selected library block, including a docstring (if available), parameters, and block diagram preview.
   
 We'll go over each in more detail as they are used.
@@ -199,20 +202,20 @@ These mostly stem from the missing power source, which are indicated on the bloc
 
 ![Errors tab](docs/errors_blinky_unpowered.png)
 
-<details>
-  <summary>At this point, your code might look like...</summary>
-
-  ```python
-  class BlinkyExample(SimpleBoardTop):
-    def contents(self) -> None:
-      super().contents()
-  
-      self.mcu = self.Block(Lpc1549_48())
-      self.led = self.Block(IndicatorLed())
-      self.connect(self.mcu.digital[0], self.led.signal)
-      self.connect(self.mcu.gnd, self.led.gnd)
-  ```
-</details>
+> <details>
+>   <summary>At this point, your code might look like...</summary>
+> 
+>   ```python
+>   class BlinkyExample(SimpleBoardTop):
+>     def contents(self) -> None:
+>       super().contents()
+>   
+>       self.mcu = self.Block(Lpc1549_48())
+>       self.led = self.Block(IndicatorLed())
+>       self.connect(self.mcu.digital[0], self.led.signal)
+>       self.connect(self.mcu.gnd, self.led.gnd)
+>   ```
+> </details>
 
 ### Adding power and programming
 _In this section, you'll add and connect a power source (PJ-102A barrel jack) and programming connector (SWD header) to fix errors._
@@ -258,36 +261,37 @@ Otherwise, a new connect statement is inserted.
 
 Re-compile, and you should get a lot less errors now.
 
-<details>
-  <summary>At this point, your code and diagram might look like...</summary>
-
-  ```python
-  class BlinkyExample(SimpleBoardTop):
-    def contents(self) -> None:
-      super().contents()
-      
-      self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
-
-      self.mcu = self.Block(Lpc1549_48())
-      self.swd = self.Block(SwdCortexTargetHeader())
-      self.connect(self.swd.swd, self.mcu.swd)
-
-      self.led = self.Block(IndicatorLed())
-      self.connect(self.mcu.digital[0], self.led.signal)
-
-      self.connect(self.jack.pwr, self.mcu.pwr, self.swd.pwr)
-      self.connect(self.jack.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
-  ```
-
-  Note that I've chosen to consolidate all the power and ground connections at the end, instead of having separate `connect` statements for each block.
-  In a later section, we'll clean that up using an implicit connect construct.
-
-  ![Block diagram view](docs/vis_blinky_powered.png)  
-</details>
+> <details>
+>   <summary>At this point, your code and diagram might look like...</summary>
+> 
+>   ```python
+>   class BlinkyExample(SimpleBoardTop):
+>     def contents(self) -> None:
+>       super().contents()
+>       
+>       self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
+> 
+>       self.mcu = self.Block(Lpc1549_48())
+>       self.swd = self.Block(SwdCortexTargetHeader())
+>       self.connect(self.swd.swd, self.mcu.swd)
+> 
+>       self.led = self.Block(IndicatorLed())
+>       self.connect(self.mcu.digital[0], self.led.signal)
+> 
+>       self.connect(self.jack.pwr, self.mcu.pwr, self.swd.pwr)
+>       self.connect(self.jack.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
+>   ```
+> 
+>   Note that I've chosen to consolidate all the power and ground connections at the end, instead of having separate `connect` statements for each block.
+>   In a later section, we'll clean that up using an implicit connect construct.
+> 
+>   ![Block diagram view](docs/vis_blinky_powered.png)  
+> </details>
 
 ### Inspection
 However, overvoltage errors remain.
 If you mouse over the power connection, you should see the problem:
+
 ![Connected blocks](docs/ide_visualizer_overvolt.png)
 
 The microcontroller is seeing a 5.0v ±10% voltage on a 3.3v device (technically 2.4-3.6v, rendered as 3.0v ±20%).
@@ -330,32 +334,32 @@ You do not need to modify the ground connections.
 
 Then, refresh the visualization by recompiling, and you can hook up the buck converter via the GUI.
 
-<details>
-  <summary>At this point, your code and diagram might look like...</summary>
-
-  ```python
-  class BlinkyExample(SimpleBoardTop):
-    def contents(self) -> None:
-      super().contents()
-
-      self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
-  
-      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
-      self.connect(self.jack.pwr, self.buck.pwr_in)
-  
-      self.mcu = self.Block(Lpc1549_48())
-      self.swd = self.Block(SwdCortexTargetHeader())
-      self.connect(self.swd.swd, self.mcu.swd)
-  
-      self.led = self.Block(IndicatorLed())
-      self.connect(self.mcu.digital[0], self.led.signal)
-  
-      self.connect(self.buck.pwr_out, self.mcu.pwr, self.swd.pwr)
-      self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
-  ```
-
-![Block diagram view](docs/vis_blinky_buckabs.png)
-</details>
+> <details>
+>   <summary>At this point, your code and diagram might look like...</summary>
+> 
+>   ```python
+>   class BlinkyExample(SimpleBoardTop):
+>     def contents(self) -> None:
+>       super().contents()
+> 
+>       self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.10)))
+>   
+>       self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+>       self.connect(self.jack.pwr, self.buck.pwr_in)
+>   
+>       self.mcu = self.Block(Lpc1549_48())
+>       self.swd = self.Block(SwdCortexTargetHeader())
+>       self.connect(self.swd.swd, self.mcu.swd)
+>   
+>       self.led = self.Block(IndicatorLed())
+>       self.connect(self.mcu.digital[0], self.led.signal)
+>   
+>       self.connect(self.buck.pwr_out, self.mcu.pwr, self.swd.pwr)
+>       self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
+>   ```
+> 
+>   ![Block diagram view](docs/vis_blinky_buckabs.png)
+> </details>
 
 After recompiling with a connected buck converter, you'll still have errors.
 The buck converter is still an abstract type (it has no implementation, and hence no output voltage, which confuses everything downstream), so we must give it one.
@@ -383,38 +387,38 @@ Recompile, and there should be no more errors.
 > "Refine Class" refines all blocks of that class.
 > 
 
-<details>
-  <summary>At this point, your code and diagram might look like...</summary>
-
-  ```python
-  class BlinkyExample(SimpleBoardTop):
-    def contents(self) -> None:
-      super().contents()
-  
-      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
-  
-      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
-      self.connect(self.jack.pwr, self.buck.pwr_in)
-  
-      self.mcu = self.Block(Lpc1549_48())
-      self.swd = self.Block(SwdCortexTargetHeader())
-      self.connect(self.swd.swd, self.mcu.swd)
-  
-      self.led = self.Block(IndicatorLed())
-      self.connect(self.mcu.digital[0], self.led.signal)
-  
-      self.connect(self.mcu.pwr, self.swd.pwr, self.buck.pwr_out)
-      self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
-  
-  def refinements(self) -> Refinements:
-    return super().refinements() + Refinements(
-      instance_refinements=[
-        (['buck'], Tps561201),
-      ])
-  ```
-
-  ![Block diagram view](docs/vis_blinky_buck.png)
-</details>
+> <details>
+>   <summary>At this point, your code and diagram might look like...</summary>
+> 
+>   ```python
+>   class BlinkyExample(SimpleBoardTop):
+>     def contents(self) -> None:
+>       super().contents()
+>   
+>       self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+>   
+>       self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+>       self.connect(self.jack.pwr, self.buck.pwr_in)
+>   
+>       self.mcu = self.Block(Lpc1549_48())
+>       self.swd = self.Block(SwdCortexTargetHeader())
+>       self.connect(self.swd.swd, self.mcu.swd)
+>   
+>       self.led = self.Block(IndicatorLed())
+>       self.connect(self.mcu.digital[0], self.led.signal)
+>   
+>       self.connect(self.mcu.pwr, self.swd.pwr, self.buck.pwr_out)
+>       self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
+>   
+>   def refinements(self) -> Refinements:
+>     return super().refinements() + Refinements(
+>       instance_refinements=[
+>         (['buck'], Tps561201),
+>       ])
+>   ```
+> 
+>   ![Block diagram view](docs/vis_blinky_buck.png)
+> </details>
 
 ### Navigation
 If you hover your mouse over the output line, you can see that it is now at 3.3v ±4.47%.
@@ -468,41 +472,41 @@ for i in range(4):
   self.connect(self.mcu.gnd, self.led[i].gnd)
 ```
 
-<details>
-  <summary>At this point, your code and diagram might look like...</summary>
-
-  ```python
-  class BlinkyExample(SimpleBoardTop):
-    def contents(self) -> None:
-      super().contents()
-  
-      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
-  
-      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
-      self.connect(self.jack.pwr, self.buck.pwr_in)
-  
-      self.mcu = self.Block(Lpc1549_48())
-      self.swd = self.Block(SwdCortexTargetHeader())
-      self.connect(self.swd.swd, self.mcu.swd)
-  
-      self.led = ElementDict()
-      for i in range(4):
-        self.led[i] = self.Block(IndicatorLed())
-        self.connect(self.mcu.digital[i], self.led[i].signal)
-        self.connect(self.mcu.gnd, self.led[i].gnd)
-  
-      self.connect(self.mcu.pwr, self.swd.pwr, self.buck.pwr_out)
-      self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd)
-  
-    def refinements(self) -> Refinements:
-      return super().refinements() + Refinements(
-        instance_refinements=[
-          (['buck'], Tps561201),
-        ])
-  ```
-
-  ![Block diagram view](docs/vis_blinky_array.png)
-</details>
+> <details>
+>   <summary>At this point, your code and diagram might look like...</summary>
+> 
+>   ```python
+>   class BlinkyExample(SimpleBoardTop):
+>     def contents(self) -> None:
+>       super().contents()
+>   
+>       self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+>   
+>       self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+>       self.connect(self.jack.pwr, self.buck.pwr_in)
+>   
+>       self.mcu = self.Block(Lpc1549_48())
+>       self.swd = self.Block(SwdCortexTargetHeader())
+>       self.connect(self.swd.swd, self.mcu.swd)
+>   
+>       self.led = ElementDict()
+>       for i in range(4):
+>         self.led[i] = self.Block(IndicatorLed())
+>         self.connect(self.mcu.digital[i], self.led[i].signal)
+>         self.connect(self.mcu.gnd, self.led[i].gnd)
+>   
+>       self.connect(self.mcu.pwr, self.swd.pwr, self.buck.pwr_out)
+>       self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd)
+>   
+>     def refinements(self) -> Refinements:
+>       return super().refinements() + Refinements(
+>         instance_refinements=[
+>           (['buck'], Tps561201),
+>         ])
+>   ```
+> 
+>   ![Block diagram view](docs/vis_blinky_array.png)
+> </details>
 
 
 ## Syntactic sugar
@@ -554,42 +558,42 @@ with self.implicit_connect(
 Note that we still have to make the connections for the SWD interface and the LED signal.
 Those do not need to be placed in the implicit scope, but (as shown above) may be for stylistic purposes. 
 
-<details>
-  <summary>At this point, your code might look like...</summary>
-
-  ```python
-  class BlinkyExample(SimpleBoardTop):
-    def contents(self) -> None:
-      super().contents()
-  
-      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
-  
-      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
-      self.connect(self.jack.pwr, self.buck.pwr_in)
-      self.connect(self.jack.gnd, self.buck.gnd)
-
-      with self.implicit_connect(
-              ImplicitConnect(self.buck.pwr_out, [Power]),
-              ImplicitConnect(self.jack.gnd, [Common]),
-      ) as imp:
-        self.mcu = imp.Block(Lpc1549_48())
-        self.swd = imp.Block(SwdCortexTargetHeader())
-        self.connect(self.swd.swd, self.mcu.swd)
-  
-        self.led = ElementDict()
-        for i in range(4):
-          self.led[i] = imp.Block(IndicatorLed())
-          self.connect(self.mcu.digital[i], self.led[i].signal)
-      
-    def refinements(self) -> Refinements:
-      return super().refinements() + Refinements(
-        instance_refinements=[
-          (['buck'], Tps561201),
-        ])
-  ```
-
-  The block diagram should not have changed - this is a non-functional, stylistic change.
-</details>
+> <details>
+>   <summary>At this point, your code might look like...</summary>
+> 
+>   ```python
+>   class BlinkyExample(SimpleBoardTop):
+>     def contents(self) -> None:
+>       super().contents()
+>   
+>       self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+>   
+>       self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+>       self.connect(self.jack.pwr, self.buck.pwr_in)
+>       self.connect(self.jack.gnd, self.buck.gnd)
+> 
+>       with self.implicit_connect(
+>               ImplicitConnect(self.buck.pwr_out, [Power]),
+>               ImplicitConnect(self.jack.gnd, [Common]),
+>       ) as imp:
+>         self.mcu = imp.Block(Lpc1549_48())
+>         self.swd = imp.Block(SwdCortexTargetHeader())
+>         self.connect(self.swd.swd, self.mcu.swd)
+>   
+>         self.led = ElementDict()
+>         for i in range(4):
+>           self.led[i] = imp.Block(IndicatorLed())
+>           self.connect(self.mcu.digital[i], self.led[i].signal)
+>       
+>     def refinements(self) -> Refinements:
+>       return super().refinements() + Refinements(
+>         instance_refinements=[
+>           (['buck'], Tps561201),
+>         ])
+>   ```
+> 
+>   The block diagram should not have changed - this is a non-functional, stylistic change.
+> </details>
 
 ### Advanced
 
@@ -683,32 +687,32 @@ self.vout = self.Port(DigitalSource.from_supply(
 >   While this example only had one port, consider if we had several outputs with the same electrical characteristics.
 >   In code, we could define one port model and instantiate it multiple times, while the GUI may require repeating the definition several times.
 
-<details>
-  <summary>At this point, your code and diagram might look like...</summary>
-
-  ```python
-  class Lf21215tmr_Device(FootprintBlock):
-    def __init__(self) -> None:
-      super().__init__()
-      self.vcc = self.Port(
-        VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
-        [Power])
-  
-      self.gnd = self.Port(
-        VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
-        [Common])
-  
-      self.vout = self.Port(DigitalSource.from_supply(
-        self.gnd, self.vcc,
-        output_threshold_offset=(0.2, -0.3)
-      ))
-
-    def contents(self) -> None:
-      super().contents()
-  ```
-
-  ![Block diagram view](docs/vis_magsense_device.png)
-</details>
+> <details>
+>   <summary>At this point, your code and diagram might look like...</summary>
+> 
+>   ```python
+>   class Lf21215tmr_Device(FootprintBlock):
+>     def __init__(self) -> None:
+>       super().__init__()
+>       self.vcc = self.Port(
+>         VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
+>         [Power])
+>   
+>       self.gnd = self.Port(
+>         VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
+>         [Common])
+>   
+>       self.vout = self.Port(DigitalSource.from_supply(
+>         self.gnd, self.vcc,
+>         output_threshold_offset=(0.2, -0.3)
+>       ))
+> 
+>     def contents(self) -> None:
+>       super().contents()
+>   ```
+> 
+>   ![Block diagram view](docs/vis_magsense_device.png)
+> </details>
 
 ### Defining the footprint
 `FootprintBlock` defines its footprint and pin mapping (from port to footprint pin) via a `self.footprint(...)` call.
@@ -730,15 +734,7 @@ self.footprint(
 
 > If your caret is already inside a `self.footprint` call, it will instead modify the existing call to use the selected footprint.  
 
-> TODO: This next section isn't yet implemented in the IDE. 
-> Copypaste into the curly braces"
-> ```python
->   '1': self.vcc,
->   '3': self.gnd,
->   '2': self.vout,
-> ``` 
-
-To assign pins, double-click on the relevant pad on the footprint while the caret is within a `self.footprint` call.
+To assign pins, double-click on the pad on the footprint while the caret is within the `self.footprint` call to be edited.
 Then, select from the list of connectable pins.
 
 Assign these pins:
@@ -751,42 +747,42 @@ You can also fill in the other fields in the code (which would be propagated to 
 - Part: `LF21215TMR`
 - Datasheet: `https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf`
 
-<details>
-  <summary>At this point, your code and footprint might look like...</summary>
-
-  ```python
-  class Lf21215tmr_Device(FootprintBlock):
-    def __init__(self) -> None:
-      super().__init__()
-      self.vcc = self.Port(
-        VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
-        [Power])
-  
-      self.gnd = self.Port(
-        VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
-        [Common])
-  
-      self.vout = self.Port(DigitalSource.from_supply(
-        self.gnd, self.vcc,
-        output_threshold_offset=(0.2, -0.3)
-      ))
-
-    def contents(self) -> None:
-      super().contents()
-      self.footprint(
-        'U', 'Package_TO_SOT_SMD:SOT-23',
-        {
-          '1': self.vcc,
-          '2': self.vout,
-          '3': self.gnd,
-        },
-        mfr='Littelfuse', part='LF21215TMR',
-        datasheet='https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf'
-      )
-  ```
-
-  ![Footprint view](docs/footprint_magsense.png)
-</details>
+> <details>
+>   <summary>At this point, your code and footprint might look like...</summary>
+> 
+>   ```python
+>   class Lf21215tmr_Device(FootprintBlock):
+>     def __init__(self) -> None:
+>       super().__init__()
+>       self.vcc = self.Port(
+>         VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
+>         [Power])
+>   
+>       self.gnd = self.Port(
+>         VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
+>         [Common])
+>   
+>       self.vout = self.Port(DigitalSource.from_supply(
+>         self.gnd, self.vcc,
+>         output_threshold_offset=(0.2, -0.3)
+>       ))
+> 
+>     def contents(self) -> None:
+>       super().contents()
+>       self.footprint(
+>         'U', 'Package_TO_SOT_SMD:SOT-23',
+>         {
+>           '1': self.vcc,
+>           '2': self.vout,
+>           '3': self.gnd,
+>         },
+>         mfr='Littelfuse', part='LF21215TMR',
+>         datasheet='https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf'
+>       )
+>   ```
+> 
+>   ![Footprint view](docs/footprint_magsense.png)
+> </details>
 
 ### Creating the application circuit
 In most cases, individual components are not used alone but are instead part of an application circuit,
@@ -823,31 +819,31 @@ By default, we use a loose 20% tolerance for capacitors:
 self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
 ```
 
-<details>
-  <summary>At this point, your code and diagram might look like...</summary>
-
-  ```python
-  class Lf21215tmr(Block):
-    def __init__(self) -> None:
-      super().__init__()
-      self.ic = self.Block(Lf21215tmr_Device())
-      
-      self.pwr = self.Port(VoltageSink(), [Power])
-      self.gnd = self.Port(VoltageSink(), [Common])
-      self.out = self.Port(DigitalSource())
-
-      self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
-
-      self.connect(self.ic.vcc, self.cap.pwr, self.pwr)
-      self.connect(self.ic.gnd, self.cap.gnd, self.gnd)
-      self.connect(self.ic.vout, self.out)
-  
-    def contents(self) -> None:
-      super().contents()
-  ```
-
-  ![Block diagram view](docs/vis_magsense_app.png)
-</details>
+> <details>
+>   <summary>At this point, your code and diagram might look like...</summary>
+> 
+>   ```python
+>   class Lf21215tmr(Block):
+>     def __init__(self) -> None:
+>       super().__init__()
+>       self.ic = self.Block(Lf21215tmr_Device())
+>       
+>       self.pwr = self.Port(VoltageSink(), [Power])
+>       self.gnd = self.Port(VoltageSink(), [Common])
+>       self.out = self.Port(DigitalSource())
+> 
+>       self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
+> 
+>       self.connect(self.ic.vcc, self.cap.pwr, self.pwr)
+>       self.connect(self.ic.gnd, self.cap.gnd, self.gnd)
+>       self.connect(self.ic.vout, self.out)
+>   
+>     def contents(self) -> None:
+>       super().contents()
+>   ```
+> 
+>   ![Block diagram view](docs/vis_magsense_app.png)
+> </details>
 
 ### Export
 Instead of creating ports, we can also use the `self.Export(...)` function to export an inner port directly.
@@ -865,70 +861,70 @@ self.connect(self.cap.pwr, self.pwr)
 self.connect(self.cap.gnd, self.gnd)
 ```
 
-<details>
-  <summary>At this point, your code might look like...</summary>
-
-  ```python
-  class Lf21215tmr(Block):
-    def __init__(self) -> None:
-      super().__init__()
-      self.ic = self.Block(Lf21215tmr_Device())
-      self.pwr = self.Export(self.ic.vcc, [Power])
-      self.gnd = self.Export(self.ic.gnd, [Common])
-      self.out = self.Export(self.ic.vout)
-  
-      self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
-      self.connect(self.cap.pwr, self.pwr)
-      self.connect(self.cap.gnd, self.gnd)
-  
-    def contents(self) -> None:
-      super().contents()
-  ```
-
-The block diagram should not have changed - this is a non-functional, stylistic change.
-</details>
+> <details>
+>   <summary>At this point, your code might look like...</summary>
+> 
+>   ```python
+>   class Lf21215tmr(Block):
+>     def __init__(self) -> None:
+>       super().__init__()
+>       self.ic = self.Block(Lf21215tmr_Device())
+>       self.pwr = self.Export(self.ic.vcc, [Power])
+>       self.gnd = self.Export(self.ic.gnd, [Common])
+>       self.out = self.Export(self.ic.vout)
+>   
+>       self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
+>       self.connect(self.cap.pwr, self.pwr)
+>       self.connect(self.cap.gnd, self.gnd)
+>   
+>     def contents(self) -> None:
+>       super().contents()
+>   ```
+> 
+> The block diagram should not have changed - this is a non-functional, stylistic change.
+> </details>
 
 ### Finishing Touches
 Connect the magnetic sensor at the top level (if you haven't done so already).
 You can put it in the implicit block to avoid the explicit power and ground `connect` statements.
 The sensor output can be connected to any digital line of the microcontroller, such as `digital[4]`.
 
-<details>
-  <summary>At this point, your code and diagram might look like...</summary>
-
-  ```python
-  class BlinkyExample(SimpleBoardTop):
-    def contents(self) -> None:
-      super().contents()
-  
-      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
-  
-      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
-      self.connect(self.jack.pwr, self.buck.pwr_in)
-      self.connect(self.jack.gnd, self.buck.gnd)
-  
-      with self.implicit_connect(
-              ImplicitConnect(self.buck.pwr_out, [Power]),
-              ImplicitConnect(self.jack.gnd, [Common]),
-      ) as imp:
-        self.mcu = imp.Block(Lpc1549_48())
-        self.swd = imp.Block(SwdCortexTargetHeader())
-        self.connect(self.swd.swd, self.mcu.swd)
-  
-        self.led = ElementDict()
-        for i in range(4):
-          self.led[i] = imp.Block(IndicatorLed())
-          self.connect(self.mcu.digital[i], self.led[i].signal)
-  
-        self.mag = imp.Block(Lf21215tmr())
-        self.connect(self.mcu.digital[4], self.mag.out)
-  
-    def refinements(self) -> Refinements:
-      return super().refinements() + Refinements(
-        instance_refinements=[
-          (['buck'], Tps561201),
-        ])
-  ```
-
-  ![Block diagram view](docs/vis_blinky_magsense.png)
-</details>
+> <details>
+>   <summary>At this point, your code and diagram might look like...</summary>
+> 
+>   ```python
+>   class BlinkyExample(SimpleBoardTop):
+>     def contents(self) -> None:
+>       super().contents()
+>   
+>       self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+>   
+>       self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+>       self.connect(self.jack.pwr, self.buck.pwr_in)
+>       self.connect(self.jack.gnd, self.buck.gnd)
+>   
+>       with self.implicit_connect(
+>               ImplicitConnect(self.buck.pwr_out, [Power]),
+>               ImplicitConnect(self.jack.gnd, [Common]),
+>       ) as imp:
+>         self.mcu = imp.Block(Lpc1549_48())
+>         self.swd = imp.Block(SwdCortexTargetHeader())
+>         self.connect(self.swd.swd, self.mcu.swd)
+>   
+>         self.led = ElementDict()
+>         for i in range(4):
+>           self.led[i] = imp.Block(IndicatorLed())
+>           self.connect(self.mcu.digital[i], self.led[i].signal)
+>   
+>         self.mag = imp.Block(Lf21215tmr())
+>         self.connect(self.mcu.digital[4], self.mag.out)
+>   
+>     def refinements(self) -> Refinements:
+>       return super().refinements() + Refinements(
+>         instance_refinements=[
+>           (['buck'], Tps561201),
+>         ])
+>   ```
+> 
+>   ![Block diagram view](docs/vis_blinky_magsense.png)
+> </details>
