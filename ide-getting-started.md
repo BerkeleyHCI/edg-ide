@@ -354,7 +354,7 @@ The buck converter is still an abstract type (it has no implementation, and henc
   ![Block diagram view](docs/vis_blinky_buckabs.png)
 </details>
 
-Select the buck converter in the block diagram visualization.
+Select (but without necessarily zooming into) the buck converter in the block diagram view.
 Then, search for `Buck` in the library browser, and pick the `Tps561201` under the BuckConverter.
 Right click on it, and select Refine Instance to set a refinement for this particular block instance.
 The following code should appear in the top-level design in the code editor:
@@ -599,7 +599,7 @@ _We do this in two stages, first defining a `FootprintBlock` for the chip itself
 ### Creating a part
 A new block can be defined from the library browser.
 Since we will be making a `FootprintBlock`, search for that in the library browser.
-Then, select a point for insertion (top-level: outside any class or function) in the file being edited, right-click on FootprintBlock, and select Define New Subclass.
+Then, select a point for insertion (top-level: outside any class or function) in the file being edited, right-click on FootprintBlock, select "Define New Subclass", and name it `Lf21215tmr_Device`.
 It should insert this code:
 
 ```python
@@ -620,19 +620,27 @@ To work with this part in the visual editor, you can instantiate this block in y
 Once you recompile, it should show up in the library browser.
 Then, double-click into the newly created `Lf21215tmr_Device` block to set it for editing.
 
-The chip itself has three ports: Vcc (voltage input, type **VoltageSink**), GND (voltage input, type **VoltageSink**), and Vout (digital output, type **DigitalSource**).
+The chip itself has three ports:
+- Vcc: voltage input, type **VoltageSink**
+- GND: voltage input, type **VoltageSink**
+- Vout: digital output, type **DigitalSource**
+
 We can create ports through the library browser, by searching for the port name, then double-clicking to insert.
 Ports show up at the end of the library browser, and can only be inserted with the caret in `__init__` (because it defines the block's interface).
 
-We will need to modify these with the appropriate parameters from the datasheet: operating supply voltage of 1.8-5.5v, supply current of 1.5uA (nominal), and output thresholds of 0.2v (low) and (Vcc-0.3) (high).
+Similar to inserting the barrel jack and buck converter blocks, these ports are also parameterized.
+We will need to modify these with the appropriate parameters from the datasheet: 
+- operating supply voltage of 1.8-5.5v
+- supply current of 1.5uA (nominal)
+- output thresholds of 0.2v (low) and (Vcc-0.3) (high)
 
-Replace the `voltage_limits` and `current_draw` for Vcc accordingly:
+For Vcc, replace the `voltage_limits` and `current_draw`:
 ```python
 self.vcc = self.Port(
   VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp))
 ```
 
-For `gnd`, we have a special `Ground()` wrapper:
+For `gnd`, we have a special `Ground()` convenience constructor for voltage inputs used as ground:
 ```python
 self.gnd = self.Port(Ground())
 ```
@@ -656,20 +664,47 @@ self.vout = self.Port(DigitalSource.from_supply(
 ))
 ```
 
-> With a relatively simple example like this, you may be wondering why this needs an HDL instead of a ports with property grid interface that supports mathematical expressions.
+> With a relatively simple example like this, you may be wondering why this needs an HDL instead of a diagram with properties sheet interface that supports mathematical expressions.
 > That interface would have a few shortcomings:
-> - First, as seen with `DigitalSource.from_supply`, it would be less straightforward to support these simple wrappers for common cases.
->   While possible, these wrappers would also likely be baked into the tool (and limited to what the tool designers support), instead of being user-defineable.
+> - First, it would be less straightforward to support simple wrappers like `DigitalSource.from_supply`.
+>   While possible, these wrappers would likely need to be baked into the tool (and limited to what the tool designers support), instead of being user-defineable.
 > - Second, interfaces that don't allow multi-line code (think spreadsheets) generally have issues with duplication for re-use.
 >   While this example only had one port, consider if we had several outputs with the same electrical characteristics.
 >   In code, we could define one port model and instantiate it multiple times, while the GUI equivalent is trickier.
+
+<details>
+  <summary>At this point, your code and diagram might look like...</summary>
+
+  ```python
+  class Lf21215tmr_Device(FootprintBlock):
+    def __init__(self) -> None:
+      super().__init__()
+      self.vcc = self.Port(
+        VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
+        [Power])
+  
+      self.gnd = self.Port(
+        VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
+        [Common])
+  
+      self.vout = self.Port(DigitalSource.from_supply(
+        self.gnd, self.vcc,
+        output_threshold_offset=(0.2, -0.3)
+      ))
+
+    def contents(self) -> None:
+      super().contents()
+  ```
+
+  ![Block diagram view](docs/vis_magsense_device.png)
+</details>
 
 ### Defining the footprint
 `FootprintBlock` defines its footprint and pin mapping (from port to footprint pin) via a `self.footprint(...)` call.
 This can be inserted from the GUI.
 
-Select (but without necessarily focusing into) the newly created block in the GUI.
-Then, position the caret at where you want to insert the code in the class definition (you can also navigate to the class definition through the block's right-click menu) . 
+Select (but without necessarily focusing into) the newly created block in the block diagram view.
+Then, position the caret at where you want to insert the code - we recommend in the `contents` method.
 In the KiCad panel, search for a **SOT-23** footprint, and double-click to insert code. 
 This code should appear:
 
@@ -684,7 +719,7 @@ self.footprint(
 
 > If your caret is already inside a `self.footprint` call, it will instead modify the existing call to use the selected footprint.  
 
-> This section isn't yet implemented. Copypaste into the curly braces
+> This next section isn't yet implemented. Copypaste into the curly braces
 > ```python
 >   '1': self.vcc,
 >   '3': self.gnd,
@@ -704,43 +739,56 @@ You can also fill in the other fields in the code (which would be propagated to 
 - Part: `LF21215TMR`
 - Datasheet: `https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf`
 
-The complete code looks like:
+<details>
+  <summary>At this point, your code and footprint might look like...</summary>
 
-```python
-self.footprint(
-  'U', 'Package_TO_SOT_SMD:SOT-23',
-  {
-    '1': self.vcc,
-    '2': self.vout,
-    '3': self.gnd,
-  },
-  mfr='Littelfuse', part='LF21215TMR',
-  datasheet='https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf'
-)
-```
+  ```python
+  class Lf21215tmr_Device(FootprintBlock):
+    def __init__(self) -> None:
+      super().__init__()
+      self.vcc = self.Port(
+        VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
+        [Power])
+  
+      self.gnd = self.Port(
+        VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
+        [Common])
+  
+      self.vout = self.Port(DigitalSource.from_supply(
+        self.gnd, self.vcc,
+        output_threshold_offset=(0.2, -0.3)
+      ))
+
+    def contents(self) -> None:
+      super().contents()
+      self.footprint(
+        'U', 'Package_TO_SOT_SMD:SOT-23',
+        {
+          '1': self.vcc,
+          '2': self.vout,
+          '3': self.gnd,
+        },
+        mfr='Littelfuse', part='LF21215TMR',
+        datasheet='https://www.littelfuse.com/~/media/electronics/datasheets/magnetic_sensors_and_reed_switches/littelfuse_tmr_switch_lf21215tmr_datasheet.pdf.pdf'
+      )
+  ```
+
+  ![Footprint view](docs/footprint_magsense.png)
+</details>
 
 ### Creating the application circuit
-In most cases, individual components are not used alone but are instal part of an application circuit,
+In most cases, individual components are not used alone but are instead part of an application circuit,
 As in the typical application circuit of the LF21215TMR datasheet, it requires a 0.1uF decoupling capacitor.
 We will build the application circuit as a block around the device defined above, then use this in the top-level design.
 
-Again, start by creating a new block:
-```python
-class Lf21215tmr(Block):
-  def __init__(self) -> None:
-    super().__init__()
-    # block boundary (ports, parameters) definition here 
+Start by creating a new block, `Lf21215tmr`.
+Since this won't be a footprint, it should extend `Block` directly, and you can insert such code by right clicking on All Blocks in the library browser.
 
-  def contents(self) -> None:
-    super().contents()
-    # block implementation (subblocks, internal connections, footprint) here
-```
-
-Note that in contrast to the previous one, this drops the `_Device` prefix (which is purely stylistic) and also extends `Block` instead of `FootprintBlock`.
+> Note that in contrast to the previous one, this drops the `_Device` postfix we used to indicate a footprint block.
 
 Again, if you want to work with this in the graphical editor, you can recompile once you've added the block code, then instantiate it from the library browser.
 If you had the `Lf21215tmr_Device` block in your top-level design, you can delete that. 
-Then, double-click into the newly created `Lf21215tmr` block to set it for editing.
+Then, double-click into the newly created `Lf21215tmr` block to select it for editing.
 
 <!-- TODO GUI Export support -->
 
@@ -763,6 +811,30 @@ By default, we use a loose 20% tolerance for capacitors:
 self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
 ```
 
+<details>
+  <summary>At this point, your code and diagram might look like...</summary>
+
+  ```python
+  class Lf21215tmr(Block):
+    def __init__(self) -> None:
+      super().__init__()
+      self.pwr = self.Port(VoltageSink(), [Power])
+      self.gnd = self.Port(VoltageSink(), [Common])
+      self.out = self.Port(DigitalSource())
+
+      self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
+
+      self.connect(self.ic.vcc, self.cap.pwr, self.pwr)
+      self.connect(self.ic.gnd, self.cap.gnd, self.gnd)
+      self.connect(self.ic.vout, self.out)
+  
+    def contents(self) -> None:
+      super().contents()
+  ```
+
+  ![Block diagram view](docs/vis_magsense_app.png)
+</details>
+
 ### Export
 Instead of creating ports, we can also use the `self.Export(...)` function to export an inner port directly.
 The main benefit is you don't need to specify repeated type information for the port, which will be inferred from the inner port.
@@ -779,5 +851,70 @@ self.connect(self.cap.pwr, self.pwr)
 self.connect(self.cap.gnd, self.gnd)
 ```
 
+<details>
+  <summary>At this point, your code might look like...</summary>
+
+  ```python
+  class Lf21215tmr(Block):
+    def __init__(self) -> None:
+      super().__init__()
+      self.ic = self.Block(Lf21215tmr_Device())
+      self.pwr = self.Export(self.ic.vcc, [Power])
+      self.gnd = self.Export(self.ic.gnd, [Common])
+      self.out = self.Export(self.ic.vout)
+  
+      self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
+      self.connect(self.cap.pwr, self.pwr)
+      self.connect(self.cap.gnd, self.gnd)
+  
+    def contents(self) -> None:
+      super().contents()
+  ```
+
+The block diagram should not have changed - this is a non-functional, stylistic change.
+</details>
+
 ### Finishing Touches
-Connect things at the top level (if you haven't done so already), and we're done!
+Connect the magnetic sensor at the top level (if you haven't done so already).
+You can put it in the implicit block to avoid the explicit power and ground `connect` statements.
+The sensor output can be connected to any digital line of the microcontroller, such as `digital[4]`.
+
+<details>
+  <summary>At this point, your code and diagram might look like...</summary>
+
+  ```python
+  class BlinkyExample(SimpleBoardTop):
+    def contents(self) -> None:
+      super().contents()
+  
+      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+  
+      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+      self.connect(self.jack.pwr, self.buck.pwr_in)
+      self.connect(self.jack.gnd, self.buck.gnd)
+  
+      with self.implicit_connect(
+              ImplicitConnect(self.buck.pwr_out, [Power]),
+              ImplicitConnect(self.jack.gnd, [Common]),
+      ) as imp:
+        self.mcu = imp.Block(Lpc1549_48())
+        self.swd = imp.Block(SwdCortexTargetHeader())
+        self.connect(self.swd.swd, self.mcu.swd)
+  
+        self.led = ElementDict()
+        for i in range(4):
+          self.led[i] = imp.Block(IndicatorLed())
+          self.connect(self.mcu.digital[i], self.led[i].signal)
+  
+        self.mag = imp.Block(Lf21215tmr())
+        self.connect(self.mcu.digital[4], self.mag.out)
+  
+    def refinements(self) -> Refinements:
+      return super().refinements() + Refinements(
+        instance_refinements=[
+          (['buck'], Tps561201),
+        ])
+  ```
+
+  ![Block diagram view](docs/vis_blinky_magsense.png)
+</details>
