@@ -221,9 +221,15 @@ self.connect(self.mcu.gnd, self.jack.gnd)
 self.jack = self.Block(Pj_102a())
 ```
 
-As a general matter of style, blocks that are "upstream" (such as in power flow terms) of others should be instantiated before.
-As such, repeat the above add block flow with the **Pj_102a** barrel jack connector (you can search for `BarrelJack`), but with the caret before the microcontroller (since it will power the microcontroller).
+In terms of style, blocks that are "upstream" (such as in power flow terms) of others should be instantiated before.
+So, repeat the above add block flow with the **Pj_102a** barrel jack connector (you can search for `BarrelJack`), but with the caret before the microcontroller (since it will power the microcontroller).
 Do the same with the **SwdCortexTargetHeader** (you can search for `swd` to find all the SWD connectors), with the caret after the microcontroller (since the microcontroller ends up connecting to a lot of things).
+
+> As a general note, HDLs have different non-functional degrees of freedom compared to schematic.
+> For HDLs, the style (including ordering) of hardware construction statements is somewhat like the placement and arrangement of symbols and nets in a graphical schematic.
+> The style of the code can significantly impact readability and maintainability.
+>
+> While GUI operations are useful in writing lines of code, it is up to you to determine where they should be placed to keep the HDL readable (and legal).
 
 Note that the inserted code for the barrel jack connector also has a, `voltage_out=RangeExpr()`.
 In general, the block insertion action will find required parameters (that don't have defaults) of blocks and insert them as arguments for you to fill out.
@@ -345,7 +351,7 @@ The buck converter is still an abstract type (it has no implementation, and henc
       self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
   ```
 
-![Block diagram view](docs/vis_blinky_buckabs.png)
+  ![Block diagram view](docs/vis_blinky_buckabs.png)
 </details>
 
 Select the buck converter in the block diagram visualization.
@@ -365,10 +371,10 @@ def refinements(self) -> Refinements:
 Recompile, and there should be no more errors.
 
 > Abstract types are useful primarily in libraries to preserve alternatives, the refinement of which is left to the top-level designer.
-> For example, SimpleBoardTop defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract Resistor classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
+> For example, `SimpleBoardTop` defines a default set of refinements for 0603 surface-mount components, but because libraries are written with (for example) abstract `Resistor` classes, you can select a resistor and override it with a through-hole part, such as `AxialResistor`.
 
-> Refine instance refines that one particular block, by its name.
-> Refine class refines all blocks of that class.
+> "Refine Instance" refines that one particular block, by its name.
+> "Refine Class" refines all blocks of that class.
 > 
 
 <details>
@@ -422,7 +428,7 @@ You can see details of some other components (like capacitor capacitance, or ind
 
 ![Buck converter input capacitor](docs/ide_visualizer_buckcap.png)
 
-If you want to see how the buck converter block (or any block) was implemented, you can also right click the block, and select "Goto Definition".
+If you want to see the code for the buck converter block (or any block), you can also right click the block and select "Goto Definition".
 
 ### Advanced: arraying LEDs
 _In this section, you'll modify the GUI-inserted code to programmatically create an array of LEDs._
@@ -432,7 +438,7 @@ _In this section, you'll modify the GUI-inserted code to programmatically create
 > This functionality is probably more useful in those library components, but can also come in handy in some cases in the top-level design. 
 
 Since the circuit is "constructed" by executing Python code, we can actually write arbitrary Python to generate hardware.
-Take your LED instantiation and connection code, and move the lines together:
+If your LED instantiation and connection code already isn't together, refactor them together, such as:
 
 ```python
 self.led = self.Block(IndicatorLed())
@@ -456,12 +462,41 @@ for i in range(4):
   self.connect(self.mcu.gnd, self.led[i].gnd)
 ```
 
-> As a general note, note that HDLs have different non-functional degrees of freedom compared to schematic.
-> In HDL, the style (including ordering) of hardware construction statements is somewhat like the placement and arrangement of symbols and nets in a graphical schematic.
-> While the block diagram visualization is automatically generated, the style of the code can impact readability and maintainability.
-> 
-> While GUI operations are useful in writing lines of code, it is up to you to determine where they should be placed to keep the HDL readable.
-> We'll do a bit of light cleanup in the next section using advanced constructs.
+<details>
+  <summary>At this point, your code and diagram might look like...</summary>
+
+  ```python
+  class BlinkyExample(SimpleBoardTop):
+    def contents(self) -> None:
+      super().contents()
+  
+      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+  
+      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+      self.connect(self.jack.pwr, self.buck.pwr_in)
+  
+      self.mcu = self.Block(Lpc1549_48())
+      self.swd = self.Block(SwdCortexTargetHeader())
+      self.connect(self.swd.swd, self.mcu.swd)
+  
+      self.led = ElementDict()
+      for i in range(4):
+        self.led[i] = self.Block(IndicatorLed())
+        self.connect(self.mcu.digital[i], self.led[i].signal)
+        self.connect(self.mcu.gnd, self.led[i].gnd)
+  
+      self.connect(self.mcu.pwr, self.swd.pwr, self.buck.pwr_out)
+      self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd)
+  
+    def refinements(self) -> Refinements:
+      return super().refinements() + Refinements(
+        instance_refinements=[
+          (['buck'], Tps561201),
+        ])
+  ```
+
+  ![Block diagram view](docs/vis_blinky_array.png)
+</details>
 
 
 ## Syntactic sugar
@@ -469,7 +504,7 @@ for i in range(4):
 _Syntactic sugar refers to syntax within programming languages that makes things more usable._
 _In this section, we clean up the prior example by consolidating some repetitive connections through implicit scopes._
 
-> The IDE does not provide any special support or understanding for these operations, but will render the final outcome.
+> The IDE does not provide any special support for generating or understanding these operations, but will render the final outcome.
 
 Because some connections (like power and ground) are very common, the HDL provides the idea of an implicit connection scope to automatically make them when a block is instantiated.
 In our example, if we wanted to create a scope with an implicit power connection from the buck converter output, and an implicit ground connection from the barrel jack input, we can write:
@@ -482,7 +517,7 @@ with self.implicit_connect(
   ...
 ```
 
-_Because this uses `self.buck` and `self.jack` (or however you named those components), those must be declared in code before they can be referenced._
+_Remember that `self.buck` and `self.jack` (or however you named those components) must be instantiated before they are referenced!_
 
 This creates an implicit connection scope `imp`, with two `ImplicitConnect` rules:
 - The first connecting all ports with the tag `Power` to `self.buck.pwr_out`
@@ -498,49 +533,59 @@ _Note the use of `imp.Block(...)` instead of `self.Block(...)`!_
 ```python
   self.mcu = imp.Block(Lpc1549_48())
   self.swd = imp.Block(SwdCortexTargetHeader())
-  
-  self.led = imp.Block(IndicatorLed())
+  self.connect(self.swd.swd, self.mcu.swd)
+
+  self.led = ElementDict()
+  for i in range(4):
+    self.led[i] = imp.Block(IndicatorLed())
+    self.connect(self.mcu.digital[i], self.led[i].signal)
 ```
 
 Note that we still have to make the connections for the SWD interface and the LED signal.
 Those do not need to be placed in the implicit scope, but may be for stylistic purposes. 
 
+<details>
+  <summary>At this point, your code might look like...</summary>
+
+  ```python
+  class BlinkyExample(SimpleBoardTop):
+    def contents(self) -> None:
+      super().contents()
+  
+      self.jack = self.Block(Pj_102a(voltage_out=6*Volt(tol=0.10)))
+  
+      self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
+      self.connect(self.jack.pwr, self.buck.pwr_in)
+      self.connect(self.jack.gnd, self.buck.gnd)
+
+      with self.implicit_connect(
+              ImplicitConnect(self.buck.pwr_out, [Power]),
+              ImplicitConnect(self.jack.gnd, [Common]),
+      ) as imp:
+        self.mcu = imp.Block(Lpc1549_48())
+        self.swd = imp.Block(SwdCortexTargetHeader())
+        self.connect(self.swd.swd, self.mcu.swd)
+  
+        self.led = ElementDict()
+        for i in range(4):
+          self.led[i] = imp.Block(IndicatorLed())
+          self.connect(self.mcu.digital[i], self.led[i].signal)
+      
+    def refinements(self) -> Refinements:
+      return super().refinements() + Refinements(
+        instance_refinements=[
+          (['buck'], Tps561201),
+        ])
+  ```
+
+  The block diagram should not have changed - this is a non-functional, stylistic change.
+</details>
+
+### Advanced
+
 There also exists a chain connect that allows a block instantiation and connection on one line, but as this tutorial focuses on the IDE, we'll skip that.
 If you're interested, the HDL getting started doc has [a section on chain connects](PolymorphicBlocks/getting-started.md#chain-connects).
 Chain also makes use of the `Input`, `Output`, and `InOut` tags.
-
-### Wrapping up
-At this point, the complete and refactored HDL might look something like this:
-
-```python
-class BlinkyExample(SimpleBoardTop):
-  def contents(self) -> None:
-    super().contents()
-
-    self.jack = self.Block(Pj_102a(voltage_out=5*Volt(tol=0.1)))
-    self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
-    self.connect(self.jack.pwr, self.buck.pwr_in)
-    self.connect(self.jack.gnd, self.buck.gnd)
-
-    with self.implicit_connect(
-        ImplicitConnect(self.buck.pwr_out, [Power]),
-        ImplicitConnect(self.jack.gnd, [Common]),
-    ) as imp:
-      self.mcu = imp.Block(Lpc1549_48())
-      self.swd = imp.Block(SwdCortexTargetHeader())
-      self.connect(self.swd.swd, self.mcu.swd)
-
-      self.led = ElementDict()
-      for i in range(4):
-        self.led[i] = imp.Block(IndicatorLed())
-        self.connect(self.mcu.digital[i], self.led[i].signal)
-
-  def refinements(self) -> Refinements:
-    return super().refinements() + Refinements(
-    instance_refinements=[
-      (['buck'], Tps561201),
-    ])
-```
 
 
 ## Advanced tutorial: making parts
