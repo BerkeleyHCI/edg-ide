@@ -5,7 +5,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.jetbrains.python.psi.types.TypeEvalContext
-import edg.ElemBuilder
+import edg.{ElemBuilder, ExprBuilder}
 import edg.common.common
 import edg.compiler.{Compiler, ExprToString, TextValue}
 import edg.elem.elem
@@ -186,17 +186,20 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
           val selectedComp = visualizer.getComponentForLocation(e.getX, e.getY)
               .onlyExcept("must select exactly one pad")
           val selectedPin = selectedComp.instanceOfExcept[Rectangle]("selected not a pad").name
+          val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
 
-          def continuation(portPath: Seq[String], added: PsiElement): Unit = {
+          def continuation(portPath: ref.LocalPath, added: PsiElement): Unit = {
             InsertAction.navigateToEnd(added)
-            //          visualizer.pinmap = pinning.mapValues(ExprToString(_)).toMap  // TODO dedup
+
+            val newPinning = pinning.updated(selectedPin, portPath)
+            currentBlockPathTypePin = Some((blockPath, blockType, block, newPinning))
+            visualizer.pinmap = newPinning.mapValues(ExprToString(_)).toMap  // TODO dedup
             visualizer.repaint()
 
-            // TODO should actually write into design
+            // TODO actually modify the Design ... once a better API for that exists
           }
 
-          val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
-          InsertPinningAction.createInsertPinningFlow(block, selectedPin, e, project, continuation)
+          InsertPinningAction.createInsertPinningFlow(block, selectedPin, pinning, e, project, continuation)
         }
       }
     }
