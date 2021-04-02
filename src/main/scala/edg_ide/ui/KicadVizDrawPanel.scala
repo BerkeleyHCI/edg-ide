@@ -81,7 +81,7 @@ class KicadVizDrawPanel extends JPanel {
           DrawAnchored.drawLabel(g, name,
             (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
             DrawAnchored.Bottom)
-          DrawAnchored.drawLabel(g, pinmap.getOrElse(name, "unassigned"),
+          DrawAnchored.drawLabel(g, pinmap.getOrElse(name, ""),
             (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
             DrawAnchored.Top)
         case _ =>
