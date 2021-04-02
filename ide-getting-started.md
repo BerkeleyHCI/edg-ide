@@ -55,7 +55,7 @@ There are a couple of basic operations, which you'll get to try in the tutorial:
   - For example, `self.led = self.Block(IndicatorLed())` instantiates a `IndicatorLed` block and names it `led` in the current block
 - **Port Instantiation**: creates an exterior port in the current block, used for building library blocks.
   - For example, `self.vdd = self.Port(VoltageSink(voltage_limits=(2.3, 5.5)*Volt, current_draw=(0, 15)*uAmp))` instantiates a port of type `VoltageSink` (voltage input) with defined voltage limits and current draw ranges, and names it `vdd`.
-- **Connect**: connects two ports
+- **Connect**: connects two (or more) ports.
   - For example, `self.connect(self.mcu.digital[0], self.led.signal)` connects a digital IO port on `mcu` to the signal port of `led`
 
 ### Graphical Editor and Integrated Development Environment (IDE)
@@ -157,6 +157,10 @@ In this case, the **Lpc1549_48 block** is only a preview, while the enclosing Bl
 > Re-compiling will re-run the HDL and update the visualization to ground-truth.
 
 Then, repeat the above with an **IndicatorLed block**, and name it `led`.
+
+### View Operations
+
+With something on your screen now, you can zoom in and out of the visualization using the mousewheel, or pan by clicking and dragging.
 
 ### Connecting the microcontroller and LED
 The red boxes indicate a missing required connection, in this example including power, ground, and the SWD programming line.
@@ -292,7 +296,7 @@ The microcontroller is seeing a 5.0v ±10% voltage on a 3.3v device (technically
 _In this section, you'll insert an abstract power converter to fix the prior error, and refine it with a specific part number._
 
 Repeat the add block flow with the abstract **BuckConverter** block.
-Remember to select a logical location for insertion, between the barrel jack and the loads it will serve.
+_Remember to select a logical location for insertion, between the barrel jack and the loads it will serve._
 Similar to the barrel jack, the inserted `BuckConverter` also takes a parameter, `output_voltage` which defines the target output voltage.
 Let's ask for a **3.3v ±5%** output voltage:
 
@@ -533,8 +537,12 @@ If we move the microcontroller, SWD port, and LED instantiations inside this sco
 _Note the use of `imp.Block(...)` instead of `self.Block(...)`!_
 
 ```python
+with self.implicit_connect(
+        ImplicitConnect(self.buck.pwr_out, [Power]),
+        ImplicitConnect(self.jack.gnd, [Common]),
+) as imp:
   self.mcu = imp.Block(Lpc1549_48())
-  self.swd = imp.Block(SwdCortexTargetHeader())
+  self.swd = imp.Block(SwdCortexTargetHeade())
   self.connect(self.swd.swd, self.mcu.swd)
 
   self.led = ElementDict()
@@ -648,6 +656,8 @@ self.gnd = self.Port(Ground())
 
 For `DigitalSource`, while we could write the parameters explicitly:
 ```python
+# Don't do this, see better style below!
+
 self.vout = self.Port(DigitalSource(
   voltage_out=(self.gnd.link().voltage.lower(),
                self.vcc.link().voltage.upper()),
@@ -820,6 +830,8 @@ self.cap = self.Block(DecouplingCapacitor(capacitance=0.1*uFarad(tol=0.2)))
   class Lf21215tmr(Block):
     def __init__(self) -> None:
       super().__init__()
+      self.ic = self.Block(Lf21215tmr_Device())
+      
       self.pwr = self.Port(VoltageSink(), [Power])
       self.gnd = self.Port(VoltageSink(), [Common])
       self.out = self.Port(DigitalSource())
