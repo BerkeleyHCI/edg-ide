@@ -46,17 +46,19 @@ object InsertPortAction {
 
         // TODO should this insert args for ports?
         for (initParam <- allParams) {
-          val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
-            initParam.getName, "...")
+          if (initParam.getName != "model") {  // TODO remove once model is removed
+            val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
+              initParam.getName, "...")
 
-          val defaultValue = initParam.getDefaultValue
-          if (defaultValue != null) {
-            kwArg.getValueExpression.replace(defaultValue)
+            val defaultValue = initParam.getDefaultValue
+            if (defaultValue != null) {
+              kwArg.getValueExpression.replace(defaultValue)
+            }
+
+            newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
+                .getArgument(0, classOf[PyCallExpression])
+                .getArgumentList.addArgument(kwArg)
           }
-
-          newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
-              .getArgument(0, classOf[PyCallExpression])
-              .getArgumentList.addArgument(kwArg)
         }
 
         val added = writeCommandAction(project).withName(actionName).compute(() => {
