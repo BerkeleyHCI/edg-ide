@@ -15,9 +15,9 @@ import edg.schema.schema
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
-import edg_ide.psi_edits.{InsertAction, InsertFootprintAction}
+import edg_ide.psi_edits.{InsertAction, InsertFootprintAction, InsertPinningAction}
 import edg_ide.swing._
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
@@ -27,10 +27,11 @@ import javax.swing._
 import javax.swing.event.{DocumentEvent, DocumentListener}
 import javax.swing.tree.TreePath
 
+
 class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   // State
   //
-  var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, Map[String, ref.LocalPath])] = None  // should be a Block with a footprint and pinning field
+  var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] = None  // should be a Block with a footprint and pinning field
   var footprintSynced: Boolean = false
 
   object FootprintBrowser extends JPanel {
@@ -95,7 +96,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
             case Some(footprintName) =>
               visualizer.kicadParser.setKicadFile(node.file)
               visualizer.repaint()
-              status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint preview: ${footprintName}",
+              val footprintStr = footprintName.replace(":", ": ")  // TODO this allows a line break but is hacky
+              status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint preview: ${footprintStr}",
                 KicadVizPanel.this.getFont))
             case _ =>
               status.setText(SwingHtmlUtil.wrapInHtml(s"Invalid file: ${node.file.getName}",
@@ -178,7 +180,25 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   visualizer.offset = (this.FootprintBrowser.getWidth * 1.2).asInstanceOf[Int] // @TODO clean this up with offset code
   visualizer.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      println(visualizer.getComponentForLocation(e.getX, e.getY))
+      if (e.getClickCount == 2) {
+        exceptionPopup(e) {
+          requireExcept(footprintSynced, "footprint not synced")
+          val selectedComp = visualizer.getComponentForLocation(e.getX, e.getY)
+              .onlyExcept("must select exactly one pad")
+          val selectedPin = selectedComp.instanceOfExcept[Rectangle]("selected not a pad").name
+
+          def continuation(portPath: Seq[String], added: PsiElement): Unit = {
+            InsertAction.navigateToEnd(added)
+            //          visualizer.pinmap = pinning.mapValues(ExprToString(_)).toMap  // TODO dedup
+            visualizer.repaint()
+
+            // TODO should actually write into design
+          }
+
+          val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
+          InsertPinningAction.createInsertPinningFlow(block, selectedPin, e, project, continuation)
+        }
+      }
     }
   })
 
@@ -229,7 +249,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     } match {
       case Some((block, Some((footprint, pinning)))) =>
         val footprintStr = footprint.replace(":", ": ")  // TODO this allows a line break but is hacky
-        currentBlockPathTypePin = Some((blockPath, block.superclasses.head, pinning))
+        currentBlockPathTypePin = Some((blockPath, block.superclasses.head, block, pinning))
         footprintSynced = true
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
         FootprintBrowser.footprintToFile(footprint) match {
@@ -246,7 +266,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
               this.getFont))
         }
       case Some((block, None)) =>
-        currentBlockPathTypePin = Some((blockPath, block.superclasses.head, Map()))
+        currentBlockPathTypePin = Some((blockPath, block.superclasses.head, block, Map()))
         footprintSynced = false
         visualizer.pinmap = Map()
         status.setText(SwingHtmlUtil.wrapInHtml(s"No footprint at ${blockPath.lastString}",
@@ -263,13 +283,13 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   /** Returns an action to insert code to set the current block's footprint to something.
     * FootprintBlock detection is done here, so code edit actions are as consistent as possible. */
   def insertBlockFootprint(footprintName: String): Errorable[() => Unit] = exceptable {
-    val (blockPath, blockType, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
+    val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
     val blockPyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
 
     val footprintFile = FootprintBrowser.footprintToFile(footprintName)
         .exceptNone(s"unknown footprint $footprintName")
     val footprintBlockType = ElemBuilder.LibraryPath("electronics_model.CircuitBlock.FootprintBlock")  // TODO belongs in shared place?
-    val footprintBlockClass = DesignAnalysisUtils.pyClassOf(footprintBlockType, project).exceptError
+    val footprintBlockClass = DesignAnalysisUtils.pyClassOf(footprintBlockType, project).get
     requireExcept(blockPyClass.isSubclass(footprintBlockClass, TypeEvalContext.codeAnalysis(project, null)),
       s"${blockPyClass.getName} not a FootprintBlock")
 

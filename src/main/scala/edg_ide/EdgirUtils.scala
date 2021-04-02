@@ -9,6 +9,8 @@ import edg.ElemBuilder
 
 
 object EdgirUtils {
+  // TODO this entire thing needs to be broken up
+
   // TODO this needs better flagging
   def isCategory(blockType: ref.LibraryPath): Boolean = {
     blockType.getTarget.getName.contains("Categories")

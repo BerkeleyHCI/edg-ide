@@ -38,6 +38,16 @@ object PopupUtils {
     popup.showCenteredInCurrentWindow(project)
   }
 
+  def createMenuPopup[T](title: String, elts: Seq[T], e: MouseEvent)(accept: T => Unit): Unit = {
+    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(seqAsJavaList(elts))
+        .setTitle(title)
+        .setItemChosenCallback((t: T) => {
+          accept(t)
+        })
+        .createPopup()
+    popup.showInScreenCoordinates(e.getComponent, new Point(e.getXOnScreen, e.getYOnScreen))
+  }
+
   def createStringEntryPopup(title: String, project: Project)(accept: String => Errorable[Unit]): Unit = {
     val contentPanel = new NewItemSimplePopupPanel
     val nameField = contentPanel.getTextField
