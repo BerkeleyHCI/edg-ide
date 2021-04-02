@@ -4,20 +4,19 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.jetbrains.python.psi.PyExpression
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.ElemBuilder
-import edg.elem.elem
-import edg.schema.schema
-import edg.ref.ref
 import edg.common.common
-import edg.expr.expr
-import edg.wir.DesignPath
-import edg_ide.swing.{FootprintBrowserNode, FootprintBrowserTreeTableModel, SwingHtmlUtil}
 import edg.compiler.{Compiler, ExprToString, TextValue}
+import edg.elem.elem
+import edg.expr.expr
+import edg.ref.ref
+import edg.schema.schema
 import edg.util.Errorable
+import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.psi_edits.{InsertAction, InsertFootprintAction}
+import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
@@ -26,6 +25,7 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.File
 import javax.swing._
 import javax.swing.event.{DocumentEvent, DocumentListener}
+import javax.swing.tree.TreePath
 
 class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   // State
@@ -39,24 +39,25 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
     var libraryDirectory: Option[File] = None  // TODO should be private / protected, but is in an object :s
 
+    var model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File(".")))
+    private val tree = new TreeTable(model)
+    tree.setShowColumns(true)
+    tree.setRootVisible(false)
+    private val treeScrollPane = new JScrollPane(tree)
+
     def setLibraryDirectory(directory: String): Unit = {
       // TODO use File instead of String
       val filterFunc = (x:String) => x.contains(filterTextBox.getText)
       val directoryFile = new File(directory)
       if (directoryFile.exists()) {
         libraryDirectory = Some(directoryFile)
-        tree.setModel(new FootprintBrowserTreeTableModel(directoryFile, filterFunc))
+        model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(directoryFile))
+        tree.setModel(model)
       } else {
         libraryDirectory = None
         // TODO clear tree model?
       }
     }
-
-    var model = new FootprintBrowserTreeTableModel(new File("."))
-    private val tree = new TreeTable(model)
-    tree.setShowColumns(true)
-    tree.setRootVisible(false)
-    private val treeScrollPane = new JScrollPane(tree)
 
     def pathToFootprintName(file: File): Option[String] = {
       Option(file.getParentFile).flatMap { parentFile =>
@@ -110,30 +111,46 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       }
 
       override def mousePressed(mouseEvent: MouseEvent): Unit = {}
-
       override def mouseReleased(mouseEvent: MouseEvent): Unit = {}
-
       override def mouseEntered(mouseEvent: MouseEvent): Unit = {}
-
       override def mouseExited(mouseEvent: MouseEvent): Unit = {}
     })
 
     // Filter menu
+    def updateFilter(): Unit = {  // TODO DEDUP w/ LibraryPanel - perhaps we should have a FilteredTreePanel or something?
+      def recursiveExpandPath(path: TreePath): Unit = {
+        if (path != null) {
+          recursiveExpandPath(path.getParentPath)
+          tree.getTree.expandPath(path)
+        }
+      }
+
+      val searchText = filterTextBox.getText
+      if (searchText.isEmpty) {
+        model.setFilter(_ => true)
+      } else {
+        val filteredPaths = model.setFilter {
+          case node: FootprintBrowserNode =>
+            node.toString.toLowerCase().contains(searchText.toLowerCase())
+          case other => false
+        }
+        filteredPaths.foreach { filteredPath =>
+          recursiveExpandPath(filteredPath)
+        }
+
+      }
+    }
+
     private val filterTextBox = new JTextField()
     private val filterLabel = new JLabel("Filter")
     filterTextBox.getDocument.addDocumentListener(new DocumentListener {
       override def insertUpdate(e: DocumentEvent): Unit = update(e)
-
       override def removeUpdate(e: DocumentEvent): Unit = update(e)
-
       override def changedUpdate(e: DocumentEvent): Unit = update(e)
 
       def update(e: DocumentEvent): Unit = {
-        val filterFunc = (x:String) => x.toLowerCase().contains(filterTextBox.getText.toLowerCase())
-        val oldFile = tree.getTableModel.asInstanceOf[FootprintBrowserTreeTableModel].getRootNode.file
-        tree.setModel(new FootprintBrowserTreeTableModel(oldFile, filterFunc))
+        updateFilter()
       }
-
     })
 
     setLayout(new GridBagLayout)

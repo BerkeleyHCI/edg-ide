@@ -8,10 +8,9 @@ import java.io.File
 import java.nio.file.{Files, NotDirectoryException, Paths}
 
 
-class FootprintBrowserNode(fArg: File, filter: String => Boolean = (_:String) => true) {
+class FootprintBrowserNode(fArg: File) {
 
   val file: File = fArg
-  val filterFunc: String => Boolean = filter
 
   def isValidFile(filename: String): Boolean = {
     if (filename == null || filename == "" || filename == "." || filename == "..") return false
@@ -28,7 +27,6 @@ class FootprintBrowserNode(fArg: File, filter: String => Boolean = (_:String) =>
       .get
       .map(f => file.getCanonicalPath + "/" + f)
       .filter(isValidFile)
-      .filter(filterFunc)
       .sorted
       .map(f => new FootprintBrowserNode(new File(f)))
     case None => Seq()
@@ -45,8 +43,8 @@ class FootprintBrowserNode(fArg: File, filter: String => Boolean = (_:String) =>
 
 }
 
-class FootprintBrowserTreeTableModel(file: File, filterFunc: String => Boolean = (_:String) => true) extends SeqTreeTableModel[FootprintBrowserNode] {
-  val rootNode: FootprintBrowserNode = new FootprintBrowserNode(file, filterFunc)
+class FootprintBrowserTreeTableModel(file: File) extends SeqTreeTableModel[FootprintBrowserNode] {
+  val rootNode: FootprintBrowserNode = new FootprintBrowserNode(file)
 //  print(file.getName)
   val COLUMNS = Seq("Path")
 
