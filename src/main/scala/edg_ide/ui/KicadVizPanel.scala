@@ -118,6 +118,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
     // Filter menu
     def updateFilter(): Unit = {  // TODO DEDUP w/ LibraryPanel - perhaps we should have a FilteredTreePanel or something?
+      // TODO spinny working indicator, incremental adding
       def recursiveExpandPath(path: TreePath): Unit = {
         if (path != null) {
           recursiveExpandPath(path.getParentPath)
@@ -125,13 +126,15 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
         }
       }
 
-      val searchText = filterTextBox.getText
-      if (searchText.isEmpty) {
+      val searchTerms = filterTextBox.getText.split(' ')
+          .filterNot(_.isEmpty)
+          .map(_.toLowerCase())
+      if (searchTerms.isEmpty) {
         model.setFilter(_ => true)
       } else {
         val filteredPaths = model.setFilter {
           case node: FootprintBrowserNode =>
-            node.toString.toLowerCase().contains(searchText.toLowerCase())
+            searchTerms.forall(searchTerm => node.toString.toLowerCase().contains(searchTerm))
           case other => false
         }
         filteredPaths.foreach { filteredPath =>

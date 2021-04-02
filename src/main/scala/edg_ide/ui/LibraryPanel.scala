@@ -563,7 +563,7 @@ class LibraryPanel(project: Project) extends JPanel {
 
   splitter.setFirstComponent(libraryTreePanel)
 
-  def updateFilter(): Unit = {
+  def updateFilter(): Unit = {  // TODO spinny working indicator, incremental adding
     def recursiveExpandPath(path: TreePath): Unit = {
       if (path != null) {
         recursiveExpandPath(path.getParentPath)
@@ -571,15 +571,17 @@ class LibraryPanel(project: Project) extends JPanel {
       }
     }
 
-    val searchText = libraryTreeSearch.getText
-    if (searchText.isEmpty) {
+    val searchTerms = libraryTreeSearch.getText.split(' ')
+        .filterNot(_.isEmpty)
+        .map(_.toLowerCase())
+    if (searchTerms.isEmpty) {
       libraryTreeModel.setFilter(_ => true)
     } else {
       val filteredPaths = libraryTreeModel.setFilter {
         case node: EdgirLibraryTreeNode.BlockNode =>
-          EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchText.toLowerCase())
+          searchTerms.forall(searchTerm => EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchTerm))
         case node: EdgirLibraryTreeNode.PortNode =>
-          EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchText.toLowerCase())
+          searchTerms.forall(searchTerm => EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchTerm))
         case other => false
       }
       filteredPaths.foreach { filteredPath =>
