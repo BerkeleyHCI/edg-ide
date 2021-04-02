@@ -199,7 +199,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
             // TODO actually modify the Design ... once a better API for that exists
           }
 
-          InsertPinningAction.createInsertPinningFlow(block, selectedPin, pinning, e, project, continuation)
+          InsertPinningAction.createInsertPinningFlow(block, selectedPin, pinning, e, project, continuation).exceptError
         }
       }
     }

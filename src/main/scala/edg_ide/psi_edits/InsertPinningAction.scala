@@ -1,7 +1,10 @@
 package edg_ide.psi_edits
 
+import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiElement, PsiParserFacade}
+import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.python.psi.{LanguageLevel, PyCallExpression, PyClass, PyDictLiteralExpression, PyElementGenerator, PyExpression, PyFunction, PyKeyValueExpression, PyStatementList, PyStringLiteralExpression}
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.{ElemBuilder, ExprBuilder}
 import edg.compiler.ExprToString
@@ -9,8 +12,8 @@ import edg.elem.elem
 import edg.ref.ref
 import edg.util.Errorable
 import edg_ide.ui.PopupUtils
-import edg_ide.util.ExceptionNotifyImplicits.ExceptSeq
-import edg_ide.util.{DesignAnalysisUtils, exceptable}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, requireExcept}
 
 import java.awt.event.MouseEvent
 
@@ -51,6 +54,40 @@ object InsertPinningAction {
   def createInsertPinningFlow(block: elem.HierarchyBlock, pin: String, pinning: Map[String, ref.LocalPath],
                               event: MouseEvent, project: Project,
                               continuation: (ref.LocalPath, PsiElement) => Unit): Errorable[Unit] = exceptable {
+    // TODO Dedup w/ InsertFootprintAction?
+    val blockClass = DesignAnalysisUtils.pyClassOf(block.superclasses.head, project).exceptError
+    val after = InsertAction.getCaretAtFileOfType(
+      blockClass.getContainingFile, classOf[PyStatementList], project, requireClass = false).exceptError
+    val containingPsiFunction = PsiTreeUtil.getParentOfType(after, classOf[PyFunction])
+        .exceptNull(s"not in a function in ${after.getContainingFile.getName}")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
+        .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
+    requireExcept(containingPsiClass == blockClass, s"not in ${blockClass.getName}")
+
+    val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
+        .headOption.exceptNone(s"function ${containingPsiFunction.getName} has no self")
+        .getName
+
+    val containingCall = PsiTreeUtil.getParentOfType(after, classOf[PyCallExpression])
+        .exceptNull(s"not in a function call")
+    requireExcept(containingCall.getCallee.textMatches(s"$selfName.footprint"), "not in a self.footprint call")
+    val argDict = containingCall.getArgument(2, "pinning", classOf[PyExpression])
+        .exceptNull("call has no pinning argument")
+        .instanceOfExcept[PyDictLiteralExpression]("pinning argument is not a dict literal")
+
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+    val languageLevel = LanguageLevel.forElement(argDict)
+    val matchingKv = argDict.getElements.filter { elt =>
+      elt.getKey match {
+        case strLit: PyStringLiteralExpression => strLit.getStringValue == pin
+        case _ => false
+      }
+    }.toSeq match {
+      case Seq(kv) => Some(kv)
+      case Seq() => None
+      case _ => throw ExceptionNotifyException(s"more than one pinning entry for $pin")
+    }
+
     val circuitPortItems = block.ports.flatMap { case (name, port) =>
       val portPath = ExprBuilder.Ref(name)
       circuitPortsOf(portPath, port, project)
@@ -58,7 +95,36 @@ object InsertPinningAction {
         .map { path => SelectPortItem(path) }
 
     PopupUtils.createMenuPopup(s"Connect port to $pin", circuitPortItems, event) { selected =>
-      println(s"$selected")
+      val selectedRefCode = "self." + selected.toString  // TODO should use a dedicated code construct
+      val newElt = matchingKv match {
+        case Some(kv) =>  // modify existing
+          val newValue = psiElementGenerator.createExpressionFromText(languageLevel, selectedRefCode)
+          writeCommandAction(project).withName(s"Update pin $pin in ${blockClass.getName}").compute(() => {
+            kv.getValue.replace(newValue)
+          })
+
+        case None =>  // append new
+          val newKv = psiElementGenerator.createExpressionFromText(languageLevel,
+            s"{'$pin': $selectedRefCode}")  // apparently it can't directly parse a KeyValueExpr
+              .asInstanceOf[PyDictLiteralExpression]
+              .getElements.head
+
+          // for some reason, PyElementGenerator.getInstance(project).createNewLine inserts two spaces
+          val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
+
+          writeCommandAction(project).withName(s"Set pin $pin in ${blockClass.getName}").compute(() => {
+            // and apparently PyDictLiteral doesn't have an .addArgument like PyArgumentList
+            // adapted (poorly?) from PyArgumentListImpl.addArgument
+            argDict.getElements.lastOption match {
+              case Some(lastArg) =>
+                psiElementGenerator.insertItemIntoListRemoveRedundantCommas(argDict, lastArg, newKv)
+              case None =>  // empty dict
+                // InsertIntoList gets super confused with a null previous elt
+                argDict.addAfter(newKv, argDict.getFirstChild)
+            }
+          })
+      }
+      continuation(selected.portPath, newElt)
     }
   }
 }
