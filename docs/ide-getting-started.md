@@ -161,9 +161,11 @@ In this case, the **Lpc1549_48 block** is only a preview, while the enclosing Bl
 
 Then, repeat the above with an **IndicatorLed block**, and name it `led`.
 
-### View Operations
+### Navigation
 
 With something on your screen now, you can zoom in and out of the visualization using the mousewheel, or pan by clicking and dragging.
+
+You can also highlight the block diagram element corresponding to a code element, by placing the caret on the code element (such as `self.led`) and going to main menu > Tools > Navigate to Block, or using the associated hotkey.
 
 ### Connecting the microcontroller and LED
 The red boxes indicate a missing required connection, in this example including power, ground, and the SWD programming line.
@@ -420,7 +422,7 @@ Recompile, and there should be no more errors.
 >   ![Block diagram view](vis_blinky_buck.png)
 > </details>
 
-### Navigation
+### Deeper Inspection
 If you hover your mouse over the output line, you can see that it is now at 3.3v ±4.47%.
 Why?
 You can navigate into the Tps561201 by double-blocking on it.
