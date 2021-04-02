@@ -37,11 +37,13 @@ These could be viewed as a block-like object (diamonds on the diagram) instead o
 Finally, **generators** allow a block's internal contents to be automatically and dynamically constructed, possibly based on parameters on it and its ports.
 For example, the `IndicatorLed` block might automatically size the resistor based on the input voltage on the `sig` pin, or a DC-DC converter block might automatically size inductors and capacitors based on the expected output voltage and current.
 
-In this tutorial, you'll be building a slightly different version of the above circuit, using a discrete microcontroller and adding additional parts.
-Diagrams in the IDE will also look different than the manually drawn diagrams above.
-For example, the equivalent of the above in the IDE would be:
-
-![Nucleo and LED circuit](docs/vis_nucleo_led.png)
+> In this tutorial, you'll be building on a variation of the above circuit, using a discrete microcontroller and adding additional parts.
+> Diagrams in the IDE will also look different than the manually drawn diagrams above.
+> For example, the equivalent of the above in the IDE would be:
+>
+> ![Nucleo and LED circuit](docs/vis_nucleo_led.png)
+> 
+> Note that the links have been "flattened" down into the net.
 
 
 ### Hardware Description Language (HDL)
@@ -60,7 +62,7 @@ There are a couple of basic operations, which you'll get to try in the tutorial:
 While an HDL is needed to support parameter computation and programmatic construction, some operations (like building a top-level design with an LED connected to a microcontroller) may not require the full power provided by an HDL and may be more intuitive or familiar within a graphical environment.
 However, because this design makes use of generator blocks (the LED), and because blocks may also take parameters (such as the target output voltage of a DC-DC converter), the HDL is still the primary design input. 
 
-To help with these more basic operations and to support those more familiar with a graphical schematic capture flow, we provide an IDE to help bridge the graphical schematic-like and HDL code representations. Specifically, it:
+To help with these more basic operations and to support those more familiar with a graphical schematic capture flow, we're developing an IDE to help bridge the graphical schematic-like and HDL code representations. Specifically, it:
 - provides a block diagram visualization of the design
 - allows inspection of solved / computed parameters in the design
 - generates and inserts HDL code from schematic editor-like actions
@@ -103,7 +105,7 @@ The major components are:
 - **Block Depth Selection**: selects the maximum depth of blocks shown in the Block Diagram Visualization. 1 means show only one level, 2 means show the top-level blocks and one level of internal blocks, and so on.  
 - **Update Button**: click to re-compile and update the visualization. Also available through hotkey Ctrl + Alt + R.
 - **Library Browser**: shows all the library blocks, ports, and links. The text box at the top allows filtering by keyword.
-  - **Library Preview**: shows more information on the selected library block, including a docstring (if available)parameters, and block diagram preview.
+  - **Library Preview**: shows more information on the selected library block, including a docstring (if available), parameters, and block diagram preview.
   
 We'll go over each in more detail as they are used.
 
@@ -133,32 +135,32 @@ The icons have these meanings:
   These blocks can be instantiated.
 
 In the code editor, click at the end of `super().contents()` to set the caret position to insert code for a new block.
-Then, double-click the Lpc1549_48 block in the library panel, give it a name (let's say, `mcu`), hit enter, and the relevant line of code should pop up.
-The block should also appear on the visualization:
-
-![New block preview](docs/ide_visualizer_mcu_preview.png)
-
-and the block instantiation line should appear in the code editor:
+Then, double-click the Lpc1549_48 block in the library panel, give it a name (let's say, `mcu`), hit enter, and the relevant line of code should pop up:
 
 ```python
 self.mcu = self.Block(Lpc1549_48())
 ```
 
+The block should also appear on the visualization:
+
+![New block preview](docs/ide_visualizer_mcu_preview.png)
+
 > In any IDE action where you double-click, you can also right-click to show other available actions.
-> For actions that inserts code, double-clicking inserts code at the caret position, while right-clicking displays a list of other suggested places to insert code, such as the end of a function.
+> For actions that inserts code, double-clicking insert code at the caret position, while right-clicking displays a list of other suggested places to insert code, such as the end of a function.
 
 The hatched fill indicates that the block may be out-of-sync with the code until the next re-compile.
 In this case, the **Lpc1549_48 block** is only a preview, while the enclosing BlinkyExample has been modified.
 
-> While the insert action does some basic sanity checks (such as for syntax: it won't insert a `Block` call in a function call), it does not understand the context of where the code was inserted.
-> For example, if you inserted the `Block` call within an `if` block, it will assume the `Block` call is run.
+> While the insert action does some basic sanity checks (such as for syntax: it won't insert a `Block` call in a function call), it doesn't understand the context of where the code was inserted.
+> For example, if you inserted the `Block` call within an `if` block, it doesn't know if the `if` block will run or not, and just places the block on the visualizer regardless.
+> 
 > Re-compiling will re-run the HDL and update the visualization to ground-truth.
-
-The red boxes indicate a missing required connection, in this example including the power and ground pair, and the SWD programming line.
 
 Then, repeat the above with an **IndicatorLed block**, and name it `led`.
 
 ### Connecting the microcontroller and LED
+The red boxes indicate a missing required connection, in this example including power, ground, and the SWD programming line.
+
 To start a connection operation on a port, double-click the port.
 For example, to connect the LED to the microcontroller, double click on `mcu`'s `digital[0]` port:
 
@@ -212,10 +214,10 @@ These mostly stem from the missing power source, which are indicated on the bloc
 _In this section, you'll add and connect a power source (PJ-102A barrel jack) and programming connector (SWD header) to fix errors._
 
 Because we're ultimately writing code, where we insert blocks in the code could matter.
-For example, this following code would be illegal because it attempts to reference a block in a `connect` statement before it has been instantiated:
+For example, this following code would be illegal because it attempts to reference the `self.jack` block in a `connect` statement before it has been instantiated:
 
 ```python
-# DON'T DO THIS - THIS WON'T COMPILE
+# DON'T DO THIS - THIS WILL ERROR
 self.mcu = self.Block(Lpc1549_48())
 self.connect(self.mcu.gnd, self.jack.gnd)
 self.jack = self.Block(Pj_102a())
@@ -225,14 +227,14 @@ In terms of style, blocks that are "upstream" (such as in power flow terms) of o
 So, repeat the above add block flow with the **Pj_102a** barrel jack connector (you can search for `BarrelJack`), but with the caret before the microcontroller (since it will power the microcontroller).
 Do the same with the **SwdCortexTargetHeader** (you can search for `swd` to find all the SWD connectors), with the caret after the microcontroller (since the microcontroller ends up connecting to a lot of things).
 
-> As a general note, HDLs have different non-functional degrees of freedom compared to schematic.
+> As a general note, HDLs have different non-functional degrees of freedom compared to schematics.
 > For HDLs, the style (including ordering) of hardware construction statements is somewhat like the placement and arrangement of symbols and nets in a graphical schematic.
 > The style of the code can significantly impact readability and maintainability.
 >
-> While GUI operations are useful in writing lines of code, it is up to you to determine where they should be placed to keep the HDL readable (and legal).
+> While GUI operations help write lines of code, it is up to you to determine where they should be placed to keep the HDL readable (and legal).
 
-Note that the inserted code for the barrel jack connector also has a, `voltage_out=RangeExpr()`.
-In general, the block insertion action will find required parameters (that don't have defaults) of blocks and insert them as arguments for you to fill out.
+Note that the inserted code for the barrel jack connector also has a `voltage_out=RangeExpr()`.
+The block insertion action finds required parameters (that don't have defaults) of blocks and inserts them as arguments for you to fill out.
 Here, `RangeExpr()` means this parameter takes a range-valued (think numerical intervals) expression.
 Parameter values can only be set in the code editor.
 We'll arbitrarily pick **5v ±10%**, so change the line of code to
@@ -290,8 +292,8 @@ The microcontroller is seeing a 5.0v ±10% voltage on a 3.3v device (technically
 _In this section, you'll insert an abstract power converter to fix the prior error, and refine it with a specific part number._
 
 Repeat the add block flow with the abstract **BuckConverter** block.
-Remember to select a logical location for insertion.
-Similar to the barrel jack, the inserted `BuckConverter` also takes a parameter `output_voltage`.
+Remember to select a logical location for insertion, between the barrel jack and the loads it will serve.
+Similar to the barrel jack, the inserted `BuckConverter` also takes a parameter, `output_voltage` which defines the target output voltage.
 Let's ask for a **3.3v ±5%** output voltage:
 
 ```python
@@ -299,7 +301,7 @@ self.buck = self.Block(BuckConverter(output_voltage=3.3*Volt(tol=0.05)))
 ```
 
 To hook up the converter between the barrel jack and low-voltage components, we'll need to disconnect the barrel jack's power port from the rest of the system.
-**Modifications like this need to be done in code**, so find the connect statement where the barrel jack's power port is part of, and remove the barrel jack from that statement.
+**Modifications like this can only be done in code**, so find the `connect` statement where the barrel jack's power port is part of, and remove that port from the `connect`.
 You do not need to modify the ground connections.
 
 > If you need to locate where a port is connected, you can right click on the port in the block diagram, and use the Goto Connect options.
@@ -323,9 +325,6 @@ You do not need to modify the ground connections.
 > </details>
 
 Then, refresh the visualization by recompiling, and you can hook up the buck converter via the GUI.
-
-After recompiling with a connected buck converter, you'll still have errors.
-The buck converter is still an abstract type (it has no implementation, and hence no output voltage, which confuses everything downstream), so we must give it one.
 
 <details>
   <summary>At this point, your code and diagram might look like...</summary>
@@ -351,8 +350,11 @@ The buck converter is still an abstract type (it has no implementation, and henc
       self.connect(self.jack.gnd, self.buck.gnd, self.mcu.gnd, self.swd.gnd, self.led.gnd)
   ```
 
-  ![Block diagram view](docs/vis_blinky_buckabs.png)
+![Block diagram view](docs/vis_blinky_buckabs.png)
 </details>
+
+After recompiling with a connected buck converter, you'll still have errors.
+The buck converter is still an abstract type (it has no implementation, and hence no output voltage, which confuses everything downstream), so we must give it one.
 
 Select (but without necessarily zooming into) the buck converter in the block diagram view.
 Then, search for `Buck` in the library browser, and pick the `Tps561201` under the BuckConverter.
@@ -421,7 +423,7 @@ You can see that it generated a feedback voltage divider, and if you mouseover t
 If you go into the voltage divider block and mouseover the resistors, you can also see resistor values selected, 10k and 33k.
 The output voltage on the output line reflects the actual expected output voltage, accounting for resistor tolerance and the chip's feedback reference tolerance.
 
-To zoom out, you can double-click on the topmost block.
+To zoom out, you double-click on the topmost block.
 Or, double-click on any block in the design tree to zoom to that block.
 
 You can see details of some other components (like capacitor capacitance, or inductor inductance) by mouseover as well:
@@ -435,7 +437,7 @@ _In this section, you'll modify the GUI-inserted code to programmatically create
 
 > In general, code offers you a lot more flexibility and power than can be achieved through the GUI.
 > If you looked at the buck converter code, it automatically sizes the internal components (inductors, capacitors) based on standard design equations.
-> This functionality is probably more useful in those library components, but can also come in handy in some cases in the top-level design. 
+> This functionality is probably more useful in those library components, but can also come in handy for the top-level design. 
 
 Since the circuit is "constructed" by executing Python code, we can actually write arbitrary Python to generate hardware.
 If your LED instantiation and connection code already isn't together, refactor them together, such as:
@@ -542,7 +544,7 @@ _Note the use of `imp.Block(...)` instead of `self.Block(...)`!_
 ```
 
 Note that we still have to make the connections for the SWD interface and the LED signal.
-Those do not need to be placed in the implicit scope, but may be for stylistic purposes. 
+Those do not need to be placed in the implicit scope, but (as shown above) may be for stylistic purposes. 
 
 <details>
   <summary>At this point, your code might look like...</summary>
@@ -584,8 +586,7 @@ Those do not need to be placed in the implicit scope, but may be for stylistic p
 ### Advanced
 
 There also exists a chain connect that allows a block instantiation and connection on one line, but as this tutorial focuses on the IDE, we'll skip that.
-If you're interested, the HDL getting started doc has [a section on chain connects](PolymorphicBlocks/getting-started.md#chain-connects).
-Chain also makes use of the `Input`, `Output`, and `InOut` tags.
+Chain makes use of the `Input`, `Output`, and `InOut` tags.
 
 
 ## Advanced tutorial: making parts
@@ -594,7 +595,7 @@ _In this section, we build and add a digital magnetic field sensor ([LF21215TMR]
 _We do this in two stages, first defining a `FootprintBlock` for the chip itself, then building the wrapper application circuit `Block` around it._
 
 > While `Block`s are arbitrary hierarchy blocks that only have ports, inner blocks, and connections, `FootprintBlock` also allows up to one PCB footprint, and a mapping from the block ports to footprint pins.
-> You can loosely think of `FootprintBlock` as analogous to a schematic symbol, while `Block` is closer to a hierarchy sheet.
+> In schematic terms, think of `FootprintBlock` as analogous to a schematic symbol, while `Block` is closer to a hierarchy sheet.
 
 ### Creating a part
 A new block can be defined from the library browser.
@@ -620,7 +621,7 @@ To work with this part in the visual editor, you can instantiate this block in y
 Once you recompile, it should show up in the library browser.
 Then, double-click into the newly created `Lf21215tmr_Device` block to set it for editing.
 
-The chip itself has three ports:
+The chip itself has three pins:
 - Vcc: voltage input, type **VoltageSink**
 - GND: voltage input, type **VoltageSink**
 - Vout: digital output, type **DigitalSource**
@@ -666,11 +667,11 @@ self.vout = self.Port(DigitalSource.from_supply(
 
 > With a relatively simple example like this, you may be wondering why this needs an HDL instead of a diagram with properties sheet interface that supports mathematical expressions.
 > That interface would have a few shortcomings:
-> - First, it would be less straightforward to support simple wrappers like `DigitalSource.from_supply`.
->   While possible, these wrappers would likely need to be baked into the tool (and limited to what the tool designers support), instead of being user-defineable.
+> - First, it would be less straightforward to support wrappers like `DigitalSource.from_supply`.
+>   While possible, these wrappers may need to be baked into the tool (and limited to what the tool designers support), instead of being user-defineable.
 > - Second, interfaces that don't allow multi-line code (think spreadsheets) generally have issues with duplication for re-use.
 >   While this example only had one port, consider if we had several outputs with the same electrical characteristics.
->   In code, we could define one port model and instantiate it multiple times, while the GUI equivalent is trickier.
+>   In code, we could define one port model and instantiate it multiple times, while the GUI may require repeating the definition several times.
 
 <details>
   <summary>At this point, your code and diagram might look like...</summary>
@@ -701,7 +702,7 @@ self.vout = self.Port(DigitalSource.from_supply(
 
 ### Defining the footprint
 `FootprintBlock` defines its footprint and pin mapping (from port to footprint pin) via a `self.footprint(...)` call.
-This can be inserted from the GUI.
+This can also be inserted from the GUI.
 
 Select (but without necessarily focusing into) the newly created block in the block diagram view.
 Then, position the caret at where you want to insert the code - we recommend in the `contents` method.
@@ -719,7 +720,8 @@ self.footprint(
 
 > If your caret is already inside a `self.footprint` call, it will instead modify the existing call to use the selected footprint.  
 
-> This next section isn't yet implemented. Copypaste into the curly braces
+> TODO: This next section isn't yet implemented in the IDE. 
+> Copypaste into the curly braces"
 > ```python
 >   '1': self.vcc,
 >   '3': self.gnd,
@@ -784,7 +786,7 @@ We will build the application circuit as a block around the device defined above
 Start by creating a new block, `Lf21215tmr`.
 Since this won't be a footprint, it should extend `Block` directly, and you can insert such code by right clicking on All Blocks in the library browser.
 
-> Note that in contrast to the previous one, this drops the `_Device` postfix we used to indicate a footprint block.
+> In contrast to definition we just wrote, this drops the `_Device` postfix we used to indicate a footprint block.
 
 Again, if you want to work with this in the graphical editor, you can recompile once you've added the block code, then instantiate it from the library browser.
 If you had the `Lf21215tmr_Device` block in your top-level design, you can delete that. 
