@@ -87,6 +87,37 @@ class KicadVizDrawPanel extends JPanel {
         case _ =>
       }
     }
+  }
 
+  def getComponentForLocation(locX: Int, locY: Int): Seq[KicadComponent] = {
+    // TODO 'widen' lines so that can be selected w/o pinpoint accuracy - see algo in JElkGraph
+    // TODO dedup this code w/ draw, this is so much copypaste =(
+    val components = kicadParser.parseKicadFile().toSeq
+
+    if (components.isEmpty)
+      return Seq()
+
+    val min_x = components.map(c => (c match {
+      case Rectangle(x, y, width, height, name) => x
+      case Line(x0, y0, x1, y1) => math.min(x0, x1)
+    })).min.abs
+
+    val min_y = components.map(c => (c match {
+      case Rectangle(x, y, width, height, name) => y
+      case Line(x0, y0, x1, y1) => math.min(y0, y1)
+    })).min.abs
+
+    components.flatMap {
+      case comp @ Rectangle(x, y, width, height, name) =>
+        val scaledWidth = (width * mul_factor).asInstanceOf[Int]
+        val scaledHeight = (height * mul_factor).asInstanceOf[Int]
+        val scaledX = ((offset + this.getWidth * offset_mul_factor + (min_x + x) * mul_factor).asInstanceOf[Int]) - (scaledWidth / 2)
+        val scaledY = (((min_y + y) * mul_factor).asInstanceOf[Int]) - (scaledHeight / 2)
+        Option.when(locX >= scaledX && locX <= scaledX+scaledWidth &&
+            locY >= scaledY && locY <= scaledY+scaledHeight) {
+          comp
+        }
+      case _ => None
+    }
   }
 }

@@ -20,7 +20,7 @@ import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
-import java.awt.event.{MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
+import java.awt.event.{MouseAdapter, MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.File
 import javax.swing._
@@ -176,6 +176,11 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   status.setBackground(null)
   private val visualizer = new KicadVizDrawPanel()
   visualizer.offset = (this.FootprintBrowser.getWidth * 1.2).asInstanceOf[Int] // @TODO clean this up with offset code
+  visualizer.addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      println(visualizer.getComponentForLocation(e.getX, e.getY))
+    }
+  })
 
   private val visualizerPanel = new JPanel(new GridBagLayout())
   visualizerPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
