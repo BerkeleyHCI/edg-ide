@@ -19,8 +19,9 @@ import java.awt.event.MouseEvent
 
 
 object InsertPinningAction {
-  case class SelectPortItem(portPath: ref.LocalPath) {
-    override def toString: String = ExprToString(portPath)
+  case class SelectPortItem(portPath: ref.LocalPath, assigned: Boolean) {
+    override def toString: String = ExprToString(portPath) + Option.when(assigned)(" (assigned)").getOrElse("")
+    def toCodeExpr: String = ExprToString(portPath)
   }
 
   protected def recursivePortPathsAndTypes(path: ref.LocalPath, port: elem.PortLike):
@@ -88,14 +89,17 @@ object InsertPinningAction {
       case _ => throw ExceptionNotifyException(s"more than one pinning entry for $pin")
     }
 
+    val priorPinned = pinning.values.toSet
+
     val circuitPortItems = block.ports.flatMap { case (name, port) =>
       val portPath = ExprBuilder.Ref(name)
       circuitPortsOf(portPath, port, project)
     }.toSeq.exceptEmpty(s"block contains no CircuitPorts")
-        .map { path => SelectPortItem(path) }
+        .map { path => SelectPortItem(path, priorPinned.contains(path)) }
+        .sortWith { case (l, r) => !l.assigned && r.assigned }
 
     PopupUtils.createMenuPopup(s"Connect port to $pin", circuitPortItems, event) { selected =>
-      val selectedRefCode = "self." + selected.toString  // TODO should use a dedicated code construct
+      val selectedRefCode = "self." + selected.toCodeExpr  // TODO should use a dedicated code construct
       val newElt = matchingKv match {
         case Some(kv) =>  // modify existing
           val newValue = psiElementGenerator.createExpressionFromText(languageLevel, selectedRefCode)
