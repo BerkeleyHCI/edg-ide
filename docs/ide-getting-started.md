@@ -115,7 +115,7 @@ We'll go over each in more detail as they are used.
 ### Hello, world
 Let's start by compiling this (empty) design.
 Select anywhere in the BlinkyExample class, then click on main menu > Tools > Set Visualizer Design.
-Then, click on main menu > Tools > Refresh File (or Ctrl + Alt + R, or the update button on the Block Visualizer window) to compile.
+Then, recompile the design, either through the Update button, main menu > Tools > Refresh File, or the hotkey.
 
 As you might expect, you should get an empty design.
 
