@@ -40,7 +40,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
     var libraryDirectory: Option[File] = None  // TODO should be private / protected, but is in an object :s
 
-    var model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File(".")))
+    // use something invalid so it doesn't try to index a real directory
+    var model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File("doesnt_exist")))
     private val tree = new TreeTable(model)
     tree.setShowColumns(true)
     tree.setRootVisible(false)
