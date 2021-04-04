@@ -548,7 +548,7 @@ with self.implicit_connect(
         ImplicitConnect(self.jack.gnd, [Common]),
 ) as imp:
   self.mcu = imp.Block(Lpc1549_48())
-  self.swd = imp.Block(SwdCortexTargetHeade())
+  self.swd = imp.Block(SwdCortexTargetHeader())
   self.connect(self.swd.swd, self.mcu.swd)
 
   self.led = ElementDict()
@@ -697,12 +697,8 @@ self.vout = self.Port(DigitalSource.from_supply(
 >     def __init__(self) -> None:
 >       super().__init__()
 >       self.vcc = self.Port(
->         VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
->         [Power])
->   
->       self.gnd = self.Port(
->         VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
->         [Common])
+>         VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp))
+>       self.gnd = self.Port(Ground())
 >   
 >       self.vout = self.Port(DigitalSource.from_supply(
 >         self.gnd, self.vcc,
@@ -757,12 +753,8 @@ You can also fill in the other fields in the code (which would be propagated to 
 >     def __init__(self) -> None:
 >       super().__init__()
 >       self.vcc = self.Port(
->         VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp),
->         [Power])
->   
->       self.gnd = self.Port(
->         VoltageSink(model=None, voltage_limits=Default(RangeExpr.ALL), current_draw=Default(RangeExpr.ZERO)),
->         [Common])
+>         VoltageSink(voltage_limits=(1.8, 5.5)*Volt, current_draw=(0, 1.5)*uAmp))
+>       self.gnd = self.Port(Ground())
 >   
 >       self.vout = self.Port(DigitalSource.from_supply(
 >         self.gnd, self.vcc,

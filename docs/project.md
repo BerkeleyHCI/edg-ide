@@ -48,15 +48,15 @@ As you implement the chip, this information may be helpful:
   self.dig1 = self.Port(dig_model)
   self.dig2 = self.Port(dig_model)
   ```
-- **AnalogSource** port: represents a pin that functions as an analog input.
+- **AnalogSource** port: represents a pin that functions as an analog output.
   - `voltage_out` defines the output voltage range.
-  - `current_limits` defines the maximum current into the pin.
+  - `current_limits` defines the maximum current out of the pin.
   - `impedance` defines the source impedance at the pin.
 - `__init__` can also take arguments, but they must be one of the parameter types above, and must have a default (which can be an empty value like `RangeExpr()`).
   - If `__init__` takes arguments, it must be annotated with `@init_in_parent`, so parameters specified in the containing block are also set there.
   - The suggested constructor for the light sensor application circuit is:
     ```python
-    class Ref_Bh1620fvc(Block):
+    class Bh1620fvc(Block):
       @init_in_parent
       def __init__(self, max_illuminance: FloatLike = FloatExpr(),
                    target_voltage: RangeLike = RangeExpr()) -> None:
