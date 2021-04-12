@@ -351,9 +351,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           val checker = new DesignStructuralValidate()
           val errors = compiler.getErrors() ++ checker.map(compiled)
           if (errors.isEmpty) {
-            status.setText(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)")
+            status.setText(s"Compiled")
           } else {
-            status.setText(s"Compiled, with ${errors.length} errors (reload: $reloadTime ms, compile: $compileTime ms)")
+            status.setText(s"Compiled, with ${errors.length} errors")
           }
           tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
           indicator.setText("EDG compiling ... done")

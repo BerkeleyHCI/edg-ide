@@ -463,6 +463,12 @@ class LibraryPreview(project: Project) extends JPanel {
       this.getFont))
   }
 
+  def clear(): Unit = {
+    graph.setGraph(emptyHGraph)
+    textField.setText(SwingHtmlUtil.wrapInHtml("",
+      this.getFont))
+  }
+
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
@@ -506,6 +512,7 @@ class LibraryPanel(project: Project) extends JPanel {
         case node: EdgirLibraryTreeNode.PortNode =>
           preview.setPort(library, node.path)
         case node =>
+          preview.clear()
       }
     }
   }
