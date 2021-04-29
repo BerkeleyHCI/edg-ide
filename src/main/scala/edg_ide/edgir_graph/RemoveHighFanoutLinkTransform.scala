@@ -18,7 +18,7 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
         (name, linkWrap, linkLike.`type`)
     } .collect { case (name, linkWrap, elem.LinkLike.Type.Link(link)) =>  // extract elaborated link, discard the rest
       (name, linkWrap, link)
-    } .collect { case (name, linkWrap, link) if link.superclasses.toSet.subsetOf(allowedLinkTypes) =>  // filter by type
+    } .collect { case (name, linkWrap, link) if allowedLinkTypes.contains(link.getSelfClass) =>  // filter by type
       (name, linkWrap)
     }
 

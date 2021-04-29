@@ -18,7 +18,7 @@ class RemoveHighFanoutLinkTransformTest extends AnyFlatSpec with Matchers {
       // TODO this is kind of degenerate in that it's missing its ports, but it tests well enough
       "link" -> EdgirGraph.EdgirNode(
         data = LinkWrapper(DesignPath() + "link", Link.Link(
-          superclass="testLink"
+          selfClass="testLink"
         )),
         members = SeqMap(),
         edges = Seq()

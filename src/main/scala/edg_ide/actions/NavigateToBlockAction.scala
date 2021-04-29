@@ -6,6 +6,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.wir.DesignPath
 import edg_ide.{EdgirUtils, PsiUtils}
@@ -77,8 +78,8 @@ class NavigateToBlockAction() extends AnAction() {
       }.exceptEmpty(s"no ${containingClass.getName} containing $refName")
 
       val items = matchBlockPathTypes.map { case (blockPath, refName, block, desc) =>
-        val eltTypeStr = desc.map(EdgirUtils.SimpleLibraryPath).getOrElse("???")
-        val blockTypeStr = EdgirUtils.SimpleSuperclass(block.superclasses)
+        val eltTypeStr = desc.map(_.toSimpleString).getOrElse("???")
+        val blockTypeStr = block.getSelfClass.toSimpleString
         val descStr = s"$eltTypeStr $refName in $blockTypeStr $blockPath"
         NavigateNode(descStr, () => {
           visualizer.setContext(blockPath)

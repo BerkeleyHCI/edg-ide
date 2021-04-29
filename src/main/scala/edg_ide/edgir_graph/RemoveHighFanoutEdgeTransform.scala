@@ -15,7 +15,7 @@ class RemoveHighFanoutEdgeTransform(minConnects: Int, allowedLinkTypes: Set[Libr
       (linkPath, linkLike.`type`, linkLike, source, target)  // extract link path, linkLike, source, and targets
     }.collect { case (linkPath, elem.LinkLike.Type.Link(link), linkLike, source, target) =>
       (linkPath, link, linkLike, source, target)  // extract elaborated link
-    }.collect { case (linkPath, link, linkLike, source, target) if link.superclasses.toSet.subsetOf(allowedLinkTypes) =>
+    }.collect { case (linkPath, link, linkLike, source, target) if allowedLinkTypes.contains(link.getSelfClass) =>
       (linkPath, linkLike, source, target)  // filter by type
     }.groupBy(_._1).map { case (linkPath, pairs) =>
       val linkLike = pairs.head._2  // assume this is the same?

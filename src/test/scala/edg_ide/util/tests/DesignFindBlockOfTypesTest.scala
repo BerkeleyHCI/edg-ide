@@ -14,7 +14,7 @@ class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
 
   it should "find blocks by single type" in {
     val inputDesign = Design(Block.Block(
-      superclass = "top",
+      selfClass = "top",
       blocks = Map(
         "source" -> Block.Library("sourceContainerBlock"),
         "sink1" -> Block.Library("sinkContainerBlock"),
@@ -44,7 +44,7 @@ class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
 
   it should "find blocks by multiple types" in {
     val inputDesign = Design(Block.Block(
-      superclass = "top",
+      selfClass = "top",
       blocks = Map(
         "source" -> Block.Library("sourceContainerBlock"),
         "sink1" -> Block.Library("sinkContainerBlock"),

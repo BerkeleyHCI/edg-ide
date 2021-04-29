@@ -20,8 +20,7 @@ object InsertAction {
   def getPyClassOfContext(project: Project): Errorable[PyClass] = exceptable {
     val (contextPath, contextBlock) = BlockVisualizerService(project)
         .getContextBlock.exceptNone("no context block")
-    requireExcept(contextBlock.superclasses.length == 1, "invalid class for context block")
-    DesignAnalysisUtils.pyClassOf(contextBlock.superclasses.head, project).exceptError
+    DesignAnalysisUtils.pyClassOf(contextBlock.getSelfClass, project).exceptError
   }
 
   def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project,
