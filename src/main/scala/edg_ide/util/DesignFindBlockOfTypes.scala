@@ -15,7 +15,7 @@ class DesignFindBlockOfTypes(targetTypes: Set[ref.LibraryPath])
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                         blocks: SeqMap[String, Seq[(DesignPath, elem.HierarchyBlock)]]):
       Seq[(DesignPath, elem.HierarchyBlock)] = {
-    if (block.superclasses.toSet.subsetOf(targetTypes)) {
+    if (targetTypes.contains(block.getSelfClass)) {
       blocks.values.flatten.toSeq :+ ((path, block))
     } else {
       blocks.values.flatten.toSeq

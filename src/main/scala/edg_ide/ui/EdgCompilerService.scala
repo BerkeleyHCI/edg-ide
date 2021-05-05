@@ -145,7 +145,7 @@ class EdgCompilerService(project: Project) extends
     indicator.foreach(_.setIndeterminate(true))
     val ((compiled, compiler, refinements), compileTime) = timeExec {
       val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType).get  // TODO propagate Errorable
-      val design = schema.Design(contents = Some(block.copy(superclasses = Seq(designType))))  // TODO dedup w/ superclass resolution in BlockLink.Block
+      val design = schema.Design(contents = Some(block))
 
       val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
         refinements=Refinements(refinements)) {

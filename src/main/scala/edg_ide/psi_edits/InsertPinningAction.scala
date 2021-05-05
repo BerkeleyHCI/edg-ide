@@ -26,9 +26,9 @@ object InsertPinningAction {
 
   protected def recursivePortPathsAndTypes(path: ref.LocalPath, port: elem.PortLike):
       Seq[(ref.LocalPath, ref.LibraryPath)] = port.is match {
-    case elem.PortLike.Is.Port(port) => Seq((path, port.superclasses.head))
+    case elem.PortLike.Is.Port(port) => Seq((path, port.getSelfClass))
     case elem.PortLike.Is.Bundle(port) =>
-      Seq((path, port.superclasses.head)) ++
+      Seq((path, port.getSelfClass)) ++
           port.ports.flatMap { case (name, subport) =>
             val subpath = path.update(
               _.steps :+= ref.LocalStep().update(_.name := name)
@@ -56,7 +56,7 @@ object InsertPinningAction {
                               event: MouseEvent, project: Project,
                               continuation: (ref.LocalPath, PsiElement) => Unit): Errorable[Unit] = exceptable {
     // TODO Dedup w/ InsertFootprintAction?
-    val blockClass = DesignAnalysisUtils.pyClassOf(block.superclasses.head, project).exceptError
+    val blockClass = DesignAnalysisUtils.pyClassOf(block.getSelfClass, project).exceptError
     val after = InsertAction.getCaretAtFileOfType(
       blockClass.getContainingFile, classOf[PyStatementList], project, requireClass = false).exceptError
     val containingPsiFunction = PsiTreeUtil.getParentOfType(after, classOf[PyFunction])

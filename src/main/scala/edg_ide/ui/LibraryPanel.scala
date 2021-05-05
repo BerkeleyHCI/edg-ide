@@ -10,6 +10,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{PyClass, PyNamedParameter, PyPsiFacade}
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.{Ref, ValueExpr}
 import edg.elem.elem
 import edg.ref.ref
@@ -139,8 +140,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
         .exceptNone(s"can't resolve $selectedPath")
     requireExcept(selectedPath == resolvedPath, s"mismatch resolving $selectedPath")
     val selectedBlock = resolvedElt.instanceOfExcept[elem.HierarchyBlock]("selected not a block")
-    val selectedType = selectedBlock.prerefineClass.getOrElse(
-      selectedBlock.superclasses.onlyExcept("invalid class of selected"))
+    val selectedType = selectedBlock.prerefineClass.getOrElse(selectedBlock.getSelfClass)
     val selectedClass = DesignAnalysisUtils.pyClassOf(selectedType, project).exceptError
 
     requireExcept(blockClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
@@ -152,7 +152,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     val topType = BlockVisualizerService(project).visualizerPanelOption
         .exceptNone("no visualizer panel")
         .getDesign.getContents
-        .superclasses.onlyExcept("invalid class of top")
+        .getSelfClass
     DesignAnalysisUtils.pyClassOf(topType, project).exceptError
   }
   private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
@@ -397,10 +397,10 @@ class LibraryPreview(project: Project) extends JPanel {
         } else {
           block.superclasses.map { superclass =>
             // TODO hyperlinks? s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
-            s"""<b>${EdgirUtils.SimpleLibraryPath(superclass)}</b>"""
+            s"""<b>${superclass.toSimpleString}</b>"""
           }.mkString(", ")
         }
-        val textFieldText = s"<b>${EdgirUtils.SimpleLibraryPath(blockType)}</b> " +
+        val textFieldText = s"<b>${blockType.toSimpleString}</b> " +
             s"extends: ${superclassString}\n" +
             s"takes: ${callString.mapToString(identity)}<hr>" +
             docstring.mapToString(identity)

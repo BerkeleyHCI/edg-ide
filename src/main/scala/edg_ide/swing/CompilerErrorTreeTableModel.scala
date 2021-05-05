@@ -1,6 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{CompilerError, ElaborateRecord, ExprRef, ExprToString}
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
@@ -70,7 +71,7 @@ object CompilerErrorNodeBase {
       case CompilerError.LibraryElement(path, target) =>
         (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>
-        (s"Generator not ready, ${EdgirUtils.SimpleSuperclass(targets)}:$fnName", path.toString, Seq())
+        (s"Generator not ready, ${targets.toSimpleString}:$fnName", path.toString, Seq())
 
       case CompilerError.LibraryError(path, target, err) =>
         (s"Library error, ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq(
@@ -94,8 +95,8 @@ object CompilerErrorNodeBase {
                 new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
             })
 
-      case CompilerError.AbstractBlock(path, superclasses) =>
-        (s"Abstract block, ${EdgirUtils.SimpleSuperclass(superclasses)}", path.toString, Seq())
+      case CompilerError.AbstractBlock(path, blockType) =>
+        (s"Abstract block, ${blockType.toSimpleString}", path.toString, Seq())
       case CompilerError.FailedAssertion(root, constrName, value, result) =>
         (s"Failed assertion", s"$root:$constrName", Seq(
           new CompilerErrorDetailNode(ExprToString(value),result.toStringValue)

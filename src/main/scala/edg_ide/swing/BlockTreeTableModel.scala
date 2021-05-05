@@ -1,6 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.elem.elem
 import edg.wir.{DesignPath, ProtoUtil}
 import edg.util.SeqMapSortableFrom._
@@ -29,7 +30,7 @@ class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
 
   override def toString: String = path.lastString
 
-  def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(block.superclasses)
+  def getColumns(index: Int): String = block.getSelfClass.toSimpleString
 }
 
 

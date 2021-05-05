@@ -19,14 +19,10 @@ class DesignFastPathUtil(library: wir.Library) {
   def instantiatePortLike(portType: ref.LibraryPath): Errorable[elem.PortLike] = exceptable {
     library.getPort(portType).exceptError match {
       case IrPort.Port(port) => elem.PortLike().update(
-        _.port := port.update(
-          _.superclasses := Seq(portType)
-        )
+        _.port := port
       )
       case IrPort.Bundle(bundle) => elem.PortLike().update(
-        _.bundle := bundle.update(
-          _.superclasses := Seq(portType)
-        )
+        _.bundle := bundle
       )
     }
   }
@@ -46,7 +42,7 @@ class DesignFastPathUtil(library: wir.Library) {
   def instantiateStubBlock(blockType: ref.LibraryPath): Errorable[elem.HierarchyBlock] = exceptable {
     val newBlock = library.getBlock(blockType).exceptError
     newBlock.update(  // create a placeholder only
-      _.superclasses := Seq(blockType),
+      _.selfClass := blockType,
       _.ports := newBlock.ports.mapValues(recursiveExpandPort)
           .mapValues(_.exceptError).toMap,
       _.blocks := Map(),
@@ -94,7 +90,7 @@ class DesignFastPathUtil(library: wir.Library) {
     val linkType = libraryAnalysis.linkOfPort(connectedTypes.head._2).exceptNone(s"no link")
     val newLink = library.getLink(linkType).exceptError
     var stubLink = newLink.update(
-      _.superclasses := Seq(linkType),
+      _.selfClass := linkType,
       _.ports := newLink.ports.mapValues(recursiveExpandPort)
           .mapValues(_.exceptError).toMap,
       _.links := Map(),

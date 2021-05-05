@@ -253,7 +253,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     } match {
       case Some((block, Some((footprint, pinning)))) =>
         val footprintStr = footprint.replace(":", ": ")  // TODO this allows a line break but is hacky
-        currentBlockPathTypePin = Some((blockPath, block.superclasses.head, block, pinning))
+        currentBlockPathTypePin = Some((blockPath, block.getSelfClass, block, pinning))
         footprintSynced = true
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
         FootprintBrowser.footprintToFile(footprint) match {
@@ -270,7 +270,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
               this.getFont))
         }
       case Some((block, None)) =>
-        currentBlockPathTypePin = Some((blockPath, block.superclasses.head, block, Map()))
+        currentBlockPathTypePin = Some((blockPath, block.getSelfClass, block, Map()))
         footprintSynced = false
         visualizer.pinmap = Map()
         status.setText(SwingHtmlUtil.wrapInHtml(s"No footprint at ${blockPath.lastString}",

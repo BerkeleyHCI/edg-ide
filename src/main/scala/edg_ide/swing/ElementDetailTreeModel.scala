@@ -1,9 +1,10 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
-import edg.compiler.{Compiler, ExprRef, ExprResult, ExprToString}
 import edg.common.common
+import edg.compiler.{Compiler, ExprRef, ExprResult, ExprToString}
 import edg.elem.elem
 import edg.expr.expr
 import edg.init.init
@@ -81,7 +82,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
       ).flatten
     }
 
-    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(port.superclasses)
+    override def getColumns(index: Int): String = port.getSelfClass.toSimpleString
   }
 
   class BundleNode(val path: DesignPath, port: elem.Bundle,
@@ -100,7 +101,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
       ).flatten
     }
 
-    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(port.superclasses)
+    override def getColumns(index: Int): String = port.getSelfClass.toSimpleString
   }
 
   class ArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
@@ -116,7 +117,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
       ).flatten
     }
 
-    override def getColumns(index: Int): String = s"Array[${EdgirUtils.SimpleSuperclass(port.superclasses)}]"
+    override def getColumns(index: Int): String = s"Array[${port.getSelfClass.toSimpleString}]"
   }
 
   def PortLikeNode(path: DesignPath, port: elem.PortLike, fromLink: Boolean=false): ElementDetailNode = {
@@ -156,14 +157,14 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
 
     override def toString: String = path.lastString
 
-    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(block.superclasses)
+    override def getColumns(index: Int): String = block.getSelfClass.toSimpleString
   }
 
   def BlockLikeNode(path: DesignPath, block: elem.BlockLike): ElementDetailNode = {
     block.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) => new BlockNode(path, block)
       case elem.BlockLike.Type.LibElem(block) =>
-        new UnelaboratedNode(path, s"unelaborated ${EdgirUtils.SimpleLibraryPath(block)}")
+        new UnelaboratedNode(path, s"unelaborated ${block.toSimpleString}")
       case _ =>
         new UnelaboratedNode(path, "unknown")
     }
@@ -200,7 +201,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
       }
     }
 
-    override def getColumns(index: Int): String = EdgirUtils.SimpleSuperclass(link.superclasses)
+    override def getColumns(index: Int): String = link.getSelfClass.toSimpleString
   }
 
   def LinkLikeNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkLike): ElementDetailNode = {

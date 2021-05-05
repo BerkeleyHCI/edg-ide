@@ -22,12 +22,9 @@ object ConnectTool {
   // TODO this is awful, replace with union types when possible!
   // TODO goes in some shared analysis util?
   private def typeOfPort(port: Any): Errorable[ref.LibraryPath] = exceptable { port match {
-    case port: elem.Port =>
-      port.superclasses.onlyExcept("invalid port class")
-    case port: elem.Bundle =>
-      port.superclasses.onlyExcept("invalid port class")
-    case array: elem.PortArray =>
-      array.superclasses.onlyExcept("invalid port class")
+    case port: elem.Port => port.getSelfClass
+    case port: elem.Bundle => port.getSelfClass
+    case array: elem.PortArray => array.getSelfClass
     case isOther => throw ExceptionNotifyException(s"unexpected port ${isOther.getClass}")
   }}
 

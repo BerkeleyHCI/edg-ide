@@ -180,9 +180,7 @@ object DesignAnalysisUtils {
     val (parentPath, blockName) = path.split
     val parentBlock = EdgirUtils.resolveExactBlock(parentPath, topDesign)
         .exceptNone(s"no block at parent path $parentPath")
-    requireExcept(parentBlock.superclasses.length == 1,
-      s"invalid parent class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
-    val parentPyClass = pyClassOf(parentBlock.superclasses.head, project).exceptError
+    val parentPyClass = pyClassOf(parentBlock.getSelfClass, project).exceptError
     val assigns = findAssignmentsTo(parentPyClass, blockName, project).filter(_.canNavigateToSource)
         .exceptEmpty(s"no assigns to $blockName found in ${parentPyClass.getName}")
     assigns
@@ -199,9 +197,7 @@ object DesignAnalysisUtils {
     requireExcept(path.steps.length > parentPath.steps.length, "path resolves to block")
     val portName = path.steps(parentPath.steps.length)
 
-    requireExcept(parentBlock.superclasses.length == 1,
-      s"invalid parent class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
-    val parentPyClass = pyClassOf(parentBlock.superclasses.head, project).exceptError
+    val parentPyClass = pyClassOf(parentBlock.getSelfClass, project).exceptError
     val parentConnects = findGeneralConnectsTo(parentPyClass, ("", portName), project) match {
       case Errorable.Success(connects) => connects
       case _ => Seq()
@@ -210,9 +206,7 @@ object DesignAnalysisUtils {
     val (containingPath, parentName) = parentPath.split
     val containingBlock = EdgirUtils.resolveExactBlock(containingPath, topDesign)
         .exceptNone(s"no block at containing path $containingPath")
-    requireExcept(containingBlock.superclasses.length == 1,
-      s"invalid containing class ${EdgirUtils.SimpleSuperclass(parentBlock.superclasses)}")
-    val containingPyClass = pyClassOf(containingBlock.superclasses.head, project).exceptError
+    val containingPyClass = pyClassOf(containingBlock.getSelfClass, project).exceptError
     val containingConnects = findGeneralConnectsTo(containingPyClass, (parentName, portName), project) match {
       case Errorable.Success(connects) => connects
       case _ => Seq()

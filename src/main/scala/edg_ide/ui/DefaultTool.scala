@@ -9,6 +9,7 @@ import edg.wir.DesignPath
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
+import edg.EdgirUtils.SimpleLibraryPath
 
 import java.awt.event.MouseEvent
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
@@ -54,10 +55,9 @@ trait NavigationPopupMenu extends JPopupMenu {
 class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
   private val block = Errorable(EdgirUtils.resolveExactBlock(path, interface.getDesign), "no block at path")
-  private val blockClass = block.map(_.superclasses).require("invalid class")(_.length == 1)
-      .map(_.head)
+  private val blockClass = block.map(_.getSelfClass)
 
-  add(new JLabel(s"Design Block: ${blockClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
+  add(new JLabel(s"Design Block: ${blockClass.mapToString(_.toSimpleString)} at $path"))
   addSeparator()
 
   val setFocusAction: Errorable[() => Unit] = exceptable {
@@ -93,15 +93,9 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   private val portClass = exceptable {
     val port = EdgirUtils.resolveExact(path, interface.getDesign).exceptNone("no port at path")
     port match {
-      case port: elem.Port =>
-        requireExcept(port.superclasses.length == 1, "invalid class")
-        port.superclasses.head
-      case bundle: elem.Bundle =>
-        requireExcept(bundle.superclasses.length == 1, "invalid class")
-        bundle.superclasses.head
-      case array: elem.PortArray =>
-        requireExcept(array.superclasses.length == 1, "invalid class")
-        array.superclasses.head
+      case port: elem.Port => port.getSelfClass
+      case bundle: elem.Bundle => bundle.getSelfClass
+      case array: elem.PortArray => array.getSelfClass
       case other => throw ExceptionNotifyException(s"unknown ${other.getClass} at path")
     }
   }
