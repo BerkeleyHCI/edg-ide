@@ -11,35 +11,35 @@ import org.scalatest.matchers.should.Matchers
 class DesignFindDisconnectedTest extends AnyFlatSpec with Matchers {
   behavior of "DesignDisconnectedType"
 
-  val testBlock = Block.Block(
+  val testBlock = Block.Block("topDesign",
     blocks = Map(
-      "requiredConnectedBlock" -> Block.Block(
-        ports = Map("port" -> Port.Port()),
+      "requiredConnectedBlock" -> Block.Block("test1",
+        ports = Map("port" -> Port.Port("port")),
         constraints = Map(
           "required" -> ValueExpr.Ref(Ref.IsConnected(Ref("port")))
         )
       ),
-      "requiredDisconnectedBlock" -> Block.Block(
-        ports = Map("port" -> Port.Port()),
+      "requiredDisconnectedBlock" -> Block.Block("test2",
+        ports = Map("port" -> Port.Port("port")),
         constraints = Map(
           "required" -> ValueExpr.Ref(Ref.IsConnected(Ref("port")))
         )
       ),
-      "requiredDisconnectedBlock2" -> Block.Block(
+      "requiredDisconnectedBlock2" -> Block.Block("test3",
         ports = Map(
-          "porta" -> Port.Port(),
-          "portb" -> Port.Port(),
+          "porta" -> Port.Port("port"),
+          "portb" -> Port.Port("port"),
         ),
         constraints = Map(
           "requireda" -> ValueExpr.Ref(Ref.IsConnected(Ref("porta"))),
           "requiredb" -> ValueExpr.Ref(Ref.IsConnected(Ref("portb"))),
         )
       ),
-      "nonRequiredConnectedBlock" -> Block.Block(
-        ports = Map("port" -> Port.Port())
+      "nonRequiredConnectedBlock" -> Block.Block("test4",
+        ports = Map("port" -> Port.Port("port"))
       ),
-      "nonRequiredDisconnectedBlock" -> Block.Block(
-        ports = Map("port" -> Port.Port())
+      "nonRequiredDisconnectedBlock" -> Block.Block("test5",
+        ports = Map("port" -> Port.Port("port"))
       ),
     ),
     constraints = Map(
@@ -59,7 +59,7 @@ class DesignFindDisconnectedTest extends AnyFlatSpec with Matchers {
   }
 
   it should "find disconnected in a nested block" in {
-    val design = Design(Block.Block(
+    val design = Design(Block.Block("topDesign",
       blocks = Map(
         "inner" -> testBlock
       )

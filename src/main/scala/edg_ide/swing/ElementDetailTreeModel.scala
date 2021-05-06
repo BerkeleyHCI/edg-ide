@@ -126,7 +126,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
       case elem.PortLike.Is.Bundle(port) => new BundleNode(path, port, fromLink)
       case elem.PortLike.Is.Array(port) => new ArrayNode(path, port, fromLink)
       case elem.PortLike.Is.LibElem(port) =>
-        new UnelaboratedNode(path, s"unelaborated ${EdgirUtils.SimpleLibraryPath(port)}")
+        new UnelaboratedNode(path, s"unelaborated ${port.toSimpleString}")
       case _ =>
         new UnelaboratedNode(path, "unknown")
     }
@@ -208,7 +208,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     link.`type` match {
       case elem.LinkLike.Type.Link(link) => new LinkNode(path, relpath, link)
       case elem.LinkLike.Type.LibElem(link) =>
-        new UnelaboratedNode(path, s"unelaborated ${EdgirUtils.SimpleLibraryPath(link)}")
+        new UnelaboratedNode(path, s"unelaborated ${link.toSimpleString}")
       case _ =>
         new UnelaboratedNode(path, "unknown")
     }

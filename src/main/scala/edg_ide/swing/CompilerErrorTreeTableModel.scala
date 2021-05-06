@@ -69,21 +69,21 @@ object CompilerErrorNodeBase {
         (s"Unknown unelaborated $unelaborated", "", deps.toSeq.map(elaborateRecordToDetailNode))
 
       case CompilerError.LibraryElement(path, target) =>
-        (s"Missing library element ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq())
+        (s"Missing library element ${target.toSimpleString}", path.toString, Seq())
       case CompilerError.Generator(path, targets, fnName) =>
         (s"Generator not ready, ${targets.toSimpleString}:$fnName", path.toString, Seq())
 
       case CompilerError.LibraryError(path, target, err) =>
-        (s"Library error, ${EdgirUtils.SimpleLibraryPath(target)}", path.toString, Seq(
+        (s"Library error, ${target.toSimpleString}", path.toString, Seq(
           new CompilerErrorDetailNode(err, "")
         ))
       case CompilerError.GeneratorError(path, target, fnName, err) =>
-        (s"Generator error, ${EdgirUtils.SimpleLibraryPath(target)}:$fnName", path.toString, Seq(
+        (s"Generator error, ${target.toSimpleString}:$fnName", path.toString, Seq(
           new CompilerErrorDetailNode(err, "")
         ))
       case CompilerError.RefinementSubclassError(path, refinedLibrary, designLibrary) =>
-        (s"Refinement class ${EdgirUtils.SimpleLibraryPath(refinedLibrary)} " +
-            s"not a subclass of design class ${EdgirUtils.SimpleLibraryPath(designLibrary)}",
+        (s"Refinement class ${refinedLibrary.toSimpleString} " +
+            s"not a subclass of design class ${designLibrary.toSimpleString}",
             path.toString, Seq())
 
       case CompilerError.OverAssign(target, causes) =>

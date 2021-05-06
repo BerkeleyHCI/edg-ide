@@ -68,7 +68,7 @@ class BlockRootPopupMenu(project: Project) extends JPopupMenu {
 
 
 class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extends JPopupMenu {
-  val blockTypeName = EdgirUtils.SimpleLibraryPath(blockType)
+  val blockTypeName = blockType.toSimpleString
   add(new JLabel(s"Library Block: $blockTypeName"))
   addSeparator()
 
@@ -223,7 +223,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
 
 class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends JPopupMenu {
-  val portTypeName = EdgirUtils.SimpleLibraryPath(portType)
+  val portTypeName = portType.toSimpleString
   add(new JLabel(s"Library Port: $portTypeName"))
   addSeparator()
 
@@ -409,7 +409,7 @@ class LibraryPreview(project: Project) extends JPanel {
           this.getFont))
       case Errorable.Error(errMsg) =>
         graph.setGraph(emptyHGraph)
-        textField.setText(SwingHtmlUtil.wrapInHtml(s"${EdgirUtils.SimpleLibraryPath(blockType)}: $errMsg",
+        textField.setText(SwingHtmlUtil.wrapInHtml(s"${blockType.toSimpleString}: $errMsg",
           this.getFont))
     }
   }
@@ -455,7 +455,7 @@ class LibraryPreview(project: Project) extends JPanel {
     } )
 
     graph.setGraph(emptyHGraph)
-    val textFieldText = s"<b>${EdgirUtils.SimpleLibraryPath(portType)}</b>\n" +
+    val textFieldText = s"<b>${portType.toSimpleString}</b>\n" +
         s"takes: ${callString.mapToString(identity)}<hr>" +
         docstring.mapToString(identity)
 
@@ -586,9 +586,9 @@ class LibraryPanel(project: Project) extends JPanel {
     } else {
       val filteredPaths = libraryTreeModel.setFilter {
         case node: EdgirLibraryTreeNode.BlockNode =>
-          searchTerms.forall(searchTerm => EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchTerm))
+          searchTerms.forall(searchTerm => node.path.toSimpleString.toLowerCase().contains(searchTerm))
         case node: EdgirLibraryTreeNode.PortNode =>
-          searchTerms.forall(searchTerm => EdgirUtils.SimpleLibraryPath(node.path).toLowerCase().contains(searchTerm))
+          searchTerms.forall(searchTerm => node.path.toSimpleString.toLowerCase().contains(searchTerm))
         case other => false
       }
       filteredPaths.foreach { filteredPath =>

@@ -1,6 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.ref.ref
 import edg.elem.elem
 import edg_ide.EdgirUtils
@@ -28,7 +29,7 @@ trait EdgirLibraryTreeNode {  // abstract base class for tree node model
 object EdgirLibraryTreeNode {
 
   abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryTreeNode {
-    override def toString: String = EdgirUtils.SimpleLibraryPath(path)
+    override def toString: String = path.toSimpleString
   }
 
 

@@ -24,25 +24,6 @@ object EdgirUtils {
     ref.LibraryPath(target=Some(ref.LocalStep(step=ref.LocalStep.Step.Name(path))))
   }
 
-  @deprecated("use ExprBuilder or similar?")
-  def LibraryPathToString(path: ref.LibraryPath): String = {
-    // TODO handle LibraryName and Namespace
-    path.target match {
-      case Some(target) => target.step match {
-        case ref.LocalStep.Step.Name(step) => step
-        case ref.LocalStep.Step.ReservedParam(step) => step.toString
-        case ref.LocalStep.Step.Empty => "(empty LocalStep)"
-      }
-      case None => "(LibraryPath with no target)"
-    }
-  }
-
-  @deprecated("replace w/ path.toSimpleString")
-  def SimpleLibraryPath(path: ref.LibraryPath): String = {
-    // TODO once namespaces are handled properly, this should use that instead of string ops
-    LibraryPathToString(path).split('.').last
-  }
-
   // TODO refactor into common utils elsewher
   def typeOfBlockLike(blockLike: elem.BlockLike): Option[ref.LibraryPath] = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) => Some(block.getSelfClass)

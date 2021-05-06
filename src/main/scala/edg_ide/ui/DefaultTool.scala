@@ -92,6 +92,7 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
   private val portClass = exceptable {
     val port = EdgirUtils.resolveExact(path, interface.getDesign).exceptNone("no port at path")
+    // TODO replace w/ EdgirUtils.typeOfPort, but this needs to take a PortLike instead of Any Port
     port match {
       case port: elem.Port => port.getSelfClass
       case bundle: elem.Bundle => bundle.getSelfClass
@@ -99,7 +100,7 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
       case other => throw ExceptionNotifyException(s"unknown ${other.getClass} at path")
     }
   }
-  add(new JLabel(s"Design Port: ${portClass.mapToString(EdgirUtils.SimpleLibraryPath)} at $path"))
+  add(new JLabel(s"Design Port: ${portClass.mapToString(_.toSimpleString)} at $path"))
   addSeparator()
 
   val startConnectAction = exceptable {

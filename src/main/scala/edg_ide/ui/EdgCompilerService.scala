@@ -12,6 +12,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, ElaborateRecord, PythonInterface, PythonInterfaceLibrary, hdl => edgrpc}
 import edg.schema.schema
 import edg.util.{Errorable, timeExec}
@@ -108,7 +109,7 @@ class EdgCompilerService(project: Project) extends
     } else {
       notificationGroup.createNotification(s"Cleaned cache",
         s"discarded ${discarded.size} changed modules",
-        discarded.map(EdgirUtils.SimpleLibraryPath).mkString(", "),
+        discarded.map(_.toSimpleString).mkString(", "),
         NotificationType.INFORMATION)
           .notify(project)
     }
@@ -129,12 +130,12 @@ class EdgCompilerService(project: Project) extends
     indicator.foreach(_.setIndeterminate(false))
     for ((libraryType, i) <- allLibraries.zipWithIndex) {
       indicator.foreach(_.setFraction(i.toFloat / allLibraries.size))
-      indicator.foreach(_.setText(s"EDG compiling: library ${EdgirUtils.SimpleLibraryPath(libraryType)}"))
+      indicator.foreach(_.setText(s"EDG compiling: library ${libraryType.toSimpleString}"))
       pyLib.getLibrary(libraryType) match {
         case Errorable.Success(_) => // ignored
         case Errorable.Error(errMsg) =>
           notificationGroup.createNotification(
-            s"Failed to compile ${EdgirUtils.SimpleLibraryPath(libraryType)}", s"",
+            s"Failed to compile ${libraryType.toSimpleString}", s"",
             s"$errMsg",
             NotificationType.WARNING)
               .notify(project)

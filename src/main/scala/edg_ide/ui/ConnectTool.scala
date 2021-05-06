@@ -21,6 +21,7 @@ import collection.mutable
 object ConnectTool {
   // TODO this is awful, replace with union types when possible!
   // TODO goes in some shared analysis util?
+  // TODO we can't yet replace this with EdgirUtils.typeOfPort, since that takes a PortLike whereas this takes a Port as Any
   private def typeOfPort(port: Any): Errorable[ref.LibraryPath] = exceptable { port match {
     case port: elem.Port => port.getSelfClass
     case port: elem.Bundle => port.getSelfClass

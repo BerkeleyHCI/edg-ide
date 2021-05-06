@@ -1,5 +1,6 @@
 package edg_ide.edgir_graph
 
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
 import edg_ide.EdgirUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
@@ -40,7 +41,7 @@ object ElkEdgirGraphUtils {
       val portType = BlockConnectivityAnalysis.typeOfPortLike(port.portLike)
       val portName = port.path.steps.last
 
-      EdgirUtils.SimpleLibraryPath(portType) match {
+      portType.toSimpleString match {
         case "VoltageSource" => Some(PortSide.EAST)
         case "VoltageSink" => portName match {
           case "gnd" | "vss" => Some(PortSide.SOUTH)

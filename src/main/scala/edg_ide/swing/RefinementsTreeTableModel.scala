@@ -1,6 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.ExprToString
 import edg.compiler.{hdl => edgrpc}
 import edg_ide.EdgirUtils
@@ -31,7 +32,7 @@ object RefinementsNodeBase {
       (subclass.source, subclass.getReplacement)
     }.collect {
       case (edgrpc.Refinements.Subclass.Source.Cls(srcType), replaceType) =>
-        RefinementsDetailNode(EdgirUtils.SimpleLibraryPath(srcType), EdgirUtils.SimpleLibraryPath(replaceType))
+        RefinementsDetailNode(srcType.toSimpleString, replaceType.toSimpleString)
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Class Subclasses"
@@ -42,7 +43,7 @@ object RefinementsNodeBase {
       (subclass.source, subclass.getReplacement)
     }.collect {
       case (edgrpc.Refinements.Subclass.Source.Path(srcPath), replaceType) =>
-        RefinementsDetailNode(ExprToString(srcPath), EdgirUtils.SimpleLibraryPath(replaceType))
+        RefinementsDetailNode(ExprToString(srcPath), replaceType.toSimpleString)
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Instance Subclasses"
@@ -53,8 +54,8 @@ object RefinementsNodeBase {
       (value.source, value.getValue)
     }.collect {
       case (edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam), replaceValue) =>
-        RefinementsDetailNode(EdgirUtils.SimpleLibraryPath(
-          srcTypeParam.getCls) + ":" + ExprToString(srcTypeParam.getParamPath),
+        RefinementsDetailNode(
+          srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
           ExprToString(replaceValue))
     }
     override def getColumns(index: Int): String = ""

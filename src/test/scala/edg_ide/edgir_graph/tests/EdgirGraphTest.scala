@@ -22,27 +22,27 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         "source" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports=Map(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
+              selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
           ),
         ))),
         "sink" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports=Map(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(EdgirTestUtils.Ports.PowerSink)
+              selfClass=Some(EdgirTestUtils.Ports.PowerSink)
             ))),
           ),
         ))),
       ),
       links=Map(
         "link" -> elem.LinkLike(`type`=elem.LinkLike.Type.Link(elem.Link(
-          superclasses=Seq(EdgirTestUtils.Links.Power),
+          selfClass=Some(EdgirTestUtils.Links.Power),
           ports=Map(
             "source" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
+              selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
             "sink" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
+              selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
           ),
         ))),
@@ -133,14 +133,14 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         "outer" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports=Map(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
+              selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
           ),
           blocks=Map(
             "inner" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
               ports=Map(
                 "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-                  superclasses=Seq(EdgirTestUtils.Ports.PowerSource)
+                  selfClass=Some(EdgirTestUtils.Ports.PowerSource)
                 ))),
               ),
             ))),

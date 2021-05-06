@@ -587,7 +587,7 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     textMap.put(path, s"<b>$classString</b> at $path")
   }
   override def mapPortLibrary(path: DesignPath, port: ref.LibraryPath): Unit = {
-    val classString = s"Unelaborated ${EdgirUtils.SimpleLibraryPath(port)}"
+    val classString = s"Unelaborated ${port.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
   }
 
@@ -687,7 +687,7 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
-    val classString = s"Unelaborated ${EdgirUtils.SimpleLibraryPath(link)}"
+    val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
   }
 
