@@ -13,15 +13,157 @@ case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
 
 class KicadParser(kicadFilePath:String) {
 
-  // TODO have user select with FootprintBrowserPanel
   private var kicadFile: File = new File("")
 
   def setKicadFile(kicadFile: File): Unit = {
     this.kicadFile = kicadFile
   }
 
+  // Given a parsed Element, determine if it is a "fp_line"
+  // e.g. (fp_line (start x y) (end x y) (layer F.SilkS) (width w))
+  def isFpLine(element: Element):Boolean = {
+
+    element match {
+      case Atom(symbol) =>
+        false
+      case SList(values) =>
+        // Match on "fp_line" atom in list
+        val lineFiltered = values.filter {
+          case Atom(symbol) => symbol.equalsIgnoreCase("fp_line")
+          case _:SList => false
+        }
+
+        lineFiltered.nonEmpty
+    }
+  }
+
+  // Given an element, determine if it is an "fp_line" with a "FSilk.S" layer
+  // e.g. (fp_line (start x y) (end 22.x y) (layer F.SilkS) (width w))
+  def isFSilkLine(element: Element): Boolean = {
+    if (!isFpLine(element)) return false
+
+    element match {
+      case Atom(symbol) =>
+        // should never get here, since isFpLine() would reject any Atoms
+        throw new Exception("[Error] Got an Atom but accepted it as an fp_line...something is wrong!: " + element.toString)
+        false
+      case SList(values) =>
+        // Search for "Silk" layer
+        // (layer F.SilkS)
+
+        val layerFiltered = values.tail.filter {
+          case _:Atom =>
+            false
+          case s:SList =>
+            if (s.values.length != 2) false
+            else {
+              val bothAtoms = s.values.head.isInstanceOf[Atom] && s.values.tail.head.isInstanceOf[Atom]
+              if (!bothAtoms) false
+              else {
+                // Can safely convert to atom
+                val layerTokenAtom = s.values.head.asInstanceOf[Atom]
+                val silkTokenAtom = s.values.tail.head.asInstanceOf[Atom]
+                layerTokenAtom.symbol.equalsIgnoreCase("layer") && silkTokenAtom.symbol.contains("Silk")
+              }
+            }
+        }
+
+        layerFiltered.nonEmpty
+    }
+  }
+
+
+  // Given a parsed Element, determine if it is a "pad"
+  // (pad ... (at x y) (size w h) ... )
+  def isPad(element: Element):Boolean = {
+    element match {
+      case Atom(symbol) =>
+        false
+      case SList(values) =>
+        // Match on "pad" atom in list
+        val padFiltered = values.filter {
+          case Atom(symbol) => symbol.equalsIgnoreCase("pad")
+          case _:SList => false
+
+        }
+        padFiltered.nonEmpty
+    }
+  }
+
+  // Given a parsed Element, determine if it is a rectangular pad
+  // (pad ... (at x y) (size w h) ... )
+  def isRectPad(element: Element): Boolean = {
+    if (!isPad(element)) return false
+
+    element match {
+      case Atom(symbol) =>
+        false
+      case SList(values) =>
+        // Match on "rect" (or roundrect) atom in list
+        val rectFiltered = values.filter {
+          case Atom(symbol) => symbol.equalsIgnoreCase("rect")
+          case _:SList => false
+        }
+        rectFiltered.nonEmpty
+    }
+  }
+
+
+  // Given an Element, determine if it contains a valid position. If so, return the position. Otherwise, return None.
+  // (tag xpos ypos) where xpos and ypos are numerical values and tag is a string, such as "start", "end", "at"
+  def extractPos(element: Element, tag:String): Option[(Float, Float)] = {
+    var position = (0f, 0f)
+    element match {
+      case Atom(symbol) =>
+        None
+      case SList(values) =>
+        if (values.length != 3) return None
+
+        // Verify (tag ....)
+        values.head match {
+          case Atom(symbol) =>
+            if (!symbol.equalsIgnoreCase(tag)) {
+              return None
+            }
+          case SList(values) =>
+            return None
+
+        }
+
+        // Verify (... xpos ...) is numerical value
+        values.tail.head match {
+          case Atom(symbol) =>
+            val parsedFloat = symbol.toFloatOption
+            if (parsedFloat.isEmpty) {
+              return None
+            }
+            else {
+              position = (parsedFloat.get, position._2)
+            }
+          case SList(values) =>
+            return None
+        }
+
+        // Verify (... ypos) is numerical value
+        values.tail.tail.head match {
+          case Atom(symbol) =>
+            val parsedFloat = symbol.toFloatOption
+            if (parsedFloat.isEmpty) {
+              return None
+            }
+            else {
+              position = (position._1, parsedFloat.get)
+            }
+
+          case SList(values) =>
+            return None
+        }
+
+        Some(position)
+    }
+  }
+
   def parseKicadFile(): ArrayBuffer[KicadComponent] = {
-    // TODO better error handling
     try {
       val fileReader = Source.fromFile(kicadFile)
       val lines = fileReader.getLines()
@@ -33,159 +175,66 @@ class KicadParser(kicadFilePath:String) {
       val parsed = ExpressionParser.parse(s)
       var kicadComponents = new ArrayBuffer[KicadComponent]
 
-      for (p <- parsed.values) {
-        // Iterate over the parsed values, seeing if they are a rect / line, and if so, parse into appropriate data structure
+      for (parsedElement <- parsed.values) {
 
-        // TODO this code sucks
-        p match {
-          case SList(values) =>
-            if (values.length > 3) {
-              values.head match {
-                case atom: Atom =>
-                  if (atom.symbol.equalsIgnoreCase("fp_line")) {
-                    // match on "FSilk" for lines
-                    val line = values.filter {
-                      case a:Atom => false
-                      case s: SList =>
-                        if (s.values.length == 2) {
-                          val first = s.values.head
-                          val second = s.values.tail.head
-                          if (first.isInstanceOf[Atom] && second.isInstanceOf[Atom]) {
-                            second.asInstanceOf[Atom].symbol.contains("Silk")
-  //                          true
-                          }
-                          else {
-                            false
-                          }
-                        }
-                        else {
-                          false
-                        }
-                    }
-                    if (line.length == 1) {
-                      // We have a valid line, need to get x0, y0, x1, y1
-                      // Assume file is well formed -- i.e. contains "start", "end"
-                      val startPos = values.filter {
-                        case s:SList =>
-                          if (s.values.length == 3) {
-                            val first = s.values.head
-                            first match {
-                              case atom1: Atom =>
-                                atom1.symbol.equalsIgnoreCase("start")
-                              case _ =>
-                                false
-                            }
-                          }
-                          else {
-                            false
-                          }
-                        case _ => false
-                      }.head
+        if (isFSilkLine(parsedElement)) {
+          // We can safely assume parsedElement is an SList because of FSilkLine.
+          // Ensure that startPosList and endPosList are well-formed, and get start/end positions.
 
-                      val endPos = values.filter {
-                        case s:SList =>
-                          if (s.values.length == 3) {
-                            val first = s.values.head
-                            first match {
-                              case atom1: Atom =>
-                                atom1.symbol.equalsIgnoreCase("end")
-                              case _ =>
-                                false
-                            }
-                          }
-                          else {
-                            false
-                          }
-                        case _ => false
-                      }.head
+          val startPosList = parsedElement.asInstanceOf[SList].values
+          .map { e => extractPos(e, "start")} // mutate all Elements to be either Some((x, y)) or None }
+          .filter(coordinates => coordinates.isDefined) // drop the Nones
+          .map(coordinates => coordinates.getOrElse((-1f,-1f))) // unwrap the Optional (could just use get)
 
-                      // TODO is there a better way?
-                      val x0 = startPos.asInstanceOf[SList].values.tail.head.asInstanceOf[Atom].symbol.toFloat
-                      val y0 = startPos.asInstanceOf[SList].values.tail.tail.head.asInstanceOf[Atom].symbol.toFloat
+          val endPosList = parsedElement.asInstanceOf[SList].values
+          .map { e => extractPos(e, "end") }
+          .filter(optionalCoordinates => optionalCoordinates.isDefined)
+          .map(coordinates => coordinates.getOrElse((-1f,-1f)))
 
-                      val x1 = endPos.asInstanceOf[SList].values.tail.head.asInstanceOf[Atom].symbol.toFloat
-                      val y1 = endPos.asInstanceOf[SList].values.tail.tail.head.asInstanceOf[Atom].symbol.toFloat
-
-                      kicadComponents.addOne(new Line(x0, y0, x1, y1))
-                    }
-                  }
-                  else if (atom.symbol.equalsIgnoreCase("pad")) {
-                    // match on "rect" for rectangles
-                    val rect = values.filter {
-                      case a:Atom => a.symbol.contains("rect")
-                      case _ => false
-                    }
-                    // TODO parse all pads as rect?
-                    if (rect.length == 1) {
-                      // We have a valid rect, parse params
-                      val startPos = values.filter {
-                        case s:SList =>
-                          if (s.values.length == 3) {
-                            val first = s.values.head
-                            first match {
-                              case atom1: Atom =>
-                                atom1.symbol.equalsIgnoreCase("at")
-                              case _ =>
-                                false
-                            }
-                          }
-                          else {
-                            false
-                          }
-                        case _ => false
-                      }.head
-
-                      val size = values.filter {
-                        case s:SList =>
-                          if (s.values.length == 3) {
-                            val first = s.values.head
-                            first match {
-                              case atom1: Atom =>
-                                atom1.symbol.equalsIgnoreCase("size")
-                              case _ =>
-                                false
-                            }
-                          }
-                          else {
-                            false
-                          }
-                        case _ => false
-                      }.head
-
-                      // TODO is there a better way?
-                      val x0 = startPos.asInstanceOf[SList].values.tail.head.asInstanceOf[Atom].symbol.toFloat
-                      val y0 = startPos.asInstanceOf[SList].values.tail.tail.head.asInstanceOf[Atom].symbol.toFloat
-
-                      val width = size.asInstanceOf[SList].values.tail.head.asInstanceOf[Atom].symbol.toFloat
-                      val height = size.asInstanceOf[SList].values.tail.tail.head.asInstanceOf[Atom].symbol.toFloat
-
-                      kicadComponents.addOne(Rectangle(x0, y0, width, height,
-                        values(1).asInstanceOf[Atom].symbol))
-
-                    }
-
-                  }
-
-                case _ =>
-
-              }
-            }
-
-          case _ =>
-
+          if (startPosList.length == 1 && endPosList.length == 1) {
+            val startPos = startPosList(0)
+            val endPos = endPosList(0)
+            kicadComponents.addOne(new Line(startPos._1, startPos._2, endPos._1, endPos._2))
+          }
         }
 
+        else if (isRectPad(parsedElement)) {
+          // We can safely assume parsedElement is an SList because of FSilkLine.
+          // Ensure that locationList and sizeList are well-formed, and get location/size.
+          val locationList = parsedElement.asInstanceOf[SList].values
+            .map {
+              e => extractPos(e, "at") // mutate all Elements to be either Some((x, y)) or None
+            }
+            .filter(coordinates => coordinates.isDefined) // drop the Nones
+            .map(coordinates => coordinates.getOrElse((-1f,-1f))) // unwrap the Optional (could just use get)
+
+          val sizeList = parsedElement.asInstanceOf[SList].values
+            .map { e => extractPos(e, "size") }
+            .filter(optionalCoordinates => optionalCoordinates.isDefined)
+            .map(coordinates => coordinates.getOrElse((-1f,-1f)))
+
+          if (locationList.length == 1 && sizeList.length == 1) {
+            val location = locationList(0)
+            val size = sizeList(0)
+
+            val name = parsedElement.asInstanceOf[SList].values(1).asInstanceOf[Atom].symbol
+            kicadComponents.addOne(new Rectangle(location._1, location._2, size._1, size._2, name))
+          }
+        }
       }
 
       fileReader.close()
       kicadComponents
     }
     catch {
-      // TODO better error handling
-      case x:FileNotFoundException =>
-        ArrayBuffer()
-      case _ =>
-        ArrayBuffer()
+      case e:FileNotFoundException =>
+        println("Couldn't open kicad file for parsing: ", kicadFilePath)
+        e.printStackTrace()
+        throw e
+      case t:Throwable =>
+        println("Error while parsing kicad file")
+        t.printStackTrace()
+        throw t
     }
   }
 
