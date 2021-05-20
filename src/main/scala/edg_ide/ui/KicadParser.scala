@@ -110,11 +110,11 @@ class KicadParser(kicadFilePath:String) {
     }
   }
 
-  // Given an SList, scan the SList for a sublist tagged by `name`
+  // Given an SList, scan the SList for the only sublist tagged by `name`
   // i.e. in the list ((a b c) ((d) e f) (d 1 2) d h i), if we search for
   // sublists tagged by 'd', we want to return (d 1 2)
-  def getSublistByName(list: SList, name: String): List[SList] = {
-    list.values
+  def getOnlySublistByName(list: SList, name: String): Option[SList] = {
+    val sublists = list.values
       .filter {
         case _:Atom => false
         case SList(values) =>
@@ -128,14 +128,18 @@ class KicadParser(kicadFilePath:String) {
         // all Atoms should have been filtered out at this point
         e => e.asInstanceOf[SList]
       }
+
+    if (sublists.length == 1)
+      return Some(sublists(0))
+
+     None
   }
 
   // Given a position-identifying list of the form (name:String, a:Float, b:Float),
   // return (a, b) or throw an Exception
   def extractPosition(list:SList): (Float, Float) = {
-    if (list.values.length != 3 || !list.values.head.isInstanceOf[Atom]) {
-      throw new IllegalArgumentException("Expected list of the form (string float float) but got: " + list.toString)
-    }
+    require((list.values.length == 3) && (list.values.head.isInstanceOf[Atom]),
+      "Expected list of the form (string float float) but got: " + list.toString)
 
     var position = (0.0f, 0.0f)
 
@@ -187,42 +191,29 @@ class KicadParser(kicadFilePath:String) {
         if (isFSilkLine(parsedElement)) {
           // We can safely assume parsedElement is an SList because of FSilkLine.
           // Ensure that startPosList and endPosList are well-formed, and get start/end positions.
+          val startPosList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "start")
+          val endPosList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "end")
 
-          val startPosList = getSublistByName(parsedElement.asInstanceOf[SList], "start")
-          val endPosList = getSublistByName(parsedElement.asInstanceOf[SList], "end")
-          try {
-            if (startPosList.length == 1 && endPosList.length == 1) {
-              val (startX, startY) = extractPosition(startPosList(0))
-              val (endX, endY) = extractPosition(endPosList(0))
+          if (startPosList.isDefined && endPosList.isDefined) {
+            val (startX, startY) = extractPosition(startPosList.get)
+            val (endX, endY) = extractPosition(endPosList.get)
 
-              kicadComponents.addOne(new Line(startX, startY, endX, endY))
-            }
+            kicadComponents.addOne(new Line(startX, startY, endX, endY))
           }
-          catch {
-            // extractPosition() throws an illegal argument exception if the inputted list is malformed
-            case e:IllegalArgumentException => e.printStackTrace()
-          }
-
         }
 
         else if (isRectPad(parsedElement)) {
           // We can safely assume parsedElement is an SList because of FSilkLine.
           // Ensure that locationList and sizeList are well-formed, and get location/size.
+          val locationList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "at")
+          val sizeList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "size")
 
-          val locationList = getSublistByName(parsedElement.asInstanceOf[SList], "at")
-          val sizeList = getSublistByName(parsedElement.asInstanceOf[SList], "size")
-          try {
-            if (locationList.length == 1 && sizeList.length == 1) {
-              val (x, y) = extractPosition(locationList(0))
-              val (w, h) = extractPosition(sizeList(0))
+          if (locationList.isDefined && sizeList.isDefined) {
+            val (x, y) = extractPosition(locationList.get)
+            val (w, h) = extractPosition(sizeList.get)
 
-              val name = parsedElement.asInstanceOf[SList].values(1).asInstanceOf[Atom].symbol
-              kicadComponents.addOne(new Rectangle(x, y, w, h, name))
-            }
-          }
-          catch {
-            // extractPosition() throws an illegal argument exception if the inputted list is malformed
-            case e: IllegalArgumentException => e.printStackTrace()
+            val name = parsedElement.asInstanceOf[SList].values(1).asInstanceOf[Atom].symbol
+            kicadComponents.addOne(new Rectangle(x, y, w, h, name))
           }
         }
       }
