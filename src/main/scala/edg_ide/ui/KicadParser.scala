@@ -74,6 +74,16 @@ class KicadParser(kicadFilePath:String) {
     }
   }
 
+  def containsAtom(slist:SList, atom: String): Boolean = {
+
+    val filtered = slist.values.filter {
+      case Atom(symbol) => symbol.equals(atom)
+      case _:SList => false
+    }
+
+    filtered.nonEmpty
+  }
+
 
   // Given a parsed Element, determine if it is a "pad"
   // (pad ... (at x y) (size w h) ... )
@@ -132,7 +142,11 @@ class KicadParser(kicadFilePath:String) {
     if (sublists.length == 1)
       return Some(sublists(0))
 
-     None
+    if (sublists.isEmpty)
+      return None
+
+    // enforrcing the "Only" in getOnlySublistByName
+    throw new IllegalArgumentException("Multiple sublists with name, only expected one: " + name)
   }
 
   // Given a position-identifying list of the form (name:String, a:Float, b:Float),
@@ -216,6 +230,8 @@ class KicadParser(kicadFilePath:String) {
             kicadComponents.addOne(new Rectangle(x, y, w, h, name))
           }
         }
+
+
       }
 
       fileReader.close()
