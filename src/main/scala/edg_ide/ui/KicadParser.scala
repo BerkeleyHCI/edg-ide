@@ -77,7 +77,7 @@ class KicadParser(kicadFilePath:String) {
   def containsAtom(slist:SList, atom: String): Boolean = {
 
     val filtered = slist.values.filter {
-      case Atom(symbol) => symbol.equals(atom)
+      case Atom(symbol) => symbol == atom
       case _:SList => false
     }
 
@@ -124,6 +124,9 @@ class KicadParser(kicadFilePath:String) {
   // i.e. in the list ((a b c) ((d) e f) (d 1 2) d h i), if we search for
   // sublists tagged by 'd', we want to return (d 1 2)
   def getOnlySublistByName(list: SList, name: String): Option[SList] = {
+    if (list.values.isEmpty)
+      return None
+
     val sublists = list.values
       .filter {
         case _:Atom => false
@@ -202,35 +205,42 @@ class KicadParser(kicadFilePath:String) {
 
       for (parsedElement <- parsed.values) {
 
-        if (isFSilkLine(parsedElement)) {
-          // We can safely assume parsedElement is an SList because of FSilkLine.
-          // Ensure that startPosList and endPosList are well-formed, and get start/end positions.
-          val startPosList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "start")
-          val endPosList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "end")
+        parsedElement match {
+          case _: Atom =>
+          case list: SList =>
+            if (list.values.nonEmpty && list.values.head.isInstanceOf[Atom]) {
 
-          if (startPosList.isDefined && endPosList.isDefined) {
-            val (startX, startY) = extractPosition(startPosList.get)
-            val (endX, endY) = extractPosition(endPosList.get)
+              val layerList = getOnlySublistByName(list, "layer")
+              list.values.head.asInstanceOf[Atom].symbol match {
 
-            kicadComponents.addOne(new Line(startX, startY, endX, endY))
+                // Match on the different components we want to handle
+                case "pad" if containsAtom(list, "rect") || containsAtom(list, "roundrect") =>
+                  val locationList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "at")
+                  val sizeList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "size")
+
+                  if (locationList.isDefined && sizeList.isDefined) {
+                    val (x, y) = extractPosition(locationList.get)
+                    val (w, h) = extractPosition(sizeList.get)
+
+                    val name = parsedElement.asInstanceOf[SList].values(1).asInstanceOf[Atom].symbol
+                    kicadComponents.addOne(new Rectangle(x, y, w, h, name))
+                  }
+
+                case "fp_line" if getOnlySublistByName(list, "layer").isDefined && layerList.get.values.length == 2 && layerList.get.values.tail.head == Atom("F.SilkS") =>
+                  val startPosList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "start")
+                  val endPosList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "end")
+
+                  if (startPosList.isDefined && endPosList.isDefined) {
+                    val (startX, startY) = extractPosition(startPosList.get)
+                    val (endX, endY) = extractPosition(endPosList.get)
+
+                    kicadComponents.addOne(new Line(startX, startY, endX, endY))
+                  }
+
+                case _ =>
+            }
           }
         }
-
-        else if (isRectPad(parsedElement)) {
-          // We can safely assume parsedElement is an SList because of FSilkLine.
-          // Ensure that locationList and sizeList are well-formed, and get location/size.
-          val locationList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "at")
-          val sizeList = getOnlySublistByName(parsedElement.asInstanceOf[SList], "size")
-
-          if (locationList.isDefined && sizeList.isDefined) {
-            val (x, y) = extractPosition(locationList.get)
-            val (w, h) = extractPosition(sizeList.get)
-
-            val name = parsedElement.asInstanceOf[SList].values(1).asInstanceOf[Atom].symbol
-            kicadComponents.addOne(new Rectangle(x, y, w, h, name))
-          }
-        }
-
 
       }
 
