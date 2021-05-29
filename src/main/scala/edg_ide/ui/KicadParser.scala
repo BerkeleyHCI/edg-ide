@@ -75,10 +75,9 @@ class KicadParser(kicadFilePath:String) {
   }
 
   def containsAtom(slist:SList, atom: String): Boolean = {
-
     val filtered = slist.values.filter {
-      case Atom(symbol) => symbol == atom
-      case _:SList => false
+      case Atom(symbol) if symbol == atom => true
+      case _ => false
     }
 
     filtered.nonEmpty
@@ -124,10 +123,7 @@ class KicadParser(kicadFilePath:String) {
   // i.e. in the list ((a b c) ((d) e f) (d 1 2) d h i), if we search for
   // sublists tagged by 'd', we want to return (d 1 2)
   def getOnlySublistByName(list: SList, name: String): Option[SList] = {
-    if (list.values.isEmpty)
-      return None
-
-    val sublists = list.values
+    val subLists = list.values
       .filter {
         case _:Atom => false
         case SList(values) =>
@@ -142,14 +138,14 @@ class KicadParser(kicadFilePath:String) {
         e => e.asInstanceOf[SList]
       }
 
-    if (sublists.length == 1)
-      return Some(sublists(0))
+    if (subLists.length == 1)
+      return Some(subLists(0))
 
-    if (sublists.isEmpty)
+    if (subLists.isEmpty)
       return None
 
-    // enforrcing the "Only" in getOnlySublistByName
-    throw new IllegalArgumentException("Multiple sublists with name, only expected one: " + name)
+    // enforcing the "Only" in getOnlySublistByName
+    throw new IllegalArgumentException("Multiple subLists with name, only expected one: " + name)
   }
 
   // Given a position-identifying list of the form (name:String, a:Float, b:Float),
