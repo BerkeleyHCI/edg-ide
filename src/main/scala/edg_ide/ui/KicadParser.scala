@@ -57,10 +57,7 @@ class KicadParser(kicadFilePath:String) {
     if (subLists.length > 1)
       throw new IllegalArgumentException("Multiple subLists with name, only expected one: " + name)
 
-    if (subLists.isEmpty)
-      throw new IllegalArgumentException("No subList with name, expected one: " + name)
-
-    SList(List[Element]())
+    throw new IllegalArgumentException("No subList with name, expected one: " + name)
 
   }
 
@@ -101,11 +98,8 @@ class KicadParser(kicadFilePath:String) {
 
               // Match on the different components we want to handle
               case "pad" if containsAtom(list, "rect") || containsAtom(list, "roundrect") =>
-                val locationList = getOnlySublistByName(list, "at")
-                val sizeList = getOnlySublistByName(list, "size")
-
-                val (x, y) = extractPosition(locationList)
-                val (w, h) = extractPosition(sizeList)
+                val (x, y) = extractPosition(getOnlySublistByName(list, "at"))
+                val (w, h) = extractPosition(getOnlySublistByName(list, "size"))
 
                 val name = list.values(1).asInstanceOf[Atom].symbol
                 Some(Rectangle(x, y, w, h, name))
@@ -113,11 +107,8 @@ class KicadParser(kicadFilePath:String) {
               case "fp_line" =>
                 val layerList = getOnlySublistByName(list, "layer")
                 if (layerList.values.length == 2 && layerList.values.tail.head == Atom("F.SilkS")) {
-                  val startPosList = getOnlySublistByName(list, "start")
-                  val endPosList = getOnlySublistByName(list, "end")
-
-                  val (startX, startY) = extractPosition(startPosList)
-                  val (endX, endY) = extractPosition(endPosList)
+                  val (startX, startY) = extractPosition(getOnlySublistByName(list, "start"))
+                  val (endX, endY) = extractPosition(getOnlySublistByName(list, "end"))
                   Some(Line(startX, startY, endX, endY))
                 }
                 else
