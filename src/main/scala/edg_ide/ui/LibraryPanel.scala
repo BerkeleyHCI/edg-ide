@@ -632,5 +632,6 @@ class LibraryPanel(project: Project) extends JPanel {
   def loadState(state: BlockVisualizerServiceState): Unit = {
     splitter.setProportion(state.panelLibrarySplitterPos)
     preview.loadState(state)
+    splitter.setProportion(0.33f)
   }
 }

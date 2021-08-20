@@ -5,6 +5,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ex.ToolWindowEx
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -59,6 +60,10 @@ object Gbc {
 
 
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
+  val tw = toolWindow.asInstanceOf[ToolWindowEx]
+  tw.stretchWidth(800 - tw.getDecorator.getWidth)
+
+
   // Internal State
   //
   private var design = schema.Design()
@@ -529,6 +534,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     detailPanel.loadState(state)
     errorPanel.loadState(state)
     kicadVizPanel.loadState(state)
+    mainSplitter.setProportion(0.6f)
+    bottomSplitter.setProportion(0.25f)
   }
 }
 
