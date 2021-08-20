@@ -162,10 +162,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val visualizationPanel = new JPanel(new GridBagLayout())
   mainSplitter.setFirstComponent(visualizationPanel)
 
-  private val status = new JLabel(s"Ready " +
-      s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
-      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
-  )
+  private val status = new JLabel(s"Ready")
   visualizationPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val button = new JButton("Update")
