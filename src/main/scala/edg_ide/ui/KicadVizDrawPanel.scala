@@ -14,7 +14,7 @@ class KicadVizDrawPanel extends JPanel {
   var mul_factor: Int = 10
 
   addMouseWheelListener((mouseWheelEvent: MouseWheelEvent) => {
-    mul_factor += mouseWheelEvent.getWheelRotation
+    mul_factor -= mouseWheelEvent.getWheelRotation
     mul_factor = math.max(mul_factor, 1)
     this.repaint()
   })
