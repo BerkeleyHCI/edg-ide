@@ -1,59 +1,29 @@
-## IntelliJ Configuration
+# edg-ide
 
-sbt-idea-plugin really doesn't seem to know what it's doing and IntelliJ doesn't seem to recognize the plugin be default.
-Try this instead:
+An IDE for the [Polymorphic Blocks board-level HDL](https://github.com/BerkeleyHCI/PolymorphicBlocks) that adds a schematic-like graphical interface (with block diagram visualization) side-by-side with the text editor.
+Schematic-like actions on the graphical interface (like insert-block or connect-ports) generate into lines of code on the HDL.
+Direct textual edits to the HDL can also be made at any time, and the block diagram can be updated through a fast incremental recompilation.
 
-1. In IntelliJ, make sure the official (JetBrains) Scala plugin is installed
-1. To import the project, open the .sbt file
-   - This should properly set up the project to index the generated proto code
-1. Set up a sbt Task run configuration, with the command `compile`
-1. Set up another sbt Task run configuration, with the command `runIDE`, and with a dependency on the `compile` configuration
-1. You may also use the sbt shell tab (next to the Terminal tab) to run these commands directly. 
+![IDE Screenshot](docs/ide_start.png)
 
+Once you have [the IDE set up](#setup), follow [the getting started tutorial](docs/ide-getting-started.md), which walks through major IDE features and includes an introduction to the HDL.
 
-### Version issues
+For a slightly deeper technical overview, check out our [UIST'21 paper and recorded talks](https://doi.org/10.1145/3472749.3474804).
 
-When running the IDE, you may get this bug:
-```
-com.intellij.diagnostic.PluginException: 
-While loading class [class]:
-[class] has been compiled by a more recent version of the Java Runtime (class file version 59.0), this version of the Java Runtime only recognizes class file versions up to 55.0
-```
-
-This means the project is being compiled to target a more recent Java binary format than IntelliJ is running.
-To solve (probably):
-1. In IntelliJ, go to menu > File > Project Structure.
-1. Under Project Settings > Project, set the Project SDK to be Java 11.
-1. Clean and recompile until it works. Hopefully.
+**This is alpha software, and is a continuing work-in-progress. It is definitely rough around the edges. But feel free to report bugs and suggestions on as issues on this repository!** 
 
 
-## Command line SBT notes
+## Setup
 
-- `runIDE` may fail to re-compile dependencies. `clean; runIDE` is safe(r).
-- Per [sbt-idea-plugin](https://github.com/JetBrains/sbt-idea-plugin), `packageArtifactZip` generates a .zip file which can be installed into IntelliJ.
-  The file is dumped in the `target/` folder.
+**TODO**: we aren't yet at the point of releasing pre-built files, so this must be compiled from source for now.
+Follow the [command-line build instructions](developing.md#build-and-run-from-command-line) (tl;dr: install [sbt](https://www.scala-sbt.org/download.html), then run `sbt runIDE` in the repository root directory).
+
+**TODO**: for now, you must also run `PolymorphicBlocks/HdlInterfaceServer.py` which provides the Python bridge for the IDE.
+_Soon™_ this will be automatically launched by the IDE process.
+
+Once the IDE is running, open the Polymorphic Block repository, then continue to [the getting started tutorial](docs/ide-getting-started.md).
 
 
-## Linking PyCharm sources
+## Developing
 
-While the plugin downs and indexes the IntelliJ platform sources automatically, it does not do the same for PyCharm.
-This is only needed if you want to reference PyCharm sources / APIs (eg, PSI structure) in a readable (with comments) instead of decompiled format.
-
-1. `git clone https://github.com/JetBrains/intellij-community.git`
-   (this may take a while)
-1. In the newly cloned repo: `git checkout pycharm/202.7660.27`
-   (the version should match the `PythonCore` plugin in build.sbt)
-   - You may need to `checkout -f` to force.
-1. Select any PyCharm reference, navigate to it (Ctrl+B).
-   It should give you a decompiled source listing, and an option to choose sources.
-   Click that, and point it to your cloned `intellij-community\python` folder.
-1. It should detect and list the sub-projects in that folder.
-   Accept that.
-1. The source should update to the non-decompiled version shortly. 
-   
-
-## Resources
-
-- [sbt-idea-plugin repo](https://github.com/JetBrains/sbt-idea-plugin): SBT build configurations
-- [sbt-idea-example](https://github.com/JetBrains/sbt-idea-example): SBT IDEA plugin very basic example, and very outdated
-- [intellj-sdk-code-samples](https://github.com/JetBrains/intellij-sdk-code-samples): code samples for plugins
+See [developing.md](developing.md) for getting set up to build and run the IDE from this repository.
