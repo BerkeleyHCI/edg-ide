@@ -21,6 +21,8 @@ import edg_ide.EdgirUtils
 import edg.ref.ref
 import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes}
 
+import java.io.File
+import java.nio.file.{Path, Paths}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
@@ -41,7 +43,8 @@ class EdgCompilerService(project: Project) extends
     PersistentStateComponent[EdgCompilerServiceState] with Disposable {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.EdgCompilerService")
 
-  val pyLib = new PythonInterfaceLibrary(new PythonInterface())
+  val pyLib = new PythonInterfaceLibrary(new PythonInterface(
+    Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile))
 
   // Tracks modified classes, so the appropriate library elements can be discarded on the next refresh.
   // This works in terms of ref.LibraryPath to avoid possibly outdated PSI references and needing
@@ -124,7 +127,16 @@ class EdgCompilerService(project: Project) extends
 
     indicator.foreach(_.setText(s"EDG compiling: reloading"))
     val (allLibraries, reloadTime) = timeExec {
-      pyLib.reloadModule(topModule)
+      pyLib.reloadModule(topModule) match {
+        case Errorable.Success(reloaded) => reloaded
+        case Errorable.Error(errMsg) =>
+          notificationGroup.createNotification(
+            s"Failed to reload", s"",
+            s"$errMsg",
+            NotificationType.WARNING)
+              .notify(project)
+          Seq()
+      }
     }
 
     indicator.foreach(_.setIndeterminate(false))
