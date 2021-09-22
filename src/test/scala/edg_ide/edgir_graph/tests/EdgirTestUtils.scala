@@ -6,6 +6,7 @@ import edg.expr.expr
 import edg.wir.DesignPath
 import edg_ide.edgir_graph
 import edg_ide.edgir_graph.EdgirGraph
+import edg.ElemBuilder.LibraryPath
 
 import scala.collection.SeqMap
 
@@ -13,12 +14,12 @@ import scala.collection.SeqMap
 object EdgirTestUtils {
   // Some definitions that need to be kept consistent with the Python HDL / frontend
   object Ports {
-    val PowerSource = EdgirUtils.StringToLibraryPath("electronics_model.VoltagePorts.VoltageSource")
-    val PowerSink = EdgirUtils.StringToLibraryPath("electronics_model.VoltagePorts.VoltageSink")
+    val PowerSource = LibraryPath("electronics_model.VoltagePorts.VoltageSource")
+    val PowerSink = LibraryPath("electronics_model.VoltagePorts.VoltageSink")
   }
 
   object Links {
-    val Power = EdgirUtils.StringToLibraryPath("electronics_model.VoltagePorts.VoltageLink")
+    val Power = LibraryPath("electronics_model.VoltagePorts.VoltageLink")
   }
 
   object Dummy {
