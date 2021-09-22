@@ -8,10 +8,12 @@ import com.jetbrains.python.psi._
 import edg.ref.ref
 import edg.schema.schema
 import edg.util.Errorable
+import edg.ElemBuilder.LibraryPath
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.psi_edits.InsertConnectAction
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.collection.mutable
 
@@ -35,7 +37,7 @@ object DesignAnalysisUtils {
   }
 
   def typeOf(pyClass: PyClass): ref.LibraryPath = {
-    EdgirUtils.StringToLibraryPath(pyClass.getQualifiedName)
+    LibraryPath(pyClass.getQualifiedName)
   }
 
   /** For a PyClass, traverses down the init MRO chain, and returns all the arguments

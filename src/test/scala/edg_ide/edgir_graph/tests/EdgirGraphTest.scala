@@ -2,13 +2,12 @@ package edg_ide.edgir_graph.tests
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
-import edg_ide.EdgirUtils
 import edg.elem.elem
 import edg.expr.expr
-import edg.schema.schema
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.{BlockWrapper, ConnectWrapper, EdgirGraph, LinkWrapper, PortWrapper}
 import edg_ide.edgir_graph.EdgirGraph.EdgirNode
+import edg.ExprBuilder.ValueExpr
 
 import scala.collection.SeqMap
 
@@ -49,12 +48,12 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
       ),
       constraints=Map(
         "connect_source" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
-          blockPort = Some(EdgirUtils.SeqStringToRefExpr(Seq("source", "port"))),
-          linkPort = Some(EdgirUtils.SeqStringToRefExpr(Seq("link", "source")))
+          blockPort = Some(ValueExpr.Ref("source", "port")),
+          linkPort = Some(ValueExpr.Ref("link", "source"))
         ))),
         "connect_sink" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
-          blockPort = Some(EdgirUtils.SeqStringToRefExpr(Seq("sink", "port"))),
-          linkPort = Some(EdgirUtils.SeqStringToRefExpr(Seq("link", "sink")))
+          blockPort = Some(ValueExpr.Ref("sink", "port")),
+          linkPort = Some(ValueExpr.Ref("link", "sink"))
         ))),
       ),
     )
@@ -147,8 +146,8 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           ),
           constraints=Map(
             "export" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Exported(expr.ExportedExpr(
-              internalBlockPort = Some(EdgirUtils.SeqStringToRefExpr(Seq("inner", "port"))),
-              exteriorPort = Some(EdgirUtils.SeqStringToRefExpr(Seq("port")))
+              internalBlockPort = Some(ValueExpr.Ref("inner", "port")),
+              exteriorPort = Some(ValueExpr.Ref("port"))
             ))),
           ),
         ))),

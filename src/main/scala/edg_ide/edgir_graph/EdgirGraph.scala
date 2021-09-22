@@ -3,7 +3,7 @@ package edg_ide.edgir_graph
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.elem.elem
 import edg.expr.expr
-import edg_ide.EdgirUtils
+import edg.ExprBuilder.Ref
 import edg.wir.DesignPath
 
 import scala.collection.SeqMap
@@ -85,13 +85,13 @@ object EdgirGraph {
         case expr.ValueExpr.Expr.Connected(connect) =>
           // in the loading pass, the source is the block side and the target is the link side
           Some(EdgirEdge(ConnectWrapper(path + name, constr),
-            source=EdgirUtils.RefExprToSeqString(connect.blockPort.get),
-            target=EdgirUtils.RefExprToSeqString(connect.linkPort.get)))
+            source=Ref.unapply(connect.getBlockPort.getRef).get,
+            target=Ref.unapply(connect.getLinkPort.getRef).get))
         case expr.ValueExpr.Expr.Exported(export) =>
           // in the loading pass, the source is the block side and the target is the external port
           Some(EdgirEdge(ConnectWrapper(path + name, constr),
-            source=EdgirUtils.RefExprToSeqString(export.internalBlockPort.get),
-            target=EdgirUtils.RefExprToSeqString(export.exteriorPort.get)))
+            source=Ref.unapply(export.getInternalBlockPort.getRef).get,
+            target=Ref.unapply(`export`.getExteriorPort.getRef).get))
         case _ => None
       }
     }.toSeq

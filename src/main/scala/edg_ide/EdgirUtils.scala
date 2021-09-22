@@ -19,11 +19,6 @@ object EdgirUtils {
   val FootprintBlockType: ref.LibraryPath =
     ElemBuilder.LibraryPath("electronics_model.CircuitBlock.CircuitBlock")
 
-  @deprecated("use ExprBuilder")
-  def StringToLibraryPath(path: String): ref.LibraryPath = {
-    ref.LibraryPath(target=Some(ref.LocalStep(step=ref.LocalStep.Step.Name(path))))
-  }
-
   // TODO refactor into common utils elsewher
   def typeOfBlockLike(blockLike: elem.BlockLike): Option[ref.LibraryPath] = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) => Some(block.getSelfClass)
@@ -44,43 +39,6 @@ object EdgirUtils {
     case elem.LinkLike.Type.LibElem(lib) => Some(lib)
     case _ => None
   }
-
-  /**
-    * Converts a ValueExpr containing a LocalPath ref to a Seq[String] of the ref's components
-    * Errors out with an exception if things aren't just right
-    * TODO: cleaner error handling?
-    */
-  @deprecated("use ExprBuilder / unapply")
-  def RefExprToSeqString(valueExpr: expr.ValueExpr): Seq[String] = {
-    valueExpr.expr match {
-      case expr.ValueExpr.Expr.Ref(refExpr) => refExpr.steps.map { step =>
-        step.step match {
-          case ref.LocalStep.Step.Name(name) => name
-          case ref.LocalStep.Step.ReservedParam(reservedParam) =>
-            throw new Exception(s"Expected path type, got unexpected reserved_param $reservedParam, in ValueExpr $valueExpr")
-          case other =>
-            throw new Exception(s"Expected path type, got unexpected step $other, in ValueExpr $valueExpr")
-        }
-      }
-      case _ => throw new Exception(s"Expected path type for ValueExpr $valueExpr")
-    }
-  }
-
-  /**
-    * Converts a Seq[String] to a LocalPath ValueExpr, where each element in the input seq is
-    * treated as a discrete LocalStep
-    */
-  @deprecated("use ExprBuilder")
-  def SeqStringToRefExpr(path: Seq[String]): expr.ValueExpr = {
-    expr.ValueExpr(
-      expr=expr.ValueExpr.Expr.Ref(ref.LocalPath(
-        steps=path.map { pathElt =>
-          ref.LocalStep(step=ref.LocalStep.Step.Name(pathElt))
-        }
-      ))
-    )
-  }
-
 
   private sealed trait ResolveTarget[+T]
 
