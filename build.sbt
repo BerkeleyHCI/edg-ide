@@ -4,14 +4,14 @@ import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoOptions
 
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin
 ThisBuild / intellijPluginName := "edg-ide"
-ThisBuild / intellijBuild:= "2020.2.3"
+ThisBuild / intellijBuild := "2020.2.3"
 
 
 lazy val compiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
     .enablePlugins(SbtIdeaPlugin)  // sbt-idea-plugin doesn't import properly if this isn't enabled
 
 lazy val root = (project in file("."))
-    .dependsOn(compiler)
+    .dependsOn(compiler % "compile->compile; test->test")
     .enablePlugins(SbtIdeaPlugin)
     .settings(
       scalaVersion := "2.13.4",
