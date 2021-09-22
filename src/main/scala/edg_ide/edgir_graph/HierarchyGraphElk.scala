@@ -11,6 +11,7 @@ import org.eclipse.elk.graph._
 import org.eclipse.elk.graph.properties.IProperty
 import org.eclipse.elk.graph.util.ElkGraphUtil
 
+import java.util
 import scala.collection.SeqMap
 
 
@@ -36,8 +37,8 @@ object HierarchyGraphElk {
     root.setProperty(LayeredOptions.HIERARCHY_HANDLING, HierarchyHandling.INCLUDE_CHILDREN)
     root.setProperty(LayeredOptions.THOROUGHNESS, java.lang.Integer.valueOf(7))
 
-    root.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.inside())
-    root.setProperty(CoreOptions.PORT_LABELS_NEXT_TO_PORT_IF_POSSIBLE, java.lang.Boolean.valueOf(true))
+    root.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, util.EnumSet.of(
+      PortLabelPlacement.INSIDE, PortLabelPlacement.NEXT_TO_PORT_IF_POSSIBLE))
     root.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
 
     root
@@ -50,9 +51,8 @@ object HierarchyGraphElk {
     node.setIdentifier(name)
 
     // TODO: maybe the layout options should be elsewhere?
-    node.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, PortLabelPlacement.inside())
-    node.setProperty(CoreOptions.PORT_LABELS_NEXT_TO_PORT_IF_POSSIBLE, java.lang.Boolean.valueOf(true))
-
+    node.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, util.EnumSet.of(
+      PortLabelPlacement.INSIDE, PortLabelPlacement.NEXT_TO_PORT_IF_POSSIBLE))
     node.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
     node.setProperty(CoreOptions.NODE_SIZE_MINIMUM, new KVector(200, 20))
 

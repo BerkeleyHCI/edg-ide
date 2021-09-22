@@ -296,6 +296,7 @@ object DesignAnalysisUtils {
 
     if (assigns.isEmpty) {  // search up the superclass chain if needed
       container.getSuperClasses(TypeEvalContext.userInitiated(project, null))
+          .toSeq
           .flatMap(findAssignmentsTo(_, targetName, project))
           .distinct  // TODO also prevent duplicate work in case of multiple inheritance?
     } else {
