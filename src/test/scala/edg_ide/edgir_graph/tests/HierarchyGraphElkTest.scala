@@ -2,13 +2,11 @@ package edg_ide.edgir_graph.tests
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
-
-import scala.collection.JavaConverters._
 import org.eclipse.elk.graph._
-import org.eclipse.elk.graph.util.ElkGraphUtil
 import edg_ide.edgir_graph.{HGraphEdge, HGraphNode, HGraphNodeMember, HGraphPort, HierarchyGraphElk}
 
 import scala.collection.SeqMap
+import scala.jdk.CollectionConverters.ListHasAsScala
 
 
 class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
@@ -74,9 +72,9 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
   it should "create ELK elements" in {
     val (root, _) = makeGraph()
 
-    root.getChildren.asScala should have size 2
-    root.getPorts.asScala should have size 1
-    root.getContainedEdges.asScala should have size 2
+    root.getChildren should have size 2
+    root.getPorts should have size 1
+    root.getContainedEdges should have size 2
   }
 
   it should "create correct ELK labels" in {
@@ -86,16 +84,16 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
 
     val (root, _) = makeGraph()
 
-    val p1 = root.getPorts.asScala(0)
+    val p1 = root.getPorts.get(0)
     labelsOfShape(p1) should equal(Seq("p1"))
 
-    val n1 = root.getChildren.asScala(0)
+    val n1 = root.getChildren.get(0)
     labelsOfShape(n1) should equal(Seq("n1", "n1data"))
-    labelsOfShape(n1.getPorts.asScala(0)) should equal(Seq("n1p1"))
-    labelsOfShape(n1.getPorts.asScala(1)) should equal(Seq("n1p2"))
+    labelsOfShape(n1.getPorts.get(0)) should equal(Seq("n1p1"))
+    labelsOfShape(n1.getPorts.get(1)) should equal(Seq("n1p2"))
 
-    val n2 = root.getChildren.asScala(1)
+    val n2 = root.getChildren.get(1)
     labelsOfShape(n2) should equal(Seq("n2", "n2data"))
-    labelsOfShape(n2.getPorts.asScala(0)) should equal(Seq("n2p1"))
+    labelsOfShape(n2.getPorts.get(0)) should equal(Seq("n2p1"))
   }
 }

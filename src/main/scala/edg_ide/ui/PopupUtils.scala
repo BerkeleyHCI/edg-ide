@@ -1,24 +1,23 @@
 package edg_ide.ui
 
-import com.intellij.ide.ui.newItemPopup.NewItemPopupUtil
-import com.intellij.ide.ui.newItemPopup.NewItemSimplePopupPanel
+import com.intellij.ide.ui.newItemPopup.{NewItemPopupUtil, NewItemSimplePopupPanel}
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.{JBPopup, JBPopupFactory}
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.ui.scale.JBUIScale
-import com.intellij.util.Consumer
 import edg.util.Errorable
 
 import java.awt.Point
 import java.awt.event.MouseEvent
-import javax.swing.{JComponent, JEditorPane}
-import scala.collection.JavaConverters.seqAsJavaList
+import javax.swing.JEditorPane
+import scala.jdk.CollectionConverters
+import scala.jdk.CollectionConverters.SeqHasAsJava
 
 
 object PopupUtils {
   def createMenuPopup[T](title: String, elts: Seq[T], editor: Editor)(accept: T => Unit): Unit = {
-    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(seqAsJavaList(elts))
+    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
         .setTitle(title)
         .setItemChosenCallback((t: T) => {
           accept(t)
@@ -29,7 +28,7 @@ object PopupUtils {
 
   // TODO unify & dedup!
   def createMenuPopup[T](title: String, elts: Seq[T], project: Project)(accept: T => Unit): Unit = {
-    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(seqAsJavaList(elts))
+    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
         .setTitle(title)
         .setItemChosenCallback((t: T) => {
           accept(t)
@@ -39,7 +38,7 @@ object PopupUtils {
   }
 
   def createMenuPopup[T](title: String, elts: Seq[T], e: MouseEvent)(accept: T => Unit): Unit = {
-    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(seqAsJavaList(elts))
+    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
         .setTitle(title)
         .setItemChosenCallback((t: T) => {
           accept(t)

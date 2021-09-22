@@ -1,6 +1,5 @@
 package edg_ide.swing
 
-import com.intellij.util.ui.UIUtil
 import org.eclipse.elk.graph._
 import org.eclipse.elk.core.options._
 
@@ -8,7 +7,7 @@ import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.geom.AffineTransform
 import java.awt._
 import javax.swing.{JComponent, Scrollable}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 import collection.mutable
 
 

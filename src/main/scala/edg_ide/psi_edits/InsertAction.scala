@@ -11,8 +11,7 @@ import edg.util.Errorable
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits._
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
-
-import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.reflect.ClassTag
 
 
@@ -109,7 +108,7 @@ object InsertAction {
   def createClassMemberNameEntryPopup(title: String, containingPsiClass: PyClass,
                                       project: Project,
                                       allowEmpty: Boolean = false)(accept: String => Errorable[Unit]): Unit = exceptable {
-    val contextAttributeNames = containingPsiClass.getInstanceAttributes.toSeq.map(_.getName)
+    val contextAttributeNames = containingPsiClass.getInstanceAttributes.asScala.map(_.getName)
 
     PopupUtils.createStringEntryPopup(title, project) { name => exceptable {
       if (!(allowEmpty && name.isEmpty)) {

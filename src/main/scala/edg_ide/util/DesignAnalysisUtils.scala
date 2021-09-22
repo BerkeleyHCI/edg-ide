@@ -1,8 +1,6 @@
 package edg_ide.util
 
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -14,8 +12,7 @@ import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.psi_edits.InsertConnectAction
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-
-import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.collection.mutable
 
 
@@ -128,7 +125,7 @@ object DesignAnalysisUtils {
     }
 
     val ancestors = pyClass.getAncestorClasses(TypeEvalContext.codeCompletion(project, null))
-    processInitOfClass(pyClass +: ancestors.toSeq, Set(), 0, true, true)
+    processInitOfClass(pyClass +: ancestors.asScala.toSeq, Set(), 0, true, true)
     (argsList.toSeq, kwargsList.toSeq)
   }
 
