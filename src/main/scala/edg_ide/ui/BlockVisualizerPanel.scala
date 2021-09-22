@@ -166,7 +166,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val button = new JButton("Update")
   visualizationPanel.add(button, Gbc(1, 0))
   button.addActionListener(new ActionListener() {
-    override def actionPerformed(e: ActionEvent) {
+    override def actionPerformed(e: ActionEvent): Unit = {
       recompile()
     }
   })

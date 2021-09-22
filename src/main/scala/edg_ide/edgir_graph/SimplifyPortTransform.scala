@@ -40,7 +40,7 @@ object SimplifyPortTransform {
           None
       }
     }
-    val newMembers = node.members.to(SeqMap).mapValues {
+    val newMembers = node.members.to(SeqMap).view.mapValues {
       case member: EdgirGraph.EdgirNode => apply(member)
       case member: EdgirGraph.EdgirPort => member
     }.to(SeqMap)

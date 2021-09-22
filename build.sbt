@@ -3,8 +3,8 @@ import sbt.Keys.name
 import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoOptions
 
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin
-intellijPluginName in ThisBuild := "edg-ide"
-intellijBuild in ThisBuild := "2020.2.3"
+ThisBuild / intellijPluginName := "edg-ide"
+ThisBuild / intellijBuild:= "2020.2.3"
 
 
 lazy val compiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
@@ -15,6 +15,7 @@ lazy val root = (project in file("."))
     .enablePlugins(SbtIdeaPlugin)
     .settings(
       scalaVersion := "2.13.4",
+      scalacOptions += "-deprecation",
 
       name := "edg-ide",
       version := "0.1-SNAPSHOT",
@@ -30,7 +31,7 @@ lazy val root = (project in file("."))
       patchPluginXml := pluginXmlOptions { xml =>
         xml.version           = version.value
         xml.pluginDescription = "EDG IDE Description"
-        xml.sinceBuild        = (intellijBuild in ThisBuild).value
+        xml.sinceBuild        = (ThisBuild / intellijBuild).value
         xml.untilBuild        = "202.*"
       },
     ).enablePlugins(BuildInfoPlugin)

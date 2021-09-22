@@ -435,8 +435,8 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
   private def connectsAvailable(): Seq[DesignPath] = {
     // returns all available ports, assuming a current link
     def linkRemainingConnects(priorConnectPaths: Seq[DesignPath]): Seq[DesignPath] = {
-      val allTypes = priorConnectPaths.flatMap { linkTargetsMap.get(_) }
-      val allTypeCounts = allTypes.groupBy(identity).mapValues(_.size)
+      val allTypes = priorConnectPaths.flatMap { linkTargetsMap.get }
+      val allTypeCounts = allTypes.groupBy(identity).view.mapValues(_.size)
 
       val linkRemainingTypes = linkAvailable.map { case (linkType, linkTypeCount) =>  // subtract connected count
         linkType -> (linkTypeCount - allTypeCounts.getOrElse(linkType, 0))

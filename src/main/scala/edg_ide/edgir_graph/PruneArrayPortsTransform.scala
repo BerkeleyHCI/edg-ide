@@ -41,7 +41,7 @@ object PruneArrayPortsTransform {
         case _ => None
       }
       Seq(sourceOption, targetOption).flatten
-    }.groupBy(_._1).mapValues(_.map(_._2).toSet)
+    }.groupBy(_._1).view.mapValues(_.map(_._2).toSet)
 
     val nextFreeArrayPort = connectedPorts.flatMap { arrayNameToIndexOption }  // to (prefix, index) pairs
         .groupBy(_._1)

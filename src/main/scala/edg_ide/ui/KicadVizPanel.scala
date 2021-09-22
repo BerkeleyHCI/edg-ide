@@ -194,7 +194,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
             val newPinning = pinning.updated(selectedPin, portPath)
             currentBlockPathTypePin = Some((blockPath, blockType, block, newPinning))
-            visualizer.pinmap = newPinning.mapValues(ExprToString(_)).toMap  // TODO dedup
+            visualizer.pinmap = newPinning.view.mapValues(ExprToString(_)).toMap  // TODO dedup
             visualizer.repaint()
 
             // TODO actually modify the Design ... once a better API for that exists
@@ -259,7 +259,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
         FootprintBrowser.footprintToFile(footprint) match {
           case Some(footprintFile) =>
             visualizer.kicadParser.setKicadFile(footprintFile)
-            visualizer.pinmap = pinning.mapValues(ExprToString(_)).toMap
+            visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
             status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint ${footprintStr} at ${blockPath.lastString}",
               this.getFont))
@@ -300,7 +300,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     def continuation(added: PsiElement): Unit = {
       InsertAction.navigateToEnd(added)
       visualizer.kicadParser.setKicadFile(footprintFile)
-      visualizer.pinmap = pinning.mapValues(ExprToString(_)).toMap  // TODO dedup
+      visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap  // TODO dedup
       footprintSynced = true
       visualizer.repaint()
 

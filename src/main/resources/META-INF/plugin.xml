@@ -43,11 +43,5 @@
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <keyboard-shortcut first-keystroke="control shift G" keymap="$default"/>
     </action>
-
-
-    <action id="edg_ide.actions.TestAction" class="edg_ide.actions.TestAction"
-            text="Test Action" description="Whatever we want this to do">
-      <add-to-group group-id="ToolsMenu" anchor="last"/>
-    </action>
   </actions>
 </idea-plugin>

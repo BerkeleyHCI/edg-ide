@@ -39,7 +39,7 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
         }
     }.flatten
         .groupBy(_._1)
-        .mapValues {
+        .view.mapValues {
           _.map { case (nodeName, portName, otherPath, edge) =>  // discard nodeName from values
             (portName, otherPath, edge)
           }

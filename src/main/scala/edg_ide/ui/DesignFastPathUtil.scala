@@ -43,7 +43,7 @@ class DesignFastPathUtil(library: wir.Library) {
     val newBlock = library.getBlock(blockType).exceptError
     newBlock.update(  // create a placeholder only
       _.selfClass := blockType,
-      _.ports := newBlock.ports.mapValues(recursiveExpandPort)
+      _.ports := newBlock.ports.view.mapValues(recursiveExpandPort)
           .mapValues(_.exceptError).toMap,
       _.blocks := Map(),
       _.links := Map(),
@@ -91,7 +91,7 @@ class DesignFastPathUtil(library: wir.Library) {
     val newLink = library.getLink(linkType).exceptError
     var stubLink = newLink.update(
       _.selfClass := linkType,
-      _.ports := newLink.ports.mapValues(recursiveExpandPort)
+      _.ports := newLink.ports.view.mapValues(recursiveExpandPort)
           .mapValues(_.exceptError).toMap,
       _.links := Map(),
       _.constraints := Map()

@@ -21,16 +21,14 @@ class FootprintBrowserNode(fArg: File) {
   }
 
   lazy val children: Seq[FootprintBrowserNode] = {
-    var filenamesMaybe = Option(file.list())
-    filenamesMaybe match {
-    case Some(value) => filenamesMaybe
-      .get
-      .map(f => file.getCanonicalPath + "/" + f)
-      .filter(isValidFile)
-      .sorted
-      .map(f => new FootprintBrowserNode(new File(f)))
-    case None => Seq()
-  }
+    Option(file.list()) match {
+      case Some(filenames) => filenames.toSeq
+        .map(filename => file.getCanonicalPath + "/" + filename)
+        .filter(isValidFile)
+        .sorted
+        .map(f => new FootprintBrowserNode(new File(f)))
+      case None => Seq()
+    }
   }
 
 

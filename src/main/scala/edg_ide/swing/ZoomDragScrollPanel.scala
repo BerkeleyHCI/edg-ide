@@ -19,7 +19,7 @@ trait ZoomDragScrollPanel extends JScrollPane {
   val zoomable: Zoomable
   var dragOrigin: Option[Point] = None  // mouse origin, viewport origin
 
-  override protected def processMouseWheelEvent(e: MouseWheelEvent) {
+  override protected def processMouseWheelEvent(e: MouseWheelEvent): Unit = {
     val zoomFactor = Math.pow(1.1, -1 * e.getPreciseWheelRotation)
     zoomable.setZoom((zoomable.getZoom * zoomFactor).toFloat)
     zoomable.revalidate()

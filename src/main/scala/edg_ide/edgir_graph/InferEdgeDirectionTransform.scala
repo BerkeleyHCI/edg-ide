@@ -82,9 +82,9 @@ object InferEdgeDirectionTransform {
           Some((edge.target(0), (edge.target(1), edge.source)))
         case _ => None
       }
-    }   .groupBy(_._1).mapValues(_.map(_._2))  // sort by link name, discard the first tuple component in values
+    }   .groupBy(_._1).view.mapValues(_.map(_._2))  // sort by link name, discard the first tuple component in values
         .mapValues { linkPortBlockPathPairs =>
-          linkPortBlockPathPairs.groupBy(_._1).mapValues(_.map(_._2)).toMap  // same as above, with Set conversion
+          linkPortBlockPathPairs.groupBy(_._1).view.mapValues(_.map(_._2)).toMap  // same as above, with Set conversion
     }.toMap
 
     val allBlockPorts = linkConnectedPorts.flatMap { case (linkName, linkPortBlockPaths) =>

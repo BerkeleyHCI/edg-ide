@@ -91,7 +91,7 @@ object EdgirLibraryTreeNode {
         case superclasses => superclasses.map(superclassPath => (superclassPath, path))
       }
     }   .groupBy { case (superclassPath, path) => superclassPath }
-        .mapValues { superclassPairs => superclassPairs.map(_._2) }.toMap
+        .view.mapValues { superclassPairs => superclassPairs.map(_._2) }.toMap
 
     private val rootReachable = graphReachable(childMap, rootPath)
     private val unreachableBlocks = blocks.keys.toSet -- rootReachable
