@@ -4,7 +4,6 @@ import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
 import edg_ide.EdgirUtils
 import edg_ide.ui.EdgCompilerService
-import edg_ide.util.ErrorableNotify._
 
 
 class EmptyCacheAction() extends AnAction() {
