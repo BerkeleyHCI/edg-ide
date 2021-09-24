@@ -10,7 +10,7 @@ import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue, hdl => edgrpc}
+import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterface, PythonInterfaceLibrary, RangeValue, hdl => edgrpc}
 import edg.elem.elem
 import edg.ref.ref
 import edg.schema.schema
@@ -26,6 +26,8 @@ import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.io.File
+import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
@@ -334,45 +336,48 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         status.setText(s"Compiling")
 
         try {
-          indicator.setText("EDG compiling")
+          EdgCompilerService(project).pyLib.withPythonInterface(
+              new PythonInterface(Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile)) {
 
-          // TODO if compilation fails clear libraries
-          staleTypes.synchronized {
-            staleTypes.clear()
-          }
-          stalePaths.synchronized {
-            stalePaths.clear()
-          }
+            indicator.setText("EDG compiling")
 
-          val designType = ElemBuilder.LibraryPath(blockModule + "." + blockName)
-          val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project)
-              .compile(blockModule, designType, Some(indicator))
+            // TODO if compilation fails clear libraries
+            staleTypes.synchronized {
+              staleTypes.clear()
+            }
+            stalePaths.synchronized {
+              stalePaths.clear()
+            }
 
-          indicator.setText("EDG compiling: validating")
-          val checker = new DesignStructuralValidate()
-          val errors = compiler.getErrors() ++ checker.map(compiled)
-          if (errors.isEmpty) {
-            status.setText(s"Compiled")
-          } else {
-            status.setText(s"Compiled, with ${errors.length} errors")
-          }
-          tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
-          indicator.setText("EDG compiling ... done")
+            val designType = ElemBuilder.LibraryPath(blockModule + "." + blockName)
+            val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project)
+                .compile(blockModule, designType, Some(indicator))
 
-          notificationGroup.createNotification(
-            s"Compilation complete", "",
-            s"reload: $reloadTime ms, compile: $compileTime ms",
-            NotificationType.INFORMATION)
-              .notify(project)
+            indicator.setText("EDG compiling: validating")
+            val checker = new DesignStructuralValidate()
+            val errors = compiler.getErrors() ++ checker.map(compiled)
+            if (errors.isEmpty) {
+              status.setText(s"Compiled")
+            } else {
+              status.setText(s"Compiled, with ${errors.length} errors")
+            }
+            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
+            indicator.setText("EDG compiling ... done")
 
-          updateLibrary(EdgCompilerService(project).pyLib)
-          refinementsPanel.setRefinements(refinements)
-          errorPanel.setErrors(errors)
+            notificationGroup.createNotification(
+              s"Compilation complete", "",
+              s"reload: $reloadTime ms, compile: $compileTime ms",
+              NotificationType.INFORMATION)
+                .notify(project)
 
-          setDesign(compiled, compiler)
+            updateLibrary(EdgCompilerService(project).pyLib)
+            refinementsPanel.setRefinements(refinements)
+            errorPanel.setErrors(errors)
 
-          if (activeTool != defaultTool) {  // revert to the default tool
-            toolInterface.endTool()  // TODO should we also preserve state like selected?
+            setDesign(compiled, compiler)
+            if (activeTool != defaultTool) { // revert to the default tool
+              toolInterface.endTool() // TODO should we also preserve state like selected?
+            }
           }
         } catch {
           case e: Throwable =>

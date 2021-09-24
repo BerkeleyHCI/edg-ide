@@ -1,8 +1,6 @@
 package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
-
-import collection.mutable
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.{ApplicationManager, ReadAction}
 import com.intellij.openapi.components.PersistentStateComponent
@@ -13,16 +11,14 @@ import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, ElaborateRecord, PythonInterface, PythonInterfaceLibrary, hdl => edgrpc}
+import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary, hdl => edgrpc}
+import edg.ref.ref
 import edg.schema.schema
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
-import edg_ide.EdgirUtils
-import edg.ref.ref
-import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes}
+import edg_ide.util.DesignAnalysisUtils
 
-import java.io.File
-import java.nio.file.{Path, Paths}
+import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
@@ -43,8 +39,7 @@ class EdgCompilerService(project: Project) extends
     PersistentStateComponent[EdgCompilerServiceState] with Disposable {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.EdgCompilerService")
 
-  val pyLib = new PythonInterfaceLibrary(new PythonInterface(
-    Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile))
+  val pyLib = new PythonInterfaceLibrary()
 
   // Tracks modified classes, so the appropriate library elements can be discarded on the next refresh.
   // This works in terms of ref.LibraryPath to avoid possibly outdated PSI references and needing
@@ -127,8 +122,8 @@ class EdgCompilerService(project: Project) extends
 
     indicator.foreach(_.setText(s"EDG compiling: reloading"))
     val (allLibraries, reloadTime) = timeExec {
-      pyLib.reloadModule(topModule) match {
-        case Errorable.Success(reloaded) => reloaded
+      pyLib.indexModule(topModule) match {
+        case Errorable.Success(indexed) => indexed
         case Errorable.Error(errMsg) =>
           notificationGroup.createNotification(
             s"Failed to reload", s"",
@@ -157,11 +152,11 @@ class EdgCompilerService(project: Project) extends
     indicator.foreach(_.setText(s"EDG compiling: design top"))
     indicator.foreach(_.setIndeterminate(true))
     val ((compiled, compiler, refinements), compileTime) = timeExec {
-      val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType).get  // TODO propagate Errorable
+      val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType).get // TODO propagate Errorable
       val design = schema.Design(contents = Some(block))
 
       val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
-        refinements=Refinements(refinements)) {
+        refinements = Refinements(refinements)) {
         override def onElaborate(record: ElaborateRecord): Unit = {
           super.onElaborate(record)
           indicator.foreach { indicator =>
@@ -183,7 +178,6 @@ class EdgCompilerService(project: Project) extends
         }
       }
       (compiler.compile(), compiler, refinements)
-
     }
     (compiled, compiler, refinements, reloadTime, compileTime)
   }
