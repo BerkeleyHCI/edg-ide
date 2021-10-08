@@ -4,7 +4,7 @@ An IDE for the [Polymorphic Blocks board-level HDL](https://github.com/BerkeleyH
 Schematic-like actions on the graphical interface (like insert-block or connect-ports) generate into lines of code on the HDL.
 Direct textual edits to the HDL can also be made at any time, and the block diagram can be updated through a fast incremental recompilation.
 
-![IDE Screenshot](docs/ide_start.png)
+![IDE Screenshot](docs/ide_blinkyarray_example.png)
 
 Once you have [the IDE set up](#setup), follow [the getting started tutorial](docs/ide-getting-started.md), which walks through major IDE features and includes an introduction to the HDL.
 
@@ -18,8 +18,8 @@ For a slightly deeper technical overview, check out our [UIST'21 paper and recor
 **TODO**: we aren't yet at the point of releasing pre-built files, so this must be compiled from source for now.
 Follow the [command-line build instructions](developing.md#build-and-run-from-command-line) (tl;dr: install [sbt](https://www.scala-sbt.org/download.html), then run `sbt runIDE` in the repository root directory).
 
-**TODO**: for now, you must also run `PolymorphicBlocks/HdlInterfaceServer.py` which provides the Python bridge for the IDE.
-_Soon™_ this will be automatically launched by the IDE process.
+**This project uses submodules**, and may depend on a synchronized version of the `PolymorphicBlocks` submodule.
+If you're getting compile errors, try updating submodules with `git submodule update`. 
 
 Once the IDE is running, open the Polymorphic Block repository, then continue to [the getting started tutorial](docs/ide-getting-started.md).
 
