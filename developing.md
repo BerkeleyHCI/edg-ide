@@ -14,6 +14,12 @@ _If you only need to build from source and do not plan on doing heavy developmen
 2. In the sbt interactive console, run `runIDE` to start IntelliJ with the plugin installed.
    - sbt will automatically fetch dependencies, including the base IntelliJ installation.
    - This will use a dedicated IntelliJ installation, separate from any that may already be installed on your system.
+3. In this dedicated IntelliJ installation, you may disable all plugins (for efficiency) except for:
+   - IDE Settings / Settings Repository
+   - Other Tools / IntelliLang
+   - Other Tools / Python Community Edition
+   - and of course, this one
+   - You may find some other plugins useful, for example Mypy, Markdown, GitHub, Terminal 
 
 
 ### Notes
