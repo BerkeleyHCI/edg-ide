@@ -2,6 +2,9 @@
 
 This IDE is an IntelliJ plugin written in Scala.
 
+Note that this includes the Polymorphic Blocks HDL as a submodule, and its compiler is compiled into the IDE.
+See [Polymorphic Blocks' developing.md](https://github.com/BerkeleyHCI/PolymorphicBlocks/blob/master/developing.md) for details on working with the core HDL and compiler independently. 
+
 
 ## Build and run from command line
 
@@ -30,6 +33,7 @@ Try this instead:
 1. In IntelliJ, make sure the official (JetBrains) Scala plugin is installed
 2. To import the project, open the .sbt file
     - This should properly set up the project to index the generated proto code
+    - If IntelliJ gives you the option to update the version of SBT, click yes.
 3. Set up a sbt Task run configuration, with the command `compile`
 4. Set up another sbt Task run configuration, with the command `runIDE`, and with a dependency on the `compile` configuration
 5. You may also use the sbt shell tab (next to the Terminal tab) to run these commands directly.
