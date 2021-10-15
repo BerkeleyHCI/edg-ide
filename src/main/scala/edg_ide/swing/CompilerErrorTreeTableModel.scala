@@ -74,13 +74,11 @@ object CompilerErrorNodeBase {
         (s"Generator not ready, ${targets.toSimpleString}:$fnName", path.toString, Seq())
 
       case CompilerError.LibraryError(path, target, err) =>
-        (s"Library error, ${target.toSimpleString}", path.toString, Seq(
-          new CompilerErrorDetailNode(err, "")
-        ))
+        (s"Library error, ${target.toSimpleString}", path.toString,
+            err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
       case CompilerError.GeneratorError(path, target, fnName, err) =>
-        (s"Generator error, ${target.toSimpleString}:$fnName", path.toString, Seq(
-          new CompilerErrorDetailNode(err, "")
-        ))
+        (s"Generator error, ${target.toSimpleString}:$fnName", path.toString,
+            err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
       case CompilerError.RefinementSubclassError(path, refinedLibrary, designLibrary) =>
         (s"Refinement class ${refinedLibrary.toSimpleString} " +
             s"not a subclass of design class ${designLibrary.toSimpleString}",
