@@ -60,6 +60,9 @@ To solve (probably):
 2. Under Project Settings > Project, set the Project SDK to be Java 11.
 3. Clean and recompile until it works. Hopefully.
 
+Or, if running from command-line SBT - not confirmed working:
+1. Follow the choosing JDK instructions at https://www.jetbrains.com/help/idea/2020.2/switching-boot-jdk.html (make sure to choose right version of IntelliJ)
+
 
 ## Linking PyCharm sources
 
