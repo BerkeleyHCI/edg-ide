@@ -1,11 +1,11 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edgir.ref.ref
+import edgir.elem.elem
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.ref.ref
-import edg.elem.elem
-import edg_ide.EdgirUtils
 import edg.IrPort
+import edg_ide.EdgirUtils
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener

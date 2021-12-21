@@ -10,10 +10,13 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
+
+import edgrpc.hdl.{hdl => edgrpc}
+import edgir.ref.ref
+import edgir.schema.schema
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary, hdl => edgrpc}
-import edg.ref.ref
-import edg.schema.schema
+import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary}
+
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.util.DesignAnalysisUtils

@@ -2,9 +2,9 @@ package edg_ide.util
 
 import edg.ExprBuilder
 import edg.compiler.DesignBlockMap
-import edg.elem.elem
-import edg.expr.expr
-import edg.ref.ref
+import edgir.elem.elem
+import edgir.expr.expr
+import edgir.ref.ref
 import edg.wir.DesignPath
 
 import scala.collection.SeqMap

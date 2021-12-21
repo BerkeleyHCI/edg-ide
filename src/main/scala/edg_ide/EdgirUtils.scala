@@ -1,9 +1,9 @@
 package edg_ide
 
-import edg.elem.elem
-import edg.expr.expr
-import edg.ref.ref
-import edg.schema.schema
+import edgir.elem.elem
+import edgir.expr.expr
+import edgir.ref.ref
+import edgir.schema.schema
 import edg.wir.DesignPath
 import edg.ElemBuilder
 

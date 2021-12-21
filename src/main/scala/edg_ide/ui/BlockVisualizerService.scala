@@ -4,9 +4,10 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
+
+import edgir.schema.schema
+import edgir.elem.elem
 import edg.wir.DesignPath
-import edg.schema.schema
-import edg.elem.elem
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,

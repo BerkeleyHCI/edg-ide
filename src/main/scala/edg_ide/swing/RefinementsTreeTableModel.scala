@@ -1,10 +1,9 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edgrpc.hdl.{hdl => edgrpc}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.ExprToString
-import edg.compiler.{hdl => edgrpc}
-import edg_ide.EdgirUtils
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener

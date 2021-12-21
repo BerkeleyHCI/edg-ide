@@ -1,12 +1,11 @@
 package edg_ide.edgir_graph.tests
 
-import edg_ide.EdgirUtils
-import edg.elem.elem
-import edg.expr.expr
+import edg.ElemBuilder.LibraryPath
 import edg.wir.DesignPath
 import edg_ide.edgir_graph
 import edg_ide.edgir_graph.EdgirGraph
-import edg.ElemBuilder.LibraryPath
+import edgir.elem.elem
+import edgir.expr.expr
 
 import scala.collection.SeqMap
 

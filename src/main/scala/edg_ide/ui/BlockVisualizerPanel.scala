@@ -10,11 +10,7 @@ import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterface, PythonInterfaceLibrary, RangeValue, hdl => edgrpc}
-import edg.elem.elem
-import edg.ref.ref
-import edg.schema.schema
-import edg.schema.schema.Design
+import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterface, PythonInterfaceLibrary, RangeValue}
 import edg.wir.{DesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
@@ -22,11 +18,15 @@ import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
+import edgir.elem.elem
+import edgir.ref.ref
+import edgir.schema.schema
+import edgir.schema.schema.Design
+import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.ElkGraphElement
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
-import java.io.File
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
@@ -215,7 +215,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
   mainSplitter.setSecondComponent(bottomSplitter)
 
-  private var designTreeModel = new BlockTreeTableModel(edg.elem.elem.HierarchyBlock())
+  private var designTreeModel = new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel)
   new TreeTableSpeedSearch(designTree)
   private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
@@ -729,7 +729,7 @@ class RefinementsPanel extends JPanel {
 class DetailPanel extends JPanel {
   import edg_ide.swing.ElementDetailTreeModel
 
-  private val tree = new TreeTable(new BlockTreeTableModel(edg.elem.elem.HierarchyBlock()))
+  private val tree = new TreeTable(new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock()))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
 

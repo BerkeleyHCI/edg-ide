@@ -2,8 +2,8 @@ package edg_ide.edgir_graph.tests
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
-import edg.elem.elem
-import edg.expr.expr
+import edgir.elem.elem
+import edgir.expr.expr
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.{BlockWrapper, ConnectWrapper, EdgirGraph, LinkWrapper, PortWrapper}
 import edg_ide.edgir_graph.EdgirGraph.EdgirNode

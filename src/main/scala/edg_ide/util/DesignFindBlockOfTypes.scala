@@ -1,11 +1,11 @@
 package edg_ide.util
 
-import edg.compiler.DesignBlockMap
-import edg.elem.elem
-import edg.ref.ref
-import edg.wir.DesignPath
-
 import scala.collection.SeqMap
+
+import edgir.elem.elem
+import edgir.ref.ref
+import edg.wir.DesignPath
+import edg.compiler.DesignBlockMap
 
 
 /** For a design, returns all elaborated blocks of a certain type

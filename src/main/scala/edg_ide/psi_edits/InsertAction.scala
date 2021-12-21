@@ -7,6 +7,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatementList}
+
 import edg.util.Errorable
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits._

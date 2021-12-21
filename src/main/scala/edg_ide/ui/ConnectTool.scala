@@ -3,9 +3,9 @@ package edg_ide.ui
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{PyFunction, PyStatementList}
-import edg.elem.elem
-import edg.expr.expr
-import edg.ref.ref
+import edgir.elem.elem
+import edgir.expr.expr
+import edgir.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.{EdgirUtils, PsiUtils}

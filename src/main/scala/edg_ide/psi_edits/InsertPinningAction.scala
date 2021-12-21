@@ -6,10 +6,11 @@ import com.intellij.psi.{PsiElement, PsiParserFacade}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{LanguageLevel, PyCallExpression, PyClass, PyDictLiteralExpression, PyElementGenerator, PyExpression, PyFunction, PyKeyValueExpression, PyStatementList, PyStringLiteralExpression}
 import com.jetbrains.python.psi.types.TypeEvalContext
+
+import edgir.elem.elem
+import edgir.ref.ref
 import edg.{ElemBuilder, ExprBuilder}
 import edg.compiler.ExprToString
-import edg.elem.elem
-import edg.ref.ref
 import edg.util.Errorable
 import edg_ide.ui.PopupUtils
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}

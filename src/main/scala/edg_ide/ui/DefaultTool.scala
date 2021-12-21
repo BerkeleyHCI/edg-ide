@@ -1,9 +1,9 @@
 package edg_ide.ui
 
 import com.intellij.openapi.project.Project
-import edg.elem.elem
-import edg.ref.ref
-import edg.schema.schema
+import edgir.elem.elem
+import edgir.ref.ref
+import edgir.schema.schema
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}

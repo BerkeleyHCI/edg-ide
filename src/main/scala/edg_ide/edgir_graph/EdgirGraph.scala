@@ -1,12 +1,11 @@
 package edg_ide.edgir_graph
 
-import edg.EdgirUtils.SimpleLibraryPath
-import edg.elem.elem
-import edg.expr.expr
-import edg.ExprBuilder.Ref
-import edg.wir.DesignPath
-
 import scala.collection.SeqMap
+import edgir.elem.elem
+import edgir.expr.expr
+import edg.wir.DesignPath
+import edg.EdgirUtils.SimpleLibraryPath
+import edg.ExprBuilder.Ref
 
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(

@@ -5,13 +5,8 @@ import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.jetbrains.python.psi.types.TypeEvalContext
-import edg.{ElemBuilder, ExprBuilder}
-import edg.common.common
+import edg.ElemBuilder
 import edg.compiler.{Compiler, ExprToString, TextValue}
-import edg.elem.elem
-import edg.expr.expr
-import edg.ref.ref
-import edg.schema.schema
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
@@ -19,8 +14,13 @@ import edg_ide.psi_edits.{InsertAction, InsertFootprintAction, InsertPinningActi
 import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
+import edgir.common.common
+import edgir.elem.elem
+import edgir.expr.expr
+import edgir.ref.ref
+import edgir.schema.schema
 
-import java.awt.event.{MouseAdapter, MouseEvent, MouseListener, MouseWheelEvent, MouseWheelListener}
+import java.awt.event._
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.File
 import javax.swing._

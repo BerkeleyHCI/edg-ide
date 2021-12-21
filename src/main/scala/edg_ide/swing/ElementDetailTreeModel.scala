@@ -1,16 +1,16 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edgir.common.common
+import edgir.elem.elem
+import edgir.expr.expr
+import edgir.init.init
+import edgir.schema.schema
+import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
-import edg.common.common
 import edg.compiler.{Compiler, ExprRef, ExprResult, ExprToString}
-import edg.elem.elem
-import edg.expr.expr
-import edg.init.init
-import edg.schema.schema
 import edg.util.SeqMapSortableFrom._
-import edg.wir._
 import edg_ide.EdgirUtils
 
 import javax.swing.JTree

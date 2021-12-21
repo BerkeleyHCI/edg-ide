@@ -5,11 +5,12 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi._
-import edg.ref.ref
-import edg.schema.schema
+
+import edgir.ref.ref
+import edgir.schema.schema
+import edg.wir.DesignPath
 import edg.util.Errorable
 import edg.ElemBuilder.LibraryPath
-import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.psi_edits.InsertConnectAction
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}

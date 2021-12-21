@@ -1,7 +1,7 @@
 package edg_ide.ui
 import edg.IrPort
-import edg.elem.elem
-import edg.ref.ref
+import edgir.elem.elem
+import edgir.ref.ref
 import edg.util.Errorable
 import edg.util.SeqMapSortableFrom.MapSortableFrom
 import edg.wir

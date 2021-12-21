@@ -12,8 +12,8 @@ import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{PyClass, PyNamedParameter, PyPsiFacade}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.{Ref, ValueExpr}
-import edg.elem.elem
-import edg.ref.ref
+import edgir.elem.elem
+import edgir.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir
 import edg.wir.DesignPath

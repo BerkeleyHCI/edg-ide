@@ -1,7 +1,7 @@
 package edg_ide.edgir_graph
 
-import edg.elem.elem
-import edg.ref.ref.LibraryPath
+import edgir.elem.elem
+import edgir.ref.ref.LibraryPath
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.EdgirGraph.EdgirEdge
 
