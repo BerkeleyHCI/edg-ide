@@ -240,7 +240,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
   def footprintFromBlock(blockPath: DesignPath, block: elem.HierarchyBlock, compiler: Compiler):
       Option[(String, Map[String, ref.LocalPath])] = {
-    compiler.getParamValue(blockPath.asIndirect + "footprint_name").collect {
+    compiler.getParamValue(blockPath.asIndirect + "fp_footprint").collect {
       case TextValue(value) =>
         (value, pinningFromBlock(block).getOrElse(Map()))
     }
