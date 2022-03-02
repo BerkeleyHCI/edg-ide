@@ -37,18 +37,12 @@ object CompilerErrorNodeBase {
   // Error node defining text, path, and children for a compiler error
   class CompilerErrorNode(err: CompilerError) extends CompilerErrorNodeBase {
     def elaborateRecordToDetailNode(rec: ElaborateRecord): CompilerErrorDetailNode = rec match {
-      case rec @ (ElaborateRecord.Block(_) | ElaborateRecord.Link(_) |
-          ElaborateRecord.Param(_) |  ElaborateRecord.Generator(_, _) |
-          ElaborateRecord.Connect(_, _)) =>
-        new CompilerErrorDetailNode(s"Unexpected Missing Record $rec", "")
-      case ElaborateRecord.ConnectedLink(path) =>
-        new CompilerErrorDetailNode("Missing Connected Link at Port", path.toString)
+      case rec: ElaborateRecord.ElaborateTask =>
+        new CompilerErrorDetailNode(s"Unexpected Missing ElaborateTask Record $rec", "")
       case ElaborateRecord.ParamValue(path) =>
         new CompilerErrorDetailNode("Missing Param Value", path.toString)
-      case ElaborateRecord.FullConnectedPort(path) =>
-        new CompilerErrorDetailNode("Missing Resolved Connected Port", path.toString)
-      case ElaborateRecord.BlockPortsConnected(path) =>
-        new CompilerErrorDetailNode("Missing Block Ports Connected", path.toString)
+      case ElaborateRecord.ConnectedLink(path) =>
+        new CompilerErrorDetailNode("Missing Connected Link at Port", path.toString)
     }
 
     private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
@@ -56,10 +50,11 @@ object CompilerErrorNodeBase {
         ("Unelaborated Block", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Link(path), deps) =>
         ("Unelaborated Link", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
-      case CompilerError.Unelaborated(ElaborateRecord.Param(path), deps) =>
+      case CompilerError.Unelaborated(ElaborateRecord.ParamValue(path), deps) =>
         ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
-      case CompilerError.Unelaborated(ElaborateRecord.Generator(path, fnName), deps) =>
-        (s"Unelaborated Generator", s"${path.toString}:$fnName", deps.toSeq.map(elaborateRecordToDetailNode))
+      case CompilerError.Unelaborated(ElaborateRecord.Generator(blockPath, blockClass, fnName, _, _, _), deps) =>
+        (s"Unelaborated Generator", s"${blockPath.toString} (${blockClass.toSimpleString}:$fnName)",
+            deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath), deps) =>
         (s"Unelaborated Connect", "", Seq(
           new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
@@ -70,8 +65,6 @@ object CompilerErrorNodeBase {
 
       case CompilerError.LibraryElement(path, target) =>
         (s"Missing library element ${target.toSimpleString}", path.toString, Seq())
-      case CompilerError.Generator(path, targets, fnName) =>
-        (s"Generator not ready, ${targets.toSimpleString}:$fnName", path.toString, Seq())
 
       case CompilerError.LibraryError(path, target, err) =>
         (s"Library error, ${target.toSimpleString}", path.toString,
