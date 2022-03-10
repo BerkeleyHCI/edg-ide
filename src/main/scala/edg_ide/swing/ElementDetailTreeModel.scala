@@ -111,7 +111,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
       Seq(
         linkNode,
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
-        port.ports.sortKeysFrom(nameOrder).map {
+        port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.sortKeysFrom(nameOrder).map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
       ).flatten

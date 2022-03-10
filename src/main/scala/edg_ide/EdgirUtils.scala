@@ -170,8 +170,8 @@ object EdgirUtils {
             case (Seq(), ResolveTarget.Port) => ???  // TODO return non-Port PortType
             case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
             case (Seq(head, tail@_*), target) =>
-              if (port.ports.contains(head) && target == ResolveTarget.Port) {
-                fromPortLike(prefix :+ head, tail, port.ports(head), target)
+              if (port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.contains(head) && target == ResolveTarget.Port) {
+                fromPortLike(prefix :+ head, tail, port.getPorts.ports(head), target)
               } else if (target == ResolveTarget.Port) {  // deepest possible target along path
                 ???  // TODO return non-Port PortType
               } else if (target == ResolveTarget.Any) {  // deepest possible target along path
