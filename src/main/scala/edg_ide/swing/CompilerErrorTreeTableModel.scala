@@ -64,12 +64,14 @@ object CompilerErrorNodeBase {
         (s"Missing library element ${target.toSimpleString}", path.toString, Seq())
 
       case CompilerError.BadRef(path, ref) =>
-        (s"Bad reference ${path.asIndirect ++ ref}", path.toString, Seq())
+        (s"Bad reference $ref", path.toString, Seq())
+      case CompilerError.UndefinedPortArray(path, portType) =>
+        (s"Undefined port array", path.toString, Seq())
       case CompilerError.LibraryError(path, target, err) =>
         (s"Library error, ${target.toSimpleString}", path.toString,
             err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
-      case CompilerError.GeneratorError(path, target, fnName, err) =>
-        (s"Generator error, ${target.toSimpleString}:$fnName", path.toString,
+      case CompilerError.GeneratorError(path, target, err) =>
+        (s"Generator error, ${target.toSimpleString}", path.toString,
             err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
       case CompilerError.RefinementSubclassError(path, refinedLibrary, designLibrary) =>
         (s"Refinement class ${refinedLibrary.toSimpleString} " +
