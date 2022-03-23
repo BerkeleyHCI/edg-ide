@@ -170,8 +170,12 @@ class EdgCompilerService(project: Project) extends
                 indicator.setText(s"EDG compiling: link at $linkPath")
               case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) =>
                 indicator.setText(s"EDG compiling: connect between $toLinkPortPath - $fromLinkPortPath")
-              case ElaborateRecord.Generator(blockPath, blockClass, fnName, _, _, _) =>
-                indicator.setText(s"EDG compiling: generator at $blockPath (${blockClass.toSimpleString}:$fnName)")
+              case ElaborateRecord.ElaboratePortArray(portPath) =>
+                indicator.setText(s"EDG compiling: expand port array $portPath")
+              case ElaborateRecord.LowerArrayAllocateConnections(parent, portPath, _, _) =>
+                indicator.setText(s"EDG compiling: expanding array connections ${parent ++ portPath}")
+              case ElaborateRecord.LowerAllocateConnections(parent, portPath, _, _) =>
+                indicator.setText(s"EDG compiling: resolving allocate connections ${parent ++ portPath}")
               case record: ElaborateRecord.ElaborateDependency =>
                 indicator.setText(s"EDG compiling: unexpected dependency $record")
             }

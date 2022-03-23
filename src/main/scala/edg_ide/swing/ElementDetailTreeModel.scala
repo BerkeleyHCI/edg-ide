@@ -9,7 +9,7 @@ import edgir.schema.schema
 import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
-import edg.compiler.{Compiler, ExprRef, ExprResult, ExprToString}
+import edg.compiler.{Compiler, ExprResult, ExprToString}
 import edg.util.SeqMapSortableFrom._
 import edg_ide.EdgirUtils
 
@@ -268,9 +268,8 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
             case ExprResult.Result(result) =>
               (s"$name ⇐ ${result.toStringValue}", constraintStr, Seq())
             case ExprResult.Missing(missing) =>
-              (s"$name ⇐ unknown", constraintStr, missing.toSeq.map {
-                case ExprRef.Param(param) => new ConstraintDetailNode("Missing param", param)
-                case ExprRef.Array(array) => new ConstraintDetailNode("Missing array", array.asIndirect)
+              (s"$name ⇐ unknown", constraintStr, missing.toSeq.map { param =>
+                new ConstraintDetailNode("Missing param", param)
               })
           }
         case _ => (name, constraintStr, Seq())
