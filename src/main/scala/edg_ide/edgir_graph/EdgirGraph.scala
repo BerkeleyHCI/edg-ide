@@ -165,8 +165,9 @@ object EdgirGraph {
      case elem.PortLike.Is.Array(portArray) =>
        portArray.contains match {
         case elem.PortArray.Contains.Ports(portArray) =>
-          portArray.ports.flatMap { case (eltName, eltPort) =>
-            expandPortsWithNames(path + eltName, s"$name[$eltName]", eltPort)
+          // create an entry for the array itself
+          Seq(s"$name[...]" -> portLikeToPort(path, portLike)) ++ portArray.ports.flatMap { case (eltName, eltPort) =>
+              expandPortsWithNames(path + eltName, s"$name[$eltName]", eltPort)
           }.toSeq
         case elem.PortArray.Contains.Empty =>
           Seq(name -> portLikeToPort(path, portLike))
