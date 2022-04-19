@@ -168,6 +168,8 @@ class EdgCompilerService(project: Project) extends
                 indicator.setText(s"EDG compiling: block at $blockPath")
               case ElaborateRecord.Link(linkPath) =>
                 indicator.setText(s"EDG compiling: link at $linkPath")
+              case ElaborateRecord.LinkArray(linkPath) =>
+                indicator.setText(s"EDG compiling: link array at $linkPath")
               case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) =>
                 indicator.setText(s"EDG compiling: connect between $toLinkPortPath - $fromLinkPortPath")
               case ElaborateRecord.ElaboratePortArray(portPath) =>
