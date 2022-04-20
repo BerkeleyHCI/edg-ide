@@ -111,6 +111,9 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
       Seq(
         linkNode,
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
+        Some(new ParamNode(path.asIndirect + IndirectStep.Length, ExprBuilder.ValInit.Integer)),
+        Some(new ParamNode(path.asIndirect + IndirectStep.Elements,
+          ExprBuilder.ValInit.Array(ExprBuilder.ValInit.Text))),
         port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.sortKeysFrom(nameOrder).map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
@@ -224,14 +227,18 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     }
 
     override def getColumns(index: Int): String = {
-      val typeName = param.`val` match {
+      def valInitName(valInit: init.ValInit): String = valInit.`val` match {
         case init.ValInit.Val.Floating(_) => "float"
         case init.ValInit.Val.Boolean(_) => "boolean"
         case init.ValInit.Val.Integer(_) => "integer"
         case init.ValInit.Val.Range(_) => "range"
         case init.ValInit.Val.Text(_) => "text"
-        case param => s"unknown ${param.getClass}"
+        case init.ValInit.Val.Array(arrayValInit) => s"array[${valInitName(arrayValInit)}]"
+        case init.ValInit.Val.Set(_) => "set"
+        case init.ValInit.Val.Struct(_) => "set"
+        case init.ValInit.Val.Empty => "empty"
       }
+      val typeName = valInitName(param)
       val value = compiler.getParamValue(path) match {
         case Some(value) => value.toStringValue
         case None => "Unsolved"
