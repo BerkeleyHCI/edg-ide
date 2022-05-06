@@ -1,11 +1,10 @@
 package edg_ide.util
 
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiElement, PsiManager}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi._
-
 import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir.DesignPath
@@ -33,8 +32,13 @@ object DesignAnalysisUtils {
   /** Returns the PyClass of a LibraryPath
     */
   def pyClassOf(path: ref.LibraryPath, project: Project): Errorable[PyClass] = {
+    pyClassOf(path.getTarget.getName, project)
+  }
+
+  def pyClassOf(className: String, project: Project): Errorable[PyClass] = {
     val pyPsi = PyPsiFacade.getInstance(project)
-    Errorable(pyPsi.findClass(path.getTarget.getName), "no class")
+    val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
+    Errorable(pyPsi.createClassByQName(className, anchor), "no class")
   }
 
   def typeOf(pyClass: PyClass): ref.LibraryPath = {

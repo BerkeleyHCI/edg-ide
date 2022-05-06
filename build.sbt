@@ -4,8 +4,10 @@ import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoOptions
 
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin
 ThisBuild / intellijPluginName := "edg-ide"
-ThisBuild / intellijBuild := "2020.2.3"
-
+ThisBuild / intellijBuild := "2021.3"
+// Note: 2022.1 seems to break, see https://youtrack.jetbrains.com/issue/IDEA-287547
+// even though https://github.com/JetBrains/sbt-idea-plugin/commit/a7cfd633542b51847c2cac158981db5f81f863b9
+ThisBuild / intellijPlatform := IntelliJPlatform.IdeaCommunity
 
 lazy val compiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
     .enablePlugins(SbtIdeaPlugin)  // sbt-idea-plugin doesn't import properly if this isn't enabled
@@ -16,6 +18,7 @@ lazy val root = (project in file("."))
     .settings(
       scalaVersion := "2.13.4",
       scalacOptions += "-deprecation",
+      javacOptions ++= "--release" :: "11" :: Nil,
 
       name := "edg-ide",
       version := "0.1-SNAPSHOT",
@@ -26,13 +29,13 @@ lazy val root = (project in file("."))
       ),
       intellijPlugins := Seq(
         "com.intellij.properties",
-        "PythonCore:202.7660.27",
+        "PythonCore",
       ).map(_.toPlugin),
       patchPluginXml := pluginXmlOptions { xml =>
         xml.version           = version.value
         xml.pluginDescription = "EDG IDE Description"
         xml.sinceBuild        = (ThisBuild / intellijBuild).value
-        xml.untilBuild        = "202.*"
+        xml.untilBuild        = "221.*"
       },
     ).enablePlugins(BuildInfoPlugin)
     .settings(

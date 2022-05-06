@@ -49,7 +49,8 @@ class BlockRootPopupMenu(project: Project) extends JPopupMenu {
       classOf[PsiFile], project).exceptError
   }
   val defineClassAtEndAction: Errorable[() => Unit] = exceptable {
-    val blockClass = pyPsi.findClass("edg_core.HierarchyBlock.Block").exceptNull("can't resolve Block class")
+    val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.HierarchyBlock.Block", project)
+        .exceptError
     DefineBlockAction.createDefineBlockFlow(
       defineClassAfter.exceptError,
       blockClass,

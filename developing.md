@@ -45,25 +45,6 @@ Try this instead:
 5. You may also use the sbt shell tab (next to the Terminal tab) to run these commands directly.
 
 
-### Version issues
-
-When running the IDE, you may get this bug:
-```
-com.intellij.diagnostic.PluginException: 
-While loading class [class]:
-[class] has been compiled by a more recent version of the Java Runtime (class file version 59.0), this version of the Java Runtime only recognizes class file versions up to 55.0
-```
-
-This means the project is being compiled to target a more recent Java binary format than IntelliJ is running.
-To solve (probably):
-1. In IntelliJ, go to menu > File > Project Structure.
-2. Under Project Settings > Project, set the Project SDK to be Java 11.
-3. Clean and recompile until it works. Hopefully.
-
-Or, if running from command-line SBT - not confirmed working:
-1. Follow the choosing JDK instructions at https://www.jetbrains.com/help/idea/2020.2/switching-boot-jdk.html (make sure to choose right version of IntelliJ)
-
-
 ## Linking PyCharm sources
 
 While the plugin downs and indexes the IntelliJ platform sources automatically, it does not do the same for PyCharm.
@@ -72,7 +53,7 @@ This is only needed if you want to reference PyCharm sources / APIs (eg, PSI str
 1. `git clone https://github.com/JetBrains/intellij-community.git`
    (this may take a while)
 2. In the newly cloned repo: `git checkout pycharm/202.7660.27`
-   (the version should match the `PythonCore` plugin in build.sbt)
+   (the version should match the PyCharm plugin version, which can be found in the File > Settings > Plugins within the IDE)
     - You may need to `checkout -f` to force.
 3. Select any PyCharm reference, navigate to it (Ctrl+B).
    It should give you a decompiled source listing, and an option to choose sources.
