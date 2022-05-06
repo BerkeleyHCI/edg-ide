@@ -53,7 +53,7 @@ This is only needed if you want to reference PyCharm sources / APIs (eg, PSI str
 1. `git clone https://github.com/JetBrains/intellij-community.git`
    (this may take a while)
 2. In the newly cloned repo: `git checkout pycharm/202.7660.27`
-   (the version should match the `PythonCore` plugin in build.sbt)
+   (the version should match the PyCharm plugin version, which can be found in the File > Settings > Plugins within the IDE)
     - You may need to `checkout -f` to force.
 3. Select any PyCharm reference, navigate to it (Ctrl+B).
    It should give you a decompiled source listing, and an option to choose sources.
