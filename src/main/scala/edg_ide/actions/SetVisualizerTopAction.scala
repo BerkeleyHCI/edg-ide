@@ -17,9 +17,7 @@ class SetVisualizerTopAction() extends AnAction() {
     val psiFile = event.getData(CommonDataKeys.PSI_FILE).exceptNull("No PSI file")
     val caretElement = psiFile.findElementAt(offset).exceptNull("No element")
     val containingClass = PsiTreeUtil.getParentOfType(caretElement, classOf[PyClass]).exceptNull("No containing class")
-    val module = ModuleUtil.from(event.getProject.getBaseDir, psiFile.getVirtualFile).exceptNone(
-      s"PSI File $psiFile not in project ${event.getProject.getBaseDir}")
-
-    visualizer.setFileBlock(module.mkString("."), containingClass.getNameIdentifier.getText)
+    val classNameParts = containingClass.getQualifiedName.split('.')
+    visualizer.setFileBlock(classNameParts.init.mkString("."), classNameParts.last)
   }
 }
