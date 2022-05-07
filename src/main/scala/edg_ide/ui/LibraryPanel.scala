@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.util.PsiTreeUtil
@@ -8,6 +8,7 @@ import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi.{PyClass, PyNamedParameter, PyPsiFacade}
 import edg.EdgirUtils.SimpleLibraryPath
@@ -23,9 +24,11 @@ import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
+import org.eclipse.elk.graph.ElkNode
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.util.concurrent.Callable
 import javax.swing._
 import javax.swing.event._
 import javax.swing.tree.TreePath
@@ -336,63 +339,46 @@ class LibraryPreview(project: Project) extends JPanel {
   // Actions
   //
   def setBlock(library: wir.Library, blockType: ref.LibraryPath): Unit = {
-    val blockGraph = exceptable {
-      val fastPath = new DesignFastPathUtil(library)
-      val block = library.getBlock(blockType).exceptError
-      val stubBlock = fastPath.instantiateStubBlock(blockType).exceptError
-      val edgirGraph = EdgirGraph.blockToNode(DesignPath(), stubBlock)
-      val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
-        InferEdgeDirectionTransform(SimplifyPortTransform(
-          PruneDepthTransform(edgirGraph, 2)))))
-      val blockGraph = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-        "",  // no name, the class is already shown as the class name
-        Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
-        true)  // need to make a root so root doesn't have ports
-      (block, blockGraph)
-    }
+    ReadAction.nonBlocking((() => {
+      exceptable {
+        val fastPath = new DesignFastPathUtil(library)
+        val block = library.getBlock(blockType).exceptError
+        val stubBlock = fastPath.instantiateStubBlock(blockType).exceptError
+        val edgirGraph = EdgirGraph.blockToNode(DesignPath(), stubBlock)
+        val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
+          InferEdgeDirectionTransform(SimplifyPortTransform(
+            PruneDepthTransform(edgirGraph, 2)))))
+        val blockGraph = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+          "",  // no name, the class is already shown as the class name
+          Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
+          true)  // need to make a root so root doesn't have ports
 
-    val (callString, docstring) = ReadAction.compute(new ThrowableComputable[(Errorable[String], Errorable[String]), Throwable] {
-      override def compute: (Errorable[String], Errorable[String]) = {
-        val pyClassErrorable = DesignAnalysisUtils.pyClassOf(blockType, project)
-        val callString = exceptable {
-          val pyClass = pyClassErrorable.exceptError
-          val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
+        val pyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
+        val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
 
-          def formatArg(arg: PyNamedParameter): String = {
-            val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
-            // TODO hyperlinks? s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
-            s"""<b>${arg.getName}</b>"""
-          }
-
-          val initString = if (initArgs.nonEmpty) {
-            Some(s"positional args: ${initArgs.map(formatArg).mkString(", ")}")
-          } else {
-            None
-          }
-          val initKwString = if (initKwargs.nonEmpty) {
-            Some(s"keyword args: ${initKwargs.map(formatArg).mkString(", ")}")
-          } else {
-            None
-          }
-
-          if (initString.isEmpty && initKwString.isEmpty) {
-            "(no args)"
-          } else {
-            Seq(initString, initKwString).flatten.mkString("; ")
-          }
+        def formatArg(arg: PyNamedParameter): String = {
+          val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
+          // TODO hyperlinks? s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
+          s"""<b>${arg.getName}</b>"""
         }
-        val docstring = exceptable {
-          val pyClass = pyClassErrorable.exceptError
-          Option(pyClass.getDocStringValue).getOrElse("")
+        val initString = if (initArgs.nonEmpty) {
+          Some(s"positional args: ${initArgs.map(formatArg).mkString(", ")}")
+        } else {
+          None
+        }
+        val initKwString = if (initKwargs.nonEmpty) {
+          Some(s"keyword args: ${initKwargs.map(formatArg).mkString(", ")}")
+        } else {
+          None
+        }
+        val callString = if (initString.isEmpty && initKwString.isEmpty) {
+          "(no args)"
+        } else {
+          Seq(initString, initKwString).flatten.mkString("; ")
         }
 
-        (callString, docstring)
-      }
-    } )
+        val docstring = Option(pyClass.getDocStringValue).getOrElse("")
 
-    blockGraph match {
-      case Errorable.Success((block, blockGraph)) =>
-        graph.setGraph(blockGraph)
         val superclassString = if (block.superclasses.isEmpty) {
           "(none)"
         } else {
@@ -401,18 +387,21 @@ class LibraryPreview(project: Project) extends JPanel {
             s"""<b>${superclass.toSimpleString}</b>"""
           }.mkString(", ")
         }
-        val textFieldText = s"<b>${blockType.toSimpleString}</b> " +
-            s"extends: ${superclassString}\n" +
-            s"takes: ${callString.mapToString(identity)}<hr>" +
-            docstring.mapToString(identity)
 
-        textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText,
-          this.getFont))
-      case Errorable.Error(errMsg) =>
-        graph.setGraph(emptyHGraph)
-        textField.setText(SwingHtmlUtil.wrapInHtml(s"${blockType.toSimpleString}: $errMsg",
-          this.getFont))
-    }
+        val textFieldText = s"<b>${blockType.toSimpleString}</b> " +
+            s"extends: $superclassString\n" +
+            s"takes: $callString<hr>" +
+            docstring
+
+        (blockGraph, textFieldText)
+      } match {
+        case Errorable.Success(value) => value
+        case Errorable.Error(errMsg) => (emptyHGraph, s"${blockType.toSimpleString}: $errMsg")
+      }
+    }): Callable[(ElkNode, String)]).finishOnUiThread(ModalityState.defaultModalityState(), { case (blockGraph, textFieldText) =>
+      graph.setGraph(blockGraph)
+      textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText, this.getFont))
+    }).submit(AppExecutorUtil.getAppExecutorService)
   }
 
   def setPort(library: wir.Library, portType: ref.LibraryPath): Unit = {
