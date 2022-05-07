@@ -338,6 +338,40 @@ class LibraryPreview(project: Project) extends JPanel {
 
   // Actions
   //
+  protected def paramsToString(initArgs: Seq[PyNamedParameter], initKwargs: Seq[PyNamedParameter]): String = {
+    def formatArg(arg: PyNamedParameter): String = {
+      val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
+      // TODO hyperlinks? s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
+      s"""<b>${arg.getName}</b>"""
+    }
+    val initString = if (initArgs.nonEmpty) {
+      Some(s"positional args: ${initArgs.map(formatArg).mkString(", ")}")
+    } else {
+      None
+    }
+    val initKwString = if (initKwargs.nonEmpty) {
+      Some(s"keyword args: ${initKwargs.map(formatArg).mkString(", ")}")
+    } else {
+      None
+    }
+    if (initString.isEmpty && initKwString.isEmpty) {
+      "(no args)"
+    } else {
+      Seq(initString, initKwString).flatten.mkString("; ")
+    }
+  }
+
+  protected def superclassToString(superclasses: Seq[ref.LibraryPath]): String = {
+    if (superclasses.isEmpty) {
+      "(none)"
+    } else {
+      superclasses.map { superclass =>
+        // TODO hyperlinks? s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
+        s"""<b>${superclass.toSimpleString}</b>"""
+      }.mkString(", ")
+    }
+  }
+
   def setBlock(library: wir.Library, blockType: ref.LibraryPath): Unit = {
     ReadAction.nonBlocking((() => {
       exceptable {
@@ -356,37 +390,9 @@ class LibraryPreview(project: Project) extends JPanel {
         val pyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
         val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
 
-        def formatArg(arg: PyNamedParameter): String = {
-          val containingClass = PsiTreeUtil.getParentOfType(arg, classOf[PyClass])
-          // TODO hyperlinks? s"""<a href="arg:${containingClass.getName}_${arg.getName}">${arg.getName}</a>"""
-          s"""<b>${arg.getName}</b>"""
-        }
-        val initString = if (initArgs.nonEmpty) {
-          Some(s"positional args: ${initArgs.map(formatArg).mkString(", ")}")
-        } else {
-          None
-        }
-        val initKwString = if (initKwargs.nonEmpty) {
-          Some(s"keyword args: ${initKwargs.map(formatArg).mkString(", ")}")
-        } else {
-          None
-        }
-        val callString = if (initString.isEmpty && initKwString.isEmpty) {
-          "(no args)"
-        } else {
-          Seq(initString, initKwString).flatten.mkString("; ")
-        }
-
+        val callString = paramsToString(initArgs, initKwargs)
         val docstring = Option(pyClass.getDocStringValue).getOrElse("")
-
-        val superclassString = if (block.superclasses.isEmpty) {
-          "(none)"
-        } else {
-          block.superclasses.map { superclass =>
-            // TODO hyperlinks? s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
-            s"""<b>${superclass.toSimpleString}</b>"""
-          }.mkString(", ")
-        }
+        val superclassString = superclassToString(block.superclasses)
 
         val textFieldText = s"<b>${blockType.toSimpleString}</b> " +
             s"extends: $superclassString\n" +
@@ -406,51 +412,26 @@ class LibraryPreview(project: Project) extends JPanel {
 
   def setPort(library: wir.Library, portType: ref.LibraryPath): Unit = {
     // TODO combine w/ setBlock
-    val (callString, docstring) = ReadAction.compute(new ThrowableComputable[(Errorable[String], Errorable[String]), Throwable] {
-      override def compute: (Errorable[String], Errorable[String]) = {
-        val pyClassErrorable = DesignAnalysisUtils.pyClassOf(portType, project)
-        val callString = exceptable {
-          val pyClass = pyClassErrorable.exceptError
-          val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
+    ReadAction.nonBlocking((() => {
+      exceptable {
+        val pyClass = DesignAnalysisUtils.pyClassOf(portType, project).exceptError
+        val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
 
-          def formatArg(arg: PyNamedParameter): String = {
-            // TODO hyperlinks? s"""<a href="arg:${arg.getName}">${arg.getName}</a>"""
-            s"""<b>${arg.getName}</b>"""
-          }
+        val callString = paramsToString(initArgs, initKwargs)
+        val docstring = Option(pyClass.getDocStringValue).getOrElse("")
 
-          val initString = if (initArgs.nonEmpty) {
-            Some(s"positional args: ${initArgs.map(formatArg).mkString(", ")}")
-          } else {
-            None
-          }
-          val initKwString = if (initKwargs.nonEmpty) {
-            Some(s"keyword args: ${initKwargs.map(formatArg).mkString(", ")}")
-          } else {
-            None
-          }
-
-          if (initString.isEmpty && initKwString.isEmpty) {
-            "(no args)"
-          } else {
-            Seq(initString, initKwString).flatten.mkString("; ")
-          }
-        }
-        val docstring = exceptable {
-          val pyClass = pyClassErrorable.exceptError
-          Option(pyClass.getDocStringValue).getOrElse("")
-        }
-
-        (callString, docstring)
+        s"<b>${portType.toSimpleString}</b>\n" +
+            s"takes: $callString<hr>" +
+            docstring
+      } match {
+        case Errorable.Success(value) => value
+        case Errorable.Error(errMsg) => s"${portType.toSimpleString}: $errMsg"
       }
-    } )
-
-    graph.setGraph(emptyHGraph)
-    val textFieldText = s"<b>${portType.toSimpleString}</b>\n" +
-        s"takes: ${callString.mapToString(identity)}<hr>" +
-        docstring.mapToString(identity)
-
-    textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText,
-      this.getFont))
+    }): Callable[String] ).finishOnUiThread(ModalityState.defaultModalityState(), textFieldText => {
+      graph.setGraph(emptyHGraph)
+      textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText,
+        this.getFont))
+    }).submit(AppExecutorUtil.getAppExecutorService)
   }
 
   def clear(): Unit = {
