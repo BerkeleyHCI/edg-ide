@@ -41,7 +41,7 @@ object DesignAnalysisUtils {
     val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
     SlowOperations.allowSlowOperations(() => {
       // this is often used to build responsive UI elements, so hopefully is also fast enough to run in EDT
-      Errorable(pyPsi.createClassByQName(className, anchor), "no class")
+      Errorable(pyPsi.createClassByQName(className, anchor), s"no class $className")
     })
   }
 
