@@ -1,13 +1,17 @@
 package edg_ide.psi_edits
 
+import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi._
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+
+import java.util.concurrent.Callable
 
 
 object InsertPortAction {
@@ -30,41 +34,45 @@ object InsertPortAction {
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
         .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
 
-    val psiElementGenerator = PyElementGenerator.getInstance(project)
-    val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
-        .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
-        .head.getName
 
-    val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
-    val allParams = initParams._1 ++ initParams._2
 
     def insertPortFlow: Unit = {
       InsertAction.createClassMemberNameEntryPopup("Port Name", containingPsiClass, project) { name => exceptable {
-        val languageLevel = LanguageLevel.forElement(after)
-        val newAssign = psiElementGenerator.createFromText(languageLevel,
-          classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Port(${libClass.getName}())")
+        ReadAction.nonBlocking((() => {
+          val languageLevel = LanguageLevel.forElement(after)
+          val psiElementGenerator = PyElementGenerator.getInstance(project)
+          val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
+              .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
+              .head.getName
+          val newAssign = psiElementGenerator.createFromText(languageLevel,
+            classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Port(${libClass.getName}())")
 
-        // TODO should this insert args for ports?
-        for (initParam <- allParams) {
-          if (initParam.getName != "model") {  // TODO remove once model is removed
-            val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
-              initParam.getName, "...")
+          val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
+          val allParams = initParams._1 ++ initParams._2
 
-            val defaultValue = initParam.getDefaultValue
-            if (defaultValue != null) {
-              kwArg.getValueExpression.replace(defaultValue)
+          // TODO should this insert args for ports?
+          for (initParam <- allParams) {
+            if (initParam.getName != "model") {  // TODO remove once model is removed
+              val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
+                initParam.getName, "...")
+
+              val defaultValue = initParam.getDefaultValue
+              if (defaultValue != null) {
+                kwArg.getValueExpression.replace(defaultValue)
+              }
+
+              newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
+                  .getArgument(0, classOf[PyCallExpression])
+                  .getArgumentList.addArgument(kwArg)
             }
-
-            newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
-                .getArgument(0, classOf[PyCallExpression])
-                .getArgumentList.addArgument(kwArg)
           }
-        }
-
-        val added = writeCommandAction(project).withName(actionName).compute(() => {
-          containingPsiList.addAfter(newAssign, after)
-        })
-        continuation(name, added)
+          newAssign
+        }): Callable[PyAssignmentStatement]).finishOnUiThread(ModalityState.defaultModalityState(), newAssign => {
+          val added = writeCommandAction(project).withName(actionName).compute(() => {
+            containingPsiList.addAfter(newAssign, after)
+          })
+          continuation(name, added)
+        }).submit(AppExecutorUtil.getAppExecutorService)
       }}
     }
     () => insertPortFlow
