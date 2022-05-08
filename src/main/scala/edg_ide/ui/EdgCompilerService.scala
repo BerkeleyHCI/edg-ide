@@ -2,25 +2,25 @@ package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.{ApplicationManager, ReadAction}
+import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
-
 import edgrpc.hdl.{hdl => edgrpc}
 import edgir.ref.ref
 import edgir.schema.schema
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary}
-
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.util.DesignAnalysisUtils
 
+import java.util.concurrent.Callable
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
@@ -70,23 +70,23 @@ class EdgCompilerService(project: Project) extends
         return
       }
 
-      ApplicationManager.getApplication.invokeLater(() => {
-        val extendedModifiedTypes = ReadAction.compute(() => {
-          val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
-          (inheritors.toSeq :+ containingClass).map { modifiedClass =>
-            DesignAnalysisUtils.typeOf(modifiedClass)
-          }
-        }).toSet
-        val newTypes = modifiedTypes.synchronized {
+      ReadAction.nonBlocking((() => {
+        val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
+        val extendedModifiedTypes = (inheritors.toSeq :+ containingClass).map { modifiedClass =>
+          DesignAnalysisUtils.typeOf(modifiedClass)
+        }.toSet
+
+        modifiedTypes.synchronized {
           val newTypes = extendedModifiedTypes -- modifiedTypes
           modifiedTypes.addAll(newTypes)
           newTypes
         }
+      }): Callable[Set[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), newTypes => {
         BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
           visualizerPanel.addStaleTypes(newTypes.toSeq)
         }
-        // TODO update library cached status, so incremental discard
-      })
+      }).submit(AppExecutorUtil.getAppExecutorService)
+      // TODO update library cached status, so incremental discard
     }
   }, this)
 

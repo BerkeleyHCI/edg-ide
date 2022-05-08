@@ -1,7 +1,7 @@
 package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
@@ -9,6 +9,7 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
+import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterface, PythonInterfaceLibrary, RangeValue}
 import edg.wir.{DesignPath, Library}
@@ -23,11 +24,12 @@ import edgir.ref.ref
 import edgir.schema.schema
 import edgir.schema.schema.Design
 import edgrpc.hdl.{hdl => edgrpc}
-import org.eclipse.elk.graph.ElkGraphElement
+import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.nio.file.Paths
+import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
@@ -421,42 +423,51 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   def updateDisplay(): Unit = {
     import ElemBuilder.LibraryPath
 
-    val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, design)
-    focusPath = blockPath
+    val currentDesign = design
 
-    // For now, this only updates the graph visualization, which can change with focus.
-    // In the future, maybe this will also update or filter the design tree.
-    val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
-    val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-      4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
-    val transformedGraph = PruneArrayPortsTransform(highFanoutTransform(
-      CollapseLinkTransform(CollapseBridgeTransform(
-      InferEdgeDirectionTransform(SimplifyPortTransform(
-        PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))))
+    ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
+      val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, currentDesign)
+      focusPath = blockPath
 
-    val name = if (focusPath == DesignPath()) {
-      "(root)"
-    } else {
-      focusPath.steps.last
-    }
-    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-      name,
-      Seq(ElkEdgirGraphUtils.DesignPathMapper),
-      // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
-      focusPath != DesignPath())  // need to make a root so root doesn't have ports
+      // For now, this only updates the graph visualization, which can change with focus.
+      // In the future, maybe this will also update or filter the design tree.
+      val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
+      val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
+        4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
+      val transformedGraph = PruneArrayPortsTransform(highFanoutTransform(
+        CollapseLinkTransform(CollapseBridgeTransform(
+          InferEdgeDirectionTransform(SimplifyPortTransform(
+            PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))))
 
-    graph.setGraph(layoutGraphRoot)
-
-    // TODO refactor into its own thing?
-    val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
-    tooltipTextMap.map(design)
-    tooltipTextMap.getTextMap.foreach { case (path, tooltipText) =>
-      pathsToGraphNodes(Set(path)).foreach { node =>
-        graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+      val name = if (focusPath == DesignPath()) {
+        "(root)"
+      } else {
+        focusPath.steps.last
       }
-    }
-    updateStale()
-    updateDisconnected()
+
+      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+        name,
+        Seq(ElkEdgirGraphUtils.DesignPathMapper),
+        // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
+        focusPath != DesignPath())  // need to make a root so root doesn't have ports
+
+      val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
+      tooltipTextMap.map(design)
+
+      (layoutGraphRoot, tooltipTextMap.getTextMap)
+    }): Callable[(ElkNode, Map[DesignPath, String])])
+        .finishOnUiThread(ModalityState.defaultModalityState(), { case (layoutGraphRoot, tooltipTextMap) =>
+      graph.setGraph(layoutGraphRoot)
+
+      tooltipTextMap.foreach { case (path, tooltipText) =>
+        pathsToGraphNodes(Set(path)).foreach { node =>
+          graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+        }
+      }
+
+      updateStale()
+      updateDisconnected()
+    }).submit(AppExecutorUtil.getAppExecutorService)
   }
 
   protected def updateDisconnected(): Unit = {

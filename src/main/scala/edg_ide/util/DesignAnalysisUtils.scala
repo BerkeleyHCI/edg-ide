@@ -3,6 +3,7 @@ package edg_ide.util
 import com.intellij.openapi.project.Project
 import com.intellij.psi.{PsiElement, PsiManager}
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.SlowOperations
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi._
 import edgir.ref.ref
@@ -38,7 +39,10 @@ object DesignAnalysisUtils {
   def pyClassOf(className: String, project: Project): Errorable[PyClass] = {
     val pyPsi = PyPsiFacade.getInstance(project)
     val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
-    Errorable(pyPsi.createClassByQName(className, anchor), "no class")
+    SlowOperations.allowSlowOperations(() => {
+      // this is often used to build responsive UI elements, so hopefully is also fast enough to run in EDT
+      Errorable(pyPsi.createClassByQName(className, anchor), s"no class $className")
+    })
   }
 
   def typeOf(pyClass: PyClass): ref.LibraryPath = {
