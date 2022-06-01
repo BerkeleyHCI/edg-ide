@@ -207,9 +207,40 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     override def getColumns(index: Int): String = link.getSelfClass.toSimpleString
   }
 
+  class LinkArrayNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkArray) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = {
+      val nameOrder = ProtoUtil.getNameOrder(link.meta)
+      Seq(
+        Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
+          link.ports.sortKeysFrom(nameOrder).map {
+            case (name, port) => PortLikeNode(path + name, port, true)
+          }
+        }.toSeq.flatten,
+        link.links.sortKeysFrom(nameOrder).map {
+          case (name, sublink) => LinkLikeNode(path + name, relpath + name, sublink)
+        },
+        link.meta.map { meta =>
+          new MetadataNode("Metadata", meta)
+        },
+        Some(new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder))),
+      ).flatten
+    }
+
+    override def toString: String = {
+      if (relpath.steps.nonEmpty && relpath.steps.last == IndirectStep.ConnectedLink) {
+        s"Connected @ ${path}"
+      } else {
+        path.lastString
+      }
+    }
+
+    override def getColumns(index: Int): String = s"LinkArray[${link.getSelfClass.toSimpleString}]"
+  }
+
   def LinkLikeNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkLike): ElementDetailNode = {
     link.`type` match {
       case elem.LinkLike.Type.Link(link) => new LinkNode(path, relpath, link)
+      case elem.LinkLike.Type.Array(link) => new LinkArrayNode(path, relpath, link)
       case elem.LinkLike.Type.LibElem(link) =>
         new UnelaboratedNode(path, s"unelaborated ${link.toSimpleString}")
       case _ =>
