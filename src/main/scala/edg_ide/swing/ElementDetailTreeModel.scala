@@ -9,7 +9,7 @@ import edgir.schema.schema
 import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
-import edg.compiler.{Compiler, ExprResult, ExprToString}
+import edg.compiler.{ArrayValue, Compiler, ExprResult, ExprToString, ExprValue}
 import edg.util.SeqMapSortableFrom._
 import edg_ide.EdgirUtils
 
@@ -104,7 +104,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     override def getColumns(index: Int): String = port.getSelfClass.toSimpleString
   }
 
-  class ArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
+  class PortArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
       extends BasePortNode {
     override lazy val children = {
       val nameOrder = ProtoUtil.getNameOrder(port.meta)
@@ -127,7 +127,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     port.is match {
       case elem.PortLike.Is.Port(port) => new PortNode(path, port, fromLink)
       case elem.PortLike.Is.Bundle(port) => new BundleNode(path, port, fromLink)
-      case elem.PortLike.Is.Array(port) => new ArrayNode(path, port, fromLink)
+      case elem.PortLike.Is.Array(port) => new PortArrayNode(path, port, fromLink)
       case elem.PortLike.Is.LibElem(port) =>
         new UnelaboratedNode(path, s"unelaborated ${port.toSimpleString}")
       case _ =>
@@ -250,7 +250,12 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
 
 
   class ParamNode(path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
-    override lazy val children: Seq[ElementDetailNode] = Seq()
+    override lazy val children: Seq[ElementDetailNode] = compiler.getParamValue(path) match {
+      case Some(ArrayValue(values)) => values.zipWithIndex.map { case (value, index) =>
+        new ParamEltNode(index, value)
+      }
+      case _ => Seq()
+    }
 
     override def toString: String = path.steps match {
       case Seq() => ""
@@ -275,6 +280,16 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
         case None => "Unsolved"
       }
       s"$value ($typeName)"
+    }
+  }
+
+  class ParamEltNode(index: Int, value: ExprValue) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = Seq()
+
+    override def toString: String = index.toString
+
+    override def getColumns(index: Int): String = {  // unlike the top-level ParamNode case we don't show the type
+      value.toStringValue
     }
   }
 
