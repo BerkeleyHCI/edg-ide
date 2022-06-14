@@ -2,7 +2,7 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{CompilerError, ElaborateRecord, ExprRef, ExprToString}
+import edg.compiler.{CompilerError, ElaborateRecord, ExprToString}
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 
@@ -52,9 +52,6 @@ object CompilerErrorNodeBase {
         ("Unelaborated Link", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.ParamValue(path), deps) =>
         ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
-      case CompilerError.Unelaborated(ElaborateRecord.Generator(blockPath, blockClass, fnName, _, _, _), deps) =>
-        (s"Unelaborated Generator", s"${blockPath.toString} (${blockClass.toSimpleString}:$fnName)",
-            deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath), deps) =>
         (s"Unelaborated Connect", "", Seq(
           new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
@@ -66,11 +63,15 @@ object CompilerErrorNodeBase {
       case CompilerError.LibraryElement(path, target) =>
         (s"Missing library element ${target.toSimpleString}", path.toString, Seq())
 
+      case CompilerError.BadRef(path, ref) =>
+        (s"Bad reference $ref", path.toString, Seq())
+      case CompilerError.UndefinedPortArray(path, portType) =>
+        (s"Undefined port array", path.toString, Seq())
       case CompilerError.LibraryError(path, target, err) =>
         (s"Library error, ${target.toSimpleString}", path.toString,
             err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
-      case CompilerError.GeneratorError(path, target, fnName, err) =>
-        (s"Generator error, ${target.toSimpleString}:$fnName", path.toString,
+      case CompilerError.GeneratorError(path, target, err) =>
+        (s"Generator error, ${target.toSimpleString}", path.toString,
             err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
       case CompilerError.RefinementSubclassError(path, refinedLibrary, designLibrary) =>
         (s"Refinement class ${refinedLibrary.toSimpleString} " +
@@ -93,9 +94,8 @@ object CompilerErrorNodeBase {
           new CompilerErrorDetailNode(ExprToString(value),result.toStringValue)
         ))
       case CompilerError.MissingAssertion(root, constrName, value, missing) =>
-        (s"Missing assertion", s"$root:$constrName", missing.toSeq.map {
-          case ExprRef.Param(param) => new CompilerErrorDetailNode("Missing param", param.toString)
-          case ExprRef.Array(array) => new CompilerErrorDetailNode("Missing array", array.toString)
+        (s"Missing assertion", s"$root:$constrName", missing.toSeq.map { param =>
+          new CompilerErrorDetailNode("Missing param", param.toString)
         })
 
       case CompilerError.EmptyRange(param, root, constrName, value) =>

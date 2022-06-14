@@ -120,7 +120,7 @@ class DesignFastPathUtil(library: wir.Library) {
           val i = arraySize.getOrElse(topPortName, 0)
           arraySize.put(topPortName, i+1)
           stubLink = stubLink.update(
-            _.ports(topPortName).array.ports(i.toString) := instantiatePortLike(connectType).exceptError
+            _.ports(topPortName).array.ports.ports(i.toString) := instantiatePortLike(connectType).exceptError
           )
           key -> ExprBuilder.Ref(topPortName, i.toString)
         case other => throw ExceptionNotifyException(s"unexpected ${other.getClass} in link connect mapping")

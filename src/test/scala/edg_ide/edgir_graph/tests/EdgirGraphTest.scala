@@ -204,4 +204,73 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
     // The final catch-all check
     edgirGraph should equal(refGraph)
   }
+
+  it should "work with block-side arrays" in {
+    val designIr = elem.HierarchyBlock(
+      blocks=Map(
+        "block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+          ports=Map(
+            "ports" -> elem.PortLike(is=elem.PortLike.Is.Array(elem.PortArray(
+              selfClass=Some(EdgirTestUtils.Ports.PowerSource),
+              contains=elem.PortArray.Contains.Ports(elem.PortArray.Ports(
+                ports=Map(
+                  "0" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+                    selfClass=Some(EdgirTestUtils.Ports.PowerSource)
+                  ))),
+                  "test" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+                    selfClass=Some(EdgirTestUtils.Ports.PowerSource)
+                  ))),
+                )
+              ))
+            ))),
+          ),
+        ))),
+      ),
+      links=Map(),
+      constraints=Map(),
+    )
+    val designBlocklikeIr = elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(designIr))
+    val edgirGraph = EdgirGraph.blockLikeToNode(
+      DesignPath(),
+      designBlocklikeIr
+    )
+
+    val blockIr = designIr.blocks("block").`type`.hierarchy.get
+
+    val refGraph = EdgirGraph.EdgirNode(
+      data = BlockWrapper(DesignPath(), designBlocklikeIr),
+      members = SeqMap(
+        "block" -> EdgirGraph.EdgirNode(
+          data = BlockWrapper(DesignPath() + "block", designIr.blocks("block")),
+          members = SeqMap(
+            "ports[...]" -> EdgirGraph.EdgirPort(
+              data = PortWrapper(DesignPath() + "block" + "ports",
+                blockIr.ports("ports"))
+            ),
+            "ports[0]" -> EdgirGraph.EdgirPort(
+              data = PortWrapper(DesignPath() + "block" + "ports" + "0",
+                blockIr.ports("ports").getArray.getPorts.ports("0"))
+            ),
+            "ports[test]" -> EdgirGraph.EdgirPort(
+              data = PortWrapper(DesignPath() + "block" + "ports" + "test",
+                blockIr.ports("ports").getArray.getPorts.ports("test"))
+            ),
+          ),
+          edges = Seq()
+        ),
+      ),
+      edges = Seq(),
+    )
+
+    // These checks allow better error localization
+    edgirGraph.members("block").asInstanceOf[EdgirNode].members("ports[...]") should equal(
+      refGraph.members("block").asInstanceOf[EdgirNode].members("ports[...]"))
+    edgirGraph.members("block").asInstanceOf[EdgirNode].members("ports[0]") should equal(
+      refGraph.members("block").asInstanceOf[EdgirNode].members("ports[0]"))
+    edgirGraph.members("block").asInstanceOf[EdgirNode].members("ports[test]") should equal(
+      refGraph.members("block").asInstanceOf[EdgirNode].members("ports[test]"))
+
+    // The final catch-all check
+    edgirGraph should equal(refGraph)
+  }
 }

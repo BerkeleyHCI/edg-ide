@@ -9,7 +9,7 @@ import edgir.schema.schema
 import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
-import edg.compiler.{Compiler, ExprRef, ExprResult, ExprToString}
+import edg.compiler.{ArrayValue, Compiler, ExprResult, ExprToString, ExprValue}
 import edg.util.SeqMapSortableFrom._
 import edg_ide.EdgirUtils
 
@@ -104,14 +104,17 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     override def getColumns(index: Int): String = port.getSelfClass.toSimpleString
   }
 
-  class ArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
+  class PortArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
       extends BasePortNode {
     override lazy val children = {
       val nameOrder = ProtoUtil.getNameOrder(port.meta)
       Seq(
         linkNode,
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
-        port.ports.sortKeysFrom(nameOrder).map {
+        Some(new ParamNode(path.asIndirect + IndirectStep.Length, ExprBuilder.ValInit.Integer)),
+        Some(new ParamNode(path.asIndirect + IndirectStep.Elements,
+          ExprBuilder.ValInit.Array(ExprBuilder.ValInit.Text))),
+        port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.sortKeysFrom(nameOrder).map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
       ).flatten
@@ -124,7 +127,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     port.is match {
       case elem.PortLike.Is.Port(port) => new PortNode(path, port, fromLink)
       case elem.PortLike.Is.Bundle(port) => new BundleNode(path, port, fromLink)
-      case elem.PortLike.Is.Array(port) => new ArrayNode(path, port, fromLink)
+      case elem.PortLike.Is.Array(port) => new PortArrayNode(path, port, fromLink)
       case elem.PortLike.Is.LibElem(port) =>
         new UnelaboratedNode(path, s"unelaborated ${port.toSimpleString}")
       case _ =>
@@ -204,9 +207,40 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     override def getColumns(index: Int): String = link.getSelfClass.toSimpleString
   }
 
+  class LinkArrayNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkArray) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = {
+      val nameOrder = ProtoUtil.getNameOrder(link.meta)
+      Seq(
+        Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
+          link.ports.sortKeysFrom(nameOrder).map {
+            case (name, port) => PortLikeNode(path + name, port, true)
+          }
+        }.toSeq.flatten,
+        link.links.sortKeysFrom(nameOrder).map {
+          case (name, sublink) => LinkLikeNode(path + name, relpath + name, sublink)
+        },
+        link.meta.map { meta =>
+          new MetadataNode("Metadata", meta)
+        },
+        Some(new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder))),
+      ).flatten
+    }
+
+    override def toString: String = {
+      if (relpath.steps.nonEmpty && relpath.steps.last == IndirectStep.ConnectedLink) {
+        s"Connected @ ${path}"
+      } else {
+        path.lastString
+      }
+    }
+
+    override def getColumns(index: Int): String = s"LinkArray[${link.getSelfClass.toSimpleString}]"
+  }
+
   def LinkLikeNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkLike): ElementDetailNode = {
     link.`type` match {
       case elem.LinkLike.Type.Link(link) => new LinkNode(path, relpath, link)
+      case elem.LinkLike.Type.Array(link) => new LinkArrayNode(path, relpath, link)
       case elem.LinkLike.Type.LibElem(link) =>
         new UnelaboratedNode(path, s"unelaborated ${link.toSimpleString}")
       case _ =>
@@ -216,7 +250,12 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
 
 
   class ParamNode(path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
-    override lazy val children: Seq[ElementDetailNode] = Seq()
+    override lazy val children: Seq[ElementDetailNode] = compiler.getParamValue(path) match {
+      case Some(ArrayValue(values)) => values.zipWithIndex.map { case (value, index) =>
+        new ParamEltNode(index, value)
+      }
+      case _ => Seq()
+    }
 
     override def toString: String = path.steps match {
       case Seq() => ""
@@ -224,19 +263,33 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
     }
 
     override def getColumns(index: Int): String = {
-      val typeName = param.`val` match {
+      def valInitName(valInit: init.ValInit): String = valInit.`val` match {
         case init.ValInit.Val.Floating(_) => "float"
         case init.ValInit.Val.Boolean(_) => "boolean"
         case init.ValInit.Val.Integer(_) => "integer"
         case init.ValInit.Val.Range(_) => "range"
         case init.ValInit.Val.Text(_) => "text"
-        case param => s"unknown ${param.getClass}"
+        case init.ValInit.Val.Array(arrayValInit) => s"array[${valInitName(arrayValInit)}]"
+        case init.ValInit.Val.Set(_) => "set"
+        case init.ValInit.Val.Struct(_) => "set"
+        case init.ValInit.Val.Empty => "empty"
       }
+      val typeName = valInitName(param)
       val value = compiler.getParamValue(path) match {
         case Some(value) => value.toStringValue
         case None => "Unsolved"
       }
       s"$value ($typeName)"
+    }
+  }
+
+  class ParamEltNode(index: Int, value: ExprValue) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = Seq()
+
+    override def toString: String = index.toString
+
+    override def getColumns(index: Int): String = {  // unlike the top-level ParamNode case we don't show the type
+      value.toStringValue
     }
   }
 
@@ -268,9 +321,8 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
             case ExprResult.Result(result) =>
               (s"$name ⇐ ${result.toStringValue}", constraintStr, Seq())
             case ExprResult.Missing(missing) =>
-              (s"$name ⇐ unknown", constraintStr, missing.toSeq.map {
-                case ExprRef.Param(param) => new ConstraintDetailNode("Missing param", param)
-                case ExprRef.Array(array) => new ConstraintDetailNode("Missing array", array.asIndirect)
+              (s"$name ⇐ unknown", constraintStr, missing.toSeq.map { param =>
+                new ConstraintDetailNode("Missing param", param)
               })
           }
         case _ => (name, constraintStr, Seq())

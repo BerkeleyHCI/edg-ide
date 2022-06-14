@@ -168,10 +168,24 @@ class EdgCompilerService(project: Project) extends
                 indicator.setText(s"EDG compiling: block at $blockPath")
               case ElaborateRecord.Link(linkPath) =>
                 indicator.setText(s"EDG compiling: link at $linkPath")
+              case ElaborateRecord.LinkArray(linkPath) =>
+                indicator.setText(s"EDG compiling: link array at $linkPath")
               case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) =>
                 indicator.setText(s"EDG compiling: connect between $toLinkPortPath - $fromLinkPortPath")
-              case ElaborateRecord.Generator(blockPath, blockClass, fnName, _, _, _) =>
-                indicator.setText(s"EDG compiling: generator at $blockPath (${blockClass.toSimpleString}:$fnName)")
+              case ElaborateRecord.ElaboratePortArray(portPath) =>
+                indicator.setText(s"EDG compiling: expand port array $portPath")
+
+              case ElaborateRecord.ResolveArrayAllocated(parent, portPath, _, _, _) =>
+                indicator.setText(s"EDG compiling: resolving array allocations ${parent ++ portPath}")
+              case ElaborateRecord.RewriteArrayAllocate(parent, portPath, _, _, _) =>
+                indicator.setText(s"EDG compiling: rewriting array allocates ${parent ++ portPath}")
+              case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
+                indicator.setText(s"EDG compiling: expanding array connection $parent.$constrName")
+              case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
+                indicator.setText(s"EDG compiling: rewriting connection allocates ${parent ++ portPath}")
+              case ElaborateRecord.ResolveArrayIsConnected(parent, portPath, _, _, _) =>
+                indicator.setText(s"EDG compiling: resolving array connectivity ${parent ++ portPath}")
+
               case record: ElaborateRecord.ElaborateDependency =>
                 indicator.setText(s"EDG compiling: unexpected dependency $record")
             }

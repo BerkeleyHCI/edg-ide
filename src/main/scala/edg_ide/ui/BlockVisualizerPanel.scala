@@ -702,6 +702,11 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     }
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
+  override def mapLinkArray(path: DesignPath, link: elem.LinkArray,
+                            ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
+    val classString = link.getSelfClass.toSimpleString
+    textMap.put(path, s"<b>$classString[]</b> at $path")
+  }
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
     val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
