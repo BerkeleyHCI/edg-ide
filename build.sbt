@@ -16,7 +16,7 @@ lazy val root = (project in file("."))
     .dependsOn(compiler % "compile->compile; test->test")
     .enablePlugins(SbtIdeaPlugin)
     .settings(
-      scalaVersion := "2.13.4",
+      scalaVersion := "2.13.8",
       scalacOptions += "-deprecation",
       javacOptions ++= "--release" :: "11" :: Nil,
 
