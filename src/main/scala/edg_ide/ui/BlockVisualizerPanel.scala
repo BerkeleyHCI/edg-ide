@@ -612,7 +612,6 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
                links: SeqMap[String, Unit]): Unit = {
     import edg.ElemBuilder.LibraryPath
 
-//     Nathan Code
     val descriptionString = block.description.map {
       case x if x.phraseType.isVariable => paramToUnitsString(path + x.phraseType.variable.getOrElse(""), "")
       case x if x.phraseType.isText => x.phraseType.text.getOrElse("Empty")
@@ -623,7 +622,6 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val thisClass = block.getSelfClass
     val additionalDesc = ReadAction.compute(() => {
         s"\n ${descriptionString.mkString("")}"
-//      }
     })
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
