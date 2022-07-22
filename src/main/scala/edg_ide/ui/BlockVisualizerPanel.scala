@@ -614,7 +614,7 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
 
 //     Nathan Code
     val descriptionString = block.description.map {
-      case x if x.phraseType.isVariable => x.phraseType.variable.getOrElse("Empty").toUpperCase()
+      case x if x.phraseType.isVariable => paramToUnitsString(path + x.phraseType.variable.getOrElse(""), "")
       case x if x.phraseType.isText => x.phraseType.text.getOrElse("Empty")
       case _ => "idk whats going on!!"
     }
@@ -622,60 +622,8 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val classString = block.getSelfClass.toSimpleString
     val thisClass = block.getSelfClass
     val additionalDesc = ReadAction.compute(() => {
-      if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_lib.Passives.ESeriesResistor"), project)) {
-        s"\n<b>resistance</b>: ${paramToUnitsString(path + "resistance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "spec_resistance", "Ω")}" +
-            s"\n<b>power rating</b>: ${paramToUnitsString(path + "selected_power_rating", "W")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "power", "W")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.Resistor"), project)) {
-        s"\n<b>resistance</b>: ${paramToUnitsString(path + "resistance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "spec_resistance", "Ω")}" +
-            s"\n<b>spec power</b>: ${paramToUnitsString(path + "power", "W")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_lib.Passives.SmtCeramicCapacitor"), project)) {
-        s" (${paramToString(path + "part")})" +
-            s"\n<b>capacitance</b>: ${paramToUnitsString(path + "selected_capacitance", "F")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "capacitance", "F")}" +
-            s"\n<b>voltage rating</b>: ${paramToUnitsString(path + "selected_voltage_rating", "V")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "voltage", "V")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.UnpolarizedCapacitor"), project)) {
-        s"\n<b>spec capacitance</b>: ${paramToUnitsString(path + "capacitance", "F")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.DecouplingCapacitor"), project)) {
-        s"\n<b>spec capacitance</b>: ${paramToUnitsString(path + "capacitance", "F")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_lib.Passives.SmtInductor"), project)) {
-        s" (${paramToString(path + "part")})" +
-            s"\n<b>inductance</b>: ${paramToUnitsString(path + "selected_inductance", "H")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "inductance", "H")}" +
-            s"\n<b>current rating</b>: ${paramToUnitsString(path + "selected_current_rating", "A")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "current", "A")}" +
-            s"\n<b>frequency rating</b>: ${paramToUnitsString(path + "selected_frequency_rating", "Hz")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "frequency", "Hz")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.Inductor"), project)) {
-        s"\n<b>spec inductance</b>: ${paramToUnitsString(path + "inductance", "H")}" +
-            s"\n<b>spec current</b>: ${paramToUnitsString(path + "current", "A")}" +
-            s"\n<b>spec frequency</b>: ${paramToUnitsString(path + "frequency", "Hz")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.ResistiveDivider.ResistiveDivider"), project)) {
-        s"\n<b>ratio</b>: ${paramToUnitsString(path + "selected_ratio", "")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "ratio", "")}" +
-            s"\n<b>impedance</b>: ${paramToUnitsString(path + "selected_impedance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "impedance", "Ω")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.ResistiveDivider.BaseVoltageDivider"), project)) {
-        s"\n<b>ratio</b>: ${paramToUnitsString(path + "selected_ratio", "")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "ratio", "")}" +
-            s"\n<b>impedance</b>: ${paramToUnitsString(path + "selected_impedance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "impedance", "Ω")}"
-      } else {
-        // Nathan Code
         s"\n ${descriptionString.mkString("")}"
-      }
+//      }
     })
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
