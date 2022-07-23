@@ -610,19 +610,18 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
                links: SeqMap[String, Unit]): Unit = {
-    import edg.ElemBuilder.LibraryPath
-
-    val descriptionString = block.description.map {
-      case x if x.phraseType.isVariable => paramToUnitsString(path + x.phraseType.variable.getOrElse(""), "")
-      case x if x.phraseType.isText => x.phraseType.text.getOrElse("Empty")
-      case _ => "idk whats going on!!"
-    }
 
     val classString = block.getSelfClass.toSimpleString
-    val thisClass = block.getSelfClass
-    val additionalDesc = ReadAction.compute(() => {
-        s"\n ${descriptionString.mkString("")}"
-    })
+
+    val descriptionStringElements = block.description.map { _.phraseType } .map {
+      case elem.HierarchyBlock.Phrases.PhraseType.Variable(value) => paramToUnitsString(path + value, "")
+      case elem.HierarchyBlock.Phrases.PhraseType.Text(value) => value
+      case elem.HierarchyBlock.Phrases.PhraseType.Empty => "ERROR"
+    }
+
+    val additionalDesc = {
+        s"\n ${descriptionStringElements.mkString("")}"
+    }
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
   override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
