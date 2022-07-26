@@ -613,12 +613,12 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
 
     val classString = block.getSelfClass.toSimpleString
 
-    val descriptionStringElements = block.description.map { _.phraseType } .map {
-      case elem.HierarchyBlock.Phrases.PhraseType.Variable(value) => paramToUnitsString(path + value, "")
-      case elem.HierarchyBlock.Phrases.PhraseType.Text(value) => value
-      case elem.HierarchyBlock.Phrases.PhraseType.Empty => "ERROR"
+    val descriptionStringElements = block.description.map { _.elementType match {
+        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Variable(value) => paramToUnitsString(path + value, "")
+        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Text(value) => value
+        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Empty => "ERROR"
+      }
     }
-
     val additionalDesc = {
         s"\n ${descriptionStringElements.mkString("")}"
     }
