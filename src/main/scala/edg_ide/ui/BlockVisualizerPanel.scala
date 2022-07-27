@@ -631,27 +631,15 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   override def mapLink(path: DesignPath, link: elem.Link,
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
     val classString = link.getSelfClass.toSimpleString
-    val additionalDesc = classString match {
-      case "VoltageLink" =>
-        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
-            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}"
-      case "DigitalLink" =>
-        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
-            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
-            s"\n<b>output thresholds</b>: ${paramToUnitsString(path + "output_thresholds", "V")}" +
-            s", <b>input thresholds</b>: ${paramToUnitsString(path + "input_thresholds", "V")}"
-      case "AnalogLink" =>
-        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
-            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
-            s"\n<b>sink impedance</b>: ${paramToUnitsString(path + "sink_impedance", "Ω")}" +
-            s", <b>source impedance</b>: ${paramToUnitsString(path + "source_impedance", "Ω")}"
-      case _ => ""
+
+    val descriptionStringElements = link.description.map { _.elementType match {
+      case elem.Link.StringDescriptionElement.ElementType.Variable(value) => paramToUnitsString(path + value, "")
+      case elem.Link.StringDescriptionElement.ElementType.Text(value) => value
+      case elem.Link.StringDescriptionElement.ElementType.Empty => "ERROR"
+      }
+    }
+    val additionalDesc = {
+      s"\n ${descriptionStringElements.mkString("")}"
     }
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
