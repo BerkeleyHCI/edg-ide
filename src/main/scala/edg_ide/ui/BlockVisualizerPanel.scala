@@ -2,6 +2,7 @@ package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.application.{ModalityState, ReadAction}
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
@@ -63,6 +64,8 @@ object Gbc {
 
 
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
+  private val logger = Logger.getInstance(classOf[BlockVisualizerPanel])
+
   // Internal State
   //
   private var design = schema.Design()
@@ -383,15 +386,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           }
         } catch {
           case e: Throwable =>
-            import java.io.{PrintWriter, StringWriter}
-            val sw = new StringWriter
-            e.printStackTrace(new PrintWriter(sw))
             status.setText(s"Compiler error: ${e.toString}")
             notificationGroup.createNotification(
-              s"Compiler error", s"${e.toString}",
-              s"${sw.toString}",
+              s"Compiler error", s"${e.getClass}",
+              s"${e.getMessage}",
               NotificationType.WARNING)
                 .notify(project)
+
+            logger.error(e)  // includes the full stack trace
         }
 
         compilerRunning.set(false)
