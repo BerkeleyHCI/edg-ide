@@ -73,6 +73,9 @@ object EdgirTestUtils {
             Seq("sinks") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks")
             ),
+            Seq("sinks", "0") -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks" + "0")
+            ),
           ),
           edges = Seq()
         ),
@@ -86,7 +89,7 @@ object EdgirTestUtils {
         EdgirGraph.EdgirEdge(
           data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
           source = Seq("sink", "port"),
-          target = Seq("link", "sinks")
+          target = Seq("link", "sinks", "0")
         ),
       )
     )
@@ -155,6 +158,9 @@ object EdgirTestUtils {
             Seq("sinks") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks")
             ),
+            Seq("sinks", "0") -> EdgirGraph.EdgirPort(
+              data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "link" + "sinks" + "0")
+            ),
           ),
           edges = Seq()
         ),
@@ -168,7 +174,7 @@ object EdgirTestUtils {
         EdgirGraph.EdgirEdge(
           data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
           source = Seq("sink", "port"),
-          target = Seq("link", "sinks")
+          target = Seq("link", "sinks", "0")
         ),
       )
     )

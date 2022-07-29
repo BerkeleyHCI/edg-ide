@@ -21,7 +21,7 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-        source = Seq("link", "sinks"),
+        source = Seq("link", "sinks", "0"),
         target = Seq("sink", "port")
       ),
     ))
@@ -38,7 +38,7 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-        source = Seq("link", "sinks"),
+        source = Seq("link", "sinks", "0"),
         target = Seq("sink", "port")
       ),
     ))
