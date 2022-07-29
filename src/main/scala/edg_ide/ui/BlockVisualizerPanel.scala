@@ -616,6 +616,7 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val descriptionStringElements = block.description.map { _.elementType match {
         case elem.HierarchyBlock.StringDescriptionElement.ElementType.Variable(value) => paramToUnitsString(path + value, "")
         case elem.HierarchyBlock.StringDescriptionElement.ElementType.Text(value) => value
+        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Var(value) => paramToUnitsString(path ++ value.param.get, value.unit)
         case elem.HierarchyBlock.StringDescriptionElement.ElementType.Empty => "ERROR"
       }
     }
