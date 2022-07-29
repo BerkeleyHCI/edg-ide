@@ -13,7 +13,7 @@ object CollapseLinkTransform extends CollapseNodeTransform {
 
     val newNode = linkNameDatas.foldLeft(node) { case (prevNode, (linkName, linkData)) =>
       val edgeData = EdgeLinkWrapper(linkData.path, linkData.linkLike)
-      collapse(prevNode, linkName.mkString("."), _ => edgeData)
+      collapse(prevNode, linkName, _ => edgeData)
     }
 
     val newNodeNewMembers = newNode.members.map {  // recurse into child nodes

@@ -11,7 +11,7 @@ object CollapseBridgeTransform extends CollapseNodeTransform {
     }
 
     val newNode = linkNames.foldLeft(node) { case (prevNode, linkName) =>
-      collapse(prevNode, linkName.mkString("."), edgeDatas => edgeDatas.head)  // TODO better edge data
+      collapse(prevNode, linkName, edgeDatas => edgeDatas.head)  // TODO better edge data
     }
 
     val newNodeNewMembers = newNode.members.map {  // recurse into child nodes

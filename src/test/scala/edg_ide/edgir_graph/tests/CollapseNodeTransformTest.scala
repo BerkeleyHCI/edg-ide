@@ -12,7 +12,7 @@ class CollapseNodeTransformTest extends AnyFlatSpec with Matchers {
   it should "collapse nodes and replace edges" in {
     val collapse = new CollapseNodeTransform {}
     val transformed = collapse.collapse(InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
-      "link",
+      Seq("link"),
       edges => EdgirTestUtils.Dummy.ConnectWrapper(
         DesignPath() + "merged"))
 

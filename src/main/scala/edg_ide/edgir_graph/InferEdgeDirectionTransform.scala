@@ -25,7 +25,7 @@ object InferEdgeDirectionTransform {
 
   // For a link and connected ports (my top port -> set of block paths), return the set of
   // block paths that are sources (considered from the block side)
-  def sourcePorts(link: LinkWrapper, ports: Map[String, Seq[Seq[String]]]): Set[Seq[String]] = {
+  def sourcePorts(link: LinkWrapper, ports: Map[String, Set[Seq[String]]]): Set[Seq[String]] = {
     // TODO these should be in the IR, perhaps as metadata, instead of hardcoded in the viz code
     val sources = Set(
       "source", "single_sources",
@@ -74,17 +74,17 @@ object InferEdgeDirectionTransform {
 
   def apply(node: EdgirGraph.EdgirNode, mySourcePorts: Set[String] = Set()): EdgirGraph.EdgirNode = {
     // Aggregate connected block ports by link and link port, as link name -> (link port -> Seq(block path))
-    val linkConnectedPorts: Map[String, Map[String, Seq[Seq[String]]]] = node.edges.flatMap { edge =>
+    val linkConnectedPorts: Map[String, Map[String, Set[Seq[String]]]] = node.edges.flatMap { edge =>
       val edgeTargetTop = edge.target.head
       val targetMember = node.members(Seq(edgeTargetTop))
       targetMember match {
         case targetTop: EdgirGraph.EdgirNode if targetTop.data.isInstanceOf[LinkWrapper] =>
-          Some((edge.target(0), (edge.target(1), edge.source)))
+          Some((edge.target.head, (edge.target.tail, edge.source)))
         case _ => None
       }
     }   .groupBy(_._1).view.mapValues(_.map(_._2))  // sort by link name, discard the first tuple component in values
         .mapValues { linkPortBlockPathPairs =>
-          linkPortBlockPathPairs.groupBy(_._1).view.mapValues(_.map(_._2)).toMap  // same as above, with Set conversion
+          linkPortBlockPathPairs.groupBy(_._1.head).view.mapValues(_.map(_._2).toSet).toMap  // same as above, with Set conversion
     }.toMap
 
     val allBlockPorts = linkConnectedPorts.flatMap { case (linkName, linkPortBlockPaths) =>
