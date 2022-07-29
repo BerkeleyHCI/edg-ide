@@ -23,25 +23,23 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
     }
 
     // edges associated with a node, structured as node -> (port name within node, path of other port, edge)
-    val allNodeEdges: Map[String, Seq[(String, DesignPath, EdgirEdge)]] = node.edges.collect {
-      case edge @ EdgirEdge(data, source, target) =>  // generate all pairs (node name, port within node, edge)
-        (source, target) match {
-          case (Seq(sourceNode, sourcePort), Seq(targetNode, targetPort)) => // both interior connects, 2 pairs to create
-            Seq((sourceNode, sourcePort, node.data.path + targetNode + targetPort, edge),
-              (targetNode, targetPort, node.data.path + sourceNode + sourcePort, edge)
-            )
-          case (Seq(sourceNode, sourcePort), Seq(targetPort)) => // boundary port
-            Seq((sourceNode, sourcePort, node.data.path + targetPort, edge))
-          case (Seq(sourcePort), Seq(targetNode, targetPort)) => // boundary port
-            Seq((targetNode, targetPort, node.data.path + sourcePort, edge))
-          case (Seq(sourcePort), Seq(targetPort)) => // neither connects to internal node, none to genererate
-            Seq()
-        }
+    // this can generate multiple entries per edge, if both ends are nodes
+    // TODO it is assumed that the source node is the first component of the path (multicomponent node paths forbidden)
+    val allNodeEdges: Map[String, Seq[(Seq[String], DesignPath, EdgirEdge)]] = node.edges.collect { edge =>
+      val sourceEdge = edge.source match {
+        case sourceNode :: sourceTail => Seq((sourceNode, sourceTail, node.data.path ++ edge.target, edge))
+        case _ => Seq()
+      }
+      val targetEdge = edge.target match {
+        case targetNode :: targetTail => Seq((targetNode, targetTail, node.data.path ++ edge.source, edge))
+        case _ => Seq()
+      }
+      sourceEdge ++ targetEdge
     }.flatten
         .groupBy(_._1)
         .view.mapValues {
-          _.map { case (nodeName, portName, otherPath, edge) =>  // discard nodeName from values
-            (portName, otherPath, edge)
+          _.map { case (nodeName, portPath, otherPath, edge) =>  // discard nodeName from values
+            (portPath, otherPath, edge)
           }
         }.toMap
 

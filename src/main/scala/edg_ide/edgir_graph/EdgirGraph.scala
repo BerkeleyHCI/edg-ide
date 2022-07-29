@@ -27,6 +27,8 @@ case class LinkWrapper(path: DesignPath, linkLike: elem.LinkLike) extends NodeDa
   override def toString: String = linkLike.`type` match {
     case elem.LinkLike.Type.Link(link) =>
       link.getSelfClass.toSimpleString
+    case elem.LinkLike.Type.Array(link) =>
+      s"${link.getSelfClass.toSimpleString}[${link.ports.size}]"
     case elem.LinkLike.Type.LibElem(lib) =>
       s"lib: ${lib.toSimpleString}"
     case other => other.getClass.getName
@@ -136,7 +138,18 @@ object EdgirGraph {
       case elem.LinkLike.Type.Link(link) =>
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(
-          link.ports.map { case (name, port) => Seq(name) -> portLikeToPort(path + name, port) },  // arrays collapsed
+          link.ports.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },  // arrays collapsed
+          link.links.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
+        ).to(SeqMap)
+
+        // Read edges from constraints
+        val edges: Seq[EdgirEdge] = constraintsToEdges(path, link.constraints)
+
+        EdgirNode(LinkWrapper(path, linkLike), allMembers, edges)
+      case elem.LinkLike.Type.Array(link) =>
+        // Create sub-nodes and a unified member namespace
+        val allMembers = mergeMapSafe(
+          link.ports.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },  // arrays collapsed
           link.links.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
         ).to(SeqMap)
 
@@ -166,7 +179,7 @@ object EdgirGraph {
        portArray.contains match {
         case elem.PortArray.Contains.Ports(portArray) =>
           // create an entry for the array itself
-          Seq((name :+ "...") -> portLikeToPort(path, portLike)) ++ portArray.ports.flatMap { case (eltName, eltPort) =>
+          Seq((name :+ "[]") -> portLikeToPort(path, portLike)) ++ portArray.ports.flatMap { case (eltName, eltPort) =>
               expandPortsWithNames(path + eltName, name :+ eltName, eltPort)
           }.toSeq
         case elem.PortArray.Contains.Empty =>
