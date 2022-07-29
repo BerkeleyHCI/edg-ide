@@ -116,7 +116,7 @@ object InferEdgeDirectionTransform {
     }
     val newMembers = node.members.map {  // recurse into child nodes
       case (name, member: EdgirGraph.EdgirNode) =>
-        val memberSourcePorts = blockSourcePorts.collect { case path if path.head == name =>
+        val memberSourcePorts = blockSourcePorts.collect { case path if path.startsWith(name) =>
           require(path.tail.length == 1)
           path.tail.head
         }
