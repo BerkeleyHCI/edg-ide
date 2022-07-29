@@ -434,10 +434,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
       val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
         4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
-      val transformedGraph = PruneArrayPortsTransform(highFanoutTransform(
-        CollapseLinkTransform(CollapseBridgeTransform(
-          InferEdgeDirectionTransform(SimplifyPortTransform(
-            PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))))
+//      val transformedGraph = PruneArrayPortsTransform(highFanoutTransform(
+//        CollapseLinkTransform(CollapseBridgeTransform(
+//          InferEdgeDirectionTransform(SimplifyPortTransform(
+//            PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))))
+      val transformedGraph = PruneDepthTransform(edgirGraph, depthSpinner.getNumber)
 
       val name = if (focusPath == DesignPath()) {
         "(root)"

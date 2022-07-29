@@ -15,7 +15,7 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
 
   case class SimpleNode(
     override val data: String,
-    override val members: SeqMap[String, SimpleNodeMember],
+    override val members: SeqMap[Seq[String], SimpleNodeMember],
     override val edges: Seq[HGraphEdge[String]],
   ) extends HGraphNode[String, String, String] with SimpleNodeMember {
   }
@@ -38,17 +38,17 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
   def makeGraph(): (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
     val simpleGraph = SimpleNode("root",
       members = SeqMap(
-        "p1" -> SimplePort("p1data"),
-        "n1" -> SimpleNode("n1data",
+        Seq("p1") -> SimplePort("p1data"),
+        Seq("n1") -> SimpleNode("n1data",
           members = SeqMap(
-            "n1p1" -> SimplePort("n1p1data"),
-            "n1p2" -> SimplePort("n1p2data"),
+            Seq("n1p1") -> SimplePort("n1p1data"),
+            Seq("n1p2") -> SimplePort("n1p2data"),
           ),
           edges = Seq()
         ),
-        "n2" -> SimpleNode("n2data",
+        Seq("n2") -> SimpleNode("n2data",
           members = SeqMap(
-            "n2p1" -> SimplePort("n2p1data"),
+            Seq("n2p1") -> SimplePort("n2p1data"),
           ),
           edges = Seq()
         )

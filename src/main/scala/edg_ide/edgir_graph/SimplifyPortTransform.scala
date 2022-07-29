@@ -15,7 +15,7 @@ object SimplifyPortTransform {
   def simplify(path: Seq[String], context: EdgirGraph.EdgirNode): Option[Seq[String]] = {
     path match {
       case Seq() => Some(Seq())
-      case Seq(head, tail@_*) => context.members.get(head) match {
+      case Seq(head, tail@_*) => context.members.get(Seq(head)) match {
         case Some(subnode: EdgirGraph.EdgirNode) =>
           simplify(tail, subnode) match {
             case Some(recursiveSuffix) => Some(Seq(head) ++ recursiveSuffix)

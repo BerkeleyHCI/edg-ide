@@ -16,34 +16,34 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
     val testGraph = EdgirGraph.EdgirNode(
       data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
       members = SeqMap(
-        "block" -> EdgirGraph.EdgirNode(
+        Seq("block") -> EdgirGraph.EdgirNode(
           data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath() + "block"),
           members = SeqMap(
-            "conArray[0]" -> EdgirGraph.EdgirPort(  // port 0 is connected
+            Seq("conArray","0") -> EdgirGraph.EdgirPort(  // port 0 is connected
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "block" + "conArray[0]")
             ),
-            "conArray[1]" -> EdgirGraph.EdgirPort(
+            Seq("conArray","1") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray[1]")
             ),
-            "conArray[2]" -> EdgirGraph.EdgirPort(
+            Seq("conArray","2") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray[2]")
             ),
-            "conArray1[0]" -> EdgirGraph.EdgirPort(
+            Seq("conArray1","0") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray1[0]")
             ),
-            "conArray1[1]" -> EdgirGraph.EdgirPort(  // port 1 is connected, but port 0 should show up
+            Seq("conArray1","1") -> EdgirGraph.EdgirPort(  // port 1 is connected, but port 0 should show up
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray1[1]")
             ),
-            "conArray1[2]" -> EdgirGraph.EdgirPort(
+            Seq("conArray1","2") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "conArray1[2]")
             ),
-            "unconArray[0]" -> EdgirGraph.EdgirPort(  // nothing connected, but retain port 0
+            Seq("unconArray","0") -> EdgirGraph.EdgirPort(  // nothing connected, but retain port 0
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "unconArray[0]")
             ),
-            "unconArray[1]" -> EdgirGraph.EdgirPort(
+            Seq("unconArray","1") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "unconArray[1]")
             ),
-            "unconArray[2]" -> EdgirGraph.EdgirPort(
+            Seq("unconArray","2") -> EdgirGraph.EdgirPort(
               data = EdgirTestUtils.Dummy.PortWrapper(DesignPath() + "source" + "unconArray[2]")
             ),
           ),
@@ -66,10 +66,10 @@ class SimplifyPortTransformTest extends AnyFlatSpec with Matchers {
 
     val transformed = PruneArrayPortsTransform(testGraph)
 
-    transformed.members("block").asInstanceOf[EdgirNode].members.keySet should equal(Set(
-      "conArray[0]", "conArray[1]",
-      "conArray1[0]", "conArray1[1]",
-      "unconArray[0]"
+    transformed.members(Seq("block")).asInstanceOf[EdgirNode].members.keySet should equal(Set(
+      Seq("conArray","0"), Seq("conArray","1"),
+      Seq("conArray1","0"), Seq("conArray1","1"),
+      Seq("unconArray","0")
     ))
   }
 }

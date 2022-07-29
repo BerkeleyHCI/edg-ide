@@ -46,7 +46,7 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
         }.toMap
 
     val highFanoutLinkNameWraps = allowedLinkNameWraps.map { case (linkName, linkWrap) =>
-      val connectedCount = allNodeEdges.getOrElse(linkName, Seq()).length
+      val connectedCount = allNodeEdges.getOrElse(linkName.mkString("."), Seq()).length
       (linkName, linkWrap, connectedCount)
     } .collect {
       case (linkName, linkWrap, connectedCount) if connectedCount >= minConnects => (linkName, linkWrap)
@@ -54,11 +54,11 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
 
     val filteredEdges = node.edges.map {
           // Transform to degenerate edges
-      case EdgirEdge(data, Seq(sourceNode, sourcePort), target) if highFanoutLinkNameWraps.contains(sourceNode) =>
-        val linkWrap = highFanoutLinkNameWraps(sourceNode)
+      case EdgirEdge(data, Seq(sourceNode, sourcePort), target) if highFanoutLinkNameWraps.contains(Seq(sourceNode)) =>
+        val linkWrap = highFanoutLinkNameWraps(Seq(sourceNode))
         EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), target, target)
-      case EdgirEdge(data, source, Seq(targetNode, targetPort)) if highFanoutLinkNameWraps.contains(targetNode) =>
-        val linkWrap = highFanoutLinkNameWraps(targetNode)
+      case EdgirEdge(data, source, Seq(targetNode, targetPort)) if highFanoutLinkNameWraps.contains(Seq(targetNode)) =>
+        val linkWrap = highFanoutLinkNameWraps(Seq(targetNode))
         EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), source, source)
       case edge => edge
     }

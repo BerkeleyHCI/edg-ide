@@ -76,7 +76,7 @@ object InferEdgeDirectionTransform {
     // Aggregate connected block ports by link and link port, as link name -> (link port -> Seq(block path))
     val linkConnectedPorts: Map[String, Map[String, Seq[Seq[String]]]] = node.edges.flatMap { edge =>
       val edgeTargetTop = edge.target.head
-      val targetMember = node.members(edgeTargetTop)
+      val targetMember = node.members(Seq(edgeTargetTop))
       targetMember match {
         case targetTop: EdgirGraph.EdgirNode if targetTop.data.isInstanceOf[LinkWrapper] =>
           Some((edge.target(0), (edge.target(1), edge.source)))
@@ -93,7 +93,7 @@ object InferEdgeDirectionTransform {
 
     val blockSourcePorts = linkConnectedPorts.flatMap { case (linkName, linkPortBlockPaths) =>
       // should be safe because this should have been tested above
-      val linkWrapper = node.members(linkName).asInstanceOf[EdgirGraph.EdgirNode].data.asInstanceOf[LinkWrapper]
+      val linkWrapper = node.members(Seq(linkName)).asInstanceOf[EdgirGraph.EdgirNode].data.asInstanceOf[LinkWrapper]
       sourcePorts(linkWrapper, linkPortBlockPaths)
     }.toSet
 

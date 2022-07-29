@@ -53,7 +53,7 @@ object EdgirGraph {
 
   case class EdgirNode(
     override val data: NodeDataWrapper,
-    override val members: SeqMap[String, EdgirNodeMember],
+    override val members: SeqMap[Seq[String], EdgirNodeMember],
     override val edges: Seq[EdgirEdge]
   ) extends HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper] with EdgirNodeMember {  }
 
@@ -99,7 +99,7 @@ object EdgirGraph {
   /**
     * Merges the argument maps, erroring out if there are duplicate names
     */
-  protected def mergeMapSafe[T](maps: Map[String, T]*): Map[String, T] = {
+  protected def mergeMapSafe[T](maps: Map[Seq[String], T]*): Map[Seq[String], T] = {
     maps.flatMap(_.toSeq)  // to a list of pairs in the maps
         .groupBy(_._1)  // sort by name
         .map {
@@ -113,9 +113,9 @@ object EdgirGraph {
       case elem.BlockLike.Type.Hierarchy(block) =>
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(  // arrays not collapse
-          block.ports.flatMap { case (name, port) => expandPortsWithNames(path + name, name, port) },
-          block.blocks.map { case (name, subblock) => name -> blockLikeToNode(path + name, subblock) },
-          block.links.map{ case (name, sublink) => name -> linkLikeToNode(path + name, sublink) },
+          block.ports.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },
+          block.blocks.map { case (name, subblock) => Seq(name) -> blockLikeToNode(path + name, subblock) },
+          block.links.map{ case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
         ).to(SeqMap)
 
         // Read edges from constraints
@@ -136,8 +136,8 @@ object EdgirGraph {
       case elem.LinkLike.Type.Link(link) =>
         // Create sub-nodes and a unified member namespace
         val allMembers = mergeMapSafe(
-          link.ports.map { case (name, port) => name -> portLikeToPort(path + name, port) },  // arrays collapsed
-          link.links.map { case (name, sublink) => name -> linkLikeToNode(path + name, sublink) },
+          link.ports.map { case (name, port) => Seq(name) -> portLikeToPort(path + name, port) },  // arrays collapsed
+          link.links.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
         ).to(SeqMap)
 
         // Read edges from constraints
@@ -158,7 +158,7 @@ object EdgirGraph {
   }
 
   // Creates EdgirPorts from an IR PortLike, expanding arrays
-  def expandPortsWithNames(path: DesignPath, name: String, portLike: elem.PortLike): Seq[(String, EdgirPort)] = {
+  def expandPortsWithNames(path: DesignPath, name: Seq[String], portLike: elem.PortLike): Seq[(Seq[String], EdgirPort)] = {
    portLike.is match {
      case (_: elem.PortLike.Is.Port | _: elem.PortLike.Is.Bundle | _: elem.PortLike.Is.LibElem) =>
        Seq(name -> portLikeToPort(path, portLike))
@@ -166,8 +166,8 @@ object EdgirGraph {
        portArray.contains match {
         case elem.PortArray.Contains.Ports(portArray) =>
           // create an entry for the array itself
-          Seq(s"$name[...]" -> portLikeToPort(path, portLike)) ++ portArray.ports.flatMap { case (eltName, eltPort) =>
-              expandPortsWithNames(path + eltName, s"$name[$eltName]", eltPort)
+          Seq((name :+ "...") -> portLikeToPort(path, portLike)) ++ portArray.ports.flatMap { case (eltName, eltPort) =>
+              expandPortsWithNames(path + eltName, name :+ eltName, eltPort)
           }.toSeq
         case elem.PortArray.Contains.Empty =>
           Seq(name -> portLikeToPort(path, portLike))

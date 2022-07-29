@@ -24,6 +24,9 @@ trait HGraphPort[PortType] extends HGraphNodeMember[Nothing, PortType, Nothing] 
 
 trait HGraphNode[NodeType, PortType, EdgeType] extends HGraphNodeMember[NodeType, PortType, EdgeType] {
   val data: NodeType
-  val members: SeqMap[String, HGraphNodeMember[NodeType, PortType, EdgeType]]
+//  val members: SeqMap[String, HGraphNodeMember[NodeType, PortType, EdgeType]]
+
+  //refractored so something like ["gpio","0"] would work
+  val members: SeqMap[Seq[String], HGraphNodeMember[NodeType, PortType, EdgeType]]
   val edges: Seq[HGraphEdge[EdgeType]]
 }

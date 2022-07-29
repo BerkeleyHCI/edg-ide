@@ -23,6 +23,6 @@ class CollapseNodeTransformTest extends AnyFlatSpec with Matchers {
         target = Seq("sink", "port")
       ),
     ))
-    transformed.members.keys.toSeq should equal(Seq("source", "sink"))
+    transformed.members.keys.toSeq should equal(Seq(Seq("source"), Seq("sink")))
   }
 }

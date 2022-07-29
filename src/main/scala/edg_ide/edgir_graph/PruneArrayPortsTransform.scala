@@ -52,15 +52,15 @@ object PruneArrayPortsTransform {
 
     val newMembers = node.members.map {  // recurse into child nodes
       case (name, member: EdgirGraph.EdgirNode) =>
-        name -> apply(member, connectedInnerPortsByBlock.getOrElse(name, Set()))
+        name -> apply(member, connectedInnerPortsByBlock.getOrElse(name.mkString("."), Set()))
       case (name, member: EdgirGraph.EdgirPort) =>
         name -> member
     } .filter {
       case (name, member: EdgirGraph.EdgirPort) =>
-        arrayNameToIndexOption(name) match {
+        arrayNameToIndexOption(name.mkString(".")) match {
           case Some((prefix, index)) =>
             val nextFreeIndex = nextFreeArrayPort.getOrElse(prefix, 0)
-            connectedPorts.contains(name) || index == nextFreeIndex
+            connectedPorts.contains(name.mkString(".")) || index == nextFreeIndex
           case None => true
         }
 
