@@ -614,9 +614,8 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val classString = block.getSelfClass.toSimpleString
 
     val descriptionStringElements = block.description.map { _.elementType match {
-        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Variable(value) => paramToUnitsString(path + value, "")
+        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Param(value) => paramToUnitsString(path ++ value.path.get, value.unit)
         case elem.HierarchyBlock.StringDescriptionElement.ElementType.Text(value) => value
-        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Var(value) => paramToUnitsString(path ++ value.param.get, value.unit)
         case elem.HierarchyBlock.StringDescriptionElement.ElementType.Empty => "ERROR"
       }
     }
@@ -634,7 +633,7 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val classString = link.getSelfClass.toSimpleString
 
     val descriptionStringElements = link.description.map { _.elementType match {
-      case elem.Link.StringDescriptionElement.ElementType.Variable(value) => paramToUnitsString(path + value, "")
+      case elem.Link.StringDescriptionElement.ElementType.Param(value) => paramToUnitsString(path ++ value.path.get, value.unit)
       case elem.Link.StringDescriptionElement.ElementType.Text(value) => value
       case elem.Link.StringDescriptionElement.ElementType.Empty => "ERROR"
       }
