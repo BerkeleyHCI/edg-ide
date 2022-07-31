@@ -436,8 +436,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
       val transformedGraph = highFanoutTransform(
         CollapseLinkTransform(CollapseBridgeTransform(
-          InferEdgeDirectionTransform(
-            PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))
+          InferEdgeDirectionTransform(SimplifyPortTransform(
+            PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))))
 
       val name = if (focusPath == DesignPath()) {
         "(root)"
