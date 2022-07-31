@@ -76,9 +76,9 @@ object InferEdgeDirectionTransform {
     // Aggregate connected block ports by link and link port, as link name -> (link port -> Seq(block path))
     val linkConnectedPorts: Map[String, Map[String, Set[Seq[String]]]] = node.edges.flatMap { edge =>
       val edgeTargetTop = edge.target.head
-      val targetMember = node.members(Seq(edgeTargetTop))
+      val targetMember = node.members.get(Seq(edgeTargetTop))
       targetMember match {
-        case targetTop: EdgirGraph.EdgirNode if targetTop.data.isInstanceOf[LinkWrapper] =>
+        case Some(targetTop: EdgirGraph.EdgirNode) if targetTop.data.isInstanceOf[LinkWrapper] =>
           Some((edge.target.head, (edge.target.tail, edge.source)))
         case _ => None
       }
@@ -105,9 +105,10 @@ object InferEdgeDirectionTransform {
           flipEdge(edge)  // invert edge direction
         }
       } else {  // is (probably?) a hierarchy port
-        require(edge.target.length == 1)
-        val edgeBlockPort = edge.target.head
-        if (mySourcePorts.contains(Seq(edgeBlockPort))) {  // correct is (port is target from inside)
+        if (!node.members.contains(edge.target)) {
+          logger.warn(s"non-block and non-boundary port referenced by edge ${edge.target}")
+        }
+        if (mySourcePorts.contains(edge.target)) {  // correct is (port is target from inside)
           edge
         } else {
           flipEdge(edge)

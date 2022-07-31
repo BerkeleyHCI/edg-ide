@@ -5,28 +5,33 @@ import com.intellij.openapi.diagnostic.Logger
 import scala.collection.SeqMap
 
 
+class SimplifyPortTransform {  // dummy class for logger
+}
+
+
 /**
   * An HGraph transform that finds edge port references that don't exist as ports, and drops path components
   * until they are resolvable.
   * Logs an error if it's dropped all the way to an empty path, in which case the edge is discarded.
   */
 object SimplifyPortTransform {
-  val logger = Logger.getInstance(classOf[InferEdgeDirectionTransform])
+  val logger = Logger.getInstance(classOf[SimplifyPortTransform])
 
-  def simplify(portPath: Seq[String], parent: EdgirGraph.EdgirNode): Option[Seq[String]] = {
+  def simplify(portPath: Seq[String], portPathTail: Seq[String], parent: EdgirGraph.EdgirNode): Option[Seq[String]] = {
     portPath match {
       case Seq() => None
       case portPath => parent.members.get(portPath) match {
         case Some(_: EdgirGraph.EdgirPort) => Some(portPath)
-        case None => simplify(portPath.init, parent)
+        case Some(node: EdgirGraph.EdgirNode) => simplify(portPathTail, Seq(), node).map(portPath ++ _)
+        case _ => simplify(portPath.init, portPath.last +: portPathTail, parent)
       }
     }
   }
 
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
     val newEdges = node.edges.flatMap { edge =>
-      val sourceSimplified = simplify(edge.source, node)
-      val targetSimplified = simplify(edge.target, node)
+      val sourceSimplified = simplify(edge.source, Seq(), node)
+      val targetSimplified = simplify(edge.target, Seq(), node)
       (sourceSimplified, targetSimplified) match {
         case (Some(sourceSimplified), Some(targetSimplified)) => Some(
           EdgirGraph.EdgirEdge(edge.data, sourceSimplified, targetSimplified)
