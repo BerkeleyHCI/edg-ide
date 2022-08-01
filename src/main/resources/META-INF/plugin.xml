@@ -13,6 +13,7 @@
 
     <codeInsight.lineMarkerProvider language="Python"
                                     implementationClass="edg_ide.runner.DesignTopLineMarkerContributor"/>
+    <configurationType implementation="edg_ide.runner.DesignTopRunConfigurationType"/>
   </extensions>
 
   <actions>
