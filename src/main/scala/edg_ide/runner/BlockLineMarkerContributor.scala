@@ -15,20 +15,21 @@ import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
 import edg_ide.util.{DesignAnalysisUtils, exceptionNotify}
 
 
-class DesignTopSetVisualizerAction(pyClass: PyClass) extends AnAction(s"Set Visualizer Top to ${pyClass.getName}") {
+class BlockNavigateToAction(pyClass: PyClass) extends AnAction(s"Navigate to ${pyClass.getName}") {
   override def actionPerformed(event: AnActionEvent): Unit = exceptionNotify(this.getClass.getCanonicalName, event.getProject) {
-    val visualizer = BlockVisualizerService(event.getProject).visualizerPanelOption.exceptNone("No visualizer panel")
-    val classNameParts = pyClass.getQualifiedName.split('.')
-    visualizer.setFileBlock(classNameParts.init.mkString("."), classNameParts.last)
+    // TODO Implement Me
+//    val visualizer = BlockVisualizerService(event.getProject).visualizerPanelOption.exceptNone("No visualizer panel")
+//    val classNameParts = pyClass.getQualifiedName.split('.')
+//    visualizer.setFileBlock(classNameParts.init.mkString("."), classNameParts.last)
   }
 }
 
 
-class DesignTopLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends
+class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends
     LineMarkerInfo[PsiElement](identifier, identifier.getTextRange, AllIcons.Toolwindows.ToolWindowHierarchy,
       null, null, GutterIconRenderer.Alignment.RIGHT) {
   override def createGutterRenderer(): GutterIconRenderer = new LineMarkerGutterIconRenderer[PsiElement](this) {
-    override def getClickAction: AnAction = new DesignTopSetVisualizerAction(pyClass)
+    override def getClickAction: AnAction = new BlockNavigateToAction(pyClass)
     override def getPopupMenuActions: ActionGroup = new DefaultActionGroup(getClickAction)
   }
 }
@@ -36,19 +37,24 @@ class DesignTopLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends
 
 // Adds the line markers for DesignTop-based classes.
 // See https://developerlife.com/2021/03/13/ij-idea-plugin-advanced/#add-line-marker-provider-in-your-plugin
-class DesignTopLineMarkerContributor extends LineMarkerProvider  {
+class BlockLineMarkerContributor extends LineMarkerProvider  {
   override def getLineMarkerInfo(element: PsiElement): LineMarkerInfo[PsiElement] = {
     element match {
       case element: LeafPsiElement if element.getElementType == PyTokenTypes.IDENTIFIER =>
       case _ => return null
     }
-    val project = element.getProject
-    // shouldn't fail, and if it does it should fail noisily
-    val designTopClass = DesignAnalysisUtils.pyClassOf("edg_core.DesignTop.DesignTop", project).get
-
     element.getParent match {
-      case parent: PyClass if parent.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null)) =>
-        new DesignTopLineMarkerInfo(element, parent)
+      case parent: PyClass =>
+        val project = element.getProject
+        // shouldn't fail, and if it does it should fail noisily
+        val designTopClass = DesignAnalysisUtils.pyClassOf("edg_core.DesignTop.DesignTop", project).get
+        val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.Block.Block", project).get
+        if (parent.isSubclass(blockClass, TypeEvalContext.codeAnalysis(project, null)) &&
+            !parent.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
+          new BlockLineMarkerInfo(element, parent)
+        } else {
+          null
+        }
       case _ => null
     }
   }

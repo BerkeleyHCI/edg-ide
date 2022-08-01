@@ -12,8 +12,11 @@
     <projectService serviceImplementation="edg_ide.ui.EdgCompilerServiceWrapper"/>
 
     <codeInsight.lineMarkerProvider language="Python"
-                                    implementationClass="edg_ide.runner.DesignTopLineMarkerContributor"/>
+                                    implementationClass="edg_ide.runner.BlockLineMarkerContributor"/>
+
+    <runLineMarkerContributor language="Python" implementationClass="edg_ide.runner.DesignTopRunMarkerContributor"/>
     <configurationType implementation="edg_ide.runner.DesignTopRunConfigurationType"/>
+    <runConfigurationProducer implementation="edg_ide.runner.DesignTopRunConfigurationProducer"/>
   </extensions>
 
   <actions>
