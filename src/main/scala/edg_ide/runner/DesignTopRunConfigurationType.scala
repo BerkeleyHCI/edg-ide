@@ -9,6 +9,7 @@ import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
 import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
@@ -21,7 +22,7 @@ import edg.compiler.{DesignStructuralValidate, PythonInterface}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import org.jdom.Element
 
-import java.io.OutputStream
+import java.io.{OutputStream, PrintWriter, StringWriter}
 import java.net.URI
 import java.nio.file.Paths
 import javax.swing.{Icon, JComponent, JPanel, JTextField}
@@ -101,10 +102,13 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
           }
         }
 
+        val documentManager = FileDocumentManager.getInstance()
+        documentManager.saveAllDocuments()
+
         ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
           override def run(indicator: ProgressIndicator): Unit = {
             processHandler.startNotify()
-            val visualizer = BlockVisualizerService(project).visualizerPanelOption
+
             try {
               EdgCompilerService(project).pyLib.withPythonInterface(
                 new PythonInterface(Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile)) {
@@ -125,19 +129,15 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
                   console.print(s"Compiled design has ${errors.length} errors", ConsoleViewContentType.ERROR_OUTPUT)
                 }
 
-//                updateLibrary(EdgCompilerService(project).pyLib)
-//                refinementsPanel.setRefinements(refinements)
-//                errorPanel.setErrors(errors)
-//
-//                setDesign(compiled, compiler)
-//                if (activeTool != defaultTool) { // revert to the default tool
-//                  toolInterface.endTool() // TODO should we also preserve state like selected?
-//                }
+                BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
+                BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
               }
             } catch {
               case e: Throwable =>
                 console.print(s"Compiler internal error: ${e.toString}", ConsoleViewContentType.ERROR_OUTPUT)
-                console.print(e.getStackTrace.map(_.toString).mkString("\n"), ConsoleViewContentType.ERROR_OUTPUT)
+                val stackWriter = new StringWriter()
+                e.printStackTrace(new PrintWriter(stackWriter))
+                console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
             }
             processHandler.terminatedNotify(0)
           }
