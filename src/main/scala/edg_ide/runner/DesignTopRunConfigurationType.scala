@@ -1,23 +1,26 @@
 package edg_ide.runner
 
-import com.intellij.execution.Executor
+import com.intellij.execution.{DefaultExecutionResult, ExecutionResult, Executor}
 import com.intellij.execution.configurations.{CommandLineState, ConfigurationFactory, ConfigurationType, GeneralCommandLine, RunConfiguration, RunConfigurationBase, RunConfigurationOptions, RunProfileState}
+import com.intellij.execution.filters.{TextConsoleBuilder, TextConsoleBuilderFactory}
 import com.intellij.execution.process.{OSProcessHandler, ProcessHandler, ProcessHandlerFactory, ProcessTerminatedListener}
-import com.intellij.execution.runners.ExecutionEnvironment
+import com.intellij.execution.runners.{ExecutionEnvironment, ProgramRunner}
+import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.LabeledComponent
 import com.intellij.openapi.util.JDOMExternalizerUtil
+import com.intellij.psi.search.ExecutionSearchScopes
 import org.jdom.Element
 
 import javax.swing.{Icon, JComponent, JPanel, JTextField}
 
 
-// Based on
+// Most of this file is boilerplate, based on
 // https://plugins.jetbrains.com/docs/intellij/run-configurations.html#implement-a-run-configuration
-
-
+// The main exception is *Configuration.getState, which defines the run execution
 class DesignTopRunConfigurationType extends ConfigurationType {
   override def getDisplayName: String = "DesignTop"
 
@@ -56,9 +59,30 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
   override def getConfigurationEditor: SettingsEditor[_ <: RunConfiguration] = new DesignTopSettingsEditor
 
   override def getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState = {
-    new CommandLineState(environment) {
-      override def startProcess(): ProcessHandler = {
-        val commandLine: GeneralCommandLine = new GeneralCommandLine("TODO Command name")
+//    new CommandLineState(environment) {
+//      override def startProcess(): ProcessHandler = {
+//        val commandLine: GeneralCommandLine = new GeneralCommandLine("TODO Command name")
+//        val processHandler: OSProcessHandler = ProcessHandlerFactory.getInstance.createColoredProcessHandler(commandLine)
+//        ProcessTerminatedListener.attach(processHandler)
+//        processHandler
+//      }
+//    }
+
+    new RunProfileState {
+      override def execute(executor: Executor, runner: ProgramRunner[_]): ExecutionResult = {
+        val searchScope = ExecutionSearchScopes.executionScope(project, environment.getRunProfile)
+        val consoleBuilder = TextConsoleBuilderFactory.getInstance().createBuilder(project, searchScope)
+        val console = consoleBuilder.getConsole
+        val processHandler = startProcess()
+        console.print("quack quack\n", ConsoleViewContentType.NORMAL_OUTPUT)
+        console.print("quack quack2\n", ConsoleViewContentType.NORMAL_OUTPUT)
+        console.print("quack quack3\n", ConsoleViewContentType.NORMAL_OUTPUT)
+        console.attachToProcess(processHandler)
+        new DefaultExecutionResult(console, processHandler)
+      }
+
+      def startProcess(): ProcessHandler = {
+        val commandLine: GeneralCommandLine = new GeneralCommandLine("echo", "ducks")
         val processHandler: OSProcessHandler = ProcessHandlerFactory.getInstance.createColoredProcessHandler(commandLine)
         ProcessTerminatedListener.attach(processHandler)
         processHandler
