@@ -7,15 +7,14 @@ import com.intellij.openapi.project.Project
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.compiler.{DesignStructuralValidate, ExprValue, PythonInterface}
-import edg.util.Errorable
+import edg.util.{Errorable, StreamUtils}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
-import edg_ide.util.StreamUtils
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
-import java.io.{InputStream, OutputStream, PrintWriter, StringWriter}
+import java.io.{OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
 
 
@@ -44,7 +43,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
     startNotify()
-    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
@@ -52,7 +51,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     var exitCode: Int = -1
     def forwardProcessOutput(): Unit = {
       pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processOutputStream) { data =>
-        console.print(new String(data), ConsoleViewContentType.SYSTEM_OUTPUT)
+        console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
       }}
       pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processErrorStream) { data =>
         console.print(new String(data), ConsoleViewContentType.ERROR_OUTPUT)
@@ -64,7 +63,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile) {
 
         override def onLibraryRequest(element: ref.LibraryPath): Unit = {
-          console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.USER_INPUT)
+          console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
         override def onLibraryRequestComplete(element: ref.LibraryPath,
                                               result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
@@ -75,7 +74,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         }
         override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
-          console.print(s"Generate ${element.toSimpleString}\n", ConsoleViewContentType.USER_INPUT)
+          console.print(s"Generate ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
         override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
                                                          values: Map[ref.LocalPath, ExprValue],
