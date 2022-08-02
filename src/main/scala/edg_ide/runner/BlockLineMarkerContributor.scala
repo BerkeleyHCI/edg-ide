@@ -48,7 +48,7 @@ class BlockLineMarkerContributor extends LineMarkerProvider  {
         val project = element.getProject
         // shouldn't fail, and if it does it should fail noisily
         val designTopClass = DesignAnalysisUtils.pyClassOf("edg_core.DesignTop.DesignTop", project).get
-        val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.Block.Block", project).get
+        val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.HierarchyBlock.Block", project).get
         if (parent.isSubclass(blockClass, TypeEvalContext.codeAnalysis(project, null)) &&
             !parent.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
           new BlockLineMarkerInfo(element, parent)

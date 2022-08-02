@@ -8,6 +8,8 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.LabeledComponent
+import com.intellij.openapi.util.JDOMExternalizerUtil
+import org.jdom.Element
 
 import javax.swing.{Icon, JComponent, JPanel, JTextField}
 
@@ -62,6 +64,16 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
         processHandler
       }
     }
+  }
+
+  val kFieldDesignName = "DESIGN_NAME"
+  override def readExternal(element: Element): Unit = {
+    super.readExternal(element)
+    options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName)
+  }
+  override def writeExternal(element: Element): Unit = {
+    super.writeExternal(element)
+    JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
   }
 }
 
