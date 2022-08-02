@@ -2,19 +2,28 @@ package edg_ide.runner
 
 import com.intellij.execution.{DefaultExecutionResult, ExecutionResult, Executor}
 import com.intellij.execution.configurations.{CommandLineState, ConfigurationFactory, ConfigurationType, GeneralCommandLine, RunConfiguration, RunConfigurationBase, RunConfigurationOptions, RunProfileState}
-import com.intellij.execution.filters.{TextConsoleBuilder, TextConsoleBuilderFactory}
+import com.intellij.execution.filters.{TextConsoleBuilder, TextConsoleBuilderFactory, UrlFilter}
 import com.intellij.execution.process.{OSProcessHandler, ProcessHandler, ProcessHandlerFactory, ProcessTerminatedListener}
 import com.intellij.execution.runners.{ExecutionEnvironment, ProgramRunner}
 import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
 import com.intellij.icons.AllIcons
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.options.SettingsEditor
+import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.LabeledComponent
 import com.intellij.openapi.util.JDOMExternalizerUtil
 import com.intellij.psi.search.ExecutionSearchScopes
+import com.jetbrains.python.run.PythonTracebackFilter
+import edg.ElemBuilder
+import edg.compiler.{DesignStructuralValidate, PythonInterface}
+import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import org.jdom.Element
 
+import java.io.OutputStream
+import java.net.URI
+import java.nio.file.Paths
 import javax.swing.{Icon, JComponent, JPanel, JTextField}
 
 
@@ -59,32 +68,81 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
   override def getConfigurationEditor: SettingsEditor[_ <: RunConfiguration] = new DesignTopSettingsEditor
 
   override def getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState = {
-//    new CommandLineState(environment) {
-//      override def startProcess(): ProcessHandler = {
-//        val commandLine: GeneralCommandLine = new GeneralCommandLine("TODO Command name")
-//        val processHandler: OSProcessHandler = ProcessHandlerFactory.getInstance.createColoredProcessHandler(commandLine)
-//        ProcessTerminatedListener.attach(processHandler)
-//        processHandler
-//      }
-//    }
+    new CommandLineState(environment) {
+      override def startProcess(): ProcessHandler = {
+        val commandLine: GeneralCommandLine = new GeneralCommandLine("TODO Command name")
+        val processHandler: OSProcessHandler = ProcessHandlerFactory.getInstance.createColoredProcessHandler(commandLine)
+        ProcessTerminatedListener.attach(processHandler)
+        processHandler
+      }
+    }
 
     new RunProfileState {
       override def execute(executor: Executor, runner: ProgramRunner[_]): ExecutionResult = {
         val searchScope = ExecutionSearchScopes.executionScope(project, environment.getRunProfile)
         val consoleBuilder = TextConsoleBuilderFactory.getInstance().createBuilder(project, searchScope)
         val console = consoleBuilder.getConsole
-        val processHandler = startProcess()
-        console.print("quack quack\n", ConsoleViewContentType.NORMAL_OUTPUT)
-        console.print("quack quack2\n", ConsoleViewContentType.NORMAL_OUTPUT)
-        console.print("quack quack3\n", ConsoleViewContentType.NORMAL_OUTPUT)
-        console.attachToProcess(processHandler)
+        console.addMessageFilter(new PythonTracebackFilter(project))
+        console.addMessageFilter(new UrlFilter())
+
+        val processHandler = startProcess(console)
         new DefaultExecutionResult(console, processHandler)
       }
 
-      def startProcess(): ProcessHandler = {
-        val commandLine: GeneralCommandLine = new GeneralCommandLine("echo", "ducks")
-        val processHandler: OSProcessHandler = ProcessHandlerFactory.getInstance.createColoredProcessHandler(commandLine)
-        ProcessTerminatedListener.attach(processHandler)
+      def startProcess(console: ConsoleView): ProcessHandler = {
+        val processHandler = new ProcessHandler {
+          override def destroyProcessImpl(): Unit = {}
+          override def detachProcessImpl(): Unit = {}
+          override def detachIsDefault(): Boolean = true
+          override def getProcessInput: OutputStream = null
+
+          def terminatedNotify(exitCode: Int) = {
+            notifyProcessTerminated(exitCode)
+          }
+        }
+
+        ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
+          override def run(indicator: ProgressIndicator): Unit = {
+            processHandler.startNotify()
+            val visualizer = BlockVisualizerService(project).visualizerPanelOption
+            try {
+              EdgCompilerService(project).pyLib.withPythonInterface(
+                new PythonInterface(Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile)) {
+
+                indicator.setText("EDG compiling")
+
+                val designType = ElemBuilder.LibraryPath(options.designName)
+                val designModule = options.designName.split('.').init.mkString(".")
+                val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project)
+                    .compile(designModule, designType, Some(indicator))
+
+                indicator.setText("EDG compiling: validating")
+                val checker = new DesignStructuralValidate()
+                val errors = compiler.getErrors() ++ checker.map(compiled)
+                console.print(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)",
+                  ConsoleViewContentType.SYSTEM_OUTPUT)
+                if (errors.nonEmpty) {
+                  console.print(s"Compiled design has ${errors.length} errors", ConsoleViewContentType.ERROR_OUTPUT)
+                }
+
+//                updateLibrary(EdgCompilerService(project).pyLib)
+//                refinementsPanel.setRefinements(refinements)
+//                errorPanel.setErrors(errors)
+//
+//                setDesign(compiled, compiler)
+//                if (activeTool != defaultTool) { // revert to the default tool
+//                  toolInterface.endTool() // TODO should we also preserve state like selected?
+//                }
+              }
+            } catch {
+              case e: Throwable =>
+                console.print(s"Compiler internal error: ${e.toString}", ConsoleViewContentType.ERROR_OUTPUT)
+                console.print(e.getStackTrace.map(_.toString).mkString("\n"), ConsoleViewContentType.ERROR_OUTPUT)
+            }
+            processHandler.terminatedNotify(0)
+          }
+        })
+
         processHandler
       }
     }
