@@ -25,26 +25,21 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
     // edges associated with a node, structured as node -> (port name within node, path of other port, edge)
     // this can generate multiple entries per edge, if both ends are nodes
     // TODO it is assumed that the source node is the first component of the path (multicomponent node paths forbidden)
-    val allNodeEdges: Map[String, Seq[(Seq[String], DesignPath, EdgirEdge)]] = node.edges.collect { edge =>
+    val allNodeEdges: Map[Seq[String], Seq[(Seq[String], DesignPath, EdgirEdge)]] = node.edges.collect { edge =>
       val sourceEdge = edge.source match {
-        case sourceNode :: sourceTail => Seq((sourceNode, sourceTail, node.data.path ++ edge.target, edge))
+        case sourceNode :: sourceTail => Seq((Seq(sourceNode), (sourceTail, node.data.path ++ edge.target, edge)))
         case _ => Seq()
       }
       val targetEdge = edge.target match {
-        case targetNode :: targetTail => Seq((targetNode, targetTail, node.data.path ++ edge.source, edge))
+        case targetNode :: targetTail => Seq((Seq(targetNode), (targetTail, node.data.path ++ edge.source, edge)))
         case _ => Seq()
       }
       sourceEdge ++ targetEdge
-    }.flatten
-        .groupBy(_._1)
-        .view.mapValues {
-          _.map { case (nodeName, portPath, otherPath, edge) =>  // discard nodeName from values
-            (portPath, otherPath, edge)
-          }
-        }.toMap
+    }.flatten.groupMap(_._1)(_._2)
 
     val highFanoutLinkNameWraps = allowedLinkNameWraps.map { case (linkName, linkWrap) =>
-      val connectedCount = allNodeEdges.getOrElse(linkName.mkString("."), Seq()).length
+      require(linkName.length == 1)  // like above, assumed node name is first component of path only
+      val connectedCount = allNodeEdges.getOrElse(linkName, Seq()).length
       (linkName, linkWrap, connectedCount)
     } .collect {
       case (linkName, linkWrap, connectedCount) if connectedCount >= minConnects => (linkName, linkWrap)
