@@ -6,7 +6,7 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{DesignStructuralValidate, ExprValue, PythonInterface}
+import edg.compiler.{DesignStructuralValidate, ExprToString, ExprValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edgir.elem.elem
@@ -43,7 +43,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
     startNotify()
-    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
@@ -74,7 +74,10 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         }
         override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
-          console.print(s"Generate ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+          val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
+              .mkString(", ")
+          console.print(s"Generate ${element.toSimpleString} ($valuesString)\n",
+            ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
         override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
                                                          values: Map[ref.LocalPath, ExprValue],
