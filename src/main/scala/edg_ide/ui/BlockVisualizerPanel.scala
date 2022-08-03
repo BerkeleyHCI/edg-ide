@@ -619,9 +619,7 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
         case elem.HierarchyBlock.StringDescriptionElement.ElementType.Empty => "ERROR"
       }
     }
-    val additionalDesc = {
-        s"\n ${descriptionStringElements.mkString("")}"
-    }
+    val additionalDesc = s"\n${descriptionStringElements.mkString("")}"
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
   override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
