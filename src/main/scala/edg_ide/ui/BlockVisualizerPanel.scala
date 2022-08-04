@@ -607,19 +607,21 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     textMap.put(path, s"<b>$classString</b> at $path")
   }
 
+  def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]): Seq[String] = {
+    description.map {
+      _.elementType match {
+        case elem.StringDescriptionElement.ElementType.Param(value) => paramToUnitsString(path ++ value.path.get, value.unit)
+        case elem.StringDescriptionElement.ElementType.Text(value) => value
+        case elem.StringDescriptionElement.ElementType.Empty => "ERROR"
+      }
+    }
+  }
+
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
                links: SeqMap[String, Unit]): Unit = {
-
     val classString = block.getSelfClass.toSimpleString
-
-    val descriptionStringElements = block.description.map { _.elementType match {
-        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Param(value) => paramToUnitsString(path ++ value.path.get, value.unit)
-        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Text(value) => value
-        case elem.HierarchyBlock.StringDescriptionElement.ElementType.Empty => "ERROR"
-      }
-    }
-    val additionalDesc = s"\n${descriptionStringElements.mkString("")}"
+    val additionalDesc = s"\n ${makeDescriptionString(path, block.description).mkString("")}"
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
   override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
@@ -629,16 +631,7 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   override def mapLink(path: DesignPath, link: elem.Link,
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
     val classString = link.getSelfClass.toSimpleString
-
-    val descriptionStringElements = link.description.map { _.elementType match {
-      case elem.Link.StringDescriptionElement.ElementType.Param(value) => paramToUnitsString(path ++ value.path.get, value.unit)
-      case elem.Link.StringDescriptionElement.ElementType.Text(value) => value
-      case elem.Link.StringDescriptionElement.ElementType.Empty => "ERROR"
-      }
-    }
-    val additionalDesc = {
-      s"\n ${descriptionStringElements.mkString("")}"
-    }
+    val additionalDesc = s"\n ${makeDescriptionString(path, link.description).mkString("")}"
     textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
   }
   override def mapLinkArray(path: DesignPath, link: elem.LinkArray,
