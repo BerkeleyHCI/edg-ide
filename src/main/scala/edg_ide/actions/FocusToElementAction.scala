@@ -17,7 +17,24 @@ import edg_ide.util.{DesignFindBlockOfTypes, exceptionPopup}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
-class NavigateToBlockAction() extends AnAction() {
+object FocusToElementAction {
+  // Sorting function for block paths, comparing them to some context path.
+  // Prefers the context path, then subpaths, then parent paths.
+  def pathSortFn(contextPath: DesignPath)(compare1: DesignPath, compare2: DesignPath): Boolean = {
+    if (compare1 == contextPath && compare2 != contextPath) {
+      true  // Prefer exact match first
+    } else if (compare1.startsWith(contextPath) && !compare2.startsWith(contextPath)) {
+      true  // Prefer children next
+    } else if (contextPath.startsWith(compare1) && !contextPath.startsWith(compare2)) {
+      true  // Prefer parents next
+    } else {
+      false
+    }
+  }
+}
+
+
+class FocusToElementAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.NavigateToBlockAction")
 
   case class NavigateNode(desc: String, action: () => Unit) {
@@ -54,18 +71,7 @@ class NavigateToBlockAction() extends AnAction() {
       val instancesOfClass = new DesignFindBlockOfTypes(targetTypes).map(design)
           .exceptEmpty(s"no ${containingClass.getName} in design")
           .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
-            if (blockPath1 == contextPath && blockPath2 != contextPath) {
-              // Prefer exact match first
-              true
-            } else if (blockPath1.startsWith(contextPath) && !blockPath2.startsWith(contextPath)) {
-              // Prefer children next
-              true
-            } else if (contextPath.startsWith(blockPath1) && !contextPath.startsWith(blockPath2)) {
-              // Prefer parents next
-              true
-            } else {
-              false
-            }
+            FocusToElementAction.pathSortFn(contextPath)(blockPath1, blockPath2)
           }
 
       val matchBlockPathTypes = instancesOfClass.collect {
