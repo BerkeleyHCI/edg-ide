@@ -119,19 +119,19 @@ object HierarchyGraphElk {
           }
         }
 
-        ElkGraphUtil.createLabel(childName, childElkPort)
+        ElkGraphUtil.createLabel(childName.mkString("."), childElkPort)
         // TODO: currently only name label is displayed. Is there a sane way to display additional data?
         // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)
-        Seq(childName) -> childElkPort
+        childName -> childElkPort
     }
 
     val myElkChildren = node.members.collect {
       // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
       case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
-        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName, Some(elkNode), mappers)
+        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName.mkString("."), Some(elkNode), mappers)
         // Add the outer element into the inner namespace path
         childConnectables.map { case (childPath, childElk) =>
-          Seq(childName) ++ childPath -> childElk
+          childName ++ childPath -> childElk
         }
     }.flatten.toMap
 

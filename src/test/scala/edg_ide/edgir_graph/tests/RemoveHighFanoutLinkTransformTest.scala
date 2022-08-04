@@ -16,7 +16,7 @@ class RemoveHighFanoutLinkTransformTest extends AnyFlatSpec with Matchers {
     data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
     members = SeqMap(
       // TODO this is kind of degenerate in that it's missing its ports, but it tests well enough
-      "link" -> EdgirGraph.EdgirNode(
+      Seq("link") -> EdgirGraph.EdgirNode(
         data = LinkWrapper(DesignPath() + "link", Link.Link(
           selfClass="testLink"
         )),
@@ -33,12 +33,12 @@ class RemoveHighFanoutLinkTransformTest extends AnyFlatSpec with Matchers {
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "link" + "source"),
         source = Seq("sinkBlock1", "port"),
-        target = Seq("link", "sink[0]")
+        target = Seq("link", "sink", "0")
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "link" + "source"),
         source = Seq("sinkBlock2", "port"),
-        target = Seq("link", "sink[1]")
+        target = Seq("link", "sink", "1")
       ),
     ))
 
