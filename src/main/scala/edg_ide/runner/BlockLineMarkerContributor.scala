@@ -3,7 +3,7 @@ package edg_ide.runner
 import com.intellij.codeInsight.daemon.LineMarkerInfo.LineMarkerGutterIconRenderer
 import com.intellij.codeInsight.daemon.{LineMarkerInfo, LineMarkerProvider}
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.actionSystem.{ActionGroup, AnAction, AnActionEvent, DefaultActionGroup}
+import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent}
 import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -17,9 +17,10 @@ import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.wir.DesignPath
+import edg_ide.actions.FocusToElementAction
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
-import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes, exceptionNotify, exceptionPopup}
+import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes, exceptionPopup}
 import edgir.elem.elem
 
 import java.util.concurrent.Callable
@@ -50,15 +51,7 @@ class FocusToBlockSelectAction(identifier: PsiElement, pyClass: PyClass)
 
       val instancesOfClass = new DesignFindBlockOfTypes(targetTypes).map(design)
           .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
-            if (blockPath1 == contextPath && blockPath2 != contextPath) {
-              true // Prefer exact match first
-            } else if (blockPath1.startsWith(contextPath) && !blockPath2.startsWith(contextPath)) {
-              true // Prefer children next
-            } else if (contextPath.startsWith(blockPath1) && !contextPath.startsWith(blockPath2)) {
-              true // Prefer parents next
-            } else {
-              false
-            }
+            FocusToElementAction.pathSortFn(contextPath)(blockPath1, blockPath2)
           }
       instancesOfClass.map { case (path, block) => NavigateNode(path, block) }
     }): Callable[Seq[NavigateNode]]).finishOnUiThread(ModalityState.defaultModalityState(), items => {
@@ -81,6 +74,7 @@ class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends
 
 // Adds the line markers for DesignTop-based classes.
 // See https://developerlife.com/2021/03/13/ij-idea-plugin-advanced/#add-line-marker-provider-in-your-plugin
+// TODO not actually sure how useful this UI is, it's definitely questionable
 class BlockLineMarkerContributor extends LineMarkerProvider  {
   override def getLineMarkerInfo(element: PsiElement): LineMarkerInfo[PsiElement] = {
     element match {

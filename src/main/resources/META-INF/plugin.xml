@@ -29,5 +29,11 @@
             text="Empty IDE Cache" description="Empty the IDE cache">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
     </action>
+
+    <action id="edg_ide.action.NavigateToBlockAction" class="edg_ide.actions.FocusToElementAction"
+            text="Visualizer" description="Select the block in the block diagram view of the element at the caret in the code view">
+      <add-to-group group-id="GoToMenu" anchor="last"/>
+      <keyboard-shortcut first-keystroke="control shift G" keymap="$default"/>
+    </action>
   </actions>
 </idea-plugin>
