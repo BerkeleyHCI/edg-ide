@@ -607,22 +607,22 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     textMap.put(path, s"<b>$classString</b> at $path")
   }
 
-  def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]): Seq[String] = {
+  def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]) = {
     description.map {
       _.elementType match {
         case elem.StringDescriptionElement.ElementType.Param(value) => paramToUnitsString(path ++ value.path.get, value.unit)
         case elem.StringDescriptionElement.ElementType.Text(value) => value
         case elem.StringDescriptionElement.ElementType.Empty => "ERROR"
       }
-    }
+    }.mkString("")
   }
 
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
                links: SeqMap[String, Unit]): Unit = {
     val classString = block.getSelfClass.toSimpleString
-    val additionalDesc = s"\n ${makeDescriptionString(path, block.description).mkString("")}"
-    textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
+    val additionalDesc = makeDescriptionString(path, block.description)
+    textMap.put(path, s"<b>$classString</b> at $path\n$additionalDesc")
   }
   override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
     // does nothing
@@ -631,8 +631,8 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   override def mapLink(path: DesignPath, link: elem.Link,
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
     val classString = link.getSelfClass.toSimpleString
-    val additionalDesc = s"\n ${makeDescriptionString(path, link.description).mkString("")}"
-    textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
+    val additionalDesc = makeDescriptionString(path, link.description)
+    textMap.put(path, s"<b>$classString</b> at $path\n$additionalDesc")
   }
   override def mapLinkArray(path: DesignPath, link: elem.LinkArray,
                             ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
