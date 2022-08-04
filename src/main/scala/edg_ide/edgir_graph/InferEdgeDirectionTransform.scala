@@ -25,7 +25,7 @@ object InferEdgeDirectionTransform {
 
   // For a link and connected ports (my top port -> set of block paths), return the set of
   // block paths that are sources (considered from the block side)
-  def sourcePorts(link: LinkWrapper, ports: Map[String, Seq[Seq[String]]]): Set[Seq[String]] = {
+  def sourcePorts(link: LinkWrapper, ports: Map[String, Set[Seq[String]]]): Set[Seq[String]] = {
     // TODO these should be in the IR, perhaps as metadata, instead of hardcoded in the viz code
     val sources = Set(
       "source", "single_sources",
@@ -72,19 +72,19 @@ object InferEdgeDirectionTransform {
     EdgirGraph.EdgirEdge(edge.data, edge.target, edge.source)  // invert edge direction
   }
 
-  def apply(node: EdgirGraph.EdgirNode, mySourcePorts: Set[String] = Set()): EdgirGraph.EdgirNode = {
+  def apply(node: EdgirGraph.EdgirNode, mySourcePorts: Set[Seq[String]] = Set()): EdgirGraph.EdgirNode = {
     // Aggregate connected block ports by link and link port, as link name -> (link port -> Seq(block path))
-    val linkConnectedPorts: Map[String, Map[String, Seq[Seq[String]]]] = node.edges.flatMap { edge =>
+    val linkConnectedPorts: Map[String, Map[String, Set[Seq[String]]]] = node.edges.flatMap { edge =>
       val edgeTargetTop = edge.target.head
-      val targetMember = node.members(edgeTargetTop)
+      val targetMember = node.members.get(Seq(edgeTargetTop))
       targetMember match {
-        case targetTop: EdgirGraph.EdgirNode if targetTop.data.isInstanceOf[LinkWrapper] =>
-          Some((edge.target(0), (edge.target(1), edge.source)))
+        case Some(targetTop: EdgirGraph.EdgirNode) if targetTop.data.isInstanceOf[LinkWrapper] =>
+          Some((edge.target.head, (edge.target.tail, edge.source)))
         case _ => None
       }
     }   .groupBy(_._1).view.mapValues(_.map(_._2))  // sort by link name, discard the first tuple component in values
         .mapValues { linkPortBlockPathPairs =>
-          linkPortBlockPathPairs.groupBy(_._1).view.mapValues(_.map(_._2)).toMap  // same as above, with Set conversion
+          linkPortBlockPathPairs.groupBy(_._1.head).view.mapValues(_.map(_._2).toSet).toMap  // same as above, with Set conversion
     }.toMap
 
     val allBlockPorts = linkConnectedPorts.flatMap { case (linkName, linkPortBlockPaths) =>
@@ -93,7 +93,7 @@ object InferEdgeDirectionTransform {
 
     val blockSourcePorts = linkConnectedPorts.flatMap { case (linkName, linkPortBlockPaths) =>
       // should be safe because this should have been tested above
-      val linkWrapper = node.members(linkName).asInstanceOf[EdgirGraph.EdgirNode].data.asInstanceOf[LinkWrapper]
+      val linkWrapper = node.members(Seq(linkName)).asInstanceOf[EdgirGraph.EdgirNode].data.asInstanceOf[LinkWrapper]
       sourcePorts(linkWrapper, linkPortBlockPaths)
     }.toSet
 
@@ -105,9 +105,10 @@ object InferEdgeDirectionTransform {
           flipEdge(edge)  // invert edge direction
         }
       } else {  // is (probably?) a hierarchy port
-        require(edge.target.length == 1)
-        val edgeBlockPort = edge.target.head
-        if (mySourcePorts.contains(edgeBlockPort)) {  // correct is (port is target from inside)
+        if (!node.members.contains(edge.target)) {
+          logger.warn(s"non-block and non-boundary port referenced by edge ${edge.target}")
+        }
+        if (mySourcePorts.contains(edge.target)) {  // correct is (port is target from inside)
           edge
         } else {
           flipEdge(edge)
@@ -116,9 +117,8 @@ object InferEdgeDirectionTransform {
     }
     val newMembers = node.members.map {  // recurse into child nodes
       case (name, member: EdgirGraph.EdgirNode) =>
-        val memberSourcePorts = blockSourcePorts.collect { case path if path.head == name =>
-          require(path.tail.length == 1)
-          path.tail.head
+        val memberSourcePorts = blockSourcePorts.collect { case path if path.startsWith(name) =>
+          path.drop(name.length)
         }
         name -> apply(member, memberSourcePorts)
       case (name, member: EdgirGraph.EdgirPort) => name -> member

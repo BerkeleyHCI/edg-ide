@@ -1,9 +1,8 @@
 package edg_ide.ui
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
-import com.intellij.openapi.application.{ModalityState, ReadAction}
-import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
+import com.intellij.notification.NotificationGroup
+import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
@@ -11,7 +10,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, CompilerError, DesignMap, DesignStructuralValidate, FloatValue, IntValue, PythonInterface, PythonInterfaceLibrary, RangeValue}
+import edg.compiler.{Compiler, CompilerError, DesignMap, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue}
 import edg.wir.{DesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
@@ -26,14 +25,12 @@ import edgir.schema.schema.Design
 import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
-import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
+import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
-import java.nio.file.Paths
 import java.util.concurrent.Callable
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JButton, JLabel, JPanel}
+import javax.swing.{JLabel, JPanel}
 import scala.collection.{SeqMap, mutable}
 
 
@@ -63,13 +60,12 @@ object Gbc {
 
 
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
+  private val logger = Logger.getInstance(classOf[BlockVisualizerPanel])
+
   // Internal State
   //
   private var design = schema.Design()
   private var compiler = new Compiler(design, EdgCompilerService(project).pyLib)
-
-  private var blockModule = ""
-  private var blockName = ""
 
   // Shared state, access should be synchronized on the variable
   private val staleTypes = mutable.Set[ref.LibraryPath]()
@@ -78,8 +74,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // GUI-facing state
   //
   private var focusPath: DesignPath = DesignPath()  // visualize from root by default
-
-  private val compilerRunning = new AtomicBoolean(false)
 
   // Tool
   //
@@ -166,14 +160,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
   )
   visualizationPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
-
-  private val button = new JButton("Update")
-  visualizationPanel.add(button, Gbc(1, 0))
-  button.addActionListener(new ActionListener() {
-    override def actionPerformed(e: ActionEvent): Unit = {
-      recompile()
-    }
-  })
 
   // TODO max value based on depth of tree?
   private val depthSpinner = new JBIntSpinner(1, 1, 8)
@@ -279,8 +265,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // Actions
   //
-  def getModule: String = blockModule
-
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
     EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))
   }
@@ -304,103 +288,30 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   }
 
-  def setFileBlock(module: String, block: String): Unit = {
-    blockModule = module
-    blockName = block
-    toolWindow.setTitle(blockName)
-  }
-
   def setKicadLibraryDirectory(directory: String): Unit = {
     kicadVizPanel.FootprintBrowser.setLibraryDirectory(directory)
   }
 
-  /** Recompiles the current blockModule / blockName, and updates the display
+  /** Sets the design and updates displays accordingly.
     */
-  def recompile(): Unit = {
-    // TODO a hack to get the title to update, because the initial setFileBlock on loadState doesn't work for w/e reason
-    toolWindow.setTitle(blockName)
+  def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
+                   errors: Seq[CompilerError]): Unit = {
+    setDesign(design, compiler)
+    refinementsPanel.setRefinements(refinements)
+    tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
+    errorPanel.setErrors(errors)
 
-    // TODO: should be in EdgCompilerService? Which is what really needs the lock
-    if (!compilerRunning.compareAndSet(false, true)) {
-      notificationGroup.createNotification(
-        s"Compiler already running", NotificationType.WARNING)
-          .notify(project)
-      return
-    }
-
-    // TODO: lock out tools?
-
-    val documentManager = FileDocumentManager.getInstance()
-    documentManager.saveAllDocuments()
-
-    ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
-      override def run(indicator: ProgressIndicator): Unit = {
-        status.setText(s"Compiling")
-
-        try {
-          EdgCompilerService(project).pyLib.withPythonInterface(
-              new PythonInterface(Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile)) {
-
-            indicator.setText("EDG compiling")
-
-            // TODO if compilation fails clear libraries
-            staleTypes.synchronized {
-              staleTypes.clear()
-            }
-            stalePaths.synchronized {
-              stalePaths.clear()
-            }
-
-            val designType = ElemBuilder.LibraryPath(blockModule + "." + blockName)
-            val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project)
-                .compile(blockModule, designType, Some(indicator))
-
-            indicator.setText("EDG compiling: validating")
-            val checker = new DesignStructuralValidate()
-            val errors = compiler.getErrors() ++ checker.map(compiled)
-            if (errors.isEmpty) {
-              status.setText(s"Compiled")
-            } else {
-              status.setText(s"Compiled, with ${errors.length} errors")
-            }
-            tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
-            indicator.setText("EDG compiling ... done")
-
-            notificationGroup.createNotification(
-              s"Compilation complete", "",
-              s"reload: $reloadTime ms, compile: $compileTime ms",
-              NotificationType.INFORMATION)
-                .notify(project)
-
-            updateLibrary(EdgCompilerService(project).pyLib)
-            refinementsPanel.setRefinements(refinements)
-            errorPanel.setErrors(errors)
-
-            setDesign(compiled, compiler)
-            if (activeTool != defaultTool) { // revert to the default tool
-              toolInterface.endTool() // TODO should we also preserve state like selected?
-            }
-          }
-        } catch {
-          case e: Throwable =>
-            import java.io.{PrintWriter, StringWriter}
-            val sw = new StringWriter
-            e.printStackTrace(new PrintWriter(sw))
-            status.setText(s"Compiler error: ${e.toString}")
-            notificationGroup.createNotification(
-              s"Compiler error", s"${e.toString}",
-              s"${sw.toString}",
-              NotificationType.WARNING)
-                .notify(project)
-        }
-
-        compilerRunning.set(false)
-      }
+    ApplicationManager.getApplication.invokeLater(() => {
+      toolWindow.setTitle(design.getContents.getSelfClass.toSimpleString)
     })
 
+    if (activeTool != defaultTool) { // revert to the default tool
+      toolInterface.endTool() // TODO should we also preserve state like selected?
+    }
+    updateDisplay()
   }
 
-  /** Sets the design and updates displays accordingly.
+  /** Updates the design tree only
     */
   def setDesign(design: schema.Design, compiler: Compiler): Unit = {
     // Update state
@@ -434,10 +345,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
       val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
         4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
-      val transformedGraph = PruneArrayPortsTransform(highFanoutTransform(
+      val transformedGraph = highFanoutTransform(
         CollapseLinkTransform(CollapseBridgeTransform(
           InferEdgeDirectionTransform(SimplifyPortTransform(
-            PruneDepthTransform(edgirGraph, depthSpinner.getNumber)))))))
+            PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))))
 
       val name = if (focusPath == DesignPath()) {
         "(root)"
@@ -521,8 +432,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.panelBlockModule = blockModule
-    state.panelBlockName = blockName
     state.depthSpinner = depthSpinner.getNumber
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
@@ -535,7 +444,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
-    setFileBlock(state.panelBlockModule, state.panelBlockName)
     depthSpinner.setNumber(state.depthSpinner)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)

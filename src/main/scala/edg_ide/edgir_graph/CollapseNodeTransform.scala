@@ -18,14 +18,14 @@ trait CollapseNodeTransform {
     *
     * TODO: can this be made generic on HGraphNode? Issue seems to be with instantiating an abstract type
     */
-  def collapse(node: EdgirGraph.EdgirNode, collapseTarget: String,
+  def collapse(node: EdgirGraph.EdgirNode, collapseTarget: Seq[String],
                edgeFn: Seq[EdgeWrapper] => EdgeWrapper): EdgirGraph.EdgirNode = {
     val collapsedBlockSources = node.edges.collect {
-      case edge if edge.target.headOption.contains(collapseTarget) => // block is source
+      case edge if edge.target.startsWith(collapseTarget) => // block is source
         (edge.source, edge.data)
     }
     val collapsedBlockTargets = node.edges.collect {
-      case edge if edge.source.headOption.contains(collapseTarget) => // block is target
+      case edge if edge.source.startsWith(collapseTarget) => // block is target
         (edge.target, edge.data)
     }
 
@@ -56,7 +56,7 @@ trait CollapseNodeTransform {
     }
 
     val filteredEdges = node.edges.filter { edge =>  // remove edges pointing to collapsed node
-      !edge.source.headOption.contains(collapseTarget) && !edge.target.headOption.contains(collapseTarget)
+      !edge.source.startsWith(collapseTarget) && !edge.target.startsWith(collapseTarget)
     }
     val combinedEdges = filteredEdges ++ newEdges
 

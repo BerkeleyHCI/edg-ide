@@ -23,29 +23,22 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
     }
 
     // edges associated with a node, structured as node -> (port name within node, path of other port, edge)
-    val allNodeEdges: Map[String, Seq[(String, DesignPath, EdgirEdge)]] = node.edges.collect {
-      case edge @ EdgirEdge(data, source, target) =>  // generate all pairs (node name, port within node, edge)
-        (source, target) match {
-          case (Seq(sourceNode, sourcePort), Seq(targetNode, targetPort)) => // both interior connects, 2 pairs to create
-            Seq((sourceNode, sourcePort, node.data.path + targetNode + targetPort, edge),
-              (targetNode, targetPort, node.data.path + sourceNode + sourcePort, edge)
-            )
-          case (Seq(sourceNode, sourcePort), Seq(targetPort)) => // boundary port
-            Seq((sourceNode, sourcePort, node.data.path + targetPort, edge))
-          case (Seq(sourcePort), Seq(targetNode, targetPort)) => // boundary port
-            Seq((targetNode, targetPort, node.data.path + sourcePort, edge))
-          case (Seq(sourcePort), Seq(targetPort)) => // neither connects to internal node, none to genererate
-            Seq()
-        }
-    }.flatten
-        .groupBy(_._1)
-        .view.mapValues {
-          _.map { case (nodeName, portName, otherPath, edge) =>  // discard nodeName from values
-            (portName, otherPath, edge)
-          }
-        }.toMap
+    // this can generate multiple entries per edge, if both ends are nodes
+    // TODO it is assumed that the source node is the first component of the path (multicomponent node paths forbidden)
+    val allNodeEdges: Map[Seq[String], Seq[(Seq[String], DesignPath, EdgirEdge)]] = node.edges.collect { edge =>
+      val sourceEdge = edge.source match {
+        case sourceNode :: sourceTail => Seq((Seq(sourceNode), (sourceTail, node.data.path ++ edge.target, edge)))
+        case _ => Seq()
+      }
+      val targetEdge = edge.target match {
+        case targetNode :: targetTail => Seq((Seq(targetNode), (targetTail, node.data.path ++ edge.source, edge)))
+        case _ => Seq()
+      }
+      sourceEdge ++ targetEdge
+    }.flatten.groupMap(_._1)(_._2)
 
     val highFanoutLinkNameWraps = allowedLinkNameWraps.map { case (linkName, linkWrap) =>
+      require(linkName.length == 1)  // like above, assumed node name is first component of path only
       val connectedCount = allNodeEdges.getOrElse(linkName, Seq()).length
       (linkName, linkWrap, connectedCount)
     } .collect {
@@ -54,11 +47,11 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
 
     val filteredEdges = node.edges.map {
           // Transform to degenerate edges
-      case EdgirEdge(data, Seq(sourceNode, sourcePort), target) if highFanoutLinkNameWraps.contains(sourceNode) =>
-        val linkWrap = highFanoutLinkNameWraps(sourceNode)
+      case EdgirEdge(data, Seq(sourceNode, sourcePort), target) if highFanoutLinkNameWraps.contains(Seq(sourceNode)) =>
+        val linkWrap = highFanoutLinkNameWraps(Seq(sourceNode))
         EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), target, target)
-      case EdgirEdge(data, source, Seq(targetNode, targetPort)) if highFanoutLinkNameWraps.contains(targetNode) =>
-        val linkWrap = highFanoutLinkNameWraps(targetNode)
+      case EdgirEdge(data, source, Seq(targetNode, targetPort)) if highFanoutLinkNameWraps.contains(Seq(targetNode)) =>
+        val linkWrap = highFanoutLinkNameWraps(Seq(targetNode))
         EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), source, source)
       case edge => edge
     }

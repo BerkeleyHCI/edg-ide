@@ -4,10 +4,11 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
-
+import edg.compiler.{Compiler, CompilerError, PythonInterfaceLibrary}
 import edgir.schema.schema
 import edgir.elem.elem
 import edg.wir.DesignPath
+import edgrpc.hdl.{hdl => edgrpc}
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -41,21 +42,17 @@ class BlockVisualizerService(project: Project) extends
     visualizerPanelOption.foreach(_.setContext(path))
   }
 
-  def setModuleClass(module: String, block: String): Unit = {
-    visualizerPanelOption.foreach(_.setFileBlock(module, block))
-    update()
-  }
-
-  def update(): Unit = {
-    visualizerPanelOption.foreach(_.recompile())
-  }
-
-  def getModule(): String = {
-    visualizerPanelOption.get.getModule
-  }
-
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
     visualizerPanelOption.flatMap(_.getContextBlock)
+  }
+
+  def setLibrary(library: PythonInterfaceLibrary): Unit = {
+    visualizerPanelOption.foreach(_.updateLibrary(library))
+  }
+
+  def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
+                   errors: Seq[CompilerError]): Unit = {
+    visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors))
   }
 
   def getDesign: Option[schema.Design] = {
