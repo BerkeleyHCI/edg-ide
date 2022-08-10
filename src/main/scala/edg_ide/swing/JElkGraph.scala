@@ -9,6 +9,7 @@ import java.awt._
 import javax.swing.{JComponent, Scrollable}
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 import collection.mutable
+import edg_ide.ui.PDFGeneratorUtil
 
 
 class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
@@ -266,6 +267,9 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     }
 
     paintBlock(scaledG, this.getBackground, rootNode)
+    val pdfGen = new PDFGeneratorUtil
+    paintBlock(pdfGen.graphics, this.getBackground, rootNode)
+    pdfGen.close
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
