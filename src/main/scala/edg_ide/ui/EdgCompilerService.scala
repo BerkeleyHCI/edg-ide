@@ -2,10 +2,10 @@ package edg_ide.ui
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction, WriteAction}
+import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.project.{DumbService, Project}
+import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -69,26 +69,23 @@ class EdgCompilerService(project: Project) extends
       if (containingClass == null) {
         return
       }
-      DumbService.getInstance(project).smartInvokeLater(() => {
+
+      ReadAction.nonBlocking((() => {
         val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
         val extendedModifiedTypes = (inheritors.toSeq :+ containingClass).map { modifiedClass =>
           DesignAnalysisUtils.typeOf(modifiedClass)
         }.toSet
 
-        val newTypes = modifiedTypes.synchronized {
+        modifiedTypes.synchronized {
           val newTypes = extendedModifiedTypes -- modifiedTypes
           modifiedTypes.addAll(newTypes)
           newTypes
         }
-
-        ApplicationManager.getApplication.runWriteAction(new Runnable {
-          override def run(): Unit = {
-            BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
-              visualizerPanel.addStaleTypes(newTypes.toSeq)
-            }
-          }
-        })
-      })
+      }): Callable[Set[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), newTypes => {
+        BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
+          visualizerPanel.addStaleTypes(newTypes.toSeq)
+        }
+      }).submit(AppExecutorUtil.getAppExecutorService)
       // TODO update library cached status, so incremental discard
     }
   }, this)
