@@ -7,7 +7,7 @@ import com.intellij.openapi.project.Project
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.compiler.{DesignStructuralValidate, ExprToString, ExprValue, PythonInterface}
-import edg.util.{Errorable, StreamUtils}
+import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edgir.elem.elem
@@ -15,7 +15,7 @@ import edgir.ref.ref
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
-import java.io.{OutputStream, PrintWriter, StringWriter}
+import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
 
 
@@ -107,7 +107,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         }
       })
 
-      val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project).pyLib
+      EdgCompilerService(project).pyLib
           .withPythonInterface(pythonInterface.get) {
             indicator.setText("EDG compiling: compiling")
 
@@ -115,29 +115,39 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
             val designModule = options.designName.split('.').init.mkString(".")
             val (compiled, compiler, refinements, reloadTime, compileTime) =
               EdgCompilerService(project).compile(designModule, designType, Some(indicator))
+            console.print(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)\n",
+              ConsoleViewContentType.SYSTEM_OUTPUT)
 
-            indicator.setText("EDG compiling: netlisting")
+            if (options.netlistFile.nonEmpty) {
+              indicator.setText("EDG compiling: netlisting")
+              val (netlist, netlistTime) = timeExec {
+                 pythonInterface.get.runBackend("electronics_model.NetlistBackend",
+                   compiled, compiler.getAllSolved).mapErr(msg => s"while netlisting: $msg").get
+              }
+              require(netlist.size == 1)
 
-            val netlist = pythonInterface.get.runBackend("electronics_model.NetlistBackend",
-              compiled, compiler.getAllSolved)
+              val writer = new FileWriter(options.netlistFile)
+              writer.write(netlist.head._2)
+              writer.close()
+              console.print(s"Wrote netlist to ${options.netlistFile} (netlist: $netlistTime ms)\n",
+                ConsoleViewContentType.SYSTEM_OUTPUT)
+            } else {
+              console.print(s"Not generating netlist, no netlist file specified in run options\n",
+                ConsoleViewContentType.NORMAL_OUTPUT)
+            }
 
-            (compiled, compiler, refinements, reloadTime, compileTime)
+            indicator.setText("EDG compiling: validating")
+            val checker = new DesignStructuralValidate()
+            val errors = compiler.getErrors() ++ checker.map(compiled)
+            if (errors.nonEmpty) {
+              console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+            }
+
+            BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
+            BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
           }
-
-      indicator.setText("EDG compiling: validating")
-      val checker = new DesignStructuralValidate()
-      val errors = compiler.getErrors() ++ checker.map(compiled)
-      console.print(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)\n",
-        ConsoleViewContentType.SYSTEM_OUTPUT)
-      if (errors.nonEmpty) {
-        console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
-      }
-
       exitCode = pythonInterface.get.shutdown()
       forwardProcessOutput() // dump remaining process output (shouldn't happen)
-
-      BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
-      BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
     } catch {
       case e: Throwable =>
         pythonInterface.foreach { pyIf => exitCode = pyIf.shutdown() }
