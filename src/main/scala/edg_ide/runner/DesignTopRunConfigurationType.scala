@@ -5,20 +5,15 @@ import com.intellij.execution.filters.{TextConsoleBuilderFactory, UrlFilter}
 import com.intellij.execution.runners.{ExecutionEnvironment, ProgramRunner}
 import com.intellij.execution.{DefaultExecutionResult, ExecutionResult, Executor}
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.fileChooser.{FileChooser, FileChooserDescriptorFactory}
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.util.JDOMExternalizerUtil
-import com.intellij.openapi.vfs.{LocalFileSystem, VirtualFile}
 import com.intellij.psi.search.ExecutionSearchScopes
-import com.intellij.util.Consumer
 import com.jetbrains.python.run.PythonTracebackFilter
 import org.jdom.Element
 
 import java.awt.GridLayout
-import java.awt.event.{ActionEvent, ActionListener}
 import javax.swing._
 
 
