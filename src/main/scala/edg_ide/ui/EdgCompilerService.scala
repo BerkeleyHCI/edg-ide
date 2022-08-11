@@ -85,7 +85,7 @@ class EdgCompilerService(project: Project) extends
         BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
           visualizerPanel.addStaleTypes(newTypes.toSeq)
         }
-      }).submit(AppExecutorUtil.getAppExecutorService)
+      }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       // TODO update library cached status, so incremental discard
     }
   }, this)
