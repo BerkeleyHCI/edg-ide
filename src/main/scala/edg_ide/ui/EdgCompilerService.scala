@@ -155,7 +155,8 @@ class EdgCompilerService(project: Project) extends
     indicator.foreach(_.setText(s"EDG compiling: design top"))
     indicator.foreach(_.setIndeterminate(true))
     val ((compiled, compiler, refinements), compileTime) = timeExec {
-      val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType).get // TODO propagate Errorable
+      val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType)
+          .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
       val design = schema.Design(contents = Some(block))
 
       val compiler = new Compiler(design, EdgCompilerService(project).pyLib,

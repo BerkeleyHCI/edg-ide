@@ -8,6 +8,7 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.compiler.{DesignStructuralValidate, ExprToString, ExprValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils}
+import edg.wir.DesignPath
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edgir.elem.elem
 import edgir.ref.ref
@@ -65,26 +66,42 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         override def onLibraryRequest(element: ref.LibraryPath): Unit = {
           console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
+
         override def onLibraryRequestComplete(element: ref.LibraryPath,
                                               result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
           forwardProcessOutput()
           result match {
-            case Errorable.Error(msg) => console.print(msg, ConsoleViewContentType.ERROR_OUTPUT)
+            case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
             case _ =>
           }
         }
+
         override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
           val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
               .mkString(", ")
           console.print(s"Generate ${element.toSimpleString} ($valuesString)\n",
             ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
+
         override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
                                                          values: Map[ref.LocalPath, ExprValue],
                                                          result: Errorable[elem.HierarchyBlock]): Unit = {
           forwardProcessOutput()
           result match {
-            case Errorable.Error(msg) => console.print(msg, ConsoleViewContentType.ERROR_OUTPUT)
+            case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
+            case _ =>
+          }
+        }
+
+        override def onRunBackend(backend: String): Unit = {
+          console.print(s"Run backend $backend\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+        }
+
+        override def onRunBackendComplete(backend: String,
+                                 result: Errorable[Map[DesignPath, String]]): Unit = {
+          forwardProcessOutput()
+          result match {
+            case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
             case _ =>
           }
         }
@@ -92,14 +109,20 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
       val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project).pyLib
           .withPythonInterface(pythonInterface.get) {
-            indicator.setText("EDG compiling")
+            indicator.setText("EDG compiling: compiling")
 
             val designType = ElemBuilder.LibraryPath(options.designName)
             val designModule = options.designName.split('.').init.mkString(".")
-            EdgCompilerService(project).compile(designModule, designType, Some(indicator))
+            val (compiled, compiler, refinements, reloadTime, compileTime) =
+              EdgCompilerService(project).compile(designModule, designType, Some(indicator))
+
+            indicator.setText("EDG compiling: netlisting")
+
+            val netlist = pythonInterface.get.runBackend("electronics_model.NetlistBackend",
+              compiled, compiler.getAllSolved)
+
+            (compiled, compiler, refinements, reloadTime, compileTime)
           }
-      exitCode = pythonInterface.get.shutdown()
-      forwardProcessOutput()  // dump remaining process output (shouldn't happen)
 
       indicator.setText("EDG compiling: validating")
       val checker = new DesignStructuralValidate()
@@ -110,6 +133,9 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
       }
 
+      exitCode = pythonInterface.get.shutdown()
+      forwardProcessOutput() // dump remaining process output (shouldn't happen)
+
       BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
       BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
     } catch {
@@ -117,9 +143,9 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         pythonInterface.foreach { pyIf => exitCode = pyIf.shutdown() }
         forwardProcessOutput()  // dump remaining process output first
 
-        console.print(s"Compiler internal error: ${e.toString}\n", ConsoleViewContentType.ERROR_OUTPUT)
         val stackWriter = new StringWriter()
         e.printStackTrace(new PrintWriter(stackWriter))
+        console.print(s"Compiler internal error\n", ConsoleViewContentType.ERROR_OUTPUT)
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
     terminatedNotify(exitCode)
