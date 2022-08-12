@@ -19,6 +19,7 @@ import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary}
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.util.DesignAnalysisUtils
+import edgir.ref.ref.LibraryPath
 
 import java.util.concurrent.Callable
 import scala.collection.mutable
@@ -90,9 +91,9 @@ class EdgCompilerService(project: Project) extends
     }
   }, this)
 
-  /** Discards stale elements from modifiedPyClasses
+  /** Discards stale elements from modifiedPyClasses, returning the discarded classes.
     */
-  def discardStale(): Unit = {
+  def discardStale(): Set[LibraryPath] = {
     val copyModifiedTypes = modifiedTypes.synchronized {
       val copy = modifiedTypes.toSet
       modifiedTypes.clear()
@@ -103,17 +104,7 @@ class EdgCompilerService(project: Project) extends
         // TODO should this use compiled library analysis or PSI analysis?
       pyLib.discardCached(modifiedType)
     }
-
-    if (discarded.isEmpty) {
-      notificationGroup.createNotification("No changes to source files", NotificationType.WARNING)
-          .notify(project)
-    } else {
-      notificationGroup.createNotification(s"Cleaned cache",
-        s"discarded ${discarded.size} changed modules",
-        discarded.map(_.toSimpleString).mkString(", "),
-        NotificationType.INFORMATION)
-          .notify(project)
-    }
+    discarded
   }
 
   /** Recompiles a design and all libraries not present in cache
