@@ -102,6 +102,16 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     }
 
     try {
+      val discarded = EdgCompilerService(project).discardStale()
+      if (discarded.nonEmpty) {
+        val discardedNames = discarded.map { _.toSimpleString }.toSeq.sorted.mkString(", ")
+        console.print(s"Discarded ${discarded.size} changed cached libraries: $discardedNames\n",
+          ConsoleViewContentType.SYSTEM_OUTPUT)
+      } else {
+        console.print(s"No changed libraries detected, no libraries discarded\n",
+          ConsoleViewContentType.SYSTEM_OUTPUT)
+      }
+
       val (sdkName, pythonCommand) = ReadAction.compute(() => exceptable {
         val pyPsi = PyPsiFacade.getInstance(project)
         val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
@@ -170,16 +180,6 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
       EdgCompilerService(project).pyLib
           .withPythonInterface(pythonInterface.get) {
             indicator.setText("EDG compiling: compiling")
-
-            val discarded = EdgCompilerService(project).discardStale()
-            if (discarded.nonEmpty) {
-              val discardedNames = discarded.map { _.toSimpleString }.toSeq.sorted.mkString(", ")
-              console.print(s"Discarded ${discarded.size} changed cached libraries: $discardedNames\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
-            } else {
-              console.print(s"No changed libraries detected, no libraries discarded\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
-            }
 
             val designType = ElemBuilder.LibraryPath(options.designName)
             val designModule = options.designName.split('.').init.mkString(".")
