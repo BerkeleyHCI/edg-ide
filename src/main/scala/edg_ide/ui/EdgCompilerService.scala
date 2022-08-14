@@ -19,6 +19,7 @@ import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary}
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.util.DesignAnalysisUtils
+import edgir.ref.ref.LibraryPath
 
 import java.util.concurrent.Callable
 import scala.collection.mutable
@@ -85,14 +86,14 @@ class EdgCompilerService(project: Project) extends
         BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
           visualizerPanel.addStaleTypes(newTypes.toSeq)
         }
-      }).submit(AppExecutorUtil.getAppExecutorService)
+      }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       // TODO update library cached status, so incremental discard
     }
   }, this)
 
-  /** Discards stale elements from modifiedPyClasses
+  /** Discards stale elements from modifiedPyClasses, returning the discarded classes.
     */
-  def discardStale(): Unit = {
+  def discardStale(): Set[LibraryPath] = {
     val copyModifiedTypes = modifiedTypes.synchronized {
       val copy = modifiedTypes.toSet
       modifiedTypes.clear()
@@ -103,17 +104,7 @@ class EdgCompilerService(project: Project) extends
         // TODO should this use compiled library analysis or PSI analysis?
       pyLib.discardCached(modifiedType)
     }
-
-    if (discarded.isEmpty) {
-      notificationGroup.createNotification("No changes to source files", NotificationType.WARNING)
-          .notify(project)
-    } else {
-      notificationGroup.createNotification(s"Cleaned cache",
-        s"discarded ${discarded.size} changed modules",
-        discarded.map(_.toSimpleString).mkString(", "),
-        NotificationType.INFORMATION)
-          .notify(project)
-    }
+    discarded
   }
 
   /** Recompiles a design and all libraries not present in cache
@@ -155,7 +146,8 @@ class EdgCompilerService(project: Project) extends
     indicator.foreach(_.setText(s"EDG compiling: design top"))
     indicator.foreach(_.setIndeterminate(true))
     val ((compiled, compiler, refinements), compileTime) = timeExec {
-      val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType).get // TODO propagate Errorable
+      val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType)
+          .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
       val design = schema.Design(contents = Some(block))
 
       val compiler = new Compiler(design, EdgCompilerService(project).pyLib,

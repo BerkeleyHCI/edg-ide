@@ -419,6 +419,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {
     libraryPanel.setLibrary(library)
+    staleTypes.synchronized {  // assumed that upon recompiling everything is again up to date
+      staleTypes.clear()
+    }
+    updateStale()
   }
 
   // In place design tree modifications
