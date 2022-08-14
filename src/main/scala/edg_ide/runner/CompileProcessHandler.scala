@@ -24,7 +24,7 @@ import edgir.ref.ref
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
-import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
+import java.io.{File, FileWriter, OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
 import scala.jdk.CollectionConverters.MapHasAsJava
 
@@ -83,6 +83,84 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     override def setAddSourceRoots(b: Boolean): Unit = throw new NotImplementedError()
   }
 
+  class LoggingPythonInterface(serverFile: File, pythonInterpreter: String)
+      extends PythonInterface(serverFile, pythonInterpreter) {
+    def forwardProcessOutput(): Unit = {
+      StreamUtils.forAvailable(processOutputStream) { data =>
+        console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
+      }
+      StreamUtils.forAvailable(processErrorStream) { data =>
+        console.print(new String(data), ConsoleViewContentType.ERROR_OUTPUT)
+      }
+    }
+
+    override def onLibraryRequest(element: ref.LibraryPath): Unit = {
+      console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    }
+
+    override def onLibraryRequestComplete(element: ref.LibraryPath,
+                                          result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
+      forwardProcessOutput()
+      result match {
+        case Errorable.Error(msg) => console.print(msg + "Error compiling \n", ConsoleViewContentType.ERROR_OUTPUT)
+        case _ =>
+      }
+    }
+
+    override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
+      val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
+          .mkString(", ")
+      console.print(s"Generate ${element.toSimpleString} ($valuesString)\n",
+        ConsoleViewContentType.LOG_INFO_OUTPUT)
+    }
+
+    override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
+                                                     values: Map[ref.LocalPath, ExprValue],
+                                                     result: Errorable[elem.HierarchyBlock]): Unit = {
+      forwardProcessOutput()
+      result match {
+        case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
+        case _ =>
+      }
+    }
+
+    override def onRunBackend(backend: ref.LibraryPath): Unit = {
+      console.print(s"Run backend ${backend.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    }
+
+    override def onRunBackendComplete(backend: ref.LibraryPath,
+                                      result: Errorable[Map[DesignPath, String]]): Unit = {
+      forwardProcessOutput()
+      result match {
+        case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
+        case _ =>
+      }
+    }
+  }
+
+  private def createPythonInterface(): Errorable[LoggingPythonInterface] = exceptable {
+    val (sdkName, pythonCommand) = ReadAction.compute(() => {
+      val pyPsi = PyPsiFacade.getInstance(project)
+      val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
+      val pyClass = pyPsi.createClassByQName(options.designName, anchor)
+          .exceptNull(s"can't find class ${options.designName}")
+      val module = ModuleUtilCore.findModuleForPsiElement(pyClass).exceptNull("can't find project module")
+      val sdk = PythonSdkUtil.findPythonSdk(module).exceptNull("can't find Python SDK")
+
+      val runParams = new DesignTopRunParams(
+        pyClass.getContainingFile.getVirtualFile.getPath, sdk.getHomePath, module.getName)
+      val pythonCommand = PythonCommandLineState.getInterpreterPath(project, runParams)
+          .exceptNull("can't get interpreter path")
+      (sdk.getName, pythonCommand)
+    })
+    console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
+      ConsoleViewContentType.LOG_INFO_OUTPUT)
+
+    new LoggingPythonInterface(
+      Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile,
+      pythonCommand)
+  }
+
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
     startNotify()
@@ -90,120 +168,76 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
-    var pythonInterface: Option[PythonInterface] = None
+    var pythonInterface: Option[LoggingPythonInterface] = None
     var exitCode: Int = -1
-    def forwardProcessOutput(): Unit = {
-      pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processOutputStream) { data =>
-        console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
-      }}
-      pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processErrorStream) { data =>
-        console.print(new String(data), ConsoleViewContentType.ERROR_OUTPUT)
-      }}
-    }
 
     try {
-      val discarded = EdgCompilerService(project).discardStale()
-      if (discarded.nonEmpty) {
-        val discardedNames = discarded.map { _.toSimpleString }.toSeq.sorted.mkString(", ")
-        console.print(s"Discarded ${discarded.size} changed cached libraries: $discardedNames\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
-      } else {
-        console.print(s"No changed libraries detected, no libraries discarded\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
-      }
-
-      val (sdkName, pythonCommand) = ReadAction.compute(() => exceptable {
-        val pyPsi = PyPsiFacade.getInstance(project)
-        val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
-        val pyClass = pyPsi.createClassByQName(options.designName, anchor)
-            .exceptNull(s"can't find class ${options.designName}")
-        val module = ModuleUtilCore.findModuleForPsiElement(pyClass).exceptNull("can't find project module")
-        val sdk = PythonSdkUtil.findPythonSdk(module).exceptNull("can't find Python SDK")
-
-        val runParams = new DesignTopRunParams(
-          pyClass.getContainingFile.getVirtualFile.getPath, sdk.getHomePath, module.getName)
-        val pythonCommand = PythonCommandLineState.getInterpreterPath(project, runParams)
-            .exceptNull("can't get interpreter path")
-        (sdk.getName, pythonCommand)
-      }).mapErr(msg => s"while trying to get Python interpreter path").get
-      console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
-        ConsoleViewContentType.LOG_INFO_OUTPUT)
-
-      pythonInterface = Some(new PythonInterface(
-        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile,
-        pythonCommand) {
-
-        override def onLibraryRequest(element: ref.LibraryPath): Unit = {
-          console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-        }
-
-        override def onLibraryRequestComplete(element: ref.LibraryPath,
-                                              result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
-          forwardProcessOutput()
-          result match {
-            case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
-            case _ =>
-          }
-        }
-
-        override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
-          val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
-              .mkString(", ")
-          console.print(s"Generate ${element.toSimpleString} ($valuesString)\n",
-            ConsoleViewContentType.LOG_INFO_OUTPUT)
-        }
-
-        override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
-                                                         values: Map[ref.LocalPath, ExprValue],
-                                                         result: Errorable[elem.HierarchyBlock]): Unit = {
-          forwardProcessOutput()
-          result match {
-            case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
-            case _ =>
-          }
-        }
-
-        override def onRunBackend(backend: String): Unit = {
-          console.print(s"Run backend $backend\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-        }
-
-        override def onRunBackendComplete(backend: String,
-                                 result: Errorable[Map[DesignPath, String]]): Unit = {
-          forwardProcessOutput()
-          result match {
-            case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
-            case _ =>
-          }
-        }
-      })
+      pythonInterface = Some(createPythonInterface().mapErr(
+        msg => s"while trying to get Python interpreter path: $msg"
+      ).get)
 
       EdgCompilerService(project).pyLib
           .withPythonInterface(pythonInterface.get) {
-            indicator.setText("EDG compiling: compiling")
+            val discarded = EdgCompilerService(project).discardStale()
+            if (discarded.nonEmpty) {
+              val discardedNames = discarded.map {
+                _.toSimpleString
+              }.toSeq.sorted.mkString(", ")
+              console.print(s"Discarded ${discarded.size} changed cached libraries: $discardedNames\n",
+                ConsoleViewContentType.SYSTEM_OUTPUT)
+            } else {
+              console.print(s"No changed libraries detected, no libraries discarded\n",
+                ConsoleViewContentType.SYSTEM_OUTPUT)
+            }
 
-            val designType = ElemBuilder.LibraryPath(options.designName)
+            indicator.setText("EDG compiling: rebuilding libraries")
+            indicator.setIndeterminate(true)
             val designModule = options.designName.split('.').init.mkString(".")
-            val (compiled, compiler, refinements, reloadTime, compileTime) =
-              EdgCompilerService(project).compile(designModule, designType, Some(indicator))
-            console.print(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)\n",
+            val (indexed, indexTime) = timeExec {
+              EdgCompilerService(project).pyLib.indexModule(designModule) match {
+                case Errorable.Success(indexed) => indexed
+                case Errorable.Error(errMsg) =>
+                  console.print(s"Failed to index: $errMsg\n", ConsoleViewContentType.ERROR_OUTPUT)
+                  Seq()
+              }
+            }
+            indicator.setIndeterminate(false)
+            val (_, rebuildTime) = timeExec {
+              for ((libraryType, i) <- indexed.zipWithIndex) {
+                indicator.setFraction(i.toFloat / indexed.size)
+                EdgCompilerService(project).pyLib.getLibrary(libraryType)  // logging handled by pyLib hooks
+              }
+            }
+            console.print(s"Rebuilt ${indexed.size} library elements " +
+              s"(index: $indexTime ms, build: $rebuildTime ms)\n",
+              ConsoleViewContentType.SYSTEM_OUTPUT)
+
+            indicator.setText("EDG compiling: design top")
+            indicator.setIndeterminate(true)
+            val designType = ElemBuilder.LibraryPath(options.designName)
+            val (compiled, compiler, refinements, compileTime) =
+              EdgCompilerService(project).compile(designType, Some(indicator))
+            console.print(s"Compiled ($compileTime ms)\n",
               ConsoleViewContentType.SYSTEM_OUTPUT)
 
             if (options.netlistFile.nonEmpty) {
               indicator.setText("EDG compiling: netlisting")
               val (netlist, netlistTime) = timeExec {
-                 pythonInterface.get.runBackend("electronics_model.NetlistBackend",
-                   compiled, compiler.getAllSolved).mapErr(msg => s"while netlisting: $msg").get
+                 pythonInterface.get.runBackend(
+                   ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
+                   compiled, compiler.getAllSolved
+                 ).mapErr(msg => s"while netlisting: $msg").get
               }
               require(netlist.size == 1)
 
               val writer = new FileWriter(options.netlistFile)
               writer.write(netlist.head._2)
               writer.close()
-              console.print(s"Wrote netlist to ${options.netlistFile} (netlist: $netlistTime ms)\n",
+              console.print(s"Wrote netlist to ${options.netlistFile} ($netlistTime ms)\n",
                 ConsoleViewContentType.SYSTEM_OUTPUT)
             } else {
               console.print(s"Not generating netlist, no netlist file specified in run options\n",
-                ConsoleViewContentType.NORMAL_OUTPUT)
+                ConsoleViewContentType.ERROR_OUTPUT)
             }
 
             indicator.setText("EDG compiling: validating")
@@ -217,11 +251,13 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
             BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
           }
       exitCode = pythonInterface.get.shutdown()
-      forwardProcessOutput() // dump remaining process output (shouldn't happen)
+      pythonInterface.get.forwardProcessOutput() // dump remaining process output (shouldn't happen)
     } catch {
       case e: Throwable =>
-        pythonInterface.foreach { pyIf => exitCode = pyIf.shutdown() }
-        forwardProcessOutput()  // dump remaining process output first
+        pythonInterface.foreach { pyIf =>
+          exitCode = pyIf.shutdown()
+          pyIf.forwardProcessOutput()  // dump remaining process output before the final error message
+        }
 
         val stackWriter = new StringWriter()
         e.printStackTrace(new PrintWriter(stackWriter))

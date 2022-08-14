@@ -109,40 +109,8 @@ class EdgCompilerService(project: Project) extends
 
   /** Recompiles a design and all libraries not present in cache
     */
-  def compile(topModule: String, designType: ref.LibraryPath,
-              indicator: Option[ProgressIndicator]): (schema.Design, Compiler, edgrpc.Refinements, Long, Long) = {
-    indicator.foreach(_.setText(s"EDG compiling: cleaning cache"))
-    discardStale()
-
-    indicator.foreach(_.setText(s"EDG compiling: reloading"))
-    val (allLibraries, reloadTime) = timeExec {
-      pyLib.indexModule(topModule) match {
-        case Errorable.Success(indexed) => indexed
-        case Errorable.Error(errMsg) =>
-          notificationGroup.createNotification(
-            s"Failed to reload", s"",
-            s"$errMsg",
-            NotificationType.WARNING)
-              .notify(project)
-          Seq()
-      }
-    }
-
-    indicator.foreach(_.setIndeterminate(false))
-    for ((libraryType, i) <- allLibraries.zipWithIndex) {
-      indicator.foreach(_.setFraction(i.toFloat / allLibraries.size))
-      indicator.foreach(_.setText(s"EDG compiling: library ${libraryType.toSimpleString}"))
-      pyLib.getLibrary(libraryType) match {
-        case Errorable.Success(_) => // ignored
-        case Errorable.Error(errMsg) =>
-          notificationGroup.createNotification(
-            s"Failed to compile ${libraryType.toSimpleString}", s"",
-            s"$errMsg",
-            NotificationType.WARNING)
-              .notify(project)
-      }
-    }
-
+  def compile(designType: ref.LibraryPath,
+              indicator: Option[ProgressIndicator]): (schema.Design, Compiler, edgrpc.Refinements, Long) = {
     indicator.foreach(_.setText(s"EDG compiling: design top"))
     indicator.foreach(_.setIndeterminate(true))
     val ((compiled, compiler, refinements), compileTime) = timeExec {
@@ -186,7 +154,7 @@ class EdgCompilerService(project: Project) extends
       }
       (compiler.compile(), compiler, refinements)
     }
-    (compiled, compiler, refinements, reloadTime, compileTime)
+    (compiled, compiler, refinements, compileTime)
   }
 
   override def getState: EdgCompilerServiceState = {

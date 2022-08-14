@@ -43,19 +43,6 @@ object exceptionNotify {
         notificationGroup.createNotification(e.errMsg, NotificationType.WARNING).notify(project)
     }
   }
-
-  /** Similar to exceptionNotify(...), but the function returns a string that is displayed on success.
-    */
-  def successNotify(notificationId: String, project: Project)(fn: => String): Unit = {
-    val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup(notificationId)
-    try {
-      val result = fn
-      notificationGroup.createNotification(result, NotificationType.INFORMATION).notify(project)
-    } catch {
-      case e: ExceptionNotifyException =>
-        notificationGroup.createNotification(e.errMsg, NotificationType.WARNING).notify(project)
-    }
-  }
 }
 
 
