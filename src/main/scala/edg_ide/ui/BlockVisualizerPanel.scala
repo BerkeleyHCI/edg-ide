@@ -11,7 +11,7 @@ import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, DesignMap, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue}
-import edg.wir.{DesignPath, Library}
+import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
@@ -479,8 +479,8 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   }
 
   private val TOLERANCE_THRESHOLD = 0.25
-  private def paramToUnitsString(path: DesignPath, units: String): String = {
-    compiler.getParamValue(path.asIndirect) match {
+  private def paramToUnitsString(path: IndirectDesignPath, units: String): String = {
+    compiler.getParamValue(path) match {
       case Some(FloatValue(value)) => SiPrefixUtil.unitsToString(value, units)
       case Some(IntValue(value)) => SiPrefixUtil.unitsToString(value.toDouble, units)
       case Some(RangeValue(minValue, maxValue)) =>
@@ -522,9 +522,12 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]) = {
     description.map {
       _.elementType match {
-        case elem.StringDescriptionElement.ElementType.Param(value) => paramToUnitsString(path ++ value.path.get, value.unit)
-        case elem.StringDescriptionElement.ElementType.Text(value) => value
-        case elem.StringDescriptionElement.ElementType.Empty => "ERROR"
+        case elem.StringDescriptionElement.ElementType.Param(value) =>
+          paramToUnitsString(path.asIndirect ++ value.path.get, value.unit)
+        case elem.StringDescriptionElement.ElementType.Text(value) =>
+          value
+        case elem.StringDescriptionElement.ElementType.Empty =>
+          "ERROR"
       }
     }.mkString("")
   }
