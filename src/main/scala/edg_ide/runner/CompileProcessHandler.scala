@@ -13,7 +13,7 @@ import com.jetbrains.python.run.{PythonCommandLineState, PythonRunParams}
 import com.jetbrains.python.sdk.PythonSdkUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{DesignStructuralValidate, ExprToString, ExprValue, PythonInterface}
+import edg.compiler.{DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
@@ -51,7 +51,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
   })
 
 
-  // a dummy-ish provider for PythonRunParams to get the Python interpreter
+  // a dummy-ish provider for PythonRunParams to get the Python interpreter executable
   class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: String) extends PythonRunParams {
     override def getInterpreterOptions: String = ""
     override def setInterpreterOptions(s: String): Unit = throw new NotImplementedError()
@@ -83,6 +83,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     override def setAddSourceRoots(b: Boolean): Unit = throw new NotImplementedError()
   }
 
+  // a PythonInterface that uses the on-event hooks to log to the console
   class LoggingPythonInterface(serverFile: File, pythonInterpreter: String)
       extends PythonInterface(serverFile, pythonInterpreter) {
     def forwardProcessOutput(): Unit = {
@@ -138,6 +139,27 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     }
   }
 
+  def elaborateRecordToProgressString(record: ElaborateRecord): String = record match {
+    case ElaborateRecord.Block(blockPath) => s"block at $blockPath"
+    case ElaborateRecord.Link(linkPath) => s"link at $linkPath"
+    case ElaborateRecord.LinkArray(linkPath) => s"link array at $linkPath"
+    case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) => s"connect $toLinkPortPath - $fromLinkPortPath"
+    case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
+
+    case ElaborateRecord.ResolveArrayAllocated(parent, portPath, _, _, _) =>
+      s"resolving array allocations ${parent ++ portPath}"
+    case ElaborateRecord.RewriteArrayAllocate(parent, portPath, _, _, _) =>
+      s"rewriting array allocates ${parent ++ portPath}"
+    case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
+      s"expanding array connection $parent.$constrName"
+    case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
+      s"rewriting connection allocates ${parent ++ portPath}"
+    case ElaborateRecord.ResolveArrayIsConnected(parent, portPath, _, _, _) =>
+      s"resolving array connectivity ${parent ++ portPath}"
+
+    case record: ElaborateRecord.ElaborateDependency => s"unexpected dependency $record"
+  }
+
   private def createPythonInterface(): Errorable[LoggingPythonInterface] = exceptable {
     val (sdkName, pythonCommand) = ReadAction.compute(() => {
       val pyPsi = PyPsiFacade.getInstance(project)
@@ -176,80 +198,78 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         msg => s"while trying to get Python interpreter path: $msg"
       ).get)
 
-      EdgCompilerService(project).pyLib
-          .withPythonInterface(pythonInterface.get) {
-            val discarded = EdgCompilerService(project).discardStale()
-            if (discarded.nonEmpty) {
-              val discardedNames = discarded.map {
-                _.toSimpleString
-              }.toSeq.sorted.mkString(", ")
-              console.print(s"Discarded ${discarded.size} changed cached libraries: $discardedNames\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
-            } else {
-              console.print(s"No changed libraries detected, no libraries discarded\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
-            }
+      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
+        indicator.setText("EDG compiling: discarding stale")
+        indicator.setIndeterminate(true)
+        val discarded = EdgCompilerService(project).discardStale()
+        if (discarded.nonEmpty) {
+          val discardedNames = discarded.map {
+            _.toSimpleString
+          }.toSeq.sorted.mkString(", ")
+          console.print(s"Discarded ${discarded.size} changed cached libraries: $discardedNames\n",
+            ConsoleViewContentType.SYSTEM_OUTPUT)
+        } else {
+          console.print(s"No changed libraries detected, no libraries discarded\n",
+            ConsoleViewContentType.SYSTEM_OUTPUT)
+        }
 
-            indicator.setText("EDG compiling: rebuilding libraries")
-            indicator.setIndeterminate(true)
-            val designModule = options.designName.split('.').init.mkString(".")
-            val (indexed, indexTime) = timeExec {
-              EdgCompilerService(project).pyLib.indexModule(designModule) match {
-                case Errorable.Success(indexed) => indexed
-                case Errorable.Error(errMsg) =>
-                  console.print(s"Failed to index: $errMsg\n", ConsoleViewContentType.ERROR_OUTPUT)
-                  Seq()
-              }
-            }
-            indicator.setIndeterminate(false)
-            val (_, rebuildTime) = timeExec {
-              for ((libraryType, i) <- indexed.zipWithIndex) {
-                indicator.setFraction(i.toFloat / indexed.size)
-                EdgCompilerService(project).pyLib.getLibrary(libraryType)  // logging handled by pyLib hooks
-              }
-            }
+        indicator.setText("EDG compiling: rebuilding libraries")
+        indicator.setIndeterminate(false)
+        val designModule = options.designName.split('.').init.mkString(".")
+        def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
+          indicator.setFraction(index.toFloat / total)
+        }
+        EdgCompilerService(project).rebuildLibraries(designModule, Some(rebuildProgressFn)) match {
+          case Errorable.Success((indexed, indexTime, rebuildTime)) =>
             console.print(s"Rebuilt ${indexed.size} library elements " +
-              s"(index: $indexTime ms, build: $rebuildTime ms)\n",
+                s"(index: $indexTime ms, build: $rebuildTime ms)\n",
               ConsoleViewContentType.SYSTEM_OUTPUT)
+          case Errorable.Error(errMsg) =>
+            console.print(s"Failed to index: $errMsg\n", ConsoleViewContentType.ERROR_OUTPUT)
+        }
 
-            indicator.setText("EDG compiling: design top")
-            indicator.setIndeterminate(true)
-            val designType = ElemBuilder.LibraryPath(options.designName)
-            val (compiled, compiler, refinements, compileTime) =
-              EdgCompilerService(project).compile(designType, Some(indicator))
-            console.print(s"Compiled ($compileTime ms)\n",
-              ConsoleViewContentType.SYSTEM_OUTPUT)
+        indicator.setText("EDG compiling: design top")
+        indicator.setIndeterminate(true)
+        val designType = ElemBuilder.LibraryPath(options.designName)
+        def compileProgressFn(record: ElaborateRecord): Unit = {
+          indicator.setText(s"EDG compiling: ${elaborateRecordToProgressString(record)}")
+        }
+        val ((compiled, compiler, refinements), compileTime) =
+          EdgCompilerService(project).compile(designType, Some(compileProgressFn))
+        console.print(s"Compiled ($compileTime ms)\n",
+          ConsoleViewContentType.SYSTEM_OUTPUT)
 
-            if (options.netlistFile.nonEmpty) {
-              indicator.setText("EDG compiling: netlisting")
-              val (netlist, netlistTime) = timeExec {
-                 pythonInterface.get.runBackend(
-                   ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
-                   compiled, compiler.getAllSolved
-                 ).mapErr(msg => s"while netlisting: $msg").get
-              }
-              require(netlist.size == 1)
-
-              val writer = new FileWriter(options.netlistFile)
-              writer.write(netlist.head._2)
-              writer.close()
-              console.print(s"Wrote netlist to ${options.netlistFile} ($netlistTime ms)\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
-            } else {
-              console.print(s"Not generating netlist, no netlist file specified in run options\n",
-                ConsoleViewContentType.ERROR_OUTPUT)
-            }
-
-            indicator.setText("EDG compiling: validating")
-            val checker = new DesignStructuralValidate()
-            val errors = compiler.getErrors() ++ checker.map(compiled)
-            if (errors.nonEmpty) {
-              console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
-            }
-
-            BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
-            BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
+        if (options.netlistFile.nonEmpty) {
+          indicator.setText("EDG compiling: netlisting")
+          val (netlist, netlistTime) = timeExec {
+             pythonInterface.get.runBackend(
+               ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
+               compiled, compiler.getAllSolved
+             ).mapErr(msg => s"while netlisting: $msg").get
           }
+          require(netlist.size == 1)
+
+          val writer = new FileWriter(options.netlistFile)
+          writer.write(netlist.head._2)
+          writer.close()
+          console.print(s"Wrote netlist to ${options.netlistFile} ($netlistTime ms)\n",
+            ConsoleViewContentType.SYSTEM_OUTPUT)
+        } else {
+          console.print(s"Not generating netlist, no netlist file specified in run options\n",
+            ConsoleViewContentType.ERROR_OUTPUT)
+        }
+
+        indicator.setText("EDG compiling: validating")
+        val checker = new DesignStructuralValidate()
+        val errors = compiler.getErrors() ++ checker.map(compiled)
+        if (errors.nonEmpty) {
+          console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+        }
+
+        indicator.setText("EDG compiling: updating visualization")
+        BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
+        BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
+      }
       exitCode = pythonInterface.get.shutdown()
       pythonInterface.get.forwardProcessOutput() // dump remaining process output (shouldn't happen)
     } catch {
