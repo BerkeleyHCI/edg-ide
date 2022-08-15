@@ -18,7 +18,8 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary}
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
-import edg_ide.util.DesignAnalysisUtils
+import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
+import edg_ide.util.{DesignAnalysisUtils, exceptable}
 import edgir.ref.ref.LibraryPath
 
 import java.util.concurrent.Callable
@@ -107,86 +108,41 @@ class EdgCompilerService(project: Project) extends
     discarded
   }
 
-  /** Recompiles a design and all libraries not present in cache
-    */
-  def compile(topModule: String, designType: ref.LibraryPath,
-              indicator: Option[ProgressIndicator]): (schema.Design, Compiler, edgrpc.Refinements, Long, Long) = {
-    indicator.foreach(_.setText(s"EDG compiling: cleaning cache"))
-    discardStale()
-
-    indicator.foreach(_.setText(s"EDG compiling: reloading"))
-    val (allLibraries, reloadTime) = timeExec {
-      pyLib.indexModule(topModule) match {
-        case Errorable.Success(indexed) => indexed
-        case Errorable.Error(errMsg) =>
-          notificationGroup.createNotification(
-            s"Failed to reload", s"",
-            s"$errMsg",
-            NotificationType.WARNING)
-              .notify(project)
-          Seq()
+  // Rebuilds library elements, (re)indexing the module and requesting all of them from the compiler.
+  // Does not discard any elements and does not rebuild cached elements
+  // progressFn is called for each library requested, passing in the library, index, and total library count,
+  // for all library elements regardless of whether it's cached.
+  def rebuildLibraries(module: String, progressFn: Option[(ref.LibraryPath, Int, Int) => Unit] = None):
+      Errorable[(Set[ref.LibraryPath], Long, Long)] = exceptable {
+    val (indexed, indexTime) = timeExec {
+      pyLib.indexModule(module).mapErr(msg => s"failed to index: $msg").exceptError.toSet
+    }
+    val (_, rebuildTime) = timeExec {
+      for ((libraryType, i) <- indexed.zipWithIndex) {
+        progressFn.foreach { fn => fn(libraryType, i, indexed.size) }
+        EdgCompilerService(project).pyLib.getLibrary(libraryType)  // run for effect, errors skipped
       }
     }
+    (indexed, indexTime, rebuildTime)
+  }
 
-    indicator.foreach(_.setIndeterminate(false))
-    for ((libraryType, i) <- allLibraries.zipWithIndex) {
-      indicator.foreach(_.setFraction(i.toFloat / allLibraries.size))
-      indicator.foreach(_.setText(s"EDG compiling: library ${libraryType.toSimpleString}"))
-      pyLib.getLibrary(libraryType) match {
-        case Errorable.Success(_) => // ignored
-        case Errorable.Error(errMsg) =>
-          notificationGroup.createNotification(
-            s"Failed to compile ${libraryType.toSimpleString}", s"",
-            s"$errMsg",
-            NotificationType.WARNING)
-              .notify(project)
-      }
-    }
-
-    indicator.foreach(_.setText(s"EDG compiling: design top"))
-    indicator.foreach(_.setIndeterminate(true))
-    val ((compiled, compiler, refinements), compileTime) = timeExec {
+  // Compiles a top level design
+  // progressFn is called (by compiler hook) for each compiler elaborate record
+  def compile(designType: ref.LibraryPath, progressFn: Option[ElaborateRecord => Unit] = None):
+      ((schema.Design, Compiler, edgrpc.Refinements), Long) = {
+    timeExec {
       val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType)
           .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
       val design = schema.Design(contents = Some(block))
 
-      val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
-        refinements = Refinements(refinements)) {
+      val compiler = new Compiler(design, EdgCompilerService(project).pyLib, refinements = Refinements(refinements)) {
         override def onElaborate(record: ElaborateRecord): Unit = {
           super.onElaborate(record)
-          indicator.foreach { indicator =>
-            record match {
-              case ElaborateRecord.Block(blockPath) =>
-                indicator.setText(s"EDG compiling: block at $blockPath")
-              case ElaborateRecord.Link(linkPath) =>
-                indicator.setText(s"EDG compiling: link at $linkPath")
-              case ElaborateRecord.LinkArray(linkPath) =>
-                indicator.setText(s"EDG compiling: link array at $linkPath")
-              case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) =>
-                indicator.setText(s"EDG compiling: connect between $toLinkPortPath - $fromLinkPortPath")
-              case ElaborateRecord.ElaboratePortArray(portPath) =>
-                indicator.setText(s"EDG compiling: expand port array $portPath")
-
-              case ElaborateRecord.ResolveArrayAllocated(parent, portPath, _, _, _) =>
-                indicator.setText(s"EDG compiling: resolving array allocations ${parent ++ portPath}")
-              case ElaborateRecord.RewriteArrayAllocate(parent, portPath, _, _, _) =>
-                indicator.setText(s"EDG compiling: rewriting array allocates ${parent ++ portPath}")
-              case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
-                indicator.setText(s"EDG compiling: expanding array connection $parent.$constrName")
-              case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
-                indicator.setText(s"EDG compiling: rewriting connection allocates ${parent ++ portPath}")
-              case ElaborateRecord.ResolveArrayIsConnected(parent, portPath, _, _, _) =>
-                indicator.setText(s"EDG compiling: resolving array connectivity ${parent ++ portPath}")
-
-              case record: ElaborateRecord.ElaborateDependency =>
-                indicator.setText(s"EDG compiling: unexpected dependency $record")
-            }
-          }
+          progressFn.foreach { fn => fn(record) }
         }
       }
       (compiler.compile(), compiler, refinements)
     }
-    (compiled, compiler, refinements, reloadTime, compileTime)
   }
 
   override def getState: EdgCompilerServiceState = {
