@@ -65,7 +65,8 @@ class FocusToBlockSelectAction(identifier: PsiElement, pyClass: PyClass)
 
 class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends
     LineMarkerInfo[PsiElement](identifier, identifier.getTextRange, AllIcons.Toolwindows.ToolWindowHierarchy,
-      {elem: PsiElement => s"Visualizer Focus to ${pyClass.getName}"}, null, GutterIconRenderer.Alignment.RIGHT) {
+      {elem: PsiElement => s"Visualizer Focus to ${pyClass.getName}"}, null, GutterIconRenderer.Alignment.RIGHT,
+      () => "Visualizer Focus Block") {
   override def createGutterRenderer(): GutterIconRenderer = new LineMarkerGutterIconRenderer[PsiElement](this) {
     override def getClickAction: AnAction = new FocusToBlockSelectAction(identifier, pyClass)
   }
