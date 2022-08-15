@@ -49,7 +49,6 @@ class DesignTopConfigurationFactory(confType: ConfigurationType) extends Configu
 class DesignTopRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var netlistFile: String = ""
-  var buildAllLibraries: Boolean = true
 }
 
 
