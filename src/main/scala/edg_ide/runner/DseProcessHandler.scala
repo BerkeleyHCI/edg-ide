@@ -59,59 +59,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     }
 
     try {
-      pythonInterface = Some(new PythonInterface(
-        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile) {
-
-        override def onLibraryRequest(element: ref.LibraryPath): Unit = {
-          console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-        }
-        override def onLibraryRequestComplete(element: ref.LibraryPath,
-                                              result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
-          forwardProcessOutput()
-          result match {
-            case Errorable.Error(msg) => console.print(msg, ConsoleViewContentType.ERROR_OUTPUT)
-            case _ =>
-          }
-        }
-        override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
-          val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
-              .mkString(", ")
-          console.print(s"Generate ${element.toSimpleString} ($valuesString)\n",
-            ConsoleViewContentType.LOG_INFO_OUTPUT)
-        }
-        override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
-                                                         values: Map[ref.LocalPath, ExprValue],
-                                                         result: Errorable[elem.HierarchyBlock]): Unit = {
-          forwardProcessOutput()
-          result match {
-            case Errorable.Error(msg) => console.print(msg, ConsoleViewContentType.ERROR_OUTPUT)
-            case _ =>
-          }
-        }
-      })
-
-      val (compiled, compiler, refinements, reloadTime, compileTime) = EdgCompilerService(project).pyLib
-          .withPythonInterface(pythonInterface.get) {
-            indicator.setText("EDG compiling")
-
-            val designType = ElemBuilder.LibraryPath(options.designName)
-            val designModule = options.designName.split('.').init.mkString(".")
-            EdgCompilerService(project).compile(designModule, designType, Some(indicator))
-          }
-      exitCode = pythonInterface.get.shutdown()
-      forwardProcessOutput()  // dump remaining process output (shouldn't happen)
-
-      indicator.setText("EDG compiling: validating")
-      val checker = new DesignStructuralValidate()
-      val errors = compiler.getErrors() ++ checker.map(compiled)
-      console.print(s"Compiled (reload: $reloadTime ms, compile: $compileTime ms)\n",
-        ConsoleViewContentType.SYSTEM_OUTPUT)
-      if (errors.nonEmpty) {
-        console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
-      }
-
-      BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
-      BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
+      // TODO IMPLEMENT ME
     } catch {
       case e: Throwable =>
         pythonInterface.foreach { pyIf => exitCode = pyIf.shutdown() }

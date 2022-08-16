@@ -1,26 +1,24 @@
 package edg_ide.ui
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
+import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.components.PersistentStateComponent
-import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
-import edgrpc.hdl.{hdl => edgrpc}
-import edgir.ref.ref
-import edgir.schema.schema
-import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary}
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.util.{DesignAnalysisUtils, exceptable}
+import edgir.ref.ref
 import edgir.ref.ref.LibraryPath
+import edgir.schema.schema
+import edgrpc.hdl.{hdl => edgrpc}
 
 import java.util.concurrent.Callable
 import scala.collection.mutable
