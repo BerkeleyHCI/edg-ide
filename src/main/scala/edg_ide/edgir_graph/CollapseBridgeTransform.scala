@@ -6,7 +6,7 @@ package edg_ide.edgir_graph
 object CollapseBridgeTransform extends CollapseNodeTransform {
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
     val linkNames = node.members.collect {
-      case (name, _) if name.startsWith("(bridge)") || name.startsWith("(adapter)") =>
+      case (name, _) if name.head.startsWith("(bridge)") || name.head.startsWith("(adapter)") =>
         name
     }
 
