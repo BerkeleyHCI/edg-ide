@@ -84,7 +84,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
         // compared to the single design compiler the debug info is a lot sparser here
-        indicator.setText("EDG compiling: rebuilding libraries")
+        indicator.setText("EDG searching: rebuilding libraries")
         indicator.setIndeterminate(true)
         EdgCompilerService(project).discardStale()
         val designModule = options.designName.split('.').init.mkString(".")
@@ -95,14 +95,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         console.print(s"Rebuilt ${indexed.size} library elements\n",
           ConsoleViewContentType.SYSTEM_OUTPUT)
 
+        indicator.setText("EDG searching: compile design top")
+        val designType = ElemBuilder.LibraryPath(options.designName)
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
         val design = schema.Design(contents = Some(block))
         val refinements = Refinements(refinementsPb)
 
-        indicator.setText("EDG compiling: design top")
-        val designType = ElemBuilder.LibraryPath(options.designName)
-
+        indicator.setText("EDG searching: design space")
         for (searchRefinement <- allRefinements) {
           console.print(s"Compile $searchRefinement\n", ConsoleViewContentType.SYSTEM_OUTPUT)
           val ((compiler, compiled), compileTime) = timeExec {
