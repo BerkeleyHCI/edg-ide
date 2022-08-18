@@ -6,8 +6,10 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{DesignStructuralValidate, ExprToString, ExprValue, PythonInterface}
+import edg.compiler.{DesignStructuralValidate, ExprToString, ExprValue, FloatValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils}
+import edg.wir.DesignPath
+import edg_ide.dse.DseParameterSearch
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edgir.elem.elem
 import edgir.ref.ref
@@ -20,6 +22,7 @@ import java.nio.file.Paths
 
 class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, console: ConsoleView)
     extends ProcessHandler {
+  // TODO a lot can be deduplicated from CompileProcessHandler, the non DSE version of this?
   var runThread: Option[Thread] = None
 
   override def destroyProcessImpl(): Unit = {
@@ -39,7 +42,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
   })
 
-
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
     startNotify()
@@ -58,8 +60,46 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
       }}
     }
 
+    val searchConfigs = Seq(
+      DseParameterSearch(DesignPath() + "reg_5v",
+        Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(FloatValue(_)))
+    )
+
     try {
-      // TODO IMPLEMENT ME
+      val (pythonCommand, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName).mapErr(
+        msg => s"while getting Python interpreter path: $msg"
+      ).get
+      console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
+        ConsoleViewContentType.LOG_INFO_OUTPUT)
+      pythonInterface = Some(new LoggingPythonInterface(
+        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile,
+        pythonCommand,
+        console))
+
+
+      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
+        // compared to the single design compiler the debug info is a lot sparser here
+        indicator.setText("EDG compiling: rebuilding libraries")
+        indicator.setIndeterminate(true)
+        EdgCompilerService(project).discardStale()
+        val designModule = options.designName.split('.').init.mkString(".")
+        val (indexed, indexTime, rebuildTime) = EdgCompilerService(project).rebuildLibraries(designModule, None)
+            .mapErr {
+          msg => s"while rebuilding libraries: $msg"
+        }.get
+        console.print(s"Rebuilt ${indexed.size} library elements\n",
+          ConsoleViewContentType.SYSTEM_OUTPUT)
+
+        indicator.setText("EDG compiling: design top")
+        val designType = ElemBuilder.LibraryPath(options.designName)
+
+
+
+        val ((compiled, compiler, refinements), compileTime) =
+          EdgCompilerService(project).compile(designType, None)
+        console.print(s"Compiled ($compileTime ms)\n",
+          ConsoleViewContentType.SYSTEM_OUTPUT)
+      }
     } catch {
       case e: Throwable =>
         pythonInterface.foreach { pyIf => exitCode = pyIf.shutdown() }
