@@ -6,10 +6,10 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{DesignStructuralValidate, ExprToString, ExprValue, FloatValue, PythonInterface}
-import edg.util.{Errorable, StreamUtils}
-import edg.wir.DesignPath
-import edg_ide.dse.DseParameterSearch
+import edg.compiler.{Compiler, DesignStructuralValidate, ExprToString, ExprValue, FloatValue, PythonInterface}
+import edg.util.{Errorable, StreamUtils, timeExec}
+import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
+import edg_ide.dse.{DseObjectiveParameter, DseParameterSearch}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edgir.elem.elem
 import edgir.ref.ref
@@ -64,6 +64,11 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
       DseParameterSearch(DesignPath() + "reg_5v",
         Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(FloatValue(_)))
     )
+    val objectives = Seq(DseObjectiveParameter(IndirectDesignPath() + "reg_5v"))
+    // TODO more generalized cartesian product
+    val allRefinements = searchConfigs.flatMap { searchConfig =>
+      searchConfig.getRefinements
+    }
 
     try {
       val (pythonCommand, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName).mapErr(
@@ -90,15 +95,28 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         console.print(s"Rebuilt ${indexed.size} library elements\n",
           ConsoleViewContentType.SYSTEM_OUTPUT)
 
+        val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
+            .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
+        val design = schema.Design(contents = Some(block))
+        val refinements = Refinements(refinementsPb)
+
         indicator.setText("EDG compiling: design top")
         val designType = ElemBuilder.LibraryPath(options.designName)
 
-
-
-        val ((compiled, compiler, refinements), compileTime) =
-          EdgCompilerService(project).compile(designType, None)
-        console.print(s"Compiled ($compileTime ms)\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
+        for (searchRefinement <- allRefinements) {
+          console.print(s"Compile $searchRefinement\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+          val ((compiler, compiled), compileTime) = timeExec {
+            val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
+              refinements = refinements ++ searchRefinement)
+            val compiled = compiler.compile()
+            (compiler, compiled)
+          }
+          val solvedValues = compiler.getAllSolved
+          val objectiveValues = objectives.map { objective =>
+            objective.calculate(compiled, solvedValues)
+          }
+          console.print(s"($compileTime ms) $objectiveValues\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+        }
       }
     } catch {
       case e: Throwable =>
