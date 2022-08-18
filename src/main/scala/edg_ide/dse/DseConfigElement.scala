@@ -1,6 +1,7 @@
 package edg_ide.dse
 
 import edg.compiler.ExprValue
+import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
 
 
@@ -18,5 +19,12 @@ sealed trait DseRefinementElement extends DseConfigElement {
 case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue]) extends DseRefinementElement {
   override def getRefinements: Seq[Refinements] = values.map { value =>
     Refinements(instanceValues=Map(path -> value))
+  }
+}
+
+// Tries all values for some parameter
+case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath]) extends DseRefinementElement {
+  override def getRefinements: Seq[Refinements] = subclasses.map { value =>
+    Refinements(instanceRefinements=Map(path -> value))
   }
 }
