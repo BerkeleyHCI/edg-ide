@@ -6,7 +6,7 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{Compiler, DesignStructuralValidate, ExprToString, ExprValue, FloatValue, PythonInterface}
+import edg.compiler.{Compiler, DesignStructuralValidate, ExprToString, ExprValue, FloatValue, PythonInterface, RangeValue}
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
 import edg_ide.dse.{DseObjectiveParameter, DseParameterSearch}
@@ -61,10 +61,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     }
 
     val searchConfigs = Seq(
-      DseParameterSearch(DesignPath() + "reg_5v",
-        Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(FloatValue(_)))
+      DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
+        Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05)))
     )
-    val objectives = Seq(DseObjectiveParameter(IndirectDesignPath() + "reg_5v"))
+    val objectives = Seq(
+      DseObjectiveParameter(IndirectDesignPath() + "reg_5v" + "ripple_current_factor"),
+      DseObjectiveParameter(IndirectDesignPath() + "reg_5v" + "power_path" + "inductor" + "inductance"),
+      DseObjectiveParameter(IndirectDesignPath() + "reg_5v" + "power_path" + "inductor_current_ripple"),
+    )
     // TODO more generalized cartesian product
     val allRefinements = searchConfigs.flatMap { searchConfig =>
       searchConfig.getRefinements
