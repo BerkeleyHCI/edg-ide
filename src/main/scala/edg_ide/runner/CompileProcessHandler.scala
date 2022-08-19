@@ -254,6 +254,17 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           EdgCompilerService(project).compile(designType, Some(compileProgressFn))
         console.print(s"Compiled ($compileTime ms)\n",
           ConsoleViewContentType.SYSTEM_OUTPUT)
+        
+        indicator.setText("EDG compiling: validating")
+        val checker = new DesignStructuralValidate()
+        val errors = compiler.getErrors() ++ checker.map(compiled)
+        if (errors.nonEmpty) {
+          console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+        }
+
+        indicator.setText("EDG compiling: updating visualization")
+        BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
+        BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")
@@ -274,17 +285,6 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           console.print(s"Not generating netlist, no netlist file specified in run options\n",
             ConsoleViewContentType.ERROR_OUTPUT)
         }
-
-        indicator.setText("EDG compiling: validating")
-        val checker = new DesignStructuralValidate()
-        val errors = compiler.getErrors() ++ checker.map(compiled)
-        if (errors.nonEmpty) {
-          console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
-        }
-
-        indicator.setText("EDG compiling: updating visualization")
-        BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
-        BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
       }
       exitCode = pythonInterface.get.shutdown()
       pythonInterface.get.forwardProcessOutput() // dump remaining process output (shouldn't happen)
