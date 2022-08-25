@@ -12,6 +12,7 @@ class EdgSettingsComponent {
 
   val mainPanel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
+      .addComponent(new JBLabel("IDE restart may be required to take effect"))
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
 }
