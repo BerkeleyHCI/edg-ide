@@ -14,7 +14,6 @@ class EdgSettingsComponent {
       .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
-
 }
 
 
@@ -28,7 +27,7 @@ class EdgSettingsConfigurable extends Configurable {
 
   override def isModified: Boolean = {
     val settings = EdgSettingsState.getInstance()
-    settings.kicadDirectory == component.kicadDirectoryText.getText
+    settings.kicadDirectory != component.kicadDirectoryText.getText
   }
 
   override def apply(): Unit = {

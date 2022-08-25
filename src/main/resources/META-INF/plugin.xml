@@ -28,11 +28,6 @@
   </extensions>
 
   <actions>
-    <action id="edg_ide.actions.SetKicadLibraryDirectoryAction" class="edg_ide.actions.SetKicadLibraryDirectoryAction"
-            text="Set KiCad Library" description="Set the path to KiCad library">
-      <add-to-group group-id="ToolsMenu" anchor="first"/>
-    </action>
-
     <action id="edg_ide.actions.EmptyCacheAction" class="edg_ide.actions.EmptyCacheAction"
             text="Empty IDE Cache" description="Empty the IDE cache">
       <add-to-group group-id="ToolsMenu" anchor="first"/>

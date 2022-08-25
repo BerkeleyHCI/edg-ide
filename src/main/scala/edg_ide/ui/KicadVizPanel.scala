@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
@@ -29,6 +30,8 @@ import javax.swing.tree.TreePath
 
 
 class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.KicadVizPanel")
+
   // State
   //
   var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] = None  // should be a Block with a footprint and pinning field
@@ -41,24 +44,32 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     var libraryDirectory: Option[File] = None  // TODO should be private / protected, but is in an object :s
 
     // use something invalid so it doesn't try to index a real directory
-    var model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File("doesnt_exist")))
+    val invalidModel = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File("doesnt_exist")))
+    private var model = invalidModel
     private val tree = new TreeTable(model)
     tree.setShowColumns(true)
     tree.setRootVisible(false)
     private val treeScrollPane = new JScrollPane(tree)
 
+    // initialize the contents on startup
+    setLibraryDirectory(EdgSettingsState.getInstance().kicadDirectory)
+
     def setLibraryDirectory(directory: String): Unit = {
       // TODO use File instead of String
-      val filterFunc = (x:String) => x.contains(filterTextBox.getText)
       val directoryFile = new File(directory)
       if (directoryFile.exists()) {
         libraryDirectory = Some(directoryFile)
         model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(directoryFile))
-        tree.setModel(model)
       } else {
         libraryDirectory = None
-        // TODO clear tree model?
+        model = invalidModel
+        notificationGroup.createNotification(
+          s"Invalid KiCad Directory",
+          s"$directory is not a directory",
+          NotificationType.ERROR
+        ).notify(project)
       }
+      tree.setModel(model)
     }
 
     def pathToFootprintName(file: File): Option[String] = {
@@ -313,11 +324,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
   // Configuration State
   //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.kicadLibraryDirectory = FootprintBrowser.libraryDirectory.map(_.getAbsolutePath).getOrElse("")
-  }
+  def saveState(state: BlockVisualizerServiceState): Unit = { }  // none currently
 
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-    FootprintBrowser.setLibraryDirectory(state.kicadLibraryDirectory)
-  }
+  def loadState(state: BlockVisualizerServiceState): Unit = { }  // none currently
 }
