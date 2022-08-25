@@ -35,7 +35,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   // State
   //
   var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] = None  // should be a Block with a footprint and pinning field
-  var footprintSynced: Boolean = false
+  var footprintSynced: Boolean = false  // whether the footprint is assigned to the block (as opposed to peview mode)
 
   object FootprintBrowser extends JPanel {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
@@ -106,7 +106,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
           // TODO also pre-check parse legality here?
           pathToFootprintName(node.file) match {
             case Some(footprintName) =>
-              visualizer.kicadParser.setKicadFile(node.file)
+              visualizer.kicadFootprint = KicadParser.parseKicadFile(node.file)
               visualizer.repaint()
               val footprintStr = footprintName.replace(":", ": ")  // TODO this allows a line break but is hacky
               status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint preview: ${footprintStr}",
@@ -269,7 +269,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
         FootprintBrowser.footprintToFile(footprint) match {
           case Some(footprintFile) =>
-            visualizer.kicadParser.setKicadFile(footprintFile)
+            visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
             visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
             status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint ${footprintStr} at ${blockPath.lastString}",
@@ -310,7 +310,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
     def continuation(added: PsiElement): Unit = {
       InsertAction.navigateToEnd(added)
-      visualizer.kicadParser.setKicadFile(footprintFile)
+      visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
       visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap  // TODO dedup
       footprintSynced = true
       visualizer.repaint()

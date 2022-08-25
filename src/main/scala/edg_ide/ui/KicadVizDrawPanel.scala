@@ -7,7 +7,8 @@ import java.awt.event.MouseWheelEvent
 import javax.swing.JPanel
 
 class KicadVizDrawPanel extends JPanel {
-  val kicadParser = new KicadParser(".")
+  var kicadFootprint = KicadFootprint(Seq())
+
   // TODO offset and offset_mul_factor are messy, should be in one var
   var offset = 0
   var offset_mul_factor = 0.1
@@ -24,23 +25,21 @@ class KicadVizDrawPanel extends JPanel {
   override def paintComponent(g: Graphics): Unit = {
     super.paintComponent(g)
 
-    // TODO don't reparse kicad file on gui update?
-    val components = kicadParser.parseKicadFile()
+    if (kicadFootprint.elts.isEmpty) {
+      return  // otherwise the min fails
+    }
 
-    if (components.isEmpty)
-      return
-
-    val min_x = components.map(c => (c match {
+    val min_x = kicadFootprint.elts.map {
       case Rectangle(x, y, width, height, name) => x
       case Line(x0, y0, x1, y1) => math.min(x0, x1)
-    })).min.abs
+    }.min.abs
 
-    val min_y = components.map(c => (c match {
+    val min_y = kicadFootprint.elts.map {
       case Rectangle(x, y, width, height, name) => y
       case Line(x0, y0, x1, y1) => math.min(y0, y1)
-    })).min.abs
+    }.min.abs
 
-    for (c <- components) {
+    for (c <- kicadFootprint.elts) {
       c match {
         // Notes
         // 1. Lose precision converting int to float
@@ -92,22 +91,21 @@ class KicadVizDrawPanel extends JPanel {
   def getComponentForLocation(locX: Int, locY: Int): Seq[KicadComponent] = {
     // TODO 'widen' lines so that can be selected w/o pinpoint accuracy - see algo in JElkGraph
     // TODO dedup this code w/ draw, this is so much copypaste =(
-    val components = kicadParser.parseKicadFile().toSeq
+    if (kicadFootprint.elts.isEmpty) {
+      return Seq()  // otherwise the min fails
+    }
 
-    if (components.isEmpty)
-      return Seq()
-
-    val min_x = components.map(c => (c match {
+    val min_x = kicadFootprint.elts.map {
       case Rectangle(x, y, width, height, name) => x
       case Line(x0, y0, x1, y1) => math.min(x0, x1)
-    })).min.abs
+    }.min.abs
 
-    val min_y = components.map(c => (c match {
+    val min_y = kicadFootprint.elts.map {
       case Rectangle(x, y, width, height, name) => y
       case Line(x0, y0, x1, y1) => math.min(y0, y1)
-    })).min.abs
+    }.min.abs
 
-    components.flatMap {
+    kicadFootprint.elts.flatMap {
       case comp @ Rectangle(x, y, width, height, name) =>
         val scaledWidth = (width * mul_factor).asInstanceOf[Int]
         val scaledHeight = (height * mul_factor).asInstanceOf[Int]

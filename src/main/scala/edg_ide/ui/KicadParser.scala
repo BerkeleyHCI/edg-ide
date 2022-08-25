@@ -13,16 +13,11 @@ case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) 
 case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
 
 
-class KicadParser(kicadFilePath:String) {
-
-  private var kicadFile: File = new File("")
-
-  def setKicadFile(kicadFile: File): Unit = {
-    this.kicadFile = kicadFile
-  }
+case class KicadFootprint(elts: Seq[KicadComponent])
 
 
-  def containsAtom(slist:SList, atom: String): Boolean = {
+object KicadParser {
+  protected def containsAtom(slist:SList, atom: String): Boolean = {
     val filtered = slist.values.filter {
       case Atom(symbol) if symbol == atom => true
       case _ => false
@@ -34,7 +29,7 @@ class KicadParser(kicadFilePath:String) {
   // Given an SList, scan the SList for the only sublist tagged by `name`
   // i.e. in the list ((a b c) ((d) e f) (d 1 2) d h i), if we search for
   // sublists tagged by 'd', we want to return (d 1 2)
-  def getOnlySublistByName(list: SList, name: String): SList = {
+  protected def getOnlySublistByName(list: SList, name: String): SList = {
     val subLists = list.values
       .filter {
         case _:Atom => false
@@ -63,17 +58,12 @@ class KicadParser(kicadFilePath:String) {
 
   // Given a position-identifying list of the form (name:String, a:Float, b:Float),
   // return (a, b) or throw an Exception
-  def extractPosition(list:SList): (Float, Float) = {
-
+  protected def extractPosition(list:SList): (Float, Float) = {
     list.values match {
-      case (_:Atom) :: (b:Atom) :: (c:Atom) :: Nil =>
-        (b, c) match {
-          case (Atom(xPos), Atom(yPos)) =>
-            (xPos.toFloatOption, yPos.toFloatOption) match {
-              case (Some(xPos), Some(yPos)) => (xPos, yPos)
-              case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
-            }
-          case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
+      case (_:Atom) :: Atom(xPos) :: Atom(yPos) :: Nil =>
+        (xPos.toFloatOption, yPos.toFloatOption) match {
+          case (Some(xPos), Some(yPos)) => (xPos, yPos)
+          case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
         }
 
       case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
@@ -81,7 +71,7 @@ class KicadParser(kicadFilePath:String) {
 
   }
 
-  def parseKicadFile(): List[KicadComponent] = {
+  def parseKicadFile(kicadFile: File): KicadFootprint = {
     try {
       val fileReader = Source.fromFile(kicadFile)
       val lines = fileReader.getLines()
@@ -121,18 +111,18 @@ class KicadParser(kicadFilePath:String) {
       }
 
       fileReader.close()
-      kicadComponents
+      KicadFootprint(kicadComponents)
     }
     catch {
       // Fail noisily but don't crash the plugin -- just don't draw anything
       case e:FileNotFoundException => {}
-        println("Couldn't open kicad file for parsing: ", kicadFilePath)
+        println("Couldn't open kicad file for parsing: ", kicadFile.getName)
         e.printStackTrace()
-        List()
+        KicadFootprint(Seq())
       case t:Throwable =>
         println("Error while parsing kicad file")
         t.printStackTrace()
-        List()
+        KicadFootprint(Seq())
     }
   }
 }
