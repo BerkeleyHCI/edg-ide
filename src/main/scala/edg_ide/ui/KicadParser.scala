@@ -16,6 +16,10 @@ case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) 
   override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
 }
 
+case class Oval(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
+}
+
 case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent {
   override def bounds: ((Float, Float), (Float, Float)) = ((x0, y0), (x1, y1))
 }
@@ -50,8 +54,8 @@ object KicadParser {
   // Given an SList, scan the SList for the only sublist tagged by `name`
   // i.e. in the list ((a b c) ((d) e f) (d 1 2) d h i), if we search for
   // sublists tagged by 'd', we want to return (d 1 2)
-  protected def getOnlySublistByName(list: SList, name: String): SList = {
-    val subLists = list.values
+  protected def getOnlySublistByName(list: Seq[Element], name: String): SList = {
+    val subLists = list
       .filter {
         case _:Atom => false
         case SList(values) =>
@@ -92,6 +96,15 @@ object KicadParser {
 
   }
 
+  // Given a SList with direct child Atoms containing strings that may start and end with quote marks,
+  // returns a new SList with those Atoms with leading and trailing quote marks removed.
+  protected def stripChildAtom(list: SList): SList = {
+    SList(list.values.map {
+      case Atom(atomValue) => Atom(atomValue.stripPrefix("\"").stripSuffix("\""))
+      case elt => elt
+    })
+  }
+
   def parseKicadFile(kicadFile: File): KicadFootprint = {
     try {
       val fileReader = Source.fromFile(kicadFile)
@@ -104,28 +117,23 @@ object KicadParser {
       val parsed = ExpressionParser.parse(s)
 
       val kicadComponents = parsed.values.flatMap {
-        case list: SList if list.values.nonEmpty && list.values.head.isInstanceOf[Atom] =>
-            list.values.head.asInstanceOf[Atom].symbol match {
+        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "rect" || geom =="roundrect" =>
+          val (x, y) = extractPosition(getOnlySublistByName(tail, "at"))
+          val (w, h) = extractPosition(getOnlySublistByName(tail, "size"))
+          Some(Rectangle(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
+        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "oval" || geom == "circle" =>
+          val (x, y) = extractPosition(getOnlySublistByName(tail, "at"))
+          val (w, h) = extractPosition(getOnlySublistByName(tail, "size"))
+          Some(Oval(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
 
-              // Match on the different components we want to handle
-              case "pad" if containsAtom(list, "rect") || containsAtom(list, "roundrect") =>
-                val (x, y) = extractPosition(getOnlySublistByName(list, "at"))
-                val (w, h) = extractPosition(getOnlySublistByName(list, "size"))
-
-                val name = list.values(1).asInstanceOf[Atom].symbol
-                Some(Rectangle(x, y, w, h, name))
-
-              case "fp_line" =>
-                val layerList = getOnlySublistByName(list, "layer")
-                if (layerList.values.contains(Atom("F.SilkS"))) {
-                  val (startX, startY) = extractPosition(getOnlySublistByName(list, "start"))
-                  val (endX, endY) = extractPosition(getOnlySublistByName(list, "end"))
-                  Some(Line(startX, startY, endX, endY))
-                }
-                else
-                  None
-
-              case _ => None
+        case SList(Atom("fp_line") :: tail) =>
+          val layerList = stripChildAtom(getOnlySublistByName(tail, "layer"))
+          if (layerList.values.contains(Atom("F.SilkS"))) {
+            val (startX, startY) = extractPosition(getOnlySublistByName(tail, "start"))
+            val (endX, endY) = extractPosition(getOnlySublistByName(tail, "end"))
+            Some(Line(startX, startY, endX, endY))
+          } else {
+            None
           }
 
         case _ => None
