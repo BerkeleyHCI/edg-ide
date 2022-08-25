@@ -11,6 +11,7 @@ import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
 import edg_ide.dse.{DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
+import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -61,24 +62,25 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     }
 
     val searchConfigs = Seq(
-//      DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
-//        Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))),
       DseSubclassSearch(DesignPath() + "reg_5v",
         Seq(
           "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
           "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
         ).map(value => ElemBuilder.LibraryPath(value))
-      )
+      ),
+      DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
+        Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
+      ),
     )
     val objectives = Seq(
-//      DseObjectiveParameter(IndirectDesignPath() + "reg_5v" + "ripple_current_factor"),
       DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "inductance"),
       DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
-//      DseObjectiveParameter(IndirectDesignPath() + "reg_5v" + "power_path" + "inductor_current_ripple"),
     )
-    // TODO more generalized cartesian product
-    val allRefinements = searchConfigs.flatMap { searchConfig =>
-      searchConfig.getRefinements
+
+    val allRefinements = crossProduct(searchConfigs.map {
+      searchConfig => searchConfig.getRefinements
+    }).map { refinements =>
+      refinements.reduce(_ ++ _)
     }
 
     try {
