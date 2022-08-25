@@ -8,6 +8,14 @@
   <extensions defaultExtensionNs="com.intellij">
     <toolWindow id="BlockVisualizer" icon="AllIcons.Toolwindows.ToolWindowHierarchy" anchor="right"
                 factoryClass="edg_ide.ui.BlockVisualizerFactory"/>
+
+    <applicationService serviceImplementation="edg_ide.ui.EdgSettingsState"/>
+    <applicationConfigurable
+            parentId="tools"
+            instance="edg_ide.ui.EdgSettingsConfigurable"
+            id="edg_ide.ui.EdgSettingsConfigurable"
+            displayName="EDG IDE"/>
+
     <projectService serviceImplementation="edg_ide.ui.BlockVisualizerServiceWrapper"/>
     <projectService serviceImplementation="edg_ide.ui.EdgCompilerServiceWrapper"/>
 
