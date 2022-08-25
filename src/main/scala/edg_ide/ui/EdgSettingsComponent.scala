@@ -1,6 +1,8 @@
 package edg_ide.ui
 
+import com.intellij.openapi.fileChooser.{FileChooserDescriptor, FileChooserDescriptorFactory}
 import com.intellij.openapi.options.Configurable
+import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.components.{JBLabel, JBTextField}
 import com.intellij.util.ui.FormBuilder
 
@@ -8,7 +10,11 @@ import javax.swing.JPanel
 
 
 class EdgSettingsComponent {
-  val kicadDirectoryText = new JBTextField()
+  val kicadDirectoryText = new TextFieldWithBrowseButton()
+  kicadDirectoryText.addBrowseFolderListener(
+    "Choose KiCad Footprint Directory", "", null,
+    FileChooserDescriptorFactory.createSingleFolderDescriptor()
+  )
 
   val mainPanel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
