@@ -189,7 +189,6 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   status.setEditable(false)
   status.setBackground(null)
   private val visualizer = new KicadVizDrawPanel()
-  visualizer.offset = (this.FootprintBrowser.getWidth * 1.2).asInstanceOf[Int] // @TODO clean this up with offset code
   visualizer.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       if (e.getClickCount == 2) {

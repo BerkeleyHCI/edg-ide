@@ -9,9 +9,6 @@ import javax.swing.JPanel
 class KicadVizDrawPanel extends JPanel {
   var kicadFootprint = KicadFootprint(Seq())
 
-  // TODO offset and offset_mul_factor are messy, should be in one var
-  var offset = 0
-  var offset_mul_factor = 0.1
   var mul_factor: Int = 10
 
   addMouseWheelListener((mouseWheelEvent: MouseWheelEvent) => {
@@ -29,16 +26,9 @@ class KicadVizDrawPanel extends JPanel {
       return  // otherwise the min fails
     }
 
-    val min_x = kicadFootprint.elts.map {
-      case Rectangle(x, y, width, height, name) => x
-      case Line(x0, y0, x1, y1) => math.min(x0, x1)
-    }.min.abs
-
-    val min_y = kicadFootprint.elts.map {
-      case Rectangle(x, y, width, height, name) => y
-      case Line(x0, y0, x1, y1) => math.min(y0, y1)
-    }.min.abs
-
+    println(kicadFootprint)
+    println(kicadFootprint.bounds)
+    val ((min_x, min_y), _) = kicadFootprint.bounds
     for (c <- kicadFootprint.elts) {
       c match {
         // Notes
@@ -47,16 +37,16 @@ class KicadVizDrawPanel extends JPanel {
         // 3. It's negative
         case Line(x0, y0, x1, y1) =>
           g.drawLine(
-            (offset + this.getWidth * offset_mul_factor + (min_x + x0) * mul_factor).asInstanceOf[Int],
-            ((min_y + y0) * mul_factor).asInstanceOf[Int],
-            (offset + this.getWidth * offset_mul_factor + (min_x + x1) * mul_factor).asInstanceOf[Int],
-            ((min_y + y1) * mul_factor).asInstanceOf[Int]
+            ((x0 - min_x) * mul_factor).asInstanceOf[Int],
+            ((y0 - min_y) * mul_factor).asInstanceOf[Int],
+            ((x1 - min_x) * mul_factor).asInstanceOf[Int],
+            ((y1 - min_y) * mul_factor).asInstanceOf[Int]
           )
         case Rectangle(x, y, width, height, name) =>
           val scaledWidth = (width * mul_factor).asInstanceOf[Int]
           val scaledHeight = (height * mul_factor).asInstanceOf[Int]
-          val scaledX = ((offset + this.getWidth * offset_mul_factor + (min_x + x) * mul_factor).asInstanceOf[Int]) - (scaledWidth / 2)
-          val scaledY = (((min_y + y) * mul_factor).asInstanceOf[Int]) - (scaledHeight / 2)
+          val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
+          val scaledY = ((y - min_y) * mul_factor).asInstanceOf[Int] - (scaledHeight / 2)
 
           g.drawRect(
             scaledX,
@@ -95,22 +85,13 @@ class KicadVizDrawPanel extends JPanel {
       return Seq()  // otherwise the min fails
     }
 
-    val min_x = kicadFootprint.elts.map {
-      case Rectangle(x, y, width, height, name) => x
-      case Line(x0, y0, x1, y1) => math.min(x0, x1)
-    }.min.abs
-
-    val min_y = kicadFootprint.elts.map {
-      case Rectangle(x, y, width, height, name) => y
-      case Line(x0, y0, x1, y1) => math.min(y0, y1)
-    }.min.abs
-
+    val ((min_x, min_y), _) = kicadFootprint.bounds
     kicadFootprint.elts.flatMap {
       case comp @ Rectangle(x, y, width, height, name) =>
         val scaledWidth = (width * mul_factor).asInstanceOf[Int]
         val scaledHeight = (height * mul_factor).asInstanceOf[Int]
-        val scaledX = ((offset + this.getWidth * offset_mul_factor + (min_x + x) * mul_factor).asInstanceOf[Int]) - (scaledWidth / 2)
-        val scaledY = (((min_y + y) * mul_factor).asInstanceOf[Int]) - (scaledHeight / 2)
+        val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
+        val scaledY = ((y - min_y) * mul_factor).asInstanceOf[Int] - (scaledHeight / 2)
         Option.when(locX >= scaledX && locX <= scaledX+scaledWidth &&
             locY >= scaledY && locY <= scaledY+scaledHeight) {
           comp

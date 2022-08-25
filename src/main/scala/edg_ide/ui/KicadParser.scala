@@ -6,14 +6,35 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 // Kicad IR
-sealed trait KicadComponent
+sealed trait KicadComponent {
+  // Returns bounds as ((xmin, ymin), (xmax, ymax))
+  def bounds: ((Float, Float), (Float, Float))
+}
 // TODO: add layers to this data structure?
 // TODO distinguish pad names from other geometry
-case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent
-case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
+case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
+}
+
+case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) = ((x0, y0), (x1, y1))
+}
 
 
-case class KicadFootprint(elts: Seq[KicadComponent])
+case class KicadFootprint(elts: Seq[KicadComponent]) {
+  // Returns overall bounds as ((xmin, ymin), (xmax, ymax))
+  def bounds: ((Float, Float), (Float, Float)) = {
+    if (elts.isEmpty) {
+      ((0, 0), (0, 0))
+    } else {
+      elts.map(_.bounds).reduce { (elt1, elt2)  =>
+        val ((xmin1, ymin1), (xmax1, ymax1)) = elt1
+        val ((xmin2, ymin2), (xmax2, ymax2)) = elt2
+        ((Seq(xmin1, xmin2).min, Seq(ymin1, ymin2).min), (Seq(xmax1, xmax2).min, Seq(ymax1, ymax2).max))
+      }
+    }
+  }
+}
 
 
 object KicadParser {
@@ -96,7 +117,7 @@ object KicadParser {
 
               case "fp_line" =>
                 val layerList = getOnlySublistByName(list, "layer")
-                if (layerList.values.length == 2 && layerList.values.tail.head == Atom("F.SilkS")) {
+                if (layerList.values.contains(Atom("F.SilkS"))) {
                   val (startX, startY) = extractPosition(getOnlySublistByName(list, "start"))
                   val (endX, endY) = extractPosition(getOnlySublistByName(list, "end"))
                   Some(Line(startX, startY, endX, endY))
