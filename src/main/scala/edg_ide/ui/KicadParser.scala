@@ -11,7 +11,7 @@ sealed trait KicadComponent {
   // Returns bounds as ((xmin, ymin), (xmax, ymax))
   def bounds: ((Float, Float), (Float, Float))
 }
-// TODO: add layers to this data structure?
+
 // TODO distinguish pad names from other geometry
 case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent {
   override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
@@ -52,15 +52,6 @@ case class KicadFootprint(elts: Seq[KicadComponent]) {
 
 
 object KicadParser {
-  protected def containsAtom(slist:SList, atom: String): Boolean = {
-    val filtered = slist.values.filter {
-      case Atom(symbol) if symbol == atom => true
-      case _ => false
-    }
-
-    filtered.nonEmpty
-  }
-
   // Given an SList, scan the SList for the only sublist tagged by `name`
   // i.e. in the list ((a b c) ((d) e f) (d 1 2) d h i), if we search for
   // sublists tagged by 'd', we want to return (d 1 2)
