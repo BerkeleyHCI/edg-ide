@@ -13,11 +13,9 @@ class FootprintBrowserNode(fArg: File) {
   val file: File = fArg
 
   def isValidFile(filename: String): Boolean = {
-    if (filename == null || filename == "" || filename == "." || filename == "..") return false
+    if (filename == "." || filename == "..") return false  // ignore self and up pointers
     val currFile = new File(filename)
-    if (currFile == null) return false
-    val ans = filename.contains(".mod") || filename.contains(".kicad_mod") || currFile.isDirectory
-    ans
+    currFile.exists() && (filename.endsWith(".mod") || filename.endsWith(".kicad_mod") || currFile.isDirectory)
   }
 
   lazy val children: Seq[FootprintBrowserNode] = {
@@ -43,7 +41,6 @@ class FootprintBrowserNode(fArg: File) {
 
 class FootprintBrowserTreeTableModel(file: File) extends SeqTreeTableModel[FootprintBrowserNode] {
   val rootNode: FootprintBrowserNode = new FootprintBrowserNode(file)
-//  print(file.getName)
   val COLUMNS = Seq("Path")
 
   override def getNodeChildren(node: FootprintBrowserNode): Seq[FootprintBrowserNode] = node.children
