@@ -9,7 +9,7 @@ import edg.{ElemBuilder, ExprBuilder}
 import edg.compiler.{Compiler, DesignStructuralValidate, ExprToString, ExprValue, FloatValue, PythonInterface, RangeValue}
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
-import edg_ide.dse.{DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
+import edg_ide.dse.{DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.elem.elem
@@ -74,6 +74,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     )
     val objectives = Seq(
       DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "inductance"),
+      DseObjectiveFootprintArea(DesignPath() + "reg_5v"),
       DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
     )
 
