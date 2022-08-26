@@ -288,10 +288,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   }
 
-  def setKicadLibraryDirectory(directory: String): Unit = {
-    kicadVizPanel.FootprintBrowser.setLibraryDirectory(directory)
-  }
-
   /** Sets the design and updates displays accordingly.
     */
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,

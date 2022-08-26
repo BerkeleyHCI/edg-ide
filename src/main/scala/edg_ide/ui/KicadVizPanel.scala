@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
@@ -29,10 +30,12 @@ import javax.swing.tree.TreePath
 
 
 class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
+  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.KicadVizPanel")
+
   // State
   //
   var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] = None  // should be a Block with a footprint and pinning field
-  var footprintSynced: Boolean = false
+  var footprintSynced: Boolean = false  // whether the footprint is assigned to the block (as opposed to peview mode)
 
   object FootprintBrowser extends JPanel {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
@@ -41,24 +44,32 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     var libraryDirectory: Option[File] = None  // TODO should be private / protected, but is in an object :s
 
     // use something invalid so it doesn't try to index a real directory
-    var model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File("doesnt_exist")))
+    val invalidModel = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File("doesnt_exist")))
+    private var model = invalidModel
     private val tree = new TreeTable(model)
     tree.setShowColumns(true)
     tree.setRootVisible(false)
     private val treeScrollPane = new JScrollPane(tree)
 
+    // initialize the contents on startup
+    setLibraryDirectory(EdgSettingsState.getInstance().kicadDirectory)
+
     def setLibraryDirectory(directory: String): Unit = {
       // TODO use File instead of String
-      val filterFunc = (x:String) => x.contains(filterTextBox.getText)
       val directoryFile = new File(directory)
       if (directoryFile.exists()) {
         libraryDirectory = Some(directoryFile)
         model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(directoryFile))
-        tree.setModel(model)
       } else {
         libraryDirectory = None
-        // TODO clear tree model?
+        model = invalidModel
+        notificationGroup.createNotification(
+          s"Invalid KiCad Directory",
+          s"$directory is not a directory",
+          NotificationType.ERROR
+        ).notify(project)
       }
+      tree.setModel(model)
     }
 
     def pathToFootprintName(file: File): Option[String] = {
@@ -95,7 +106,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
           // TODO also pre-check parse legality here?
           pathToFootprintName(node.file) match {
             case Some(footprintName) =>
-              visualizer.kicadParser.setKicadFile(node.file)
+              visualizer.kicadFootprint = KicadParser.parseKicadFile(node.file)
               visualizer.repaint()
               val footprintStr = footprintName.replace(":", ": ")  // TODO this allows a line break but is hacky
               status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint preview: ${footprintStr}",
@@ -178,7 +189,6 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   status.setEditable(false)
   status.setBackground(null)
   private val visualizer = new KicadVizDrawPanel()
-  visualizer.offset = (this.FootprintBrowser.getWidth * 1.2).asInstanceOf[Int] // @TODO clean this up with offset code
   visualizer.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       if (e.getClickCount == 2) {
@@ -258,7 +268,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
         FootprintBrowser.footprintToFile(footprint) match {
           case Some(footprintFile) =>
-            visualizer.kicadParser.setKicadFile(footprintFile)
+            visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
             visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
             status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint ${footprintStr} at ${blockPath.lastString}",
@@ -299,7 +309,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
     def continuation(added: PsiElement): Unit = {
       InsertAction.navigateToEnd(added)
-      visualizer.kicadParser.setKicadFile(footprintFile)
+      visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
       visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap  // TODO dedup
       footprintSynced = true
       visualizer.repaint()
@@ -313,11 +323,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
   // Configuration State
   //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.kicadLibraryDirectory = FootprintBrowser.libraryDirectory.map(_.getAbsolutePath).getOrElse("")
-  }
+  def saveState(state: BlockVisualizerServiceState): Unit = { }  // none currently
 
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-    FootprintBrowser.setLibraryDirectory(state.kicadLibraryDirectory)
-  }
+  def loadState(state: BlockVisualizerServiceState): Unit = { }  // none currently
 }
