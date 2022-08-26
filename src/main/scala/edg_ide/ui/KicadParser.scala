@@ -1,7 +1,8 @@
 package edg_ide.ui
+import edg_ide.util.AreaUtils
+
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.MalformedInputException
-
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
@@ -20,7 +21,7 @@ case class Oval(x:Float, y:Float, width:Float, height:Float, name: String) exten
   override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
 }
 
-case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent {
+case class Line(x0:Float, y0:Float, x1:Float, y1:Float, layers: Set[String]) extends KicadComponent {
   override def bounds: ((Float, Float), (Float, Float)) = ((x0, y0), (x1, y1))
 }
 
@@ -37,6 +38,17 @@ case class KicadFootprint(elts: Seq[KicadComponent]) {
         ((Seq(xmin1, xmin2).min, Seq(ymin1, ymin2).min), (Seq(xmax1, xmax2).min, Seq(ymax1, ymax2).max))
       }
     }
+  }
+
+  // Calculates the area formed by courtyard lines, if they form a closed path
+  def courtyardArea: Option[Float] = {
+    val courtyardEdges = elts.collect {  // collect courtyard lines and transform structure
+      case Line(x0, y0, x1, y1, layers) if layers.contains("F.CrtYd") =>
+        ((x0, y0), (x1, y1))
+    }
+
+    print(AreaUtils.closedPathOf(courtyardEdges))
+    Some(0)
   }
 }
 
@@ -127,14 +139,12 @@ object KicadParser {
           Some(Oval(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
 
         case SList(Atom("fp_line") :: tail) =>
-          val layerList = stripChildAtom(getOnlySublistByName(tail, "layer"))
-          if (layerList.values.contains(Atom("F.SilkS"))) {
-            val (startX, startY) = extractPosition(getOnlySublistByName(tail, "start"))
-            val (endX, endY) = extractPosition(getOnlySublistByName(tail, "end"))
-            Some(Line(startX, startY, endX, endY))
-          } else {
-            None
-          }
+          val layerList = stripChildAtom(getOnlySublistByName(tail, "layer")).values.collect {
+            case Atom(layer) => layer
+          }.toSet
+          val (startX, startY) = extractPosition(getOnlySublistByName(tail, "start"))
+          val (endX, endY) = extractPosition(getOnlySublistByName(tail, "end"))
+          Some(Line(startX, startY, endX, endY, layerList))
 
         case _ => None
       }

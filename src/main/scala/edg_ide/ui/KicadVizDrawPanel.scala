@@ -29,7 +29,7 @@ class KicadVizDrawPanel extends JPanel {
         // 1. Lose precision converting int to float
         // 2. Scale
         // 3. It's negative
-        case Line(x0, y0, x1, y1) =>
+        case Line(x0, y0, x1, y1, layers) if layers.contains("F.SilkS") || layers.contains("F.CrtYd") =>
           g.drawLine(
             ((x0 - min_x) * mul_factor).asInstanceOf[Int],
             ((y0 - min_y) * mul_factor).asInstanceOf[Int],
