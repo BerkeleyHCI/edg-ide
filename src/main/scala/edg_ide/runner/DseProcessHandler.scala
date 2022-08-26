@@ -73,7 +73,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
       ),
     )
     val objectives = Seq(
-      DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "inductance"),
+      DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
       DseObjectiveFootprintArea(DesignPath() + "reg_5v"),
       DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
     )
