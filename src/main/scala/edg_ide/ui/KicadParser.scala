@@ -46,9 +46,7 @@ case class KicadFootprint(elts: Seq[KicadComponent]) {
       case Line(x0, y0, x1, y1, layers) if layers.contains("F.CrtYd") =>
         ((x0, y0), (x1, y1))
     }
-
-    print(AreaUtils.closedPathOf(courtyardEdges))
-    Some(0)
+    AreaUtils.doubleAreaOf(courtyardEdges).map(_ / 2)
   }
 }
 

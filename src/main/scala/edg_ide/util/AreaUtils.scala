@@ -1,5 +1,7 @@
 package edg_ide.util
 
+import scala.math.Numeric.Implicits.infixNumericOps
+
 
 object AreaUtils {
   // Given a set of unordered lines as ((x0, y0), (x1, y1)), returns the ordered set of points
@@ -41,6 +43,17 @@ object AreaUtils {
       } else {
         Some(possiblePath)
       }
+    }
+  }
+
+  // Calculates twice the area area enclosed by some path.
+  // from https://www.geeksforgeeks.org/slicker-algorithm-to-find-the-area-of-a-polygon-in-java/
+  def doubleAreaOf[NumType : Numeric](lines: Seq[((NumType, NumType), (NumType, NumType))]): Option[NumType] = {
+    val orderedPath = closedPathOf(lines)
+    orderedPath.map { orderedPath =>
+      (orderedPath :+ orderedPath.head).sliding(2).map { case Seq((x0, y0), (x1, y1)) =>
+        (x1 * y0) - (x0 * y1)
+      }.sum.abs
     }
   }
 }
