@@ -118,7 +118,7 @@ object KicadParser {
       val parsed = ExpressionParser.parse(s)
 
       val kicadComponents = parsed.values.flatMap {
-        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "rect" || geom =="roundrect" =>
+        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "rect" || geom == "roundrect" =>
           val (x, y) = extractPosition(getOnlySublistByName(tail, "at"))
           val (w, h) = extractPosition(getOnlySublistByName(tail, "size"))
           Some(Rectangle(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))

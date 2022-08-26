@@ -69,8 +69,8 @@ class KicadVizDrawPanel extends JPanel {
             (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
             DrawAnchored.Top)
 
-        case Oval(x, y, width, height, name) =>
-          val scaledWidth = (width * mul_factor).asInstanceOf[Int]  // TODO dedup w/ Rectangle case?
+        case Oval(x, y, width, height, name) =>  // TODO dedup w/ Rectangle case?
+          val scaledWidth = (width * mul_factor).asInstanceOf[Int]
           val scaledHeight = (height * mul_factor).asInstanceOf[Int]
           val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
           val scaledY = ((y - min_y) * mul_factor).asInstanceOf[Int] - (scaledHeight / 2)
