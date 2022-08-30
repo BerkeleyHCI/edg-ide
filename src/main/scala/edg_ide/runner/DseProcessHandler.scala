@@ -1,24 +1,23 @@
 package edg_ide.runner
 
+import collection.{SeqMap, mutable}
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
-import edg.EdgirUtils.SimpleLibraryPath
-import edg.{ElemBuilder, ExprBuilder}
-import edg.compiler.{Compiler, DesignStructuralValidate, ExprToString, ExprValue, FloatValue, PythonInterface, RangeValue}
-import edg.util.{Errorable, StreamUtils, timeExec}
-import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
-import edg_ide.dse.{DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
-import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
+import de.siegmar.fastcsv.writer.CsvWriter
+import edg.ElemBuilder
+import edg.compiler.{Compiler, DesignStructuralValidate, PythonInterface, RangeValue}
+import edg.util.{StreamUtils, timeExec}
+import edg.wir.{DesignPath, Refinements}
+import edg_ide.dse._
+import edg_ide.ui.EdgCompilerService
 import edg_ide.util.CrossProductUtils.crossProduct
-import edgir.elem.elem
-import edgir.ref.ref
 import edgir.schema.schema
-import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io.{OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
+import scala.jdk.CollectionConverters.IterableHasAsJava
 
 
 class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, console: ConsoleView)
@@ -72,10 +71,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
       ),
     )
-    val objectives = Seq(
-      DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
-      DseObjectiveFootprintArea(DesignPath() + "reg_5v"),
-      DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
+    val objectives = SeqMap(
+      "inductance" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
+      "5v_area" -> DseObjectiveFootprintArea(DesignPath() + "reg_5v"),
+      "5v_count" -> DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
     )
 
     val allRefinements = crossProduct(searchConfigs.map {
@@ -116,8 +115,13 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         val design = schema.Design(contents = Some(block))
         val refinements = Refinements(refinementsPb)
 
+        // Refinement input -> (error count, objectives)
+        val results = mutable.SeqMap[Refinements, (Int, Map[String, Any])]()
+
         indicator.setText("EDG searching: design space")
-        for (searchRefinement <- allRefinements) {
+        indicator.setFraction(0)
+        indicator.setIndeterminate(false)
+        for ((searchRefinement, searchIndex) <- allRefinements.zipWithIndex) {
           console.print(s"Compile $searchRefinement\n", ConsoleViewContentType.SYSTEM_OUTPUT)
           val ((compiler, compiled), compileTime) = timeExec {
             val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
@@ -130,15 +134,39 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
           val errors = compiler.getErrors() ++ checker.map(compiled)
 
           val solvedValues = compiler.getAllSolved
-          val objectiveValues = objectives.map { objective =>
-            objective.calculate(compiled, solvedValues)
+          val objectiveValues = objectives.map { case (name, objective) =>
+            name -> objective.calculate(compiled, solvedValues)
           }
+          results.put(searchRefinement, (errors.size, objectiveValues))
 
           if (errors.nonEmpty) {
             console.print(s"($compileTime ms) ${errors.size} errors, $objectiveValues\n",
               ConsoleViewContentType.ERROR_OUTPUT)
           } else {
             console.print(s"($compileTime ms) $objectiveValues\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+          }
+
+          indicator.setFraction((searchIndex + 1.0) / allRefinements.size)
+        }
+
+        if (options.resultCsvFile.nonEmpty) {
+          indicator.setText("EDG searching: writing results")
+          Option(CsvWriter.builder().build(Paths.get(options.resultCsvFile))) match {
+            case Some(csv) =>
+              val objectiveNames = objectives.keys.toSeq
+              csv.writeRow((Seq("config", "errors") ++ objectiveNames).asJava)  // write header row
+
+              results.foreach { case (refinement, (error, objectiveValues)) =>
+                csv.writeRow((Seq(refinement.toString, error.toString) ++
+                  objectiveNames.map(name => objectiveValues(name).toString)).asJava)
+              }
+              csv.close()
+
+              console.print(s"Wrote results to ${options.resultCsvFile}\n",
+                ConsoleViewContentType.SYSTEM_OUTPUT)
+            case None =>
+              console.print(s"Failed to write ${options.resultCsvFile}\n",
+                ConsoleViewContentType.ERROR_OUTPUT)
           }
         }
       }
