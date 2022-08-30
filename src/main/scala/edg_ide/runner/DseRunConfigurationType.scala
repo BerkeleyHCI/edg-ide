@@ -97,7 +97,7 @@ class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   protected val designName = new JTextField()
   protected val resultCsvFile = new JTextField()
 
-  val panel = FormBuilder.createFormBuilder()
+  protected val panel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("Design top name"), designName, false)
       .addLabeledComponent(new JBLabel("Result CSV file"), resultCsvFile, false)
       .addComponentFillVertically(new JPanel(), 0)

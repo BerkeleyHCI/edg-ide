@@ -10,6 +10,8 @@ import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.JDOMExternalizerUtil
 import com.intellij.psi.search.ExecutionSearchScopes
+import com.intellij.ui.components.JBLabel
+import com.intellij.util.ui.FormBuilder
 import com.jetbrains.python.run.PythonTracebackFilter
 import org.jdom.Element
 
@@ -92,16 +94,14 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
 
 
 class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTopRunConfiguration] {
-  protected val panel = new JPanel()
-  panel.setLayout(new GridLayout(0, 2))
+  protected val designName = new JTextField()
+  protected val netlistFile = new JTextField()  // no browse button b/c FileChooser can't create new files
 
-  panel.add(new JLabel("Design top name"))
-  val designName = new JTextField()
-  panel.add(designName)
-
-  panel.add(new JLabel("Netlist output file"))
-  val netlistFile = new JTextField()  // no browse button b/c FileChooser can't create new filesJTextField
-  panel.add(netlistFile)
+  protected val panel = FormBuilder.createFormBuilder()
+      .addLabeledComponent(new JBLabel("Design top name"), designName, false)
+      .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
+      .addComponentFillVertically(new JPanel(), 0)
+      .getPanel
 
   override def resetEditorFrom(s: DesignTopRunConfiguration): Unit = {
     designName.setText(s.options.designName)
