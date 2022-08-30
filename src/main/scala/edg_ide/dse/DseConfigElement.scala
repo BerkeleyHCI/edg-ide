@@ -22,7 +22,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue]) extends 
   }
 }
 
-// Tries all values for some parameter
+// Tries all subclasses for some block
 case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath]) extends DseRefinementElement {
   override def getRefinements: Seq[Refinements] = subclasses.map { value =>
     Refinements(instanceRefinements=Map(path -> value))

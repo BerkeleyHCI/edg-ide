@@ -17,6 +17,7 @@ sealed trait DseObjective[T] {
   def calculate(design: schema.Design, values: Map[IndirectDesignPath, ExprValue]): T
 }
 
+
 // Utility base class that calculates an objective function by mapping each block,
 // then reducing the results at each level of hierarchy
 trait DseReductionObjective[T] extends DseObjective[T] {
@@ -81,6 +82,7 @@ case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath()) 
     thisArea + blocks.values.sum
   }
 }
+
 
 // Counts the total number of footprints
 case class DseObjectiveFootprintCount(rootDesignPath: DesignPath = DesignPath()) extends DseReductionObjective[Int] {
