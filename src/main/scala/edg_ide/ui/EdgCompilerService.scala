@@ -116,7 +116,7 @@ class EdgCompilerService(project: Project) extends
       pyLib.indexModule(module).mapErr(msg => s"failed to index: $msg").exceptError.toSet
     }
     val (_, rebuildTime) = timeExec {
-      for ((libraryType, i) <- indexed.zipWithIndex) {
+      indexed.toSeq.zipWithIndex.foreach { case (libraryType, i) =>
         progressFn.foreach { fn => fn(libraryType, i, indexed.size) }
         EdgCompilerService(project).pyLib.getLibrary(libraryType)  // run for effect, errors skipped
       }
