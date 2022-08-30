@@ -17,6 +17,8 @@ class DseRunConfigurationProducer extends LazyRunConfigurationProducer[DseRunCon
 
   override def setupConfigurationFromContext(configuration: DseRunConfiguration, context: ConfigurationContext,
                                              sourceElement: Ref[PsiElement]): Boolean = {
+    return false  // DSE is still experimental, so isn't being plumbed through to the UI
+
     Option(PsiTreeUtil.getParentOfType(sourceElement.get(), classOf[PyClass])) match {
       case Some(psiPyClass) =>
         val project = psiPyClass.getProject
