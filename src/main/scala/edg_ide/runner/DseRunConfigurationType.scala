@@ -11,9 +11,12 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.LabeledComponent
 import com.intellij.openapi.util.JDOMExternalizerUtil
 import com.intellij.psi.search.ExecutionSearchScopes
+import com.intellij.ui.components.JBLabel
+import com.intellij.util.ui.FormBuilder
 import com.jetbrains.python.run.PythonTracebackFilter
 import org.jdom.Element
 
+import java.awt.GridLayout
 import javax.swing.{Icon, JComponent, JPanel, JTextField}
 
 
@@ -47,6 +50,7 @@ class DseConfigurationFactory(confType: ConfigurationType) extends Configuration
 
 class DseRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
+  var resultCsvFile: String = ""
 }
 
 
@@ -75,28 +79,38 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
   }
 
   val kFieldDesignName = "DESIGN_NAME"
+  val kFieldResultCsvFile = "RESULT_CSV_FILE"
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName)
+    options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile)
   }
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
+    JDOMExternalizerUtil.writeField(element, kFieldResultCsvFile, options.resultCsvFile)
   }
 }
 
 
 class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
-  protected val panel = new JPanel();
-  protected val designName = LabeledComponent.create(new JTextField(), "Design top name")
-  panel.add(designName)
+  protected val designName = new JTextField()
+  protected val resultCsvFile = new JTextField()
+
+  val panel = FormBuilder.createFormBuilder()
+      .addLabeledComponent(new JBLabel("Design top name"), designName, false)
+      .addLabeledComponent(new JBLabel("Result CSV file"), resultCsvFile, false)
+      .addComponentFillVertically(new JPanel(), 0)
+      .getPanel
 
   override def resetEditorFrom(s: DseRunConfiguration): Unit = {
-    designName.getComponent.setText(s.options.designName)
+    designName.setText(s.options.designName)
+    resultCsvFile.setText(s.options.resultCsvFile)
   }
 
   override def applyEditorTo(s: DseRunConfiguration): Unit = {
-    s.options.designName = designName.getComponent.getText
+    s.options.designName = designName.getText
+    s.options.resultCsvFile = resultCsvFile.getText
   }
 
   override def createEditor(): JComponent = panel
