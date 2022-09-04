@@ -41,8 +41,8 @@ object CompilerErrorNodeBase {
         new CompilerErrorDetailNode(s"Unexpected Missing ElaborateTask Record $rec", "")
       case ElaborateRecord.ParamValue(path) =>
         new CompilerErrorDetailNode("Missing Param Value", path.toString)
-      case ElaborateRecord.ConnectedLink(path) =>
-        new CompilerErrorDetailNode("Missing Connected Link at Port", path.toString)
+      case ElaborateRecord.Port(path) =>
+        new CompilerErrorDetailNode("Missing Port", path.toString)
     }
 
     private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
@@ -97,6 +97,9 @@ object CompilerErrorNodeBase {
         (s"Missing assertion", s"$root:$constrName", missing.toSeq.map { param =>
           new CompilerErrorDetailNode("Missing param", param.toString)
         })
+
+      case CompilerError.InconsistentLinkArrayElements(root, linkElements, blockPortElements) =>
+        (s"Inconsistent link array elements, $linkElements, $blockPortElements", s"$root", Seq())
 
       case CompilerError.EmptyRange(param, root, constrName, value) =>
         (s"Empty range", s"$param", Seq(

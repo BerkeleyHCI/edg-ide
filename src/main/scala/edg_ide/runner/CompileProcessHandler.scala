@@ -173,22 +173,25 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
 
   def elaborateRecordToProgressString(record: ElaborateRecord): String = record match {
+    case ElaborateRecord.ExpandBlock(blockPath) => s"block at $blockPath"
     case ElaborateRecord.Block(blockPath) => s"block at $blockPath"
     case ElaborateRecord.Link(linkPath) => s"link at $linkPath"
     case ElaborateRecord.LinkArray(linkPath) => s"link array at $linkPath"
     case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) => s"connect $toLinkPortPath - $fromLinkPortPath"
     case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
 
+    case ElaborateRecord.AssignLinkElements(_, linkElements, blockPortElements) =>
+      s"assign link elements $linkElements}"
     case ElaborateRecord.ResolveArrayAllocated(parent, portPath, _, _, _) =>
-      s"resolving array allocations ${parent ++ portPath}"
+      s"resolve array allocations ${parent ++ portPath}"
     case ElaborateRecord.RewriteArrayAllocate(parent, portPath, _, _, _) =>
-      s"rewriting array allocates ${parent ++ portPath}"
+      s"rewrite array allocates ${parent ++ portPath}"
     case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
-      s"expanding array connection $parent.$constrName"
+      s"expand array connection $parent.$constrName"
     case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
-      s"rewriting connection allocates ${parent ++ portPath}"
+      s"rewrite connection allocates ${parent ++ portPath}"
     case ElaborateRecord.ResolveArrayIsConnected(parent, portPath, _, _, _) =>
-      s"resolving array connectivity ${parent ++ portPath}"
+      s"resolve array connectivity ${parent ++ portPath}"
 
     case record: ElaborateRecord.ElaborateDependency => s"unexpected dependency $record"
   }
