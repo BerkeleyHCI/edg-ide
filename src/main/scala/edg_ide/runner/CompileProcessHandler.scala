@@ -13,7 +13,7 @@ import com.jetbrains.python.run.{PythonCommandLineState, PythonRunParams}
 import com.jetbrains.python.sdk.PythonSdkUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
+import edg.compiler.{DesignAssertionCheck, DesignRefsValidate, DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
@@ -259,8 +259,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           ConsoleViewContentType.SYSTEM_OUTPUT)
         
         indicator.setText("EDG compiling: validating")
-        val checker = new DesignStructuralValidate()
-        val errors = compiler.getErrors() ++ checker.map(compiled)
+        val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+          new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
         if (errors.nonEmpty) {
           console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
         }
