@@ -41,8 +41,6 @@ object CompilerErrorNodeBase {
         new CompilerErrorDetailNode(s"Unexpected Missing ElaborateTask Record $rec", "")
       case ElaborateRecord.ParamValue(path) =>
         new CompilerErrorDetailNode("Missing Param Value", path.toString)
-      case ElaborateRecord.ConnectedLink(path) =>
-        new CompilerErrorDetailNode("Missing Connected Link at Port", path.toString)
     }
 
     private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
