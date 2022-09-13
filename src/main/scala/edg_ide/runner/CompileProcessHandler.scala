@@ -173,11 +173,13 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
 
   def elaborateRecordToProgressString(record: ElaborateRecord): String = record match {
+    case ElaborateRecord.ExpandBlock(blockPath) => s"block at $blockPath"
     case ElaborateRecord.Block(blockPath) => s"block at $blockPath"
     case ElaborateRecord.Link(linkPath) => s"link at $linkPath"
     case ElaborateRecord.LinkArray(linkPath) => s"link array at $linkPath"
     case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) => s"connect $toLinkPortPath - $fromLinkPortPath"
     case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
+    case ElaborateRecord.AssignLinkElements(target, _, _) => s"link elements at $target"
 
     case ElaborateRecord.ResolveArrayAllocated(parent, portPath, _, _, _) =>
       s"resolving array allocations ${parent ++ portPath}"
