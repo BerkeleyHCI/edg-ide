@@ -179,6 +179,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     case ElaborateRecord.LinkArray(linkPath) => s"link array at $linkPath"
     case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) => s"connect $toLinkPortPath - $fromLinkPortPath"
     case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
+    case ElaborateRecord.AssignLinkElements(target, _, _) => s"link elements at $target"
 
     case ElaborateRecord.AssignLinkElements(_, linkElements, blockPortElements) =>
       s"assign link elements $linkElements}"
