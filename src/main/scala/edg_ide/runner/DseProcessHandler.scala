@@ -7,7 +7,7 @@ import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import de.siegmar.fastcsv.writer.CsvWriter
 import edg.ElemBuilder
-import edg.compiler.{Compiler, DesignStructuralValidate, PythonInterface, RangeValue}
+import edg.compiler.{Compiler, DesignAssertionCheck, DesignRefsValidate, DesignStructuralValidate, PythonInterface, RangeValue}
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.{DesignPath, Refinements}
 import edg_ide.dse._
@@ -132,8 +132,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             (compiler, compiled)
           }
 
-          val checker = new DesignStructuralValidate()
-          val errors = compiler.getErrors() ++ checker.map(compiled)
+          val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+            new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
           val solvedValues = compiler.getAllSolved
           val objectiveValues = objectives.map { case (name, objective) =>

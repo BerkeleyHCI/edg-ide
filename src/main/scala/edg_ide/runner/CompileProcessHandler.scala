@@ -13,7 +13,7 @@ import com.jetbrains.python.run.{PythonCommandLineState, PythonRunParams}
 import com.jetbrains.python.sdk.PythonSdkUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
+import edg.compiler.{DesignAssertionCheck, DesignRefsValidate, DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
@@ -181,16 +181,14 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
     case ElaborateRecord.AssignLinkElements(target, _, _) => s"link elements at $target"
 
-    case ElaborateRecord.ResolveArrayAllocated(parent, portPath, _, _, _) =>
-      s"resolving array allocations ${parent ++ portPath}"
     case ElaborateRecord.RewriteArrayAllocate(parent, portPath, _, _, _) =>
-      s"rewriting array allocates ${parent ++ portPath}"
+      s"rewrite array allocates ${parent ++ portPath}"
     case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
-      s"expanding array connection $parent.$constrName"
+      s"expand array connection $parent.$constrName"
     case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
-      s"rewriting connection allocates ${parent ++ portPath}"
+      s"rewrite connection allocates ${parent ++ portPath}"
     case ElaborateRecord.ResolveArrayIsConnected(parent, portPath, _, _, _) =>
-      s"resolving array connectivity ${parent ++ portPath}"
+      s"resolve array connectivity ${parent ++ portPath}"
 
     case record: ElaborateRecord.ElaborateDependency => s"unexpected dependency $record"
   }
@@ -258,8 +256,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           ConsoleViewContentType.SYSTEM_OUTPUT)
         
         indicator.setText("EDG compiling: validating")
-        val checker = new DesignStructuralValidate()
-        val errors = compiler.getErrors() ++ checker.map(compiled)
+        val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+          new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
         if (errors.nonEmpty) {
           console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
         }
