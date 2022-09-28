@@ -181,8 +181,6 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
     case ElaborateRecord.AssignLinkElements(target, _, _) => s"link elements at $target"
 
-    case ElaborateRecord.RewriteArrayAllocate(parent, portPath, _, _, _) =>
-      s"rewrite array allocates ${parent ++ portPath}"
     case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
       s"expand array connection $parent.$constrName"
     case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
