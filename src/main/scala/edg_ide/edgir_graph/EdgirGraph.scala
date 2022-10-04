@@ -6,6 +6,7 @@ import edgir.expr.expr
 import edg.wir.DesignPath
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.Ref
+import edg.util.MapUtils
 
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(
@@ -98,23 +99,11 @@ object EdgirGraph {
     }.toSeq
   }
 
-  /**
-    * Merges the argument maps, erroring out if there are duplicate names
-    */
-  protected def mergeMapSafe[T](maps: Map[Seq[String], T]*): Map[Seq[String], T] = {
-    maps.flatMap(_.toSeq)  // to a list of pairs in the maps
-        .groupBy(_._1)  // sort by name
-        .map {
-          case (name, Seq((_, value))) => name -> value
-          case (name, values) => throw new Exception(s"block contains ${values.length} conflicting members with name $name: $values")
-        }
-  }
-
   def blockLikeToNode(path: DesignPath, blockLike: elem.BlockLike): EdgirNode = {
     blockLike.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
         // Create sub-nodes and a unified member namespace
-        val allMembers = mergeMapSafe(  // arrays not collapse
+        val allMembers = MapUtils.mergeMapSafe(  // arrays not collapse
           block.ports.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },
           block.blocks.map { case (name, subblock) => Seq(name) -> blockLikeToNode(path + name, subblock) },
           block.links.map{ case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
@@ -137,7 +126,7 @@ object EdgirGraph {
     linkLike.`type` match {
       case elem.LinkLike.Type.Link(link) =>
         // Create sub-nodes and a unified member namespace
-        val allMembers = mergeMapSafe(
+        val allMembers = MapUtils.mergeMapSafe(
           link.ports.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },  // arrays collapsed
           link.links.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
         ).to(SeqMap)
@@ -148,7 +137,7 @@ object EdgirGraph {
         EdgirNode(LinkWrapper(path, linkLike), allMembers, edges)
       case elem.LinkLike.Type.Array(link) =>
         // Create sub-nodes and a unified member namespace
-        val allMembers = mergeMapSafe(
+        val allMembers = MapUtils.mergeMapSafe(
           link.ports.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },  // arrays collapsed
           link.links.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
         ).to(SeqMap)

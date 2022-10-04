@@ -9,16 +9,16 @@ import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg_ide.util.DesignAnalysisUtils
 
-import java.io.File
 
-
-class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[DesignTopRunConfiguration] {
+class DseRunConfigurationProducer extends LazyRunConfigurationProducer[DseRunConfiguration] {
   override def getConfigurationFactory: ConfigurationFactory = {
-    new DesignTopConfigurationFactory(new DesignTopRunConfigurationType)
+    new DseConfigurationFactory(new DseRunConfigurationType)
   }
 
-  override def setupConfigurationFromContext(configuration: DesignTopRunConfiguration, context: ConfigurationContext,
+  override def setupConfigurationFromContext(configuration: DseRunConfiguration, context: ConfigurationContext,
                                              sourceElement: Ref[PsiElement]): Boolean = {
+    return false  // DSE is still experimental, so isn't being plumbed through to the UI
+
     Option(PsiTreeUtil.getParentOfType(sourceElement.get(), classOf[PyClass])) match {
       case Some(psiPyClass) =>
         val project = psiPyClass.getProject
@@ -27,9 +27,6 @@ class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[Des
         if (psiPyClass.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
           configuration.setName(psiPyClass.getQualifiedName)
           configuration.options.designName = psiPyClass.getQualifiedName
-          val containingDirectory = new File(psiPyClass.getContainingFile.getContainingDirectory.getVirtualFile.getPath)
-          val netlistFile = new File(containingDirectory, psiPyClass.getName + ".net")
-          configuration.options.netlistFile = netlistFile.getAbsolutePath
           true
         } else {
           false
@@ -38,7 +35,7 @@ class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[Des
     }
   }
 
-  override def isConfigurationFromContext(configuration: DesignTopRunConfiguration,
+  override def isConfigurationFromContext(configuration: DseRunConfiguration,
                                           context: ConfigurationContext): Boolean = {
     Option(PsiTreeUtil.getParentOfType(context.getLocation.getPsiElement, classOf[PyClass])) match {
       case Some(psiPyClass) =>

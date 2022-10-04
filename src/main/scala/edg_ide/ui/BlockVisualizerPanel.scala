@@ -11,7 +11,7 @@ import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, DesignMap, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue}
-import edg.wir.{DesignPath, Library}
+import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
@@ -288,10 +288,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   }
 
-  def setKicadLibraryDirectory(directory: String): Unit = {
-    kicadVizPanel.FootprintBrowser.setLibraryDirectory(directory)
-  }
-
   /** Sets the design and updates displays accordingly.
     */
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
@@ -419,6 +415,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {
     libraryPanel.setLibrary(library)
+    staleTypes.synchronized {  // assumed that upon recompiling everything is again up to date
+      staleTypes.clear()
+    }
+    updateStale()
   }
 
   // In place design tree modifications
@@ -475,8 +475,8 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   }
 
   private val TOLERANCE_THRESHOLD = 0.25
-  private def paramToUnitsString(path: DesignPath, units: String): String = {
-    compiler.getParamValue(path.asIndirect) match {
+  private def paramToUnitsString(path: IndirectDesignPath, units: String): String = {
+    compiler.getParamValue(path) match {
       case Some(FloatValue(value)) => SiPrefixUtil.unitsToString(value, units)
       case Some(IntValue(value)) => SiPrefixUtil.unitsToString(value.toDouble, units)
       case Some(RangeValue(minValue, maxValue)) =>
@@ -515,69 +515,25 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     textMap.put(path, s"<b>$classString</b> at $path")
   }
 
+  def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]) = {
+    description.map {
+      _.elementType match {
+        case elem.StringDescriptionElement.ElementType.Param(value) =>
+          paramToUnitsString(path.asIndirect ++ value.path.get, value.unit)
+        case elem.StringDescriptionElement.ElementType.Text(value) =>
+          value
+        case elem.StringDescriptionElement.ElementType.Empty =>
+          "ERROR"
+      }
+    }.mkString("")
+  }
+
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
                links: SeqMap[String, Unit]): Unit = {
-    import edg.ElemBuilder.LibraryPath
-
     val classString = block.getSelfClass.toSimpleString
-    val thisClass = block.getSelfClass
-    val additionalDesc = ReadAction.compute(() => {
-      if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_lib.Passives.ESeriesResistor"), project)) {
-        s"\n<b>resistance</b>: ${paramToUnitsString(path + "resistance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "spec_resistance", "Ω")}" +
-            s"\n<b>power rating</b>: ${paramToUnitsString(path + "selected_power_rating", "W")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "power", "W")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.Resistor"), project)) {
-        s"\n<b>resistance</b>: ${paramToUnitsString(path + "resistance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "spec_resistance", "Ω")}" +
-            s"\n<b>spec power</b>: ${paramToUnitsString(path + "power", "W")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_lib.Passives.SmtCeramicCapacitor"), project)) {
-        s" (${paramToString(path + "part")})" +
-            s"\n<b>capacitance</b>: ${paramToUnitsString(path + "selected_capacitance", "F")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "capacitance", "F")}" +
-            s"\n<b>voltage rating</b>: ${paramToUnitsString(path + "selected_voltage_rating", "V")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "voltage", "V")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.UnpolarizedCapacitor"), project)) {
-        s"\n<b>spec capacitance</b>: ${paramToUnitsString(path + "capacitance", "F")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.DecouplingCapacitor"), project)) {
-        s"\n<b>spec capacitance</b>: ${paramToUnitsString(path + "capacitance", "F")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_lib.Passives.SmtInductor"), project)) {
-        s" (${paramToString(path + "part")})" +
-            s"\n<b>inductance</b>: ${paramToUnitsString(path + "selected_inductance", "H")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "inductance", "H")}" +
-            s"\n<b>current rating</b>: ${paramToUnitsString(path + "selected_current_rating", "A")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "current", "A")}" +
-            s"\n<b>frequency rating</b>: ${paramToUnitsString(path + "selected_frequency_rating", "Hz")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "frequency", "Hz")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.AbstractPassives.Inductor"), project)) {
-        s"\n<b>spec inductance</b>: ${paramToUnitsString(path + "inductance", "H")}" +
-            s"\n<b>spec current</b>: ${paramToUnitsString(path + "current", "A")}" +
-            s"\n<b>spec frequency</b>: ${paramToUnitsString(path + "frequency", "Hz")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.ResistiveDivider.ResistiveDivider"), project)) {
-        s"\n<b>ratio</b>: ${paramToUnitsString(path + "selected_ratio", "")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "ratio", "")}" +
-            s"\n<b>impedance</b>: ${paramToUnitsString(path + "selected_impedance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "impedance", "Ω")}"
-      } else if (DesignAnalysisUtils.isSubclassOfPsi(
-        thisClass, LibraryPath("electronics_abstract_parts.ResistiveDivider.BaseVoltageDivider"), project)) {
-        s"\n<b>ratio</b>: ${paramToUnitsString(path + "selected_ratio", "")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "ratio", "")}" +
-            s"\n<b>impedance</b>: ${paramToUnitsString(path + "selected_impedance", "Ω")}" +
-            s" <b>of spec</b>: ${paramToUnitsString(path + "impedance", "Ω")}"
-      } else {
-        ""
-      }
-    })
-    textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
+    val additionalDesc = makeDescriptionString(path, block.description)
+    textMap.put(path, s"<b>$classString</b> at $path\n$additionalDesc")
   }
   override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
     // does nothing
@@ -586,29 +542,8 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   override def mapLink(path: DesignPath, link: elem.Link,
               ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
     val classString = link.getSelfClass.toSimpleString
-    val additionalDesc = classString match {
-      case "VoltageLink" =>
-        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
-            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}"
-      case "DigitalLink" =>
-        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
-            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
-            s"\n<b>output thresholds</b>: ${paramToUnitsString(path + "output_thresholds", "V")}" +
-            s", <b>input thresholds</b>: ${paramToUnitsString(path + "input_thresholds", "V")}"
-      case "AnalogLink" =>
-        s"\n<b>voltage</b>: ${paramToUnitsString(path + "voltage", "V")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "voltage_limits", "V")}" +
-            s"\n<b>current</b>: ${paramToUnitsString(path + "current_drawn", "A")}" +
-            s" <b>of limits</b>: ${paramToUnitsString(path + "current_limits", "A")}" +
-            s"\n<b>sink impedance</b>: ${paramToUnitsString(path + "sink_impedance", "Ω")}" +
-            s", <b>source impedance</b>: ${paramToUnitsString(path + "source_impedance", "Ω")}"
-      case _ => ""
-    }
-    textMap.put(path, s"<b>$classString</b> at $path$additionalDesc")
+    val additionalDesc = makeDescriptionString(path, link.description)
+    textMap.put(path, s"<b>$classString</b> at $path\n$additionalDesc")
   }
   override def mapLinkArray(path: DesignPath, link: elem.LinkArray,
                             ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {

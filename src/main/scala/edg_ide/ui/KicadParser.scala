@@ -1,41 +1,62 @@
 package edg_ide.ui
+import edg_ide.util.AreaUtils
+
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.MalformedInputException
-
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 // Kicad IR
-sealed trait KicadComponent
-// TODO: add layers to this data structure?
+sealed trait KicadComponent {
+  // Returns bounds as ((xmin, ymin), (xmax, ymax))
+  def bounds: ((Float, Float), (Float, Float))
+}
+
 // TODO distinguish pad names from other geometry
-case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent
-case class Line(x0:Float, y0:Float, x1:Float, y1:Float) extends KicadComponent
+case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
+}
+
+case class Oval(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
+}
+
+case class Line(x0:Float, y0:Float, x1:Float, y1:Float, layers: Set[String]) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) = ((x0, y0), (x1, y1))
+}
 
 
-class KicadParser(kicadFilePath:String) {
-
-  private var kicadFile: File = new File("")
-
-  def setKicadFile(kicadFile: File): Unit = {
-    this.kicadFile = kicadFile
-  }
-
-
-  def containsAtom(slist:SList, atom: String): Boolean = {
-    val filtered = slist.values.filter {
-      case Atom(symbol) if symbol == atom => true
-      case _ => false
+case class KicadFootprint(elts: Seq[KicadComponent]) {
+  // Returns overall bounds as ((xmin, ymin), (xmax, ymax))
+  def bounds: ((Float, Float), (Float, Float)) = {
+    if (elts.isEmpty) {
+      ((0, 0), (0, 0))
+    } else {
+      elts.map(_.bounds).reduce { (elt1, elt2)  =>
+        val ((xmin1, ymin1), (xmax1, ymax1)) = elt1
+        val ((xmin2, ymin2), (xmax2, ymax2)) = elt2
+        ((Seq(xmin1, xmin2).min, Seq(ymin1, ymin2).min), (Seq(xmax1, xmax2).min, Seq(ymax1, ymax2).max))
+      }
     }
-
-    filtered.nonEmpty
   }
 
+  // Calculates the area formed by courtyard lines, if they form a closed path
+  def courtyardArea: Option[Float] = {
+    val courtyardEdges = elts.collect {  // collect courtyard lines and transform structure
+      case Line(x0, y0, x1, y1, layers) if layers.contains("F.CrtYd") =>
+        ((x0, y0), (x1, y1))
+    }
+    AreaUtils.doubleAreaOf(courtyardEdges).map(_ / 2)
+  }
+}
+
+
+object KicadParser {
   // Given an SList, scan the SList for the only sublist tagged by `name`
   // i.e. in the list ((a b c) ((d) e f) (d 1 2) d h i), if we search for
   // sublists tagged by 'd', we want to return (d 1 2)
-  def getOnlySublistByName(list: SList, name: String): SList = {
-    val subLists = list.values
+  protected def getOnlySublistByName(list: Seq[Element], name: String): SList = {
+    val subLists = list
       .filter {
         case _:Atom => false
         case SList(values) =>
@@ -63,17 +84,12 @@ class KicadParser(kicadFilePath:String) {
 
   // Given a position-identifying list of the form (name:String, a:Float, b:Float),
   // return (a, b) or throw an Exception
-  def extractPosition(list:SList): (Float, Float) = {
-
+  protected def extractPosition(list:SList): (Float, Float) = {
     list.values match {
-      case (_:Atom) :: (b:Atom) :: (c:Atom) :: Nil =>
-        (b, c) match {
-          case (Atom(xPos), Atom(yPos)) =>
-            (xPos.toFloatOption, yPos.toFloatOption) match {
-              case (Some(xPos), Some(yPos)) => (xPos, yPos)
-              case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
-            }
-          case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
+      case (_:Atom) :: Atom(xPos) :: Atom(yPos) :: Nil =>
+        (xPos.toFloatOption, yPos.toFloatOption) match {
+          case (Some(xPos), Some(yPos)) => (xPos, yPos)
+          case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
         }
 
       case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
@@ -81,7 +97,16 @@ class KicadParser(kicadFilePath:String) {
 
   }
 
-  def parseKicadFile(): List[KicadComponent] = {
+  // Given a SList with direct child Atoms containing strings that may start and end with quote marks,
+  // returns a new SList with those Atoms with leading and trailing quote marks removed.
+  protected def stripChildAtom(list: SList): SList = {
+    SList(list.values.map {
+      case Atom(atomValue) => Atom(atomValue.stripPrefix("\"").stripSuffix("\""))
+      case elt => elt
+    })
+  }
+
+  def parseKicadFile(kicadFile: File): KicadFootprint = {
     try {
       val fileReader = Source.fromFile(kicadFile)
       val lines = fileReader.getLines()
@@ -93,46 +118,39 @@ class KicadParser(kicadFilePath:String) {
       val parsed = ExpressionParser.parse(s)
 
       val kicadComponents = parsed.values.flatMap {
-        case list: SList if list.values.nonEmpty && list.values.head.isInstanceOf[Atom] =>
-            list.values.head.asInstanceOf[Atom].symbol match {
+        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "rect" || geom == "roundrect" =>
+          val (x, y) = extractPosition(getOnlySublistByName(tail, "at"))
+          val (w, h) = extractPosition(getOnlySublistByName(tail, "size"))
+          Some(Rectangle(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
+        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "oval" || geom == "circle" =>
+          val (x, y) = extractPosition(getOnlySublistByName(tail, "at"))
+          val (w, h) = extractPosition(getOnlySublistByName(tail, "size"))
+          Some(Oval(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
 
-              // Match on the different components we want to handle
-              case "pad" if containsAtom(list, "rect") || containsAtom(list, "roundrect") =>
-                val (x, y) = extractPosition(getOnlySublistByName(list, "at"))
-                val (w, h) = extractPosition(getOnlySublistByName(list, "size"))
-
-                val name = list.values(1).asInstanceOf[Atom].symbol
-                Some(Rectangle(x, y, w, h, name))
-
-              case "fp_line" =>
-                val layerList = getOnlySublistByName(list, "layer")
-                if (layerList.values.length == 2 && layerList.values.tail.head == Atom("F.SilkS")) {
-                  val (startX, startY) = extractPosition(getOnlySublistByName(list, "start"))
-                  val (endX, endY) = extractPosition(getOnlySublistByName(list, "end"))
-                  Some(Line(startX, startY, endX, endY))
-                }
-                else
-                  None
-
-              case _ => None
-          }
+        case SList(Atom("fp_line") :: tail) =>
+          val layerList = stripChildAtom(getOnlySublistByName(tail, "layer")).values.collect {
+            case Atom(layer) => layer
+          }.toSet
+          val (startX, startY) = extractPosition(getOnlySublistByName(tail, "start"))
+          val (endX, endY) = extractPosition(getOnlySublistByName(tail, "end"))
+          Some(Line(startX, startY, endX, endY, layerList))
 
         case _ => None
       }
 
       fileReader.close()
-      kicadComponents
+      KicadFootprint(kicadComponents)
     }
     catch {
       // Fail noisily but don't crash the plugin -- just don't draw anything
       case e:FileNotFoundException => {}
-        println("Couldn't open kicad file for parsing: ", kicadFilePath)
+        println("Couldn't open kicad file for parsing: ", kicadFile.getName)
         e.printStackTrace()
-        List()
+        KicadFootprint(Seq())
       case t:Throwable =>
         println("Error while parsing kicad file")
         t.printStackTrace()
-        List()
+        KicadFootprint(Seq())
     }
   }
 }

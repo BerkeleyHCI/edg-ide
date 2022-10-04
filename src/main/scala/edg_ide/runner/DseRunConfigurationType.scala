@@ -8,6 +8,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.LabeledComponent
 import com.intellij.openapi.util.JDOMExternalizerUtil
 import com.intellij.psi.search.ExecutionSearchScopes
 import com.intellij.ui.components.JBLabel
@@ -16,49 +17,48 @@ import com.jetbrains.python.run.PythonTracebackFilter
 import org.jdom.Element
 
 import java.awt.GridLayout
-import javax.swing._
+import javax.swing.{Icon, JComponent, JPanel, JTextField}
 
 
-// Most of this file is boilerplate, based on
-// https://plugins.jetbrains.com/docs/intellij/run-configurations.html#implement-a-run-configuration
-// The main exception is *Configuration.getState, which defines the run execution
-class DesignTopRunConfigurationType extends ConfigurationType {
-  override def getDisplayName: String = "DesignTop"
+// Run configuration for design space exploration (DSE) / search, which tries lots of variations
+// of a design and assesses tradeoffs and finds the pareto front.
+class DseRunConfigurationType extends ConfigurationType {
+  override def getDisplayName: String = "Design Space Search"
 
-  override def getConfigurationTypeDescription: String = "Build a DesignTop"
+  override def getConfigurationTypeDescription: String = "Search a Design Space"
 
-  override def getIcon: Icon = AllIcons.Toolwindows.ToolWindowHierarchy
+  override def getIcon: Icon = AllIcons.Actions.ShortcutFilter
 
   override def getId: String = getClass.getName
 
   override def getConfigurationFactories: Array[ConfigurationFactory] = {
-    Seq(new DesignTopConfigurationFactory(this)).toArray
+    Seq(new DseConfigurationFactory(this)).toArray
   }
 }
 
 
-class DesignTopConfigurationFactory(confType: ConfigurationType) extends ConfigurationFactory(confType) {
+class DseConfigurationFactory(confType: ConfigurationType) extends ConfigurationFactory(confType) {
   override def getId: String = getClass.getName
 
   override def createTemplateConfiguration(project: Project): RunConfiguration = {
-    new DesignTopRunConfiguration(project, this, "DesignTop")
+    new DseRunConfiguration(project, this, "Design Space Search")
   }
 
-  override def getOptionsClass: Class[DesignTopRunConfigurationOptions] = classOf[DesignTopRunConfigurationOptions]
+  override def getOptionsClass: Class[DseRunConfigurationOptions] = classOf[DseRunConfigurationOptions]
 }
 
 
-class DesignTopRunConfigurationOptions extends RunConfigurationOptions {
+class DseRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
-  var netlistFile: String = ""
+  var resultCsvFile: String = ""
 }
 
 
-class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory, name: String)
-    extends RunConfigurationBase[DesignTopRunConfigurationOptions](project, factory, name) {
-  def options: DesignTopRunConfigurationOptions = getOptions.asInstanceOf[DesignTopRunConfigurationOptions]
+class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name: String)
+    extends RunConfigurationBase[DseRunConfigurationOptions](project, factory, name) {
+  def options: DseRunConfigurationOptions = getOptions.asInstanceOf[DseRunConfigurationOptions]
 
-  override def getConfigurationEditor: SettingsEditor[_ <: RunConfiguration] = new DesignTopSettingsEditor(project)
+  override def getConfigurationEditor: SettingsEditor[_ <: RunConfiguration] = new DseSettingsEditor
 
   override def getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState = {
     new RunProfileState {
@@ -72,45 +72,45 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
         val documentManager = FileDocumentManager.getInstance()
         documentManager.saveAllDocuments()
 
-        val processHandler = new CompileProcessHandler(project, options, console)
+        val processHandler = new DseProcessHandler(project, options, console)
         new DefaultExecutionResult(console, processHandler)
       }
     }
   }
 
   val kFieldDesignName = "DESIGN_NAME"
-  val kFieldNetlistName = "NETLIST_NAME"
+  val kFieldResultCsvFile = "RESULT_CSV_FILE"
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName)
-    options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName)
+    options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile)
   }
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
-    JDOMExternalizerUtil.writeField(element, kFieldNetlistName, options.netlistFile)
+    JDOMExternalizerUtil.writeField(element, kFieldResultCsvFile, options.resultCsvFile)
   }
 }
 
 
-class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTopRunConfiguration] {
+class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   protected val designName = new JTextField()
-  protected val netlistFile = new JTextField()  // no browse button b/c FileChooser can't create new files
+  protected val resultCsvFile = new JTextField()
 
   protected val panel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("Design top name"), designName, false)
-      .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
+      .addLabeledComponent(new JBLabel("Result CSV file"), resultCsvFile, false)
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
 
-  override def resetEditorFrom(s: DesignTopRunConfiguration): Unit = {
+  override def resetEditorFrom(s: DseRunConfiguration): Unit = {
     designName.setText(s.options.designName)
-    netlistFile.setText(s.options.netlistFile)
+    resultCsvFile.setText(s.options.resultCsvFile)
   }
 
-  override def applyEditorTo(s: DesignTopRunConfiguration): Unit = {
+  override def applyEditorTo(s: DseRunConfiguration): Unit = {
     s.options.designName = designName.getText
-    s.options.netlistFile = netlistFile.getText
+    s.options.resultCsvFile = resultCsvFile.getText
   }
 
   override def createEditor(): JComponent = panel
