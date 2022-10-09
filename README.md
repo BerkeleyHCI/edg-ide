@@ -4,9 +4,9 @@ An IDE for the [Polymorphic Blocks board-level HDL](https://github.com/BerkeleyH
 Schematic-like actions on the graphical interface (like insert-block or connect-ports) generate into lines of code on the HDL.
 Direct textual edits to the HDL can also be made at any time, and the block diagram can be updated through a fast incremental recompilation.
 
-![IDE Screenshot](PolymorphicBlocks/docs/ide/overview.png)
+![IDE Screenshot](https://raw.githubusercontent.com/BerkeleyHCI/PolymorphicBlocks/master/docs/ide/overview.png)
 
-Once you have [the IDE set up](#setup), follow [the getting started tutorial in PolymorphicBlocks](PolymorphicBlocks/getting-started.md), which introduces the HDL and describes graphical actions.
+Once you have [the IDE set up](#setup), follow [the getting started tutorial in PolymorphicBlocks](https://github.com/BerkeleyHCI/PolymorphicBlocks/blob/master/getting-started.md), which introduces the HDL and describes graphical actions.
 
 For a slightly deeper technical overview, check out our [UIST'21 paper and recorded talks](https://doi.org/10.1145/3472749.3474804).
 
