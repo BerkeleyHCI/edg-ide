@@ -49,6 +49,17 @@ object DesignAnalysisUtils {
     LibraryPath(pyClass.getQualifiedName)
   }
 
+  // For a statement list, eg in a function, returns the super().__init__ call if it exists and is the first statement
+  def firstInitOption(stmts: Seq[PyStatement]): Option[PyCallExpression] = stmts match {
+    case Seq() => None
+    case Seq(headExpr: PyExpressionStatement, tail @ _*) => headExpr.getExpression match {
+      case pyCall: PyCallExpression if pyCall.getCallee.textMatches("super().__init__") => Some(pyCall)
+      case _: PyStringLiteralExpression => firstInitOption(tail)  // skip comments
+      case expr => None  // unknown, ignored
+    }
+    case Seq(head, tail @ _*) => None
+  }
+
   /** For a PyClass, traverses down the init MRO chain, and returns all the arguments
     * accepted by the init accounting for **kwargs propagation.
     *
@@ -99,38 +110,36 @@ object DesignAnalysisUtils {
             }
           }
 
-          initFn.getStatementList.getStatements.headOption match {
-            case Some(pyExpr: PyExpressionStatement) => pyExpr.getExpression match {
-              case pyCall: PyCallExpression if pyCall.getCallee.textMatches("super().__init__") =>
-                var positionalArgsLegal: Boolean = true
-                var numPositionalArgs: Int = 0
-                val keywordArgsUsed = mutable.Set[String]()
-                var takesArgs: Boolean = false
-                var takesKwargs: Boolean = false
-                pyCall.getArgumentList.getArguments.foreach {
-                  case pyStar: PyStarArgument =>  // note is a type of PyExpression
-                    if (argsName.isDefined && pyStar.textMatches(s"*${argsName.get}")) {
-                      positionalArgsLegal = false
-                      takesArgs = true
-                    } else if (kwargsName.isDefined && pyStar.textMatches(s"**${kwargsName.get}")) {
-                      takesKwargs = true
-                    } else {
-                      // ignored TODO should this error?
-                    }
-                  case pyKeyword: PyKeywordArgument =>  // note is a type of PyExpression
+          // recurse through superclasses in the init chain as needed
+          firstInitOption(initFn.getStatementList.getStatements.toSeq) match {
+            case Some(pyCall) =>
+              var positionalArgsLegal: Boolean = true
+              var numPositionalArgs: Int = 0
+              val keywordArgsUsed = mutable.Set[String]()
+              var takesArgs: Boolean = false
+              var takesKwargs: Boolean = false
+              pyCall.getArgumentList.getArguments.foreach {
+                case pyStar: PyStarArgument => // note is a type of PyExpression
+                  if (argsName.isDefined && pyStar.textMatches(s"*${argsName.get}")) {
                     positionalArgsLegal = false
-                    keywordArgsUsed += pyKeyword.getKeyword
-                  case pyExpr: PyExpression =>
-                    requireExcept(positionalArgsLegal, s"invalid superclass call in ${thisClass.getName}")
-                    numPositionalArgs += 1  // assumes well-formatted expr
-                  case _ =>
-                }
-                if (takesArgs || takesKwargs) {  // if it doesn't take either, this don't do anything
-                  processInitOfClass(tail, keywordArgsUsed.toSet, numPositionalArgs, takesArgs, takesKwargs)
-                }
-              case _ =>  // ignored
-            }
-            case _ =>  // ignored, nothing else to do if first isn't an init call
+                    takesArgs = true
+                  } else if (kwargsName.isDefined && pyStar.textMatches(s"**${kwargsName.get}")) {
+                    takesKwargs = true
+                  } else {
+                    // ignored TODO should this error?
+                  }
+                case pyKeyword: PyKeywordArgument => // note is a type of PyExpression
+                  positionalArgsLegal = false
+                  keywordArgsUsed += pyKeyword.getKeyword
+                case pyExpr: PyExpression =>
+                  requireExcept(positionalArgsLegal, s"invalid superclass call in ${thisClass.getName}")
+                  numPositionalArgs += 1 // assumes well-formatted expr
+                case _ =>
+              }
+              if (takesArgs || takesKwargs) { // if it doesn't take either, this don't do anything
+                processInitOfClass(tail, keywordArgsUsed.toSet, numPositionalArgs, takesArgs, takesKwargs)
+              }
+            case None =>
           }
       }
     }

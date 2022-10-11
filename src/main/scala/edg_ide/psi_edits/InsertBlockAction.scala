@@ -50,9 +50,10 @@ object InsertBlockAction {
             // Only create default values for required arguments, ignoring defaults
             // TODO: better detection of "required" args
             val defaultValue = initParam.getDefaultValue
-            if (defaultValue.textMatches("RangeExpr()") || defaultValue.textMatches("FloatExpr()")
+            if (defaultValue == null
+                || defaultValue.textMatches("RangeExpr()") || defaultValue.textMatches("FloatExpr()")
                 || defaultValue.textMatches("IntExpr()") || defaultValue.textMatches("BoolExpr()")
-                || defaultValue.textMatches("StringExpr()") || defaultValue == null) {
+                || defaultValue.textMatches("StringExpr()")) {
               val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
                 initParam.getName, "...")
 
