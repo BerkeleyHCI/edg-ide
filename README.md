@@ -1,6 +1,6 @@
 # edg-ide
 
-An IDE for the [Polymorphic Blocks board-level HDL](https://github.com/BerkeleyHCI/PolymorphicBlocks) that adds a schematic-like graphical interface (with block diagram visualization) side-by-side with the text editor.
+An IDE plugin for the [Polymorphic Blocks board-level HDL](https://github.com/BerkeleyHCI/PolymorphicBlocks) that adds a schematic-like graphical interface (with block diagram visualization) side-by-side with the text editor.
 Schematic-like actions on the graphical interface (like insert-block or connect-ports) generate into lines of code on the HDL.
 Direct textual edits to the HDL can also be made at any time, and the block diagram can be updated through a fast incremental recompilation.
 
