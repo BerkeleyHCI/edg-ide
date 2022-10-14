@@ -6,7 +6,7 @@ Direct textual edits to the HDL can also be made at any time, and the block diag
 
 ![IDE Screenshot](https://raw.githubusercontent.com/BerkeleyHCI/PolymorphicBlocks/master/docs/ide/overview.png)
 
-Once you have [the IDE set up](#setup), follow [the getting started tutorial in PolymorphicBlocks](https://github.com/BerkeleyHCI/PolymorphicBlocks/blob/master/getting-started.md), which introduces the HDL and describes graphical actions.
+Check out [the getting started tutorial in PolymorphicBlocks](https://github.com/BerkeleyHCI/PolymorphicBlocks/blob/master/getting-started.md), which introduces the HDL and walks through major IDE features.
 
 For a slightly deeper technical overview, check out our [UIST'21 paper and recorded talks](https://doi.org/10.1145/3472749.3474804).
 
