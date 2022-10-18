@@ -264,6 +264,9 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
+        indicator.setText("EDG compiling: printing PDF")
+        // TODO error checking for PDF parsing
+
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")
           val (netlist, netlistTime) = timeExec {

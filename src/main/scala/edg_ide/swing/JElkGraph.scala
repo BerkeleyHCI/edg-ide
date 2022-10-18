@@ -267,9 +267,12 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     }
 
     paintBlock(scaledG, this.getBackground, rootNode)
-    val pdfGen = new PDFGeneratorUtil
-    paintBlock(pdfGen.graphics, this.getBackground, rootNode)
-    pdfGen.close
+    val pdfGen = new PDFGeneratorUtil(
+      rootNode.getWidth,
+      rootNode.getHeight,
+      "test.pdf")
+    paintBlock(pdfGen.graphics, Color.white, rootNode)
+    pdfGen.close()
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
