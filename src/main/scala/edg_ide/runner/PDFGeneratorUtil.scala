@@ -1,9 +1,8 @@
-package edg_ide.ui
-import com.lowagie.text.Rectangle
-import com.lowagie.text.pdf.PdfWriter
-import com.lowagie.text.Document
+package edg_ide.runner
 
-import java.awt.Graphics2D
+import com.lowagie.text.{Document, Rectangle}
+import com.lowagie.text.pdf.PdfWriter
+
 import java.io.FileOutputStream
 
 

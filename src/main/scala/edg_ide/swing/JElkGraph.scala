@@ -1,5 +1,6 @@
 package edg_ide.swing
 
+import edg_ide.runner.PDFGeneratorUtil
 import org.eclipse.elk.graph._
 import org.eclipse.elk.core.options._
 
@@ -9,7 +10,6 @@ import java.awt._
 import javax.swing.{JComponent, Scrollable}
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 import collection.mutable
-import edg_ide.ui.PDFGeneratorUtil
 
 
 class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)

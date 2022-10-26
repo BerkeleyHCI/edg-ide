@@ -264,6 +264,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
+
+
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")
           val (netlist, netlistTime) = timeExec {
