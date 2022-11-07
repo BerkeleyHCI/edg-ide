@@ -13,12 +13,37 @@ import edg_ide.swing.JElkGraph
 object GraphicsPaintingUtil {
   private var zoomLevel: Float = 1.0f
   private val margin: Int = 32
+  private var rootNode: Option[ElkNode] = None
+  private var showTop: Boolean = false
+  private var selected: Set[ElkGraphElement] = Set()
+  private var highlighted: Option[Set[ElkGraphElement]] = None
+
+  def notReady(): Boolean ={
+    rootNode.get == None
+  }
 
   def setZoom(zoom: Float): Unit = {
     zoomLevel = zoom
   }
 
   def getZoom = zoomLevel
+
+  def setRootNode(node: ElkNode): Unit ={
+    rootNode = Option(node)
+  }
+
+  def setShowTop(show: Boolean): Unit ={
+    showTop = show
+  }
+
+  def setSelected(elts: Set[ElkGraphElement]): Unit = {
+    selected = elts
+  }
+
+  def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
+    highlighted = elts
+  }
+
 
   def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
     new Color(
@@ -29,8 +54,8 @@ object GraphicsPaintingUtil {
   }
 
   // Modify the base graphics for filling some element, eg by highlighted status
-  protected def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
+  def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+    if (element == rootNode.get && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
@@ -44,7 +69,7 @@ object GraphicsPaintingUtil {
 
   // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
   protected def strokeGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
+    if (element == rootNode.get && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
@@ -63,9 +88,9 @@ object GraphicsPaintingUtil {
 
 
   // Modify the base graphics for drawing some text, eg by highlighted status
-  protected def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+  def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     // Main difference is stroke isn't bolded
-    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
+    if (element == rootNode.get && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
@@ -92,6 +117,8 @@ object GraphicsPaintingUtil {
       (point1, point2)
     }.toSeq
   }
+
+  val EDGE_CLICK_WIDTH = 5.0f // how thick edges are for click detection purposes
 
   def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
     def shapeContainsPoint( shape: ElkShape, point: (Double, Double)): Boolean = {
@@ -151,7 +178,40 @@ object GraphicsPaintingUtil {
     }
 
     val elkPoint = ((x - margin) / zoomLevel.toDouble, (y - margin) / zoomLevel.toDouble) // transform points to elk-space
-    intersectNode(rootNode, elkPoint)
+    intersectNode(rootNode.get, elkPoint)
+  }
+
+  // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
+  // text should be drawn.
+  def transformLabelCoords(g: Graphics2D, label: ElkLabel, placement: Set[NodeLabelPlacement]): (Double, Double) = {
+    val fontMetrics = g.getFontMetrics(g.getFont)
+
+    val textWidth = fontMetrics.stringWidth(label.getText)
+    val textHeight = fontMetrics.getMaxAscent
+
+    if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
+      (label.getX + label.getWidth / 2 - textWidth / 2, // shift X to centerline
+        label.getY + textHeight)
+    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP,
+      NodeLabelPlacement.OUTSIDE).subsetOf(placement)) { // inside means bottom-anchored
+      (label.getX,
+        label.getY + label.getHeight)
+    } else if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM).subsetOf(placement)) {
+      (label.getX + label.getWidth / 2 - textWidth / 2,
+        label.getY + label.getHeight)
+    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
+      (label.getX,
+        label.getY + textHeight)
+    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
+      (label.getX,
+        label.getY + label.getHeight / 2 + textHeight / 2)
+    } else if (Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
+      (label.getX + label.getWidth - textWidth,
+        label.getY + label.getHeight / 2 + textHeight / 2)
+    } else { // fallback: center anchored
+      (label.getX + label.getWidth / 2 - textWidth / 2,
+        label.getY + label.getHeight / 2 + textHeight / 2)
+    }
   }
 
   // Render an edge, including all its sections
@@ -222,7 +282,7 @@ object GraphicsPaintingUtil {
     }
   }
 
-  def paintComponent(paintGraphics: Graphics): Unit = {
+  def paintComponent(paintGraphics: Graphics, backGround: Color): Unit = {
     val scaling = new AffineTransform()
     scaling.scale(zoomLevel, zoomLevel)
     val scaledG = paintGraphics.create().asInstanceOf[Graphics2D]
@@ -263,7 +323,6 @@ object GraphicsPaintingUtil {
       }
     }
 
-    paintBlock(scaledG, this.getBackground, rootNode)
-
+    paintBlock(scaledG, backGround, rootNode.get)
   }
 }

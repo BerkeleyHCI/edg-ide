@@ -25,8 +25,6 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   override def getZoom = zoomLevel
 
-
-
   // Selection operations
   //
   protected var selected: Set[ElkGraphElement] = Set()
@@ -58,48 +56,40 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   def getGraph: ElkNode = rootNode
 
-  // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
-  // text should be drawn.
-  def transformLabelCoords(g: Graphics2D, label: ElkLabel, placement: Set[NodeLabelPlacement]): (Double, Double) = {
-    val fontMetrics = g.getFontMetrics(g.getFont)
+  def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
+    GraphicsPaintingUtil.blendColor(baseColor, topColor, factor)
+  }
 
-    val textWidth = fontMetrics.stringWidth(label.getText)
-    val textHeight = fontMetrics.getMaxAscent
+  protected def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+    GraphicsPaintingUtil.fillGraphics(base, background, element)
+  }
 
-    if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
-      (label.getX + label.getWidth / 2 - textWidth / 2, // shift X to centerline
-        label.getY + textHeight)
-    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP,
-      NodeLabelPlacement.OUTSIDE).subsetOf(placement)) { // inside means bottom-anchored
-      (label.getX,
-        label.getY + label.getHeight)
-    } else if (Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM).subsetOf(placement)) {
-      (label.getX + label.getWidth / 2 - textWidth / 2,
-        label.getY + label.getHeight)
-    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_TOP).subsetOf(placement)) {
-      (label.getX,
-        label.getY + textHeight)
-    } else if (Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
-      (label.getX,
-        label.getY + label.getHeight / 2 + textHeight / 2)
-    } else if (Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER).subsetOf(placement)) {
-      (label.getX + label.getWidth - textWidth,
-        label.getY + label.getHeight / 2 + textHeight / 2)
-    } else { // fallback: center anchored
-      (label.getX + label.getWidth / 2 - textWidth / 2,
-        label.getY + label.getHeight / 2 + textHeight / 2)
-    }
+  protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, nodeBackground: Color, edge: ElkEdge): Unit = {
+    GraphicsPaintingUtil.paintEdge(parentG, blockG, nodeBackground, edge)
+  }
+
+  protected def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+    GraphicsPaintingUtil.textGraphics(base, background, element)
+  }
+
+  def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
+    GraphicsPaintingUtil.getElementForLocation(x, y)
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    GraphicsPaintingUtil.paintComponent(paintGraphics)
+    println(rootNode.getWidth + " , " + rootNode.getHeight)
+    GraphicsPaintingUtil.setRootNode(rootNode)
+    GraphicsPaintingUtil.setShowTop(showTop)
+    GraphicsPaintingUtil.setSelected(selected)
+    GraphicsPaintingUtil.setHighlighted(highlighted)
+    GraphicsPaintingUtil.paintComponent(paintGraphics, this.getBackground)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
   setAutoscrolls(true)
   // TODO proper drag support
 
-  val EDGE_CLICK_WIDTH = 5.0f // how thick edges are for click detection purposes
+
 
   addMouseListener(new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
@@ -114,13 +104,20 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   override def getToolTipText(e: MouseEvent): String = {
-    getElementForLocation(e.getX, e.getY) match {
+    GraphicsPaintingUtil.getElementForLocation(e.getX, e.getY) match {
       case None => null
       case Some(element) => elementToolTips.get(element) match {
         case None => null
         case Some(text) => text
       }
     }
+//    getElementForLocation(e.getX, e.getY) match {
+//      case None => null
+//      case Some(element) => elementToolTips.get(element) match {
+//        case None => null
+//        case Some(text) => text
+//      }
+//    }
   }
 
   // Scrollable APIs

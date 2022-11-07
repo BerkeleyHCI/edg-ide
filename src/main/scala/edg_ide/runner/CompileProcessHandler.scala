@@ -16,6 +16,7 @@ import edg.ElemBuilder
 import edg.compiler.{DesignAssertionCheck, DesignRefsValidate, DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
+import edg_ide.swing.GraphicsPaintingUtil
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
@@ -265,7 +266,16 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
         // TODO: create PDF here
-        PDFGeneratorUtil.generate("test")
+        var printPDF: Boolean = false
+        while(!printPDF){
+          println("waiting")
+          console.print("waiting for GraphicsPaintingUtil to be populated", ConsoleViewContentType.SYSTEM_OUTPUT)
+          if(!GraphicsPaintingUtil.notReady()) {
+            PDFGeneratorUtil.generate("test.pdf")
+            printPDF = true
+          }
+        }
+
 
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")
