@@ -264,7 +264,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
-
+        // TODO: create PDF here
+        PDFGeneratorUtil.generate("test")
 
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")
