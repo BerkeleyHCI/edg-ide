@@ -110,12 +110,22 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         console.print(s"Rebuilt ${indexed.size} library elements\n",
           ConsoleViewContentType.SYSTEM_OUTPUT)
 
-        indicator.setText("EDG searching: compile design top")
+        indicator.setText("EDG searching: compile base design")
         val designType = ElemBuilder.LibraryPath(options.designName)
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
         val design = schema.Design(contents = Some(block))
         val refinements = Refinements(refinementsPb)
+
+        val partialCompile = searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
+        console.print(s"Compile base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+        val (commonCompiler, commonCompileTime) = timeExec {
+          val commonCompiler = new Compiler(design, EdgCompilerService(project).pyLib,
+            refinements = refinements, partial = partialCompile)
+          commonCompiler.compile()
+          commonCompiler
+        }
+        console.print(s"($commonCompileTime ms) compiled base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
 
         // Refinement input -> (error count, objectives)
         val results = mutable.SeqMap[Refinements, (Int, Map[String, Any])]()
@@ -126,8 +136,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         for ((searchRefinement, searchIndex) <- allRefinements.zipWithIndex) {
           console.print(s"Compile $searchRefinement\n", ConsoleViewContentType.SYSTEM_OUTPUT)
           val ((compiler, compiled), compileTime) = timeExec {
-            val compiler = new Compiler(design, EdgCompilerService(project).pyLib,
-              refinements = refinements ++ searchRefinement)
+            val compiler = commonCompiler.fork(searchRefinement)
             val compiled = compiler.compile()
             (compiler, compiled)
           }
