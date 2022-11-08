@@ -1,8 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
@@ -17,7 +15,7 @@ import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
-import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
+import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -60,8 +58,6 @@ object Gbc {
 
 
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
-  private val logger = Logger.getInstance(classOf[BlockVisualizerPanel])
-
   // Internal State
   //
   private var design = schema.Design()
@@ -146,8 +142,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI Components
   //
-  private val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.BlockVisualizerPanel")
-
   private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
 
   // GUI: Top half (status and block visualization)
