@@ -58,7 +58,6 @@ object Gbc {
 
 
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
-  
   // Internal State
   //
   private var design = schema.Design()
