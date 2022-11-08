@@ -118,7 +118,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
 
         console.print(s"Compile base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
         val partialCompile = searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
-        val (refinements, removedRefinements) = Refinements(refinementsPb).valuesFiltered(
+        val (removedRefinements, refinements) = Refinements(refinementsPb).partitionBy(
           partialCompile.blocks.toSet, partialCompile.params.toSet
         )
         if (!removedRefinements.isEmpty) {
