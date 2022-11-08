@@ -115,10 +115,16 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
         val design = schema.Design(contents = Some(block))
-        val refinements = Refinements(refinementsPb)
 
-        val partialCompile = searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
         console.print(s"Compile base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+        val partialCompile = searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
+        val (refinements, removedRefinements) = Refinements(refinementsPb).valuesFiltered(
+          partialCompile.blocks.toSet, partialCompile.params.toSet
+        )
+        if (!removedRefinements.isEmpty) {
+          console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+        }
+
         val (commonCompiler, commonCompileTime) = timeExec {
           val commonCompiler = new Compiler(design, EdgCompilerService(project).pyLib,
             refinements = refinements, partial = partialCompile)
