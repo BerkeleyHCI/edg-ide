@@ -1,6 +1,5 @@
 package edg_ide.swing
 
-import com.intellij.util.ui.UIUtil
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
