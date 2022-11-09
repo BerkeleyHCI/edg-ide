@@ -11,7 +11,7 @@ object RefinementsNodes {
       (subclass.source, subclass.getReplacement)
     }.collect {
       case (edgrpc.Refinements.Subclass.Source.Cls(srcType), replaceType) =>
-        RefinementsDetailNode(srcType.toSimpleString, replaceType.toSimpleString)
+        new RefinementsDetailNode(srcType.toSimpleString, replaceType.toSimpleString)
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Class Subclasses"
@@ -22,7 +22,7 @@ object RefinementsNodes {
       (subclass.source, subclass.getReplacement)
     }.collect {
       case (edgrpc.Refinements.Subclass.Source.Path(srcPath), replaceType) =>
-        RefinementsDetailNode(ExprToString(srcPath), replaceType.toSimpleString)
+        new RefinementsDetailNode(ExprToString(srcPath), replaceType.toSimpleString)
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Instance Subclasses"
@@ -33,7 +33,7 @@ object RefinementsNodes {
       (value.source, value.getValue)
     }.collect {
       case (edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam), replaceValue) =>
-        RefinementsDetailNode(
+        new RefinementsDetailNode(
           srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
           ExprToString(replaceValue))
     }
@@ -46,14 +46,14 @@ object RefinementsNodes {
       (value.source, value.getValue)
     }.collect {
       case (edgrpc.Refinements.Value.Source.Path(srcPath), replaceValue) =>
-        RefinementsDetailNode(ExprToString(srcPath), ExprToString(replaceValue))
+        new RefinementsDetailNode(ExprToString(srcPath), ExprToString(replaceValue))
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Instance Values"
   }
 
   // Freeform node with arbitrary text and path
-  case class RefinementsDetailNode(target: String, value: String) extends ElementDetailNode {
+  class RefinementsDetailNode(target: String, value: String) extends ElementDetailNode {
     override lazy val children = Seq()
     override def getColumns(index: Int): String = value
     override def toString: String = target
