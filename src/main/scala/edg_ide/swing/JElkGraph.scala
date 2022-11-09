@@ -11,7 +11,6 @@ import collection.mutable
 class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   extends JComponent with Scrollable with Zoomable {
   private val elementToolTips = mutable.Map[ElkGraphElement, String]()
-
   private var zoomLevel: Float = 1.0f
   private val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
   private val painter = new ElkNodePainter(rootNode, showTop)
@@ -22,19 +21,12 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   override def getZoom = zoomLevel
 
-  // Selection operations
-  //
-  protected var selected: Set[ElkGraphElement] = Set()
-
   def setSelected(elts: Set[ElkGraphElement]): Unit = {
-    selected = elts
-    painter.setSelected(selected)
+    painter.setSelected(elts)
     validate()
     repaint()
   }
 
-  // TODO: See if highlighted & selected are still needed anymore
-  //  or can they just be passed down to ElkNodePainter
   protected var highlighted: Option[Set[ElkGraphElement]] = None
 
   def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
@@ -49,7 +41,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   def setGraph(newGraph: ElkNode): Unit = {
     elementToolTips.clear()
     highlighted = None
-    selected = Set()
+    painter.setSelected(Set())
     rootNode = newGraph
     painter.setRootNode(rootNode)
     revalidate()
