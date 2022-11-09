@@ -4,6 +4,7 @@ import com.intellij.openapi.application.{ApplicationManager, ModalityState, Read
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
+import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -195,8 +196,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI: Bottom half (design tree and task tabs)
   //
+  private val bottomPanel = new JPanel(new GridBagLayout())
+  mainSplitter.setSecondComponent(bottomPanel)
+
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
-  mainSplitter.setSecondComponent(bottomSplitter)
+  bottomPanel.add(bottomSplitter, Gbc(0, 0, GridBagConstraints.BOTH))
 
   private var designTreeModel = new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel)
@@ -249,6 +253,15 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
   val TAB_KICAD_VIZ = 3
+
+
+  // GUI: Design Space Exploration (bottom tab)
+  //
+  private val dseSeparator = new CollapsibleTitledSeparator("Design Space Exploration")
+  bottomPanel.add(dseSeparator, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
+
+  private val dsePanel = new DseConfigPanel()
+  bottomPanel.add(dsePanel, Gbc(0, 2, GridBagConstraints.BOTH))
 
 
   setLayout(new BorderLayout())
