@@ -14,7 +14,7 @@ object RefinementsNodes {
         new RefinementsDetailNode(srcType.toSimpleString, replaceType.toSimpleString)
     }
     override def getColumns(index: Int): String = ""
-    override def toString: String = "Subclass Refinement"
+    override def toString: String = "Subclass Refinements"
   }
 
   class InstanceRefinementsNode(refinements: edgrpc.Refinements) extends ElementDetailNode {
@@ -25,7 +25,7 @@ object RefinementsNodes {
         new RefinementsDetailNode(ExprToString(srcPath), replaceType.toSimpleString)
     }
     override def getColumns(index: Int): String = ""
-    override def toString: String = "Instance Subclass Refinement"
+    override def toString: String = "Instance Subclass Refinements"
   }
 
   class ClassValuesNode(refinements: edgrpc.Refinements) extends ElementDetailNode {
@@ -38,7 +38,7 @@ object RefinementsNodes {
           ExprToString(replaceValue))
     }
     override def getColumns(index: Int): String = ""
-    override def toString: String = "Class Values Refinement"
+    override def toString: String = "Class Values Refinements"
   }
 
   class InstanceValuesNode(refinements: edgrpc.Refinements) extends ElementDetailNode {
@@ -49,7 +49,7 @@ object RefinementsNodes {
         new RefinementsDetailNode(ExprToString(srcPath), ExprToString(replaceValue))
     }
     override def getColumns(index: Int): String = ""
-    override def toString: String = "Instance Value Refinement"
+    override def toString: String = "Instance Value Refinements"
   }
 
   // Freeform node with arbitrary text and path
