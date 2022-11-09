@@ -61,6 +61,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Internal State
   //
   private var design = schema.Design()
+  private var refinements = edgrpc.Refinements()
   private var compiler = new Compiler(design, EdgCompilerService(project).pyLib)
 
   // Shared state, access should be synchronized on the variable
@@ -112,7 +113,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
     override def setDetailView(path: DesignPath): Unit = {
       tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
-      detailPanel.setLoaded(path, design, compiler)
+      detailPanel.setLoaded(path, design, refinements, compiler)
       kicadVizPanel.setBlock(path, design, compiler)
     }
 
@@ -236,22 +237,18 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   tabbedPane.addTab("Library", libraryPanel)
   val TAB_INDEX_LIBRARY = 0
 
-  private val refinementsPanel = new RefinementsPanel()
-  tabbedPane.addTab("Refinements", refinementsPanel)
-  val TAB_INDEX_REFINEMENTS = 1
-
   private val detailPanel = new DetailPanel()
   tabbedPane.addTab("Detail", detailPanel)
-  val TAB_INDEX_DETAIL = 2
+  val TAB_INDEX_DETAIL = 1
 
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
-  val TAB_INDEX_ERRORS = 3
+  val TAB_INDEX_ERRORS = 2
 
   // add a tab for kicad visualization
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
-  val TAB_KICAD_VIZ = 4
+  val TAB_KICAD_VIZ = 3
 
 
   setLayout(new BorderLayout())
@@ -287,7 +284,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
                    errors: Seq[CompilerError]): Unit = {
     setDesign(design, compiler)
-    refinementsPanel.setRefinements(refinements)
+    this.refinements = refinements
     tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
     errorPanel.setErrors(errors)
 
@@ -301,7 +298,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateDisplay()
   }
 
-  /** Updates the design tree only
+  /** Updates the design tree only, where the overall "top design" does not change.
+    * Mainly used for speculative updates on graphical edit actions.
     */
   def setDesign(design: schema.Design, compiler: Compiler): Unit = {
     // Update state
@@ -431,7 +429,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
     libraryPanel.saveState(state)
-    refinementsPanel.saveState(state)
     detailPanel.saveState(state)
     errorPanel.saveState(state)
     kicadVizPanel.saveState(state)
@@ -443,7 +440,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)
     libraryPanel.loadState(state)
-    refinementsPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
     kicadVizPanel.loadState(state)
@@ -548,34 +544,6 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
   }
-
-
-}
-
-class RefinementsPanel extends JPanel {
-  private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
-  new TreeTableSpeedSearch(tree)
-  tree.setShowColumns(true)
-  tree.setRootVisible(false)
-  private val treeScrollPane = new JBScrollPane(tree)
-
-  setLayout(new BorderLayout())
-  add(treeScrollPane)
-
-  // Actions
-  //
-  def setRefinements(refinements: edgrpc.Refinements): Unit = {
-    tree.setModel(new RefinementsTreeTableModel(refinements))
-    tree.setRootVisible(false)
-  }
-
-  // Configuration State
-  //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-  }
-
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-  }
 }
 
 
@@ -591,8 +559,8 @@ class DetailPanel extends JPanel {
 
   // Actions
   //
-  def setLoaded(path: DesignPath, root: schema.Design, compiler: Compiler): Unit = {
-    tree.setModel(new ElementDetailTreeModel(path, root, compiler))
+  def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
+    tree.setModel(new ElementDetailTreeModel(path, root, refinements, compiler))
   }
 
   // Configuration State

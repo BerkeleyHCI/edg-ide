@@ -1,6 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edgrpc.hdl.{hdl => edgrpc}
 import edgir.common.common
 import edgir.elem.elem
 import edgir.expr.expr
@@ -33,7 +34,7 @@ object ElementDetailNode {
 }
 
 
-class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
+class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements) {
   sealed trait BasePortNode extends ElementDetailNode {
     val path: DesignPath
     val fromLink: Boolean
@@ -152,6 +153,16 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
           new MetadataNode("Metadata", meta)
         },
         Some(new ConstraintsNode(path, block.constraints.sortKeysFrom(nameOrder))),
+        if (path == DesignPath()) {  // display refinements if root
+          Seq(
+            new RefinementsNodes.ClassRefinementsNode(refinements),
+            new RefinementsNodes.InstanceRefinementsNode(refinements),
+            new RefinementsNodes.ClassValuesNode(refinements),
+            new RefinementsNodes.InstanceValuesNode(refinements)
+          )
+        } else {
+          Seq()
+        },
         block.params.sortKeysFrom(nameOrder).map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
         },
@@ -356,9 +367,11 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler) {
 }
 
 
-class ElementDetailTreeModel(path: DesignPath, root: schema.Design, compiler: Compiler) extends SeqTreeTableModel[ElementDetailNode] {
+class ElementDetailTreeModel(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements,
+                             compiler: Compiler) extends SeqTreeTableModel[ElementDetailNode] {
   val (rootBlockPath, rootBlock) = EdgirUtils.resolveDeepestBlock(path, root)
-  val rootNode: ElementDetailNode = new ElementDetailNodes(root, compiler).BlockNode(rootBlockPath, rootBlock)
+  val rootNode: ElementDetailNode = new ElementDetailNodes(root, compiler, refinements)
+    .BlockNode(rootBlockPath, rootBlock)
   val COLUMNS = Seq("Item", "Value")
 
   // TreeView abstract methods
