@@ -1,39 +1,21 @@
 package edg_ide.swing
 
-import edg_ide.runner.PDFGeneratorUtil
-import org.eclipse.elk.graph._
 import org.eclipse.elk.core.options._
-import java.awt.geom.AffineTransform
+import org.eclipse.elk.graph._
+
 import java.awt._
+import java.awt.geom.AffineTransform
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
-import collection.mutable
-import edg_ide.swing.JElkGraph
 
 
-object GraphicsPaintingUtil {
+class ElkNodePainter(val rootNode: ElkNode, var showTop: Boolean = false) {
   private var zoomLevel: Float = 1.0f
   private val margin: Int = 32
-  private var rootNode: Option[ElkNode] = None
-  private var showTop: Boolean = false
   private var selected: Set[ElkGraphElement] = Set()
   private var highlighted: Option[Set[ElkGraphElement]] = None
 
-  def notReady(): Boolean ={
-    rootNode.get == None
-  }
-
   def setZoom(zoom: Float): Unit = {
     zoomLevel = zoom
-  }
-
-  def getZoom = zoomLevel
-
-  def setRootNode(node: ElkNode): Unit ={
-    rootNode = Option(node)
-  }
-
-  def setShowTop(show: Boolean): Unit ={
-    showTop = show
   }
 
   def setSelected(elts: Set[ElkGraphElement]): Unit = {
@@ -55,7 +37,7 @@ object GraphicsPaintingUtil {
 
   // Modify the base graphics for filling some element, eg by highlighted status
   def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    if (element == rootNode.get && !showTop) { // completely transparent for root if not showing top
+    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
@@ -69,7 +51,7 @@ object GraphicsPaintingUtil {
 
   // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
   protected def strokeGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    if (element == rootNode.get && !showTop) { // completely transparent for root if not showing top
+    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
@@ -90,7 +72,7 @@ object GraphicsPaintingUtil {
   // Modify the base graphics for drawing some text, eg by highlighted status
   def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     // Main difference is stroke isn't bolded
-    if (element == rootNode.get && !showTop) { // completely transparent for root if not showing top
+    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
@@ -121,7 +103,7 @@ object GraphicsPaintingUtil {
   val EDGE_CLICK_WIDTH = 5.0f // how thick edges are for click detection purposes
 
   def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
-    def shapeContainsPoint( shape: ElkShape, point: (Double, Double)): Boolean = {
+    def shapeContainsPoint(shape: ElkShape, point: (Double, Double)): Boolean = {
       (shape.getX <= point._1 && point._1 <= shape.getX + shape.getWidth) &&
         (shape.getY <= point._2 && point._2 <= shape.getY + shape.getHeight)
     }
@@ -178,8 +160,9 @@ object GraphicsPaintingUtil {
     }
 
     val elkPoint = ((x - margin) / zoomLevel.toDouble, (y - margin) / zoomLevel.toDouble) // transform points to elk-space
-    intersectNode(rootNode.get, elkPoint)
+    intersectNode(rootNode, elkPoint)
   }
+
 
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
   // text should be drawn.
@@ -214,6 +197,7 @@ object GraphicsPaintingUtil {
     }
   }
 
+
   // Render an edge, including all its sections
   def paintEdge(parentG: Graphics2D, blockG: Graphics2D, nodeBackground: Color, edge: ElkEdge): Unit = {
     // HACK PATCH around a (probable?) ELK bug
@@ -240,6 +224,7 @@ object GraphicsPaintingUtil {
       }
     }
   }
+
 
   // Render a node, including its labels, but not its ports
   def paintNode(g: Graphics2D, nodeBackground: Color, node: ElkNode): Unit = {
@@ -282,6 +267,7 @@ object GraphicsPaintingUtil {
     }
   }
 
+
   def paintComponent(paintGraphics: Graphics, backGround: Color): Unit = {
     val scaling = new AffineTransform()
     scaling.scale(zoomLevel, zoomLevel)
@@ -323,6 +309,6 @@ object GraphicsPaintingUtil {
       }
     }
 
-    paintBlock(scaledG, backGround, rootNode.get)
+    paintBlock(scaledG, backGround, rootNode)
   }
 }

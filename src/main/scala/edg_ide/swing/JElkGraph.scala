@@ -1,15 +1,11 @@
 package edg_ide.swing
 
-import edg_ide.runner.PDFGeneratorUtil
 import org.eclipse.elk.graph._
-import org.eclipse.elk.core.options._
 
-import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.geom.AffineTransform
 import java.awt._
+import java.awt.event.{MouseAdapter, MouseEvent}
 import javax.swing.{JComponent, Scrollable}
-import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
-import collection.mutable
+import scala.collection.mutable
 
 
 class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
@@ -18,6 +14,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   private var zoomLevel: Float = 1.0f
   private val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
+  private val painter = new ElkNodePainter(rootNode, showTop)
 
   override def setZoom(zoom: Float): Unit = {
     zoomLevel = zoom
@@ -31,6 +28,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   def setSelected(elts: Set[ElkGraphElement]): Unit = {
     selected = elts
+    painter.setSelected(selected)
     validate()
     repaint()
   }
@@ -39,6 +37,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
 
   def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
     highlighted = elts
+    painter.setHighlighted(highlighted)
     validate()
     repaint()
   }
@@ -57,38 +56,33 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   def getGraph: ElkNode = rootNode
 
   def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
-    GraphicsPaintingUtil.blendColor(baseColor, topColor, factor)
+    painter.blendColor(baseColor, topColor, factor)
   }
 
   protected def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    GraphicsPaintingUtil.fillGraphics(base, background, element)
+    painter.fillGraphics(base, background, element)
   }
 
   protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, nodeBackground: Color, edge: ElkEdge): Unit = {
-    GraphicsPaintingUtil.paintEdge(parentG, blockG, nodeBackground, edge)
+    painter.paintEdge(parentG, blockG, nodeBackground, edge)
   }
 
   protected def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    GraphicsPaintingUtil.textGraphics(base, background, element)
+    painter.textGraphics(base, background, element)
   }
 
   def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
-    GraphicsPaintingUtil.getElementForLocation(x, y)
+    painter.getElementForLocation(x, y)
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    println(rootNode.getWidth + " , " + rootNode.getHeight)
-    GraphicsPaintingUtil.setRootNode(rootNode)
-    GraphicsPaintingUtil.setShowTop(showTop)
-    GraphicsPaintingUtil.setSelected(selected)
-    GraphicsPaintingUtil.setHighlighted(highlighted)
-    GraphicsPaintingUtil.paintComponent(paintGraphics, this.getBackground)
+    painter.setZoom(zoomLevel)
+    painter.paintComponent(paintGraphics, this.getBackground)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
   setAutoscrolls(true)
   // TODO proper drag support
-
 
 
   addMouseListener(new MouseAdapter {
@@ -104,20 +98,13 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   override def getToolTipText(e: MouseEvent): String = {
-    GraphicsPaintingUtil.getElementForLocation(e.getX, e.getY) match {
+    painter.getElementForLocation(e.getX, e.getY) match {
       case None => null
       case Some(element) => elementToolTips.get(element) match {
         case None => null
         case Some(text) => text
       }
     }
-//    getElementForLocation(e.getX, e.getY) match {
-//      case None => null
-//      case Some(element) => elementToolTips.get(element) match {
-//        case None => null
-//        case Some(text) => text
-//      }
-//    }
   }
 
   // Scrollable APIs

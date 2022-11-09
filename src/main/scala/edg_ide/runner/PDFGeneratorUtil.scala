@@ -2,7 +2,8 @@ package edg_ide.runner
 
 import com.lowagie.text.{Document, Rectangle}
 import com.lowagie.text.pdf.PdfWriter
-import edg_ide.swing.GraphicsPaintingUtil
+import edg_ide.swing.ElkNodePainter
+import org.eclipse.elk.graph.ElkNode
 
 import java.awt.Color
 import java.io.FileOutputStream
@@ -10,23 +11,18 @@ import java.io.FileOutputStream
 
 object PDFGeneratorUtil{
 
-  private var width: Double = 1000.0
-  private var height: Double = 1000.0
-
-  def setDimensions(w: Double, h: Double): Unit ={
-    width = w
-    height = h
-  }
-
-  def generate(fileName: String): Unit ={
-    val document = new Document(new Rectangle(width.toFloat, height.toFloat))
+  def generate(rootNode: ElkNode, fileName: String): Unit ={
+    val width = rootNode.getWidth.toFloat
+    val height = rootNode.getHeight.toFloat
+    val document = new Document(new Rectangle(width, height))
     val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
     document.open()
     val cb = writer.getDirectContent
-    val graphics = cb.createGraphics(width.toFloat, height.toFloat)
+    val graphics = cb.createGraphics(width, height)
 
     println("In PDF Util, painting")
-    GraphicsPaintingUtil.paintComponent(graphics, Color.white)
+    val painter = new ElkNodePainter(rootNode)
+    painter.paintComponent(graphics, Color.white)
 
     graphics.dispose()
     document.close()

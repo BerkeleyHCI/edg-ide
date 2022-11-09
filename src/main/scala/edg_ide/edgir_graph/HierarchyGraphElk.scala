@@ -1,6 +1,11 @@
 package edg_ide.edgir_graph
 
 import com.intellij.openapi.diagnostic.Logger
+import edg.ElemBuilder.LibraryPath
+import edg.wir.DesignPath
+import edg_ide.EdgirUtils
+import edg_ide.ui.DesignToolTipTextMap
+import edgir.elem.elem.HierarchyBlock
 import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
 import org.eclipse.elk.core.RecursiveGraphLayoutEngine
 import org.eclipse.elk.core.data.LayoutMetaDataService
@@ -173,6 +178,35 @@ object HierarchyGraphElk {
 
     engine.layout(root, new BasicProgressMonitor())
     root
+  }
+
+
+  // Experimental
+  def HGraphToElkGraph(content: HierarchyBlock, focusPath: DesignPath = DesignPath(), depth: Int = 1): ElkNode ={
+
+    // For now, this only updates the graph visualization, which can change with focus.
+    // In the future, maybe this will also update or filter the design tree.
+    val edgirGraph = EdgirGraph.blockToNode(focusPath, content)
+    val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
+      4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
+    val transformedGraph = highFanoutTransform(
+      CollapseLinkTransform(CollapseBridgeTransform(
+        InferEdgeDirectionTransform(SimplifyPortTransform(
+          PruneDepthTransform(edgirGraph, depth))))))
+
+    val name = if (focusPath == DesignPath()) {
+      "(root)"
+    } else {
+      focusPath.steps.last
+    }
+
+    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
+      name,
+      Seq(ElkEdgirGraphUtils.DesignPathMapper),
+      // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
+      focusPath != DesignPath())  // need to make a root so root doesn't have ports
+
+    layoutGraphRoot
   }
 }
 
