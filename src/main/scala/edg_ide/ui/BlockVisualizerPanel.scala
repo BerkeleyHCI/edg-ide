@@ -237,7 +237,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   tabbedPane.addTab("Library", libraryPanel)
   val TAB_INDEX_LIBRARY = 0
 
-  private val detailPanel = new DetailPanel()
+  private val detailPanel = new DetailPanel(DesignPath(), design, refinements, compiler)
   tabbedPane.addTab("Detail", detailPanel)
   val TAB_INDEX_DETAIL = 1
 
@@ -547,10 +547,11 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
 }
 
 
-class DetailPanel extends JPanel {
+class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements: edgrpc.Refinements,
+                  initCompiler: Compiler) extends JPanel {
   import edg_ide.swing.ElementDetailTreeModel
 
-  private val tree = new TreeTable(new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock()))
+  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, initRoot, initRefinements, initCompiler))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
 
