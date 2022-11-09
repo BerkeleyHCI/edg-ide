@@ -5,7 +5,7 @@ import org.eclipse.elk.graph._
 import java.awt._
 import java.awt.event.{MouseAdapter, MouseEvent}
 import javax.swing.{JComponent, Scrollable}
-import scala.collection.mutable
+import collection.mutable
 
 
 class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
@@ -33,6 +33,8 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     repaint()
   }
 
+  // TODO: See if highlighted & selected are still needed anymore
+  //  or can they just be passed down to ElkNodePainter
   protected var highlighted: Option[Set[ElkGraphElement]] = None
 
   def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
@@ -49,6 +51,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
     highlighted = None
     selected = Set()
     rootNode = newGraph
+    painter.setRootNode(rootNode)
     revalidate()
     repaint()
   }

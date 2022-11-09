@@ -8,7 +8,7 @@ import java.awt.geom.AffineTransform
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
 
-class ElkNodePainter(val rootNode: ElkNode, var showTop: Boolean = false) {
+class ElkNodePainter(var rootNode: ElkNode, var showTop: Boolean = false) {
   private var zoomLevel: Float = 1.0f
   private val margin: Int = 32
   private var selected: Set[ElkGraphElement] = Set()
@@ -26,6 +26,9 @@ class ElkNodePainter(val rootNode: ElkNode, var showTop: Boolean = false) {
     highlighted = elts
   }
 
+  def setRootNode(node: ElkNode): Unit ={
+    rootNode = node
+  }
 
   def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
     new Color(
