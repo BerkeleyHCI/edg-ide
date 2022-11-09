@@ -98,8 +98,12 @@ object CompilerErrorNodeBase {
           new CompilerErrorDetailNode("Missing param", param.toString)
         })
 
-      case CompilerError.InconsistentLinkArrayElements(root, linkElements, blockPortElements) =>
-        (s"Inconsistent link array elements, $linkElements, $blockPortElements", s"$root", Seq())
+      case CompilerError.InconsistentLinkArrayElements(root, linkPath, linkElements,
+                                                       blockPortPath, blockPortElements) =>
+        (s"Inconsistent link array elements", s"$linkPath", Seq(
+          new CompilerErrorDetailNode("Link elements", linkElements.toStringValue),
+          new CompilerErrorDetailNode(f"Block port elements @ $blockPortPath", blockPortElements.toStringValue)
+        ))
 
       case CompilerError.EmptyRange(param, root, constrName, value) =>
         (s"Empty range", s"$param", Seq(
