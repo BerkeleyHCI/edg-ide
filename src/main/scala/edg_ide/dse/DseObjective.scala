@@ -17,21 +17,12 @@ sealed trait DseObjective[+T] {
   def calculate(design: schema.Design, values: Map[IndirectDesignPath, ExprValue]): T
 }
 
-class CustomDesignMap[T](values: Map[IndirectDesignPath, ExprValue]) extends DesignBlockMap[T] {
+
+class CustomDesignMap[T](values: Map[IndirectDesignPath, ExprValue],
+                         blockFn: (DesignPath, HierarchyBlock, SeqMap[String, T], Map[IndirectDesignPath, ExprValue]) => T) extends DesignBlockMap[T] {
   override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, T]): T = {
     blockFn(path, block, blocks, values)
   }
-}
-
-// Utility base class that calculates an objective function by mapping each block,
-// then reducing the results at each level of hierarchy
-trait DseReductionObjective[+T] extends DseObjective[T] {
-  override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): T = {
-    new CustomDesignMap(values, mapBlock).map(design)
-  }
-
-  protected def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, T],
-               values: Map[IndirectDesignPath, ExprValue]): T
 }
 
 
@@ -51,10 +42,16 @@ case class DseObjectiveParameter(path: DesignPath) extends DseObjective[Option[A
   }
 }
 
-case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath()) extends DseReductionObjective[Float] {
+
+case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath()) extends DseObjective[Float] {
   val footprintAreaCache = mutable.Map[String, Float]()
 
-  override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float],
+  override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Float = {
+    new CustomDesignMap[Float](values, { case (path, block, blocks, values) =>
+      mapBlock(path, block, blocks, values)
+    }).map(design)
+  }
+  def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float],
                         values: Map[IndirectDesignPath, ExprValue]): Float = {
     val thisArea = if (path.startsWith(rootDesignPath)) {
       values.get((path + "fp_footprint").asIndirect) match {
@@ -84,8 +81,14 @@ case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath()) 
 
 
 // Counts the total number of footprints
-case class DseObjectiveFootprintCount(rootDesignPath: DesignPath = DesignPath()) extends DseReductionObjective[Int] {
-  override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int],
+case class DseObjectiveFootprintCount(rootDesignPath: DesignPath = DesignPath()) extends DseObjective[Int] {
+  override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Int = {
+    new CustomDesignMap[Int](values, { case (path, block, blocks, values) =>
+      mapBlock(path, block, blocks, values)
+    }).map(design)
+  }
+
+  def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int],
                          values: Map[IndirectDesignPath, ExprValue]): Int = {
     val thisValues = if (path.startsWith(rootDesignPath) && block.params.contains("fp_footprint")) 1 else 0
     thisValues + blocks.values.sum
