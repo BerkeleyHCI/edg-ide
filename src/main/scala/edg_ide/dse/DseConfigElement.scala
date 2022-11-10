@@ -1,5 +1,6 @@
 package edg_ide.dse
 
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{ExprValue, PartialCompile}
 import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
@@ -18,6 +19,8 @@ sealed trait DseRefinementElement extends DseConfigElement {
 
 // Tries all values for some parameter
 case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue]) extends DseRefinementElement {
+  override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(", ")})"
+
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path))
   }
@@ -29,6 +32,8 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue]) extends 
 
 // Tries all subclasses for some block
 case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath]) extends DseRefinementElement {
+  override def toString = f"${this.getClass.getSimpleName}($path, ${subclasses.map(_.toSimpleString).mkString(", ")})"
+
   override def getPartialCompile: PartialCompile = {
     PartialCompile(blocks = Seq(path))
   }
