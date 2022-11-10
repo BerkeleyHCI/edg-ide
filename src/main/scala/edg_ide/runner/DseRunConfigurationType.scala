@@ -117,6 +117,9 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
         .flatMap(ObjectSerializer.deserialize)
         .flatMap(ObjectSerializer.optionInstanceOfSeq[(String, DseObjective[Any])])
+//        .flatMap(ObjectSerializer.optionInstanceOfSeq[(String, DseObjective[Any])](
+//          _,
+//          {elt: (Any, Any) => elt._1.isInstanceOf[String] && elt._2.isInstanceOf[DseObjective]}))
         .map(SeqMap.from)
         .foreach(options.objectives = _)
   }

@@ -26,8 +26,19 @@ object ObjectSerializer {
   }
 
   // after deserializing, test if an object is a Seq of all EltType
-  def optionInstanceOfSeq[EltType <: Object: ClassTag](obj: Object): Option[Seq[EltType]] = obj match {
-    case obj: Seq[Any] if obj.forall(classTag[EltType].runtimeClass.isInstance) => Some(obj.asInstanceOf[Seq[EltType]])
+  // this version provides an optional elementFn that is run after the element isInstance check
+  // as an explicit check on the elements to deal with type erasure
+  def optionInstanceOfSeq[EltType <: Object: ClassTag, InnerType >: EltType](obj: Object, elementFn: InnerType => Boolean
+                                                      ): Option[Seq[EltType]] = obj match {
+    case obj: Seq[Any] if obj.forall(elt => classTag[EltType].runtimeClass.isInstance(elt) &&
+        elementFn(elt.asInstanceOf[InnerType]))
+      => Some(obj.asInstanceOf[Seq[EltType]])
     case _ => None
+  }
+
+  // this basic version does a simple isInstance check but may provide false negatives on parameterized types
+  // including tuples
+  def optionInstanceOfSeq[EltType <: Object : ClassTag](obj: Object): Option[Seq[EltType]] = {
+    optionInstanceOfSeq[EltType](obj, { x: EltType => true })
   }
 }
