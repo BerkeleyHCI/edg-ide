@@ -1,22 +1,21 @@
 package edg_ide.runner
 
-import collection.{SeqMap, mutable}
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import de.siegmar.fastcsv.writer.CsvWriter
 import edg.ElemBuilder
-import edg.compiler.{Compiler, DesignAssertionCheck, DesignRefsValidate, DesignStructuralValidate, PythonInterface, RangeValue}
+import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
-import edg.wir.{DesignPath, Refinements}
-import edg_ide.dse._
+import edg.wir.Refinements
 import edg_ide.ui.EdgCompilerService
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
 
 import java.io.{OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
+import scala.collection.mutable
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
 
@@ -60,26 +59,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
       }}
     }
 
-    val searchConfigs = Seq(
-      DseSubclassSearch(DesignPath() + "reg_5v",
-        Seq(
-          "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
-          "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
-        ).map(value => ElemBuilder.LibraryPath(value))
-      ),
-      DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
-        Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
-      ),
-    )
-    val objectives = SeqMap(
-      "inductor" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_part"),
-      "inductor_val" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "fp_value"),
-      "inductance" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
-      "5v_area" -> DseObjectiveFootprintArea(DesignPath() + "reg_5v"),
-      "5v_count" -> DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
-    )
-
-    val allRefinements = crossProduct(searchConfigs.map {
+    val allRefinements = crossProduct(options.searchConfigs.map {
       searchConfig => searchConfig.getRefinements
     }).map { refinements =>
       refinements.reduce(_ ++ _)
@@ -117,7 +97,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         val design = schema.Design(contents = Some(block))
 
         console.print(s"Compile base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
-        val partialCompile = searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
+        val partialCompile = options.searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
         val (removedRefinements, refinements) = Refinements(refinementsPb).partitionBy(
           partialCompile.blocks.toSet, partialCompile.params.toSet
         )
@@ -151,9 +131,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
           val solvedValues = compiler.getAllSolved
-          val objectiveValues = objectives.map { case (name, objective) =>
+          val objectiveValues = options.objectives.map { case (name, objective) =>
             name -> objective.calculate(compiled, solvedValues)
-          }
+          }.toMap
           results.put(searchRefinement, (errors.size, objectiveValues))
 
           if (errors.nonEmpty) {
@@ -170,7 +150,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
           indicator.setText("EDG searching: writing results")
           Option(CsvWriter.builder().build(Paths.get(options.resultCsvFile))) match {
             case Some(csv) =>
-              val objectiveNames = objectives.keys.toSeq
+              val objectiveNames = options.objectives.keys.toSeq
               csv.writeRow((Seq("config", "errors") ++ objectiveNames).asJava)  // write header row
 
               results.foreach { case (refinement, (error, objectiveValues)) =>

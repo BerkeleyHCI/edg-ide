@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.execution.{RunManager, RunnerAndConfigurationSettings}
+import com.intellij.execution.RunManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -11,7 +11,6 @@ import edg_ide.swing.CompilerErrorTreeTableModel
 import java.awt.BorderLayout
 import java.util.concurrent.TimeUnit
 import javax.swing.JPanel
-import scala.collection.convert.ImplicitConversions.`list asScalaBuffer`
 
 
 class DseConfigPanel(project: Project) extends JPanel {

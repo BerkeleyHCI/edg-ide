@@ -12,23 +12,22 @@ import scala.collection.{SeqMap, mutable}
 
 // Abstract base class for all design space objectives - some function of the design
 // that produces a metric that is useful to the user, eg cost or some design parameter
-sealed trait DseObjective[T] {
+sealed trait DseObjective[+T] {
   // TODO: also needs libraries and external sources?
   def calculate(design: schema.Design, values: Map[IndirectDesignPath, ExprValue]): T
 }
 
+class CustomDesignMap[T](values: Map[IndirectDesignPath, ExprValue]) extends DesignBlockMap[T] {
+  override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, T]): T = {
+    blockFn(path, block, blocks, values)
+  }
+}
 
 // Utility base class that calculates an objective function by mapping each block,
 // then reducing the results at each level of hierarchy
-trait DseReductionObjective[T] extends DseObjective[T] {
-  class CustomDesignMap(values: Map[IndirectDesignPath, ExprValue]) extends DesignBlockMap[T] {
-    override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, T]): T = {
-      DseReductionObjective.this.mapBlock(path, block, blocks, values)
-    }
-  }
-
+trait DseReductionObjective[+T] extends DseObjective[T] {
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): T = {
-    new CustomDesignMap(values).map(design)
+    new CustomDesignMap(values, mapBlock).map(design)
   }
 
   protected def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, T],
