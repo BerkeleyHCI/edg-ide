@@ -18,14 +18,6 @@ sealed trait DseObjective[+T] {
 }
 
 
-class CustomDesignMap[T](values: Map[IndirectDesignPath, ExprValue],
-                         blockFn: (DesignPath, HierarchyBlock, SeqMap[String, T], Map[IndirectDesignPath, ExprValue]) => T) extends DesignBlockMap[T] {
-  override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, T]): T = {
-    blockFn(path, block, blocks, values)
-  }
-}
-
-
 // Extracts the value of a single parameter
 case class DseObjectiveParameter(path: DesignPath) extends DseObjective[Option[Any]] {
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Option[Any] = {
@@ -47,35 +39,33 @@ case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath()) 
   val footprintAreaCache = mutable.Map[String, Float]()
 
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Float = {
-    new CustomDesignMap[Float](values, { case (path, block, blocks, values) =>
-      mapBlock(path, block, blocks, values)
-    }).map(design)
-  }
-  def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float],
-                        values: Map[IndirectDesignPath, ExprValue]): Float = {
-    val thisArea = if (path.startsWith(rootDesignPath)) {
-      values.get((path + "fp_footprint").asIndirect) match {
-        case Some(TextValue(footprintName)) =>
-          footprintAreaCache.getOrElseUpdate(footprintName, {
-            var kicadDirectory = new File(EdgSettingsState.getInstance().kicadDirectory)
-            val footprintSplit = footprintName.split(':')
-            for (libraryName <- footprintSplit.init) {
-              kicadDirectory = new File(kicadDirectory, libraryName + ".pretty")
-            }
-            val footprintFile = new File(kicadDirectory, footprintSplit.last + ".kicad_mod")
-            val footprint = KicadParser.parseKicadFile(footprintFile)
-            if (footprint.elts.isEmpty) {
-              println(s"bad footprint $footprintName")  // TODO unified error logging
-            }
-            footprint.courtyardArea.getOrElse(0)
-          })
+    new DesignBlockMap[Float] {
+      override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float]): Float = {
+        val thisArea = if (path.startsWith(rootDesignPath)) {
+          values.get((path + "fp_footprint").asIndirect) match {
+            case Some(TextValue(footprintName)) =>
+              footprintAreaCache.getOrElseUpdate(footprintName, {
+                var kicadDirectory = new File(EdgSettingsState.getInstance().kicadDirectory)
+                val footprintSplit = footprintName.split(':')
+                for (libraryName <- footprintSplit.init) {
+                  kicadDirectory = new File(kicadDirectory, libraryName + ".pretty")
+                }
+                val footprintFile = new File(kicadDirectory, footprintSplit.last + ".kicad_mod")
+                val footprint = KicadParser.parseKicadFile(footprintFile)
+                if (footprint.elts.isEmpty) {
+                  println(s"bad footprint $footprintName") // TODO unified error logging
+                }
+                footprint.courtyardArea.getOrElse(0)
+              })
 
-        case _ => 0
+            case _ => 0
+          }
+        } else {
+          0
+        }
+        thisArea + blocks.values.sum
       }
-    } else {
-      0
-    }
-    thisArea + blocks.values.sum
+    }.map(design)
   }
 }
 
@@ -83,14 +73,11 @@ case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath()) 
 // Counts the total number of footprints
 case class DseObjectiveFootprintCount(rootDesignPath: DesignPath = DesignPath()) extends DseObjective[Int] {
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Int = {
-    new CustomDesignMap[Int](values, { case (path, block, blocks, values) =>
-      mapBlock(path, block, blocks, values)
-    }).map(design)
-  }
-
-  def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int],
-                         values: Map[IndirectDesignPath, ExprValue]): Int = {
-    val thisValues = if (path.startsWith(rootDesignPath) && block.params.contains("fp_footprint")) 1 else 0
-    thisValues + blocks.values.sum
+    new DesignBlockMap[Int] {
+      override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
+        val thisValues = if (path.startsWith(rootDesignPath) && block.params.contains("fp_footprint")) 1 else 0
+        thisValues + blocks.values.sum
+      }
+    }.map(design)
   }
 }
