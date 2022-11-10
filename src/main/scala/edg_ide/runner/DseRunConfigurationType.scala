@@ -17,6 +17,7 @@ import edg.ElemBuilder
 import edg.compiler.RangeValue
 import edg.wir.DesignPath
 import edg_ide.dse._
+import edg_ide.util.ObjectSerializer
 import org.jdom.Element
 
 import javax.swing.{Icon, JComponent, JLabel, JPanel, JTextField}
@@ -103,15 +104,31 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
 
   val kFieldDesignName = "DESIGN_NAME"
   val kFieldResultCsvFile = "RESULT_CSV_FILE"
+  val kFieldSearchConfigs = "SEARCH_CONFIGS"
+  val kFieldObjectives = "OBJECTIVES"
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
-    options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName)
-    options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile)
+    options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
+    options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile, "")
+    options.searchConfigs = Option(JDOMExternalizerUtil.readField(element, kFieldSearchConfigs))
+        .flatMap(ObjectSerializer.deserialize) match {
+      case Some(searchConfig: Seq[DseRefinementElement]) => searchConfig
+      case None => Seq()
+    }
+    options.objectives = Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
+        .flatMap(ObjectSerializer.deserialize) match {
+      case Some(objective: Seq[(String, DseObjective[Any])]) => SeqMap.from(objective)
+      case None => SeqMap()
+    }
   }
+
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldResultCsvFile, options.resultCsvFile)
+    JDOMExternalizerUtil.writeField(element, kFieldSearchConfigs, ObjectSerializer.serialize(options.searchConfigs))
+    // toSeq needed since SeqMap may not be serializable
+    JDOMExternalizerUtil.writeField(element, kFieldObjectives, ObjectSerializer.serialize(options.objectives.toSeq))
   }
 }
 
@@ -119,7 +136,7 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
 class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   protected val designName = new JTextField()
   protected val resultCsvFile = new JTextField()
-  protected val searchConfigs = new JLabel()
+  protected val searchConfigs = new JLabel()  // view only - set from DSE tab in BlockVisualizer panel
   protected val objectives = new JLabel()
 
   protected val panel = FormBuilder.createFormBuilder()

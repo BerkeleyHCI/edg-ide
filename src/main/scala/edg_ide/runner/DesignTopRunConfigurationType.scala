@@ -82,8 +82,8 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
   val kFieldNetlistName = "NETLIST_NAME"
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
-    options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName)
-    options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName)
+    options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
+    options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName, "")
   }
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
