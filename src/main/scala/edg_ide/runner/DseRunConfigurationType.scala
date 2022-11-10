@@ -110,18 +110,16 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     super.readExternal(element)
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
     options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile, "")
-    options.searchConfigs = Option(JDOMExternalizerUtil.readField(element, kFieldSearchConfigs))
-        .flatMap(ObjectSerializer.deserialize) match {
-      case Some(searchConfig: Seq[DseRefinementElement]) => searchConfig
-      case None => Seq()
-    }
-    options.objectives = Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
-        .flatMap(ObjectSerializer.deserialize) match {
-      case Some(objective: Seq[(String, DseObjective[Any])]) => SeqMap.from(objective)
-      case None => SeqMap()
-    }
+    Option(JDOMExternalizerUtil.readField(element, kFieldSearchConfigs))
+        .flatMap(ObjectSerializer.deserialize)
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseRefinementElement])
+        .foreach(options.searchConfigs = _)  // only set if valid, otherwise leave as default
+    Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
+        .flatMap(ObjectSerializer.deserialize)
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[(String, DseObjective[Any])])
+        .map(SeqMap.from)
+        .foreach(options.objectives = _)
   }
-
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)

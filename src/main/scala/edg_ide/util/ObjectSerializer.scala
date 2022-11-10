@@ -2,6 +2,7 @@ package edg_ide.util
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, ObjectInputStream, ObjectOutputStream}
 import java.util.Base64
+import scala.reflect.{ClassTag, classTag}
 
 
 // shared object serialization utils for saving object state to IDE state, eg persisting
@@ -22,5 +23,11 @@ object ObjectSerializer {
     } catch {
       case _: IOException | _: ClassNotFoundException => None
     }
+  }
+
+  // after deserializing, test if an object is a Seq of all EltType
+  def optionInstanceOfSeq[EltType <: Object: ClassTag](obj: Object): Option[Seq[EltType]] = obj match {
+    case obj: Seq[Any] if obj.forall(classTag[EltType].runtimeClass.isInstance) => Some(obj.asInstanceOf[Seq[EltType]])
+    case _ => None
   }
 }
