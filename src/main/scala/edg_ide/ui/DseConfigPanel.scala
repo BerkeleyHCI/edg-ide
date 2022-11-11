@@ -7,9 +7,9 @@ import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.runner.DseRunConfiguration
-import edg_ide.swing.{CompilerErrorTreeTableModel, DseConfigTreeTableModel}
+import edg_ide.swing.DseConfigTreeTableModel
 
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.JPanel
 
@@ -18,7 +18,6 @@ class DseConfigPanel(project: Project) extends JPanel {
   private var config: Option[DseRunConfiguration] = None
 
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    println(RunManager.getInstance(project).getSelectedConfiguration)
     val newConfig = Option(RunManager.getInstance(project).getSelectedConfiguration).map(_.getConfiguration)
     val newTypedConfig = newConfig match {
       case Some(newConfig: DseRunConfiguration) => Some(newConfig)
@@ -29,7 +28,7 @@ class DseConfigPanel(project: Project) extends JPanel {
       config = newTypedConfig
       onConfigUpdate()
     }
-  }, 0, 333, TimeUnit.MILLISECONDS)
+  }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
   protected def onConfigUpdate(): Unit = {
     config match {
@@ -46,7 +45,7 @@ class DseConfigPanel(project: Project) extends JPanel {
 
   setLayout(new GridBagLayout())
 
-  private val separator = new CollapsibleTitledSeparator("Design Space Exploration: no run config selected")
+  private val separator = new CollapsibleTitledSeparator("Design Space Exploration")
   add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val tree = new TreeTable(new DseConfigTreeTableModel(Seq()))
@@ -54,4 +53,14 @@ class DseConfigPanel(project: Project) extends JPanel {
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
   add(treeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH))
+
+  onConfigUpdate()  // set initial state
+
+  // Configuration State
+  //
+  def saveState(state: BlockVisualizerServiceState): Unit = {
+  }
+
+  def loadState(state: BlockVisualizerServiceState): Unit = {
+  }
 }
