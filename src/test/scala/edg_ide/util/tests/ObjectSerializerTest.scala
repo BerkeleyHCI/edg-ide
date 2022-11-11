@@ -35,13 +35,13 @@ class ObjectSerializerTest extends AnyFlatSpec with Matchers {
     // this is a false negative because of type erasure, where type parameters are not checked
     ObjectSerializer.optionInstanceOfSeq[(Integer, String)](Seq(("ducks", 2))).isDefined shouldBe true
     // so we need to give it logic for an inner check
-    ObjectSerializer.optionInstanceOfSeq[(Integer, String), (Any, Any)](
+    ObjectSerializer.optionInstanceOfSeq[(Integer, String)](
       Seq(("ducks", 2)),
-      {elt: (Any, Any) => elt._1.isInstanceOf[Integer] && elt._2.isInstanceOf[String]}
+      { elt: (Integer, String) => elt._1.isInstanceOf[Integer] && elt._2.isInstanceOf[String] }
     ).isDefined shouldBe false
-    ObjectSerializer.optionInstanceOfSeq[(Integer, String), (Any, Any)](
+    ObjectSerializer.optionInstanceOfSeq[(Integer, String)](
       Seq((2, "ducks")),
-      { elt: (Any, Any) => elt._1.isInstanceOf[Integer] && elt._2.isInstanceOf[String] }
+      { elt: (Integer, String) => elt._1.isInstanceOf[Integer] && elt._2.isInstanceOf[String] }
     ).isDefined shouldBe true
   }
 }
