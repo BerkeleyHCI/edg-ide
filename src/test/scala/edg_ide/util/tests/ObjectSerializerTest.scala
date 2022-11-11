@@ -38,6 +38,6 @@ class ObjectSerializerTest extends AnyFlatSpec with Matchers {
     ObjectSerializer.optionInstanceOfSeq[(Integer, String)](
       Seq(("ducks", 2)),
       {elt: (Any, Any) => elt._1.isInstanceOf[String] && elt._2.isInstanceOf[Integer]}
-    ).isDefined shouldBe true
+    ).isDefined shouldBe false
   }
 }

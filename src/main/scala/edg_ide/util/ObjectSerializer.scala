@@ -39,6 +39,6 @@ object ObjectSerializer {
   // this basic version does a simple isInstance check but may provide false negatives on parameterized types
   // including tuples
   def optionInstanceOfSeq[EltType <: Object : ClassTag](obj: Object): Option[Seq[EltType]] = {
-    optionInstanceOfSeq[EltType](obj, { x: EltType => true })
+    optionInstanceOfSeq[EltType, EltType](obj, { x: EltType => true })
   }
 }
