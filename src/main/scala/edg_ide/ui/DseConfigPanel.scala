@@ -3,12 +3,13 @@ package edg_ide.ui
 import com.intellij.execution.RunManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.runner.DseRunConfiguration
-import edg_ide.swing.CompilerErrorTreeTableModel
+import edg_ide.swing.{CompilerErrorTreeTableModel, DseConfigTreeTableModel}
 
-import java.awt.BorderLayout
+import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.JPanel
 
@@ -17,6 +18,7 @@ class DseConfigPanel(project: Project) extends JPanel {
   private var config: Option[DseRunConfiguration] = None
 
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
+    println(RunManager.getInstance(project).getSelectedConfiguration)
     val newConfig = Option(RunManager.getInstance(project).getSelectedConfiguration).map(_.getConfiguration)
     val newTypedConfig = newConfig match {
       case Some(newConfig: DseRunConfiguration) => Some(newConfig)
@@ -30,19 +32,26 @@ class DseConfigPanel(project: Project) extends JPanel {
   }, 0, 333, TimeUnit.MILLISECONDS)
 
   protected def onConfigUpdate(): Unit = {
-    println(f"updated: $config")
     config match {
       case Some(config) =>
-        println(f"with options ${config.options}")
+        separator.setText(f"Design Space Exploration: ${config.getName}")
+        tree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs))
+        tree.setRootVisible(false)
       case _ =>
+        separator.setText(f"Design Space Exploration: no run config selected")
+        tree.setModel(new DseConfigTreeTableModel(Seq()))
+        tree.setRootVisible(false)
     }
   }
 
-  private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
+  setLayout(new GridBagLayout())
+
+  private val separator = new CollapsibleTitledSeparator("Design Space Exploration: no run config selected")
+  add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
+
+  private val tree = new TreeTable(new DseConfigTreeTableModel(Seq()))
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
-
-  setLayout(new BorderLayout())
-  add(treeScrollPane)
+  add(treeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH))
 }

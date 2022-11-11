@@ -1,7 +1,8 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg_ide.dse.DseConfigElement
+import edg.EdgirUtils.SimpleLibraryPath
+import edg_ide.dse.{DseConfigElement, DseParameterSearch, DseSubclassSearch}
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -15,11 +16,46 @@ trait SeqNodeBase {
 
 
 object DseConfigTreeNode {
-  class Root(configs: Seq[DseConfigElement]) extends SeqNodeBase {
+  trait DseConfigTreeNode extends SeqNodeBase {
+    val path: String
+    val value: String
 
+    override def getColumns(index: Int): String = index match {
+      case 1 => value
+      case _ => "???"
+    }
+    override def toString = path
+  }
+
+  class LeafNode(val path: String, val value: String) extends DseConfigTreeNode {
+    override val children: Seq[SeqNodeBase] = Seq()
+  }
+
+  class Root(configs: Seq[DseConfigElement]) extends DseConfigTreeNode {
+    override val children = configs.map {
+      case config: DseParameterSearch => new DseParameterSearchNode(config)
+      case config: DseSubclassSearch => new DseSubclassSearchNode(config)
+    }
+    override val path = ""
+    override val value = ""
+  }
+
+  class DseParameterSearchNode(config: DseParameterSearch) extends DseConfigTreeNode {
+    override val path = config.path.toString
+    override val value = f"Parameters (${config.values.length})"
+    override lazy val children = config.values.map { value =>
+      new LeafNode("", value.toStringValue)
+    }
+  }
+
+  class DseSubclassSearchNode(config: DseSubclassSearch) extends DseConfigTreeNode {
+    override val path = config.path.toString
+    override val value = f"Subclasses (${config.subclasses.length})"
+    override lazy val children = config.subclasses.map { subclass =>
+      new LeafNode("", subclass.toSimpleString)
+    }
   }
 }
-
 
 
 class DseConfigTreeTableModel(configs: Seq[DseConfigElement]) extends SeqTreeTableModel[SeqNodeBase] {

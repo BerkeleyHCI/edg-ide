@@ -257,12 +257,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI: Design Space Exploration (bottom tab)
   //
-  private val dseSeparator = new CollapsibleTitledSeparator("Design Space Exploration")
-  bottomPanel.add(dseSeparator, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
-
   private val dsePanel = new DseConfigPanel(project)
-  bottomPanel.add(dsePanel, Gbc(0, 2, GridBagConstraints.BOTH))
-
+  bottomPanel.add(dsePanel, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
 
   setLayout(new BorderLayout())
   add(mainSplitter)
