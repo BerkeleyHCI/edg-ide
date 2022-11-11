@@ -12,6 +12,7 @@ import edg_ide.swing.DseConfigTreeTableModel
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.JPanel
+import scala.collection.SeqMap
 
 
 class DseConfigPanel(project: Project) extends JPanel {
@@ -34,11 +35,11 @@ class DseConfigPanel(project: Project) extends JPanel {
     config match {
       case Some(config) =>
         separator.setText(f"Design Space Exploration: ${config.getName}")
-        tree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs))
+        tree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
         tree.setRootVisible(false)
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
-        tree.setModel(new DseConfigTreeTableModel(Seq()))
+        tree.setModel(new DseConfigTreeTableModel(Seq(), SeqMap()))
         tree.setRootVisible(false)
     }
   }
@@ -48,7 +49,7 @@ class DseConfigPanel(project: Project) extends JPanel {
   private val separator = new CollapsibleTitledSeparator("Design Space Exploration")
   add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
-  private val tree = new TreeTable(new DseConfigTreeTableModel(Seq()))
+  private val tree = new TreeTable(new DseConfigTreeTableModel(Seq(), SeqMap()))
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)

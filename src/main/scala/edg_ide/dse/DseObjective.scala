@@ -60,12 +60,12 @@ object DseObjectiveFootprintArea {
 }
 
 
-case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath())
+case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
     extends DseObjective[Float] with Serializable {
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Float = {
     new DesignBlockMap[Float] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float]): Float = {
-        val thisArea = if (path.startsWith(rootDesignPath)) {
+        val thisArea = if (path.startsWith(rootPath)) {
           values.get((path + "fp_footprint").asIndirect) match {
             case Some(TextValue(footprintName)) => DseObjectiveFootprintArea.getFootprintArea(footprintName)
             case _ => 0
@@ -81,12 +81,12 @@ case class DseObjectiveFootprintArea(rootDesignPath: DesignPath = DesignPath())
 
 
 // Counts the total number of footprints
-case class DseObjectiveFootprintCount(rootDesignPath: DesignPath = DesignPath())
+case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
     extends DseObjective[Int] with Serializable {
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
-        val thisValues = if (path.startsWith(rootDesignPath) && block.params.contains("fp_footprint")) 1 else 0
+        val thisValues = if (path.startsWith(rootPath) && block.params.contains("fp_footprint")) 1 else 0
         thisValues + blocks.values.sum
       }
     }.map(design)

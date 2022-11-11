@@ -2,11 +2,12 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
-import edg_ide.dse.{DseConfigElement, DseParameterSearch, DseSubclassSearch}
+import edg_ide.dse.{DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
+import scala.collection.SeqMap
 
 
 trait SeqNodeBase {
@@ -31,12 +32,31 @@ object DseConfigTreeNode {
     override val children: Seq[SeqNodeBase] = Seq()
   }
 
-  class Root(configs: Seq[DseConfigElement]) extends DseConfigTreeNode {
-    override val children = configs.map {
+  class Root(configs: Seq[DseConfigElement], objectives: SeqMap[String, DseObjective[Any]]) extends DseConfigTreeNode {
+    override lazy val children = Seq(
+      new SearchConfigs(configs),
+      new Objectives(objectives)
+    )
+    override val path = ""
+    override val value = ""
+  }
+
+  class SearchConfigs(configs: Seq[DseConfigElement]) extends DseConfigTreeNode {
+    override lazy val children = configs.map {
       case config: DseParameterSearch => new DseParameterSearchNode(config)
       case config: DseSubclassSearch => new DseSubclassSearchNode(config)
     }
-    override val path = ""
+    override val path = "Search Configs"
+    override val value = ""
+  }
+
+  class Objectives(objectives: SeqMap[String, DseObjective[Any]]) extends DseConfigTreeNode {
+    override lazy val children =  objectives.map { case (name, objective) => objective match {
+      case config: DseObjectiveParameter => new DseObjectiveParameterNode(name, config)
+      case config: DseObjectiveFootprintArea => new DseObjectiveFootprintAreaNode(name, config)
+      case config: DseObjectiveFootprintCount => new DseObjectiveFootprintCountNode(name, config)
+    } }.toSeq
+    override val path = "Objective Functions"
     override val value = ""
   }
 
@@ -55,11 +75,30 @@ object DseConfigTreeNode {
       new LeafNode("", subclass.toSimpleString)
     }
   }
+
+  class DseObjectiveParameterNode(name: String, config: DseObjectiveParameter) extends DseConfigTreeNode {
+    override val path = name
+    override val value = f"Parameter @ ${config.path}"
+    override lazy val children = Seq()
+  }
+
+  class DseObjectiveFootprintAreaNode(name: String, config: DseObjectiveFootprintArea) extends DseConfigTreeNode {
+    override val path = name
+    override val value = f"Footprint Area in ${config.rootPath}"
+    override lazy val children = Seq()
+  }
+
+  class DseObjectiveFootprintCountNode(name: String, config: DseObjectiveFootprintCount) extends DseConfigTreeNode {
+    override val path = name
+    override val value = f"Footprint Count in ${config.rootPath}"
+    override lazy val children = Seq()
+  }
 }
 
 
-class DseConfigTreeTableModel(configs: Seq[DseConfigElement]) extends SeqTreeTableModel[SeqNodeBase] {
-  val rootNode: SeqNodeBase = new DseConfigTreeNode.Root(configs)
+class DseConfigTreeTableModel(searchConfigs: Seq[DseConfigElement], objectives: SeqMap[String, DseObjective[Any]])
+    extends SeqTreeTableModel[SeqNodeBase] {
+  val rootNode: SeqNodeBase = new DseConfigTreeNode.Root(searchConfigs, objectives)
   val COLUMNS = Seq("Path", "Value")
 
   // TreeView abstract methods
