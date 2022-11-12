@@ -22,7 +22,6 @@ import scala.jdk.CollectionConverters.IterableHasAsJava
 
 class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, console: ConsoleView)
     extends ProcessHandler {
-  // TODO a lot can be deduplicated from CompileProcessHandler, the non DSE version of this?
   var runThread: Option[Thread] = None
 
   override def destroyProcessImpl(): Unit = {
