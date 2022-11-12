@@ -13,6 +13,7 @@ import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
+import edg_ide.dse.{DseFeature, DseResult}
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
@@ -195,8 +196,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI: Bottom half (design tree and task tabs)
   //
+  private val dseSplitter = new JBSplitter(true, 0.66f, 0.1f, 0.9f)
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
-  mainSplitter.setSecondComponent(bottomSplitter)
+  if (DseFeature.kEnabled) {
+    mainSplitter.setSecondComponent(dseSplitter)
+    dseSplitter.setFirstComponent(bottomSplitter)
+  } else {
+    mainSplitter.setSecondComponent(bottomSplitter)
+  }
 
   private var designTreeModel = new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel)
@@ -250,6 +257,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   tabbedPane.addTab("Kicad", kicadVizPanel)
   val TAB_KICAD_VIZ = 3
 
+
+  // GUI: Design Space Exploration (bottom tab)
+  //
+  private val dsePanel = new DseConfigPanel(project)
+  dseSplitter.setSecondComponent(dsePanel)
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -413,6 +425,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateStale()
   }
 
+  def setDseResults(results: Seq[DseResult]): Unit = {
+    dsePanel.setResults(results)
+  }
+
   // In place design tree modifications
   //
   def currentDesignModifyBlock(blockPath: DesignPath)
@@ -428,10 +444,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
+    state.dseSplitterPos = dseSplitter.getProportion
     libraryPanel.saveState(state)
     detailPanel.saveState(state)
     errorPanel.saveState(state)
     kicadVizPanel.saveState(state)
+    dsePanel.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
@@ -439,10 +457,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)
+    dseSplitter.setProportion(state.dseSplitterPos)
     libraryPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
     kicadVizPanel.loadState(state)
+    dsePanel.loadState(state)
   }
 }
 
