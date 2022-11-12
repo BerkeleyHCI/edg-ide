@@ -1,14 +1,11 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg.compiler.CompilerError
-import edg_ide.dse.{DseInstanceRefinementElement, DseResult}
-import edgir.schema.schema.Design
+import edg_ide.dse.DseResult
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
-import scala.collection.{SeqMap, mutable}
 
 
 object DseResultTreeNode {
