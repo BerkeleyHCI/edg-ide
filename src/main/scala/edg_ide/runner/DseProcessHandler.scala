@@ -143,10 +143,11 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         indicator.setIndeterminate(false)
         for ((searchRefinement, searchIndex) <- allRefinements.zipWithIndex) {
           console.print(s"Compile $searchRefinement\n", ConsoleViewContentType.SYSTEM_OUTPUT)
-          val ((compiler, compiled), compileTime) = timeExec {
-            val compiler = commonCompiler.fork(searchRefinement)
-            val compiled = compiler.compile()
-            (compiler, compiled)
+          val (compiler, forkTime) = timeExec {
+            commonCompiler.fork(searchRefinement)
+          }
+          val (compiled, compileTime) = timeExec {
+            compiler.compile()
           }
 
           val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
@@ -157,13 +158,15 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             name -> objective.calculate(compiled, solvedValues)
           }
 
-          results.append(DseResult(searchRefinement, compiler, compiled, errors, objectiveValues))
+          results.append(DseResult(searchRefinement, compiler, compiled, errors, objectiveValues,
+            compileTime))
 
           if (errors.nonEmpty) {
-            console.print(s"($compileTime ms) ${errors.size} errors, $objectiveValues\n",
+            console.print(s"($forkTime + $compileTime ms) ${errors.size} errors, $objectiveValues\n",
               ConsoleViewContentType.ERROR_OUTPUT)
           } else {
-            console.print(s"($compileTime ms) $objectiveValues\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+            console.print(s"($forkTime + $compileTime ms) $objectiveValues\n",
+              ConsoleViewContentType.SYSTEM_OUTPUT)
           }
 
           // Write to CSV

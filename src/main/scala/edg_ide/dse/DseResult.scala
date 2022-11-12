@@ -13,5 +13,6 @@ case class DseResult(
   compiler: Compiler,
   compiled: Design,
   errors: Seq[CompilerError],
-  objectives: SeqMap[String, Any]
+  objectives: SeqMap[String, Any],
+  compileTime: Long
 )
