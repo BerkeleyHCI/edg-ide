@@ -1,7 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg_ide.dse.DseResult
+import edg_ide.dse.{DseConfigElement, DseResult}
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -53,7 +53,7 @@ object DseResultTreeNode {
     }
 
     private val exampleResult = setMembers.head
-    override val config = exampleResult.configToString
+    override val config = DseConfigElement.configMapToString(exampleResult.config)
     val errString = if (exampleResult.errors.nonEmpty) {
       f", ${exampleResult.errors.length} errors"
     } else {
@@ -63,12 +63,12 @@ object DseResultTreeNode {
     override lazy val children = Seq(
       new InnerResultsNode()
     ) ++ exampleResult.objectives.map { case (objectiveName, objectiveValue) =>
-      new LeafNode(objectiveName, "", exampleResult.valueToString(objectiveValue))
+      new LeafNode(objectiveName, "", DseConfigElement.valueToString(objectiveValue))
     }
   }
 
   class ResultNode(result: DseResult) extends NodeBase {
-    override val config = result.configToString
+    override val config = DseConfigElement.configMapToString(result.config)
     override val values = ""
     override val children: Seq[NodeBase] = Seq()
   }
@@ -78,7 +78,9 @@ object DseResultTreeNode {
 class DseResultTreeTableModel(results: Seq[DseResult])
     extends SeqTreeTableModel[DseResultTreeNode.NodeBase] {
   val rootNode: DseResultTreeNode.NodeBase = new DseResultTreeNode.RootNode(results)
-  val COLUMNS = Seq("Config", "Values")
+  val configNames = results.headOption.map{ result => result.config.keys.map(_.configToString) }.getOrElse(Seq()).toSeq
+  val objectiveNames = results.headOption.map(_.objectives.keys).getOrElse(Seq()).toSeq
+  val COLUMNS = Seq("Config", "Values") ++ configNames ++ objectiveNames
 
   // TreeView abstract methods
   //

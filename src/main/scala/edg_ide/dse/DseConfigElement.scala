@@ -5,6 +5,24 @@ import edg.compiler.{ExprValue, PartialCompile}
 import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
 
+import scala.collection.SeqMap
+
+
+object DseConfigElement {
+  def valueToString(value: Any): String = value match {
+    case value: ref.LibraryPath => value.toSimpleString
+    case value: ExprValue => value.toStringValue
+    case Some(value) => valueToString(value) // drop the "Some" for simplicity
+    case value => value.toString
+  }
+
+  def configMapToString(configMap: SeqMap[DseConfigElement, Any]): String = {
+    configMap.map { case (config, value) =>
+      f"${config.configToString} -> ${valueToString(value)}"
+    }.mkString(", ")
+  }
+}
+
 
 // Abstract base class for a design space search configuration element - some independent
 // parameter to scan through, eg "all refinements of superclass" or "try these parameter values
@@ -12,6 +30,7 @@ import edg.wir.{DesignPath, Refinements}
 // Must be serializable so configs can be saved and persist across IDE restarts
 sealed trait DseConfigElement { self: Serializable =>
   def getPartialCompile: PartialCompile
+  def configToString: String
 }
 
 
@@ -32,6 +51,7 @@ sealed trait DseInstanceRefinementElement[+ValueType] extends DseRefinementEleme
 case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
     extends DseInstanceRefinementElement[ExprValue] with Serializable {
   override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(", ")})"
+  override def configToString: String = f"Param($path)"
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path))
@@ -47,6 +67,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
 case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
     extends DseInstanceRefinementElement[ref.LibraryPath] with Serializable {
   override def toString = f"${this.getClass.getSimpleName}($path, ${subclasses.map(_.toSimpleString).mkString(", ")})"
+  override def configToString: String = f"Subclass($path)"
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(blocks = Seq(path))

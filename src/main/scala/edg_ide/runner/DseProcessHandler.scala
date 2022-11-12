@@ -146,7 +146,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         indicator.setFraction(0)
         indicator.setIndeterminate(false)
         for (((searchValues, searchRefinement), searchIndex) <- allValueRefinements.zipWithIndex) {
-          console.print(s"Compile $searchRefinement\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+          console.print(s"Compile ${DseConfigElement.configMapToString(searchValues)}\n",
+            ConsoleViewContentType.SYSTEM_OUTPUT)
           val (compiler, forkTime) = timeExec {
             commonCompiler.fork(searchRefinement)
           }
