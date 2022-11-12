@@ -10,7 +10,7 @@ import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
 import edg_ide.dse.DseResult
-import edg_ide.ui.EdgCompilerService
+import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
 
@@ -181,6 +181,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         csvFile.foreach { case (fileWriter, csv) =>
           csv.close()
         }
+
+        BlockVisualizerService(project).setDseResults(results.toSeq)  // plumb results to UI
       }
     } catch {
       case e: Throwable =>

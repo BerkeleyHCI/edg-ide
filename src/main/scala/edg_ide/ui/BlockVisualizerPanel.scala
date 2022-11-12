@@ -14,7 +14,7 @@ import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
-import edg_ide.dse.DseFeature
+import edg_ide.dse.{DseFeature, DseResult}
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
@@ -424,6 +424,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       staleTypes.clear()
     }
     updateStale()
+  }
+
+  def setDseResults(results: Seq[DseResult]): Unit = {
+    dsePanel.setResults(results)
   }
 
   // In place design tree modifications
