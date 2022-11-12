@@ -1,30 +1,80 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.compiler.CompilerError
 import edg_ide.dse.DseResult
+import edgir.schema.schema.Design
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
+import scala.collection.{SeqMap, mutable}
 
 
 object DseResultTreeNode {
+  // Aggregates similar results together, somewhat preserving order of the input
+  private def combineSimilarResults(results: Seq[DseResult]): Seq[Seq[DseResult]] = {
+    // Stores results, combining by unique combination of design, error, and objective results
+    // Specifically avoids the actual refinements, which may produce a false positive match
+    // (different configurations that produce the same design in the end)
+    results.groupBy(result => (result.compiled, result.errors, result.objectives))
+        .values.toSeq
+  }
+
   trait NodeBase {
     val children: Seq[NodeBase]
 
-    def getColumns(index: Int): String
+    val config: String
+    val errors: String
+    val values: String
+
+    override def toString = config
+    def getColumns(index: Int): String = index match {
+      case 1 => errors
+      case 2 => values
+      case _ => "???"
+    }
+  }
+
+  class LeafNode(val config: String, val errors: String, val values: String) extends NodeBase {
+    override val children: Seq[NodeBase] = Seq()
   }
 
   class RootNode(results: Seq[DseResult]) extends NodeBase {
+    override lazy val children = combineSimilarResults(results).map { resultsSet =>
+      new ResultSetNode(resultsSet)
+    }
 
+    override val config = ""  // empty, since the root node is hidden
+    override val errors = ""
+    override val values = ""
   }
 
+  // Displays a set of equivalent results, useful for deduplicating similar results
   class ResultSetNode(setMembers: Seq[DseResult]) extends NodeBase {
+    class InnerResultsNode extends NodeBase {
+      override val config = f"Individual Results"
+      override val errors = ""
+      override val values = ""
+      override lazy val children = setMembers.map(result => new ResultNode(result))
+    }
 
+    private val exampleResult = setMembers.head
+    override val config = f"(${setMembers.length}) ${exampleResult.refinement.toString}"
+    override val errors = exampleResult.errors.length.toString
+    override val values = ""
+    override lazy val children = Seq(
+      new InnerResultsNode()
+    ) ++ exampleResult.objectives.map { case (objectiveName, objectiveValue) =>
+      new LeafNode(objectiveName, "", objectiveValue.toString)
+    }
   }
 
   class ResultNode(result: DseResult) extends NodeBase {
-
+    override val config = result.refinement.toString
+    override val errors = result.errors.length.toString
+    override val values = ""
+    override val children: Seq[NodeBase] = Seq()
   }
 }
 
