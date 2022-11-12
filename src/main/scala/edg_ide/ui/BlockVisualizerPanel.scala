@@ -4,7 +4,6 @@ import com.intellij.openapi.application.{ApplicationManager, ModalityState, Read
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
-import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil

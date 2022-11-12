@@ -49,11 +49,12 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     // Open a CSV file (if desired) and write result rows as they are computed.
     // This is done first to empty out the result file, if one already exists.
     val objectiveNames = options.objectives.keys.toSeq
+    val configNames = options.searchConfigs.map(_.configToString)
     val csvFile = if (options.resultCsvFile.nonEmpty) {
       val fileWriter = new FileWriter(options.resultCsvFile) // need a separate fileWriter to be flushable
       Option(CsvWriter.builder().build(fileWriter)) match {
         case Some(csv) =>
-          csv.writeRow((Seq("config", "errors") ++ objectiveNames).asJava) // write header row
+          csv.writeRow((Seq("index", "errors") ++ configNames ++ objectiveNames).asJava) // write header row
           fileWriter.flush()
 
           console.print(s"Opening results CSV at ${options.resultCsvFile}\n",
@@ -163,8 +164,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             name -> objective.calculate(compiled, solvedValues)
           }
 
-          val result = DseResult(searchValues, searchRefinement, compiler, compiled, errors, objectiveValues,
-            compileTime)
+          val result = DseResult(searchIndex, searchValues, searchRefinement,
+            compiler, compiled, errors, objectiveValues, compileTime)
           results.append(result)
 
           if (errors.nonEmpty) {
@@ -177,8 +178,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
 
           // Write to CSV
           csvFile.foreach { case (fileWriter, csv) =>
-            csv.writeRow((Seq(searchRefinement.toString, errors.toString) ++
-                objectiveNames.map(name => objectiveValues(name).toString)).asJava)
+            csv.writeRow((Seq(searchIndex.toString, errors.length.toString) ++
+                searchValues.map{case (config, value) => DseConfigElement.valueToString(value)} ++
+                objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
             fileWriter.flush()
           }
 

@@ -8,7 +8,15 @@ import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 
 
-object DseResultTreeNode {
+trait DseResultNodeBase {
+  val children: Seq[DseResultNodeBase]
+  val config: String
+  def getColumns(index: Int): String
+
+  override def toString = config
+}
+
+class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[DseResult]) extends DseResultNodeBase {
   // Aggregates similar results together, somewhat preserving order of the input
   private def combineSimilarResults(results: Seq[DseResult]): Seq[Seq[DseResult]] = {
     // Stores results, combining by unique combination of design, error, and objective results
@@ -17,76 +25,54 @@ object DseResultTreeNode {
     results.groupBy(result => (result.compiled, result.errors, result.objectives))
         .values.toSeq
   }
-
-  trait NodeBase {
-    val children: Seq[NodeBase]
-
-    val config: String
-    val values: String
-
-    override def toString = config
-    def getColumns(index: Int): String = index match {
-      case 1 => values
-      case _ => "???"
-    }
+  // Defines the root node
+  override lazy val children = combineSimilarResults(results).map { resultsSet =>
+    new ResultSetNode(resultsSet)
   }
+  override val config = "" // empty, since the root node is hidden
+  override def getColumns(index: Int): String = ""
 
-  class LeafNode(val config: String, val errors: String, val values: String) extends NodeBase {
-    override val children: Seq[NodeBase] = Seq()
-  }
-
-  class RootNode(results: Seq[DseResult]) extends NodeBase {
-    override lazy val children = combineSimilarResults(results).map { resultsSet =>
-      new ResultSetNode(resultsSet)
-    }
-
-    override val config = ""  // empty, since the root node is hidden
-    override val values = ""
-  }
 
   // Displays a set of equivalent results, useful for deduplicating similar results
-  class ResultSetNode(setMembers: Seq[DseResult]) extends NodeBase {
-    class InnerResultsNode extends NodeBase {
-      override val config = f"Individual Results"
-      override val values = ""
-      override lazy val children = setMembers.map(result => new ResultNode(result))
-    }
-
+  class ResultSetNode(setMembers: Seq[DseResult]) extends DseResultNodeBase {
     private val exampleResult = setMembers.head
-    override val config = DseConfigElement.configMapToString(exampleResult.config)
-    val errString = if (exampleResult.errors.nonEmpty) {
+    private val errString = if (exampleResult.errors.nonEmpty) {
       f", ${exampleResult.errors.length} errors"
     } else {
       ""
     }
-    override val values = f"${setMembers.length} in set" + errString
-    override lazy val children = Seq(
-      new InnerResultsNode()
-    ) ++ exampleResult.objectives.map { case (objectiveName, objectiveValue) =>
-      new LeafNode(objectiveName, "", DseConfigElement.valueToString(objectiveValue))
+    override val config = f"Set of ${setMembers.length}" + errString
+    override lazy val children = setMembers.map(result => new ResultNode(result))
+    override def getColumns(index: Int): String = columnToObjectiveName.get(index) match {
+      case Some(objectiveName) => exampleResult.objectives.get(objectiveName) match {
+        case Some(value) => DseConfigElement.valueToString(value)
+        case _ => "???"
+      }
+      case _ => "???"
     }
   }
 
-  class ResultNode(result: DseResult) extends NodeBase {
-    override val config = DseConfigElement.configMapToString(result.config)
-    override val values = ""
-    override val children: Seq[NodeBase] = Seq()
+  class ResultNode(result: DseResult) extends DseResultNodeBase {
+    override val config = f"${result.index}: ${DseConfigElement.configMapToString(result.config)}"
+    override def getColumns(index: Int): String = ""
+    override val children: Seq[DseResultNodeBase] = Seq()
   }
 }
 
 
 class DseResultTreeTableModel(results: Seq[DseResult])
-    extends SeqTreeTableModel[DseResultTreeNode.NodeBase] {
-  val rootNode: DseResultTreeNode.NodeBase = new DseResultTreeNode.RootNode(results)
-  val configNames = results.headOption.map{ result => result.config.keys.map(_.configToString) }.getOrElse(Seq()).toSeq
+    extends SeqTreeTableModel[DseResultNodeBase] {
   val objectiveNames = results.headOption.map(_.objectives.keys).getOrElse(Seq()).toSeq
-  val COLUMNS = Seq("Config", "Values") ++ configNames ++ objectiveNames
+  val COLUMNS = Seq("Config") ++ objectiveNames
+
+  val columnToObjectiveNames = objectiveNames.zipWithIndex.map(elt => elt._2 + 1 -> elt._1).toMap
+  val rootNode: DseResultNodeBase = new DseResultTreeNode(columnToObjectiveNames, results)
 
   // TreeView abstract methods
   //
-  override def getRootNode: DseResultTreeNode.NodeBase = rootNode
+  override def getRootNode: DseResultNodeBase = rootNode
 
-  override def getNodeChildren(node: DseResultTreeNode.NodeBase): Seq[DseResultTreeNode.NodeBase] = node.children
+  override def getNodeChildren(node: DseResultNodeBase): Seq[DseResultNodeBase] = node.children
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}
@@ -104,11 +90,11 @@ class DseResultTreeTableModel(results: Seq[DseResult])
     case _ => classOf[String]
   }
 
-  override def getNodeValueAt(node: DseResultTreeNode.NodeBase, column: Int): Object = node.getColumns(column)
+  override def getNodeValueAt(node: DseResultNodeBase, column: Int): Object = node.getColumns(column)
 
   // These aren't relevant for trees that can't be edited
-  override def isNodeCellEditable(node: DseResultTreeNode.NodeBase, column: Int): Boolean = false
-  override def setNodeValueAt(aValue: Any, node: DseResultTreeNode.NodeBase, column: Int): Unit = {}
+  override def isNodeCellEditable(node: DseResultNodeBase, column: Int): Boolean = false
+  override def setNodeValueAt(aValue: Any, node: DseResultNodeBase, column: Int): Unit = {}
 
   def setTree(tree: JTree): Unit = { }  // tree updates ignored
 }

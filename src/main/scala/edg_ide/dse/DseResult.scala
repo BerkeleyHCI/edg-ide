@@ -1,16 +1,15 @@
 package edg_ide.dse
 
-import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, CompilerError, ExprValue}
+import edg.compiler.{Compiler, CompilerError}
 import edg.wir.Refinements
 import edgir.schema.schema.Design
-import edgir.ref.ref
 
 import scala.collection.SeqMap
 
 
 // result entry for an evaluated point in the design space
 case class DseResult(
+                        index: Int,
                         config: SeqMap[DseConfigElement, Any],
                         configRefinement: Refinements,
                         compiler: Compiler,
