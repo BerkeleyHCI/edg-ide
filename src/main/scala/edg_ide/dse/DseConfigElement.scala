@@ -16,36 +16,43 @@ sealed trait DseConfigElement { self: Serializable =>
 
 
 // DSE element that generates into a set of refinements with no dynamic dependencies
-sealed trait DseRefinementElement extends DseConfigElement { self: Serializable =>
-  def getRefinements: Seq[Refinements]
+sealed trait DseRefinementElement[+ValueType] extends DseConfigElement { self: Serializable =>
+  // Returns a list of possibilities, as both a raw value and a refinement
+  def getValues: Seq[(ValueType, Refinements)]
+}
+
+
+// DSE element that is associated with a single path
+sealed trait DseInstanceRefinementElement[+ValueType] extends DseRefinementElement[ValueType] { self: Serializable =>
+  val path: DesignPath
 }
 
 
 // Tries all values for some parameter
 case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
-    extends DseRefinementElement with Serializable {
+    extends DseInstanceRefinementElement[ExprValue] with Serializable {
   override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(", ")})"
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path))
   }
 
-  override def getRefinements: Seq[Refinements] = values.map { value =>
-    Refinements(instanceValues=Map(path -> value))
+  override def getValues: Seq[(ExprValue, Refinements)] = values.map { value =>
+    (value, Refinements(instanceValues=Map(path -> value)))
   }
 }
 
 
 // Tries all subclasses for some block
 case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
-    extends DseRefinementElement with Serializable {
+    extends DseInstanceRefinementElement[ref.LibraryPath] with Serializable {
   override def toString = f"${this.getClass.getSimpleName}($path, ${subclasses.map(_.toSimpleString).mkString(", ")})"
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(blocks = Seq(path))
   }
 
-  override def getRefinements: Seq[Refinements] = subclasses.map { value =>
-    Refinements(instanceRefinements=Map(path -> value))
+  override def getValues: Seq[(ref.LibraryPath, Refinements)] = subclasses.map { value =>
+    (value, Refinements(instanceRefinements=Map(path -> value)))
   }
 }

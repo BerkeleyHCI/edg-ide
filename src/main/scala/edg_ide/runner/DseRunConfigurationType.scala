@@ -57,7 +57,7 @@ class DseRunConfigurationOptions extends RunConfigurationOptions {
   var resultCsvFile: String = ""
 
   // TODO this should be the more generic DseConfigElement, but for now it's refinement types only
-  var searchConfigs: Seq[DseRefinementElement] = Seq(
+  var searchConfigs: Seq[DseRefinementElement[Any]] = Seq(
     DseSubclassSearch(DesignPath() + "reg_5v",
       Seq(
         "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
@@ -112,7 +112,7 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile, "")
     Option(JDOMExternalizerUtil.readField(element, kFieldSearchConfigs))
         .flatMap(ObjectSerializer.deserialize)
-        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseRefinementElement])
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseRefinementElement[Any]])
         .foreach(options.searchConfigs = _)  // only set if valid, otherwise leave as default
     Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
         .flatMap(ObjectSerializer.deserialize)

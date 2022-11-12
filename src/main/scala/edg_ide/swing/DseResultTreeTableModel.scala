@@ -2,7 +2,7 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.compiler.CompilerError
-import edg_ide.dse.DseResult
+import edg_ide.dse.{DseInstanceRefinementElement, DseResult}
 import edgir.schema.schema.Design
 
 import javax.swing.JTree
@@ -25,13 +25,11 @@ object DseResultTreeNode {
     val children: Seq[NodeBase]
 
     val config: String
-    val errors: String
     val values: String
 
     override def toString = config
     def getColumns(index: Int): String = index match {
-      case 1 => errors
-      case 2 => values
+      case 1 => values
       case _ => "???"
     }
   }
@@ -46,7 +44,6 @@ object DseResultTreeNode {
     }
 
     override val config = ""  // empty, since the root node is hidden
-    override val errors = ""
     override val values = ""
   }
 
@@ -54,25 +51,27 @@ object DseResultTreeNode {
   class ResultSetNode(setMembers: Seq[DseResult]) extends NodeBase {
     class InnerResultsNode extends NodeBase {
       override val config = f"Individual Results"
-      override val errors = ""
       override val values = ""
       override lazy val children = setMembers.map(result => new ResultNode(result))
     }
 
     private val exampleResult = setMembers.head
-    override val config = f"(${setMembers.length}) ${exampleResult.refinement.toString}"
-    override val errors = exampleResult.errors.length.toString
-    override val values = ""
+    override val config = exampleResult.configToString
+    val errString = if (exampleResult.errors.nonEmpty) {
+      f", ${exampleResult.errors.length} errors"
+    } else {
+      ""
+    }
+    override val values = f"${setMembers.length} in set" + errString
     override lazy val children = Seq(
       new InnerResultsNode()
     ) ++ exampleResult.objectives.map { case (objectiveName, objectiveValue) =>
-      new LeafNode(objectiveName, "", objectiveValue.toString)
+      new LeafNode(objectiveName, "", exampleResult.valueToString(objectiveValue))
     }
   }
 
   class ResultNode(result: DseResult) extends NodeBase {
-    override val config = result.refinement.toString
-    override val errors = result.errors.length.toString
+    override val config = result.configToString
     override val values = ""
     override val children: Seq[NodeBase] = Seq()
   }
@@ -82,7 +81,7 @@ object DseResultTreeNode {
 class DseResultTreeTableModel(results: Seq[DseResult])
     extends SeqTreeTableModel[DseResultTreeNode.NodeBase] {
   val rootNode: DseResultTreeNode.NodeBase = new DseResultTreeNode.RootNode(results)
-  val COLUMNS = Seq("Config", "Errors", "Values")
+  val COLUMNS = Seq("Config", "Values")
 
   // TreeView abstract methods
   //

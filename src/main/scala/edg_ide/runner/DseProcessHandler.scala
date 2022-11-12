@@ -9,14 +9,14 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
-import edg_ide.dse.DseResult
+import edg_ide.dse.{DseConfigElement, DseResult}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
 
 import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
-import scala.collection.mutable
+import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
 
@@ -81,10 +81,15 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
       }}
     }
 
-    val allRefinements = crossProduct(options.searchConfigs.map {
-      searchConfig => searchConfig.getRefinements
-    }).map { refinements =>
-      refinements.reduce(_ ++ _)
+    val allValueRefinements = crossProduct(options.searchConfigs.map {
+      searchConfig => searchConfig.getValues.map{ case (value, refinement) =>
+        (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
+      }
+    }).map { valueRefinements =>
+      val (values, refinements) = valueRefinements.unzip
+      val combinedRefinement = refinements.reduce(_ ++ _)
+      val valuesMap = SeqMap.from(values)
+      (valuesMap, combinedRefinement)
     }
 
     try {
@@ -140,7 +145,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         indicator.setText("EDG searching: design space")
         indicator.setFraction(0)
         indicator.setIndeterminate(false)
-        for ((searchRefinement, searchIndex) <- allRefinements.zipWithIndex) {
+        for (((searchValues, searchRefinement), searchIndex) <- allValueRefinements.zipWithIndex) {
           console.print(s"Compile $searchRefinement\n", ConsoleViewContentType.SYSTEM_OUTPUT)
           val (compiler, forkTime) = timeExec {
             commonCompiler.fork(searchRefinement)
@@ -157,14 +162,15 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             name -> objective.calculate(compiled, solvedValues)
           }
 
-          results.append(DseResult(searchRefinement, compiler, compiled, errors, objectiveValues,
-            compileTime))
+          val result = DseResult(searchValues, searchRefinement, compiler, compiled, errors, objectiveValues,
+            compileTime)
+          results.append(result)
 
           if (errors.nonEmpty) {
-            console.print(s"($forkTime + $compileTime ms) ${errors.size} errors, $objectiveValues\n",
+            console.print(s"($forkTime + $compileTime ms) ${errors.size} errors, ${result.objectiveToString}\n",
               ConsoleViewContentType.ERROR_OUTPUT)
           } else {
-            console.print(s"($forkTime + $compileTime ms) $objectiveValues\n",
+            console.print(s"($forkTime + $compileTime ms) ${result.objectiveToString}\n",
               ConsoleViewContentType.SYSTEM_OUTPUT)
           }
 
@@ -175,7 +181,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             fileWriter.flush()
           }
 
-          indicator.setFraction((searchIndex + 1.0) / allRefinements.size)
+          indicator.setFraction((searchIndex + 1.0) / allValueRefinements.size)
         }
 
         csvFile.foreach { case (fileWriter, csv) =>
