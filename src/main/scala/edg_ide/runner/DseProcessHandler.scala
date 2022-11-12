@@ -9,6 +9,7 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
+import edg_ide.dse.DseResult
 import edg_ide.ui.EdgCompilerService
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
@@ -135,8 +136,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         }
         console.print(s"($commonCompileTime ms) compiled base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
 
-        // Refinement input -> (error count, objectives)
-        val results = mutable.SeqMap[Refinements, (Int, Map[String, Any])]()
+        val results = mutable.ListBuffer[DseResult]()
 
         indicator.setText("EDG searching: design space")
         indicator.setFraction(0)
@@ -155,8 +155,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
           val solvedValues = compiler.getAllSolved
           val objectiveValues = options.objectives.map { case (name, objective) =>
             name -> objective.calculate(compiled, solvedValues)
-          }.toMap
-          results.put(searchRefinement, (errors.size, objectiveValues))
+          }
+
+          results.append(DseResult(searchRefinement, compiler, compiled, errors, objectiveValues))
 
           if (errors.nonEmpty) {
             console.print(s"($compileTime ms) ${errors.size} errors, $objectiveValues\n",
