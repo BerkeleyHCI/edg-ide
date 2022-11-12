@@ -13,7 +13,7 @@ import edg_ide.ui.EdgCompilerService
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
 
-import java.io.{OutputStream, PrintWriter, StringWriter}
+import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.IterableHasAsJava
@@ -45,6 +45,28 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+
+    // Open a CSV file (if desired) and write result rows as they are computed.
+    // This is done first to empty out the result file, if one already exists.
+    val objectiveNames = options.objectives.keys.toSeq
+    val csvFile = if (options.resultCsvFile.nonEmpty) {
+      val fileWriter = new FileWriter(options.resultCsvFile) // need a separate fileWriter to be flushable
+      Option(CsvWriter.builder().build(fileWriter)) match {
+        case Some(csv) =>
+          csv.writeRow((Seq("config", "errors") ++ objectiveNames).asJava) // write header row
+          fileWriter.flush()
+
+          console.print(s"Opening results CSV at ${options.resultCsvFile}\n",
+            ConsoleViewContentType.SYSTEM_OUTPUT)
+          Some((fileWriter, csv))
+        case None =>
+          console.print(s"Failed to open results CSV at ${options.resultCsvFile}\n",
+            ConsoleViewContentType.ERROR_OUTPUT)
+          None
+      }
+    } else {
+      None
+    }
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
@@ -143,28 +165,18 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             console.print(s"($compileTime ms) $objectiveValues\n", ConsoleViewContentType.SYSTEM_OUTPUT)
           }
 
+          // Write to CSV
+          csvFile.foreach { case (fileWriter, csv) =>
+            csv.writeRow((Seq(searchRefinement.toString, errors.toString) ++
+                objectiveNames.map(name => objectiveValues(name).toString)).asJava)
+            fileWriter.flush()
+          }
+
           indicator.setFraction((searchIndex + 1.0) / allRefinements.size)
         }
 
-        if (options.resultCsvFile.nonEmpty) {
-          indicator.setText("EDG searching: writing results")
-          Option(CsvWriter.builder().build(Paths.get(options.resultCsvFile))) match {
-            case Some(csv) =>
-              val objectiveNames = options.objectives.keys.toSeq
-              csv.writeRow((Seq("config", "errors") ++ objectiveNames).asJava)  // write header row
-
-              results.foreach { case (refinement, (error, objectiveValues)) =>
-                csv.writeRow((Seq(refinement.toString, error.toString) ++
-                  objectiveNames.map(name => objectiveValues(name).toString)).asJava)
-              }
-              csv.close()
-
-              console.print(s"Wrote results to ${options.resultCsvFile}\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
-            case None =>
-              console.print(s"Failed to write ${options.resultCsvFile}\n",
-                ConsoleViewContentType.ERROR_OUTPUT)
-          }
+        csvFile.foreach { case (fileWriter, csv) =>
+          csv.close()
         }
       }
     } catch {
