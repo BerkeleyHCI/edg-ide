@@ -71,14 +71,14 @@ class DseConfigPanel(project: Project) extends JPanel {
   configTree.setRootVisible(false)
   tabbedPane.addTab("Config", new JBScrollPane(configTree))
 
-  onConfigUpdate()  // set initial state
-
   // GUI: Results Tab
   //
   private val resultsTree = new TreeTable(new DseResultTreeTableModel(Seq()))
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
   tabbedPane.addTab("Results", new JBScrollPane(resultsTree))
+
+  onConfigUpdate()  // set initial state
 
   // Configuration State
   //
