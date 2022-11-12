@@ -7,6 +7,9 @@ import scala.reflect.{ClassTag, classTag}
 
 // shared object serialization utils for saving object state to IDE state, eg persisting
 // run configs between IDE restarts
+//
+// TODO: this is pretty brittle if the internal class changes since the format is tied to the class
+// perhaps investigate other serialization strategies, eg uPickle
 object ObjectSerializer {
   def serialize(obj: Object): String = {
     val out = new ByteArrayOutputStream()

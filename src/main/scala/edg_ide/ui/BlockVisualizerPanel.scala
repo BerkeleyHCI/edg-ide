@@ -14,7 +14,7 @@ import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
-import edg_ide.dse.DseConfig
+import edg_ide.dse.DseFeature
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
@@ -199,7 +199,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   //
   private val dseSplitter = new JBSplitter(true, 0.66f, 0.1f, 0.9f)
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
-  if (DseConfig.kEnabled) {
+  if (DseFeature.kEnabled) {
     mainSplitter.setSecondComponent(dseSplitter)
     dseSplitter.setFirstComponent(bottomSplitter)
   } else {

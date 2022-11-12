@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.types.TypeEvalContext
-import edg_ide.dse.DseConfig
+import edg_ide.dse.DseFeature
 import edg_ide.util.DesignAnalysisUtils
 
 
@@ -18,7 +18,7 @@ class DseRunConfigurationProducer extends LazyRunConfigurationProducer[DseRunCon
 
   override def setupConfigurationFromContext(configuration: DseRunConfiguration, context: ConfigurationContext,
                                              sourceElement: Ref[PsiElement]): Boolean = {
-    if (!DseConfig.kEnabled) {
+    if (!DseFeature.kEnabled) {
       return false
     }
 
