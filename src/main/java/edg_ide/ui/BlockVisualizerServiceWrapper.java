@@ -17,6 +17,9 @@ class BlockVisualizerServiceState {
   public int panelTabIndex = 0;
   public float libraryPreviewSplitterPos = 0.5f;
   public float dseSplitterPos = 0.66f;
+
+  // DSE Panel
+  public int dseTabIndex = 0;
 }
 
 
