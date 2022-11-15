@@ -1,6 +1,9 @@
 package edg_ide.swing
 
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
+import edg.wir.DesignPath
+import edg_ide.edgir_graph.ElkEdgirGraphUtils
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{Dimension, Graphics, Rectangle}

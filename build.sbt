@@ -9,11 +9,11 @@ ThisBuild / intellijBuild := "2021.3"
 // even though https://github.com/JetBrains/sbt-idea-plugin/commit/a7cfd633542b51847c2cac158981db5f81f863b9
 ThisBuild / intellijPlatform := IntelliJPlatform.IdeaCommunity
 
-lazy val compiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
+lazy val edgCompiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
     .enablePlugins(SbtIdeaPlugin)  // sbt-idea-plugin doesn't import properly if this isn't enabled
 
 lazy val root = (project in file("."))
-    .dependsOn(compiler % "compile->compile; test->test")
+    .dependsOn(edgCompiler % "compile->compile; test->test")
     .enablePlugins(SbtIdeaPlugin)
     .settings(
       scalaVersion := "2.13.8",

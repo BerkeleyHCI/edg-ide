@@ -1,8 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
@@ -15,9 +13,10 @@ import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
+import edg_ide.dse.{DseFeature, DseResult}
 import edg_ide.edgir_graph._
 import edg_ide.swing._
-import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
+import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -60,11 +59,10 @@ object Gbc {
 
 
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
-  private val logger = Logger.getInstance(classOf[BlockVisualizerPanel])
-
   // Internal State
   //
   private var design = schema.Design()
+  private var refinements = edgrpc.Refinements()
   private var compiler = new Compiler(design, EdgCompilerService(project).pyLib)
 
   // Shared state, access should be synchronized on the variable
@@ -116,7 +114,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
     override def setDetailView(path: DesignPath): Unit = {
       tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
-      detailPanel.setLoaded(path, design, compiler)
+      detailPanel.setLoaded(path, design, refinements, compiler)
       kicadVizPanel.setBlock(path, design, compiler)
     }
 
@@ -146,8 +144,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI Components
   //
-  private val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.BlockVisualizerPanel")
-
   private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
 
   // GUI: Top half (status and block visualization)
@@ -200,8 +196,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI: Bottom half (design tree and task tabs)
   //
+  private val dseSplitter = new JBSplitter(true, 0.66f, 0.1f, 0.9f)
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
-  mainSplitter.setSecondComponent(bottomSplitter)
+  if (DseFeature.kEnabled) {
+    mainSplitter.setSecondComponent(dseSplitter)
+    dseSplitter.setFirstComponent(bottomSplitter)
+  } else {
+    mainSplitter.setSecondComponent(bottomSplitter)
+  }
 
   private var designTreeModel = new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel)
@@ -242,23 +244,24 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   tabbedPane.addTab("Library", libraryPanel)
   val TAB_INDEX_LIBRARY = 0
 
-  private val refinementsPanel = new RefinementsPanel()
-  tabbedPane.addTab("Refinements", refinementsPanel)
-  val TAB_INDEX_REFINEMENTS = 1
-
-  private val detailPanel = new DetailPanel()
+  private val detailPanel = new DetailPanel(DesignPath(), design, refinements, compiler)
   tabbedPane.addTab("Detail", detailPanel)
-  val TAB_INDEX_DETAIL = 2
+  val TAB_INDEX_DETAIL = 1
 
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
-  val TAB_INDEX_ERRORS = 3
+  val TAB_INDEX_ERRORS = 2
 
   // add a tab for kicad visualization
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
-  val TAB_KICAD_VIZ = 4
+  val TAB_KICAD_VIZ = 3
 
+
+  // GUI: Design Space Exploration (bottom tab)
+  //
+  private val dsePanel = new DseConfigPanel(project)
+  dseSplitter.setSecondComponent(dsePanel)
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -293,7 +296,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
                    errors: Seq[CompilerError]): Unit = {
     setDesign(design, compiler)
-    refinementsPanel.setRefinements(refinements)
+    this.refinements = refinements
     tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
     errorPanel.setErrors(errors)
 
@@ -307,7 +310,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateDisplay()
   }
 
-  /** Updates the design tree only
+  /** Updates the design tree only, where the overall "top design" does not change.
+    * Mainly used for speculative updates on graphical edit actions.
     */
   def setDesign(design: schema.Design, compiler: Compiler): Unit = {
     // Update state
@@ -398,6 +402,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateStale()
   }
 
+  def setDseResults(results: Seq[DseResult]): Unit = {
+    dsePanel.setResults(results)
+  }
+
   // In place design tree modifications
   //
   def currentDesignModifyBlock(blockPath: DesignPath)
@@ -413,11 +421,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
+    state.dseSplitterPos = dseSplitter.getProportion
     libraryPanel.saveState(state)
-    refinementsPanel.saveState(state)
     detailPanel.saveState(state)
     errorPanel.saveState(state)
     kicadVizPanel.saveState(state)
+    dsePanel.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
@@ -425,11 +434,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)
+    dseSplitter.setProportion(state.dseSplitterPos)
     libraryPanel.loadState(state)
-    refinementsPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
     kicadVizPanel.loadState(state)
+    dsePanel.loadState(state)
   }
 }
 
@@ -531,41 +541,14 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
   }
-
-
-}
-
-class RefinementsPanel extends JPanel {
-  private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
-  new TreeTableSpeedSearch(tree)
-  tree.setShowColumns(true)
-  tree.setRootVisible(false)
-  private val treeScrollPane = new JBScrollPane(tree)
-
-  setLayout(new BorderLayout())
-  add(treeScrollPane)
-
-  // Actions
-  //
-  def setRefinements(refinements: edgrpc.Refinements): Unit = {
-    tree.setModel(new RefinementsTreeTableModel(refinements))
-    tree.setRootVisible(false)
-  }
-
-  // Configuration State
-  //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-  }
-
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-  }
 }
 
 
-class DetailPanel extends JPanel {
+class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements: edgrpc.Refinements,
+                  initCompiler: Compiler) extends JPanel {
   import edg_ide.swing.ElementDetailTreeModel
 
-  private val tree = new TreeTable(new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock()))
+  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, initRoot, initRefinements, initCompiler))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
 
@@ -574,8 +557,8 @@ class DetailPanel extends JPanel {
 
   // Actions
   //
-  def setLoaded(path: DesignPath, root: schema.Design, compiler: Compiler): Unit = {
-    tree.setModel(new ElementDetailTreeModel(path, root, compiler))
+  def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
+    tree.setModel(new ElementDetailTreeModel(path, root, refinements, compiler))
   }
 
   // Configuration State

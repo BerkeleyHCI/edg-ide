@@ -8,16 +8,20 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.LabeledComponent
 import com.intellij.openapi.util.JDOMExternalizerUtil
 import com.intellij.psi.search.ExecutionSearchScopes
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.FormBuilder
 import com.jetbrains.python.run.PythonTracebackFilter
+import edg.ElemBuilder
+import edg.compiler.RangeValue
+import edg.wir.DesignPath
+import edg_ide.dse._
+import edg_ide.util.ObjectSerializer
 import org.jdom.Element
 
-import java.awt.GridLayout
-import javax.swing.{Icon, JComponent, JPanel, JTextField}
+import javax.swing.{Icon, JComponent, JLabel, JPanel, JTextField}
+import scala.collection.SeqMap
 
 
 // Run configuration for design space exploration (DSE) / search, which tries lots of variations
@@ -51,6 +55,26 @@ class DseConfigurationFactory(confType: ConfigurationType) extends Configuration
 class DseRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var resultCsvFile: String = ""
+
+  // TODO this should be the more generic DseConfigElement, but for now it's refinement types only
+  var searchConfigs: Seq[DseRefinementElement[Any]] = Seq(
+    DseSubclassSearch(DesignPath() + "reg_5v",
+      Seq(
+        "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
+        "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
+      ).map(value => ElemBuilder.LibraryPath(value))
+    ),
+    DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
+      Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
+    ),
+  )
+  var objectives: SeqMap[String, DseObjective[Any]] = SeqMap(
+    "inductor" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_part"),
+    "inductor_val" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "fp_value"),
+    "inductance" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
+    "5v_area" -> DseObjectiveFootprintArea(DesignPath() + "reg_5v"),
+    "5v_count" -> DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
+  )
 }
 
 
@@ -80,15 +104,31 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
 
   val kFieldDesignName = "DESIGN_NAME"
   val kFieldResultCsvFile = "RESULT_CSV_FILE"
+  val kFieldSearchConfigs = "SEARCH_CONFIGS"
+  val kFieldObjectives = "OBJECTIVES"
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
-    options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName)
-    options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile)
+    options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
+    options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile, "")
+    Option(JDOMExternalizerUtil.readField(element, kFieldSearchConfigs))
+        .flatMap(ObjectSerializer.deserialize)
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseRefinementElement[Any]])
+        .foreach(options.searchConfigs = _)  // only set if valid, otherwise leave as default
+    Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
+        .flatMap(ObjectSerializer.deserialize)
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[(String, DseObjective[Any])](
+          _,
+          { elt: (String, DseObjective[Any]) => elt._1.isInstanceOf[String] && elt._2.isInstanceOf[DseObjective[Any]] }))
+        .map(SeqMap.from)
+        .foreach(options.objectives = _)
   }
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldResultCsvFile, options.resultCsvFile)
+    JDOMExternalizerUtil.writeField(element, kFieldSearchConfigs, ObjectSerializer.serialize(options.searchConfigs))
+    // toSeq needed since SeqMap may not be serializable
+    JDOMExternalizerUtil.writeField(element, kFieldObjectives, ObjectSerializer.serialize(options.objectives.toSeq))
   }
 }
 
@@ -96,16 +136,22 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
 class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   protected val designName = new JTextField()
   protected val resultCsvFile = new JTextField()
+  protected val searchConfigs = new JLabel()  // view only - set from DSE tab in BlockVisualizer panel
+  protected val objectives = new JLabel()
 
   protected val panel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("Design top name"), designName, false)
       .addLabeledComponent(new JBLabel("Result CSV file"), resultCsvFile, false)
+      .addLabeledComponent(new JBLabel("Parameter search configs"), searchConfigs, false)
+      .addLabeledComponent(new JBLabel("Objective functions"), objectives, false)
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
 
   override def resetEditorFrom(s: DseRunConfiguration): Unit = {
     designName.setText(s.options.designName)
     resultCsvFile.setText(s.options.resultCsvFile)
+    searchConfigs.setText("<html>" + s.options.searchConfigs.map(_.toString).mkString("<br/>") + "</html>")
+    objectives.setText("<html>" + s.options.objectives.map(_.toString).mkString("<br/>") + "</html>")
   }
 
   override def applyEditorTo(s: DseRunConfiguration): Unit = {

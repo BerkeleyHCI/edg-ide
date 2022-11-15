@@ -1,12 +1,12 @@
 # edg-ide
 
-An IDE for the [Polymorphic Blocks board-level HDL](https://github.com/BerkeleyHCI/PolymorphicBlocks) that adds a schematic-like graphical interface (with block diagram visualization) side-by-side with the text editor.
+An IDE plugin for the [Polymorphic Blocks board-level HDL](https://github.com/BerkeleyHCI/PolymorphicBlocks) that adds a schematic-like graphical interface (with block diagram visualization) side-by-side with the text editor.
 Schematic-like actions on the graphical interface (like insert-block or connect-ports) generate into lines of code on the HDL.
 Direct textual edits to the HDL can also be made at any time, and the block diagram can be updated through a fast incremental recompilation.
 
-![IDE Screenshot](docs/ide_blinkyarray_example.png)
+![IDE Screenshot](https://raw.githubusercontent.com/BerkeleyHCI/PolymorphicBlocks/master/docs/ide/overview.png)
 
-Once you have [the IDE set up](#setup), follow [the getting started tutorial](docs/ide-getting-started.md), which walks through major IDE features and includes an introduction to the HDL.
+Check out [the getting started tutorial in PolymorphicBlocks](https://github.com/BerkeleyHCI/PolymorphicBlocks/blob/master/getting-started.md), which introduces the HDL and walks through major IDE features.
 
 For a slightly deeper technical overview, check out our [UIST'21 paper and recorded talks](https://doi.org/10.1145/3472749.3474804).
 
@@ -20,8 +20,6 @@ Follow the [command-line build instructions](developing.md#build-and-run-from-co
 
 **This project uses submodules**, and may depend on a synchronized version of the `PolymorphicBlocks` submodule.
 If you're getting compile errors, try updating submodules with `git submodule update`. 
-
-Once the IDE is running, open the Polymorphic Block repository, then continue to [the getting started tutorial](docs/ide-getting-started.md).
 
 
 ## Developing
