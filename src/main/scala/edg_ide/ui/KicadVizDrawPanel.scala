@@ -49,7 +49,7 @@ class KicadVizDrawPanel extends JPanel {
             scaledWidth,
             scaledHeight)
 
-          val fillG = g.create().asInstanceOf[Graphics2D]  // TODO dedup w/ JElkGraph / JBlockDiagramVisualizer?
+          val fillG = g.create().asInstanceOf[Graphics2D]  // TODO dedup w/ JBlockDiagramVisualizer?
           fillG.setColor(new Color(
             fillG.getColor.getRed,
             fillG.getColor.getGreen,
@@ -81,7 +81,7 @@ class KicadVizDrawPanel extends JPanel {
             scaledWidth,
             scaledHeight)
 
-          val fillG = g.create().asInstanceOf[Graphics2D] // TODO dedup w/ JElkGraph / JBlockDiagramVisualizer?
+          val fillG = g.create().asInstanceOf[Graphics2D] // TODO dedup w/ JBlockDiagramVisualizer?
           fillG.setColor(new Color(
             fillG.getColor.getRed,
             fillG.getColor.getGreen,
@@ -107,7 +107,7 @@ class KicadVizDrawPanel extends JPanel {
   }
 
   def getComponentForLocation(locX: Int, locY: Int): Seq[KicadComponent] = {
-    // TODO 'widen' lines so that can be selected w/o pinpoint accuracy - see algo in JElkGraph
+    // TODO 'widen' lines so that can be selected w/o pinpoint accuracy - see algo in ElkNodePainter
     // TODO dedup this code w/ draw, this is so much copypaste =(
     val ((min_x, min_y), _) = kicadFootprint.bounds
     kicadFootprint.elts.flatMap {
