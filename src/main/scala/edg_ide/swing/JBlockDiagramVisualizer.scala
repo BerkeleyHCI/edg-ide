@@ -16,12 +16,13 @@ import scala.collection.mutable
  */
 class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = false)
   extends JComponent with Scrollable with Zoomable {
-  private val elementToolTips = mutable.Map[ElkGraphElement, String]()
-  private val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
-  protected var highlighted: Option[Set[ElkGraphElement]] = None
-  protected var errorElts: Set[ElkGraphElement] = Set()
-  protected var staleElts: Set[ElkGraphElement] = Set()
   private var zoomLevel: Float = 1.0f
+  private val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
+  private var selected: Set[ElkGraphElement] = Set()
+  private var highlighted: Option[Set[ElkGraphElement]] = None
+  private var errorElts: Set[ElkGraphElement] = Set()
+  private var staleElts: Set[ElkGraphElement] = Set()
+  private val elementToolTips = mutable.Map[ElkGraphElement, String]()
   private var painter = new ModifiedElkNodePainter(rootNode, showTop)
 
   override def getZoom = zoomLevel
@@ -31,31 +32,14 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   }
 
   def setSelected(elts: Set[ElkGraphElement]): Unit = {
-    painter.setSelected(elts)
+    selected = elts
     validate()
     repaint()
   }
 
   def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
     highlighted = elts
-    painter.setHighlighted(highlighted)
     validate()
-    repaint()
-  }
-
-  setGraph(rootNode)
-
-  def getGraph: ElkNode = rootNode
-
-  def setGraph(newGraph: ElkNode): Unit = {
-    errorElts = Set()
-    staleElts = Set()
-    painter = new ModifiedElkNodePainter(newGraph, showTop, zoomLevel)
-    elementToolTips.clear()
-    highlighted = None
-    painter.setSelected(Set())
-    rootNode = newGraph
-    revalidate()
     repaint()
   }
 
@@ -71,19 +55,34 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     repaint()
   }
 
+  setGraph(rootNode)
+
+  def getGraph: ElkNode = rootNode
+
+  def setGraph(newGraph: ElkNode): Unit = {
+    errorElts = Set()
+    staleElts = Set()
+    elementToolTips.clear()
+    highlighted = None
+    selected = Set()
+    painter = new ModifiedElkNodePainter(newGraph, showTop, zoomLevel)
+    rootNode = newGraph
+    revalidate()
+    repaint()
+  }
+
   def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
     painter.getElementForLocation(x, y)
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts)
+    painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
     painter.paintComponent(paintGraphics, this.getBackground)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
   setAutoscrolls(true)
   // TODO proper drag support
-
 
   addMouseListener(new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
