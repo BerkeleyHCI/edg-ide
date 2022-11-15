@@ -9,15 +9,14 @@ import java.awt.geom.{AffineTransform, Rectangle2D}
 import java.awt.image.BufferedImage
 import scala.jdk.CollectionConverters.ListHasAsScala
 
-
 class ModifiedElkNodePainter(rootNode: ElkNode,
                              showTop: Boolean = false,
                              zoomLevel: Float = 1.0f,
-                             val errorElts: Set[ElkGraphElement] = Set(),
-                             val staleElts: Set[ElkGraphElement] = Set(),
-                             val selected: Set[ElkGraphElement] = Set(),
-                             val highlighted: Option[Set[ElkGraphElement]] = None)
-  extends ElkNodePainter(rootNode, showTop, zoomLevel) {
+                             errorElts: Set[ElkGraphElement] = Set(),
+                             staleElts: Set[ElkGraphElement] = Set(),
+                             selected: Set[ElkGraphElement] = Set(),
+                             highlighted: Option[Set[ElkGraphElement]] = None)
+  extends ElkNodePainter(rootNode, showTop) {
   private val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
 
 

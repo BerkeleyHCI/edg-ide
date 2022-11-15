@@ -1,15 +1,13 @@
 package edg_ide.swing
 
-import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
-import edg.wir.DesignPath
-import edg_ide.edgir_graph.ElkEdgirGraphUtils
-import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
+import edg_ide.swing.ElkNodeUtil.edgeSectionPairs
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
-
+import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
 /** Block diagram visualizer that customizes the rendering with options specific to
  * design block diagrams:
@@ -26,7 +24,6 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private var errorElts: Set[ElkGraphElement] = Set()
   private var staleElts: Set[ElkGraphElement] = Set()
   private val elementToolTips = mutable.Map[ElkGraphElement, String]()
-  private var painter = new ModifiedElkNodePainter(rootNode, showTop)
 
   override def getZoom = zoomLevel
 
@@ -68,18 +65,76 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     elementToolTips.clear()
     highlighted = None
     selected = Set()
-    painter = new ModifiedElkNodePainter(newGraph, showTop, zoomLevel)
     rootNode = newGraph
     revalidate()
     repaint()
   }
 
+  val EDGE_CLICK_WIDTH = 5.0f // how thick edges are for click detection purposes
+
   def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
-    painter.getElementForLocation(x, y)
+    def shapeContainsPoint(shape: ElkShape, point: (Double, Double)): Boolean = {
+      (shape.getX <= point._1 && point._1 <= shape.getX + shape.getWidth) &&
+        (shape.getY <= point._2 && point._2 <= shape.getY + shape.getHeight)
+    }
+
+    def lineClosestDist(line1: (Double, Double), line2: (Double, Double), point: (Double, Double)): Double = {
+      // Adapted from https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+      val lengthSq = Math.pow(line2._1 - line1._1, 2) +
+        Math.pow(line2._2 - line1._2, 2)
+      if (lengthSq == 0) { // "line" is a point, return distance to the point
+        Math.sqrt(Math.pow(point._1 - line1._1, 2) + Math.pow(point._2 - line1._2, 2)).toFloat
+      } else {
+        val dot = (point._1 - line1._1) * (line2._1 - line1._1) +
+          (point._2 - line1._2) * (line2._2 - line1._2)
+        val t = Math.max(0, Math.min(1, dot / lengthSq))
+        val proj = (line1._1 + t * (line2._1 - line1._1),
+          line1._2 + t * (line2._2 - line1._2))
+        val dist = Math.sqrt(Math.pow(point._1 - proj._1, 2) + Math.pow(point._2 - proj._2, 2))
+        dist.toFloat
+      }
+    }
+
+    def edgeClosestDistance(edge: ElkEdge, point: (Double, Double)): Double = {
+      edge.getSections.asScala.map { section =>
+        edgeSectionPairs(section).map { case (line1, line2) =>
+          lineClosestDist(line1, line2, point)
+        }.min
+      }.min
+    }
+
+    // Tests the clicked point against a node, returning either a sub-node, port, or edge
+    def intersectNode(node: ElkNode, point: (Double, Double)): Option[ElkGraphElement] = {
+      // Ports can be outside the main shape and can't be gated by the node shape test
+      val nodePoint = (point._1 - node.getX, point._2 - node.getY) // transform to node space
+      val containedPorts = node.getPorts.asScala.collect {
+        case port if shapeContainsPoint(port, nodePoint) => port
+      }
+
+      // Test node, and if within node, recurse into children
+      val containedNodes = if (shapeContainsPoint(node, point)) {
+        val containedChildren = node.getChildren.asScala.flatMap(intersectNode(_, nodePoint))
+        val edgeDistances = node.getContainedEdges.asScala.map { edge =>
+          (edge, edgeClosestDistance(edge, nodePoint) * zoomLevel) // attach distance calculation
+        }.sortBy(_._2) // sort to get closest to cursor
+        val containedEdges = edgeDistances.collect { case (edge, dist)
+          if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
+        }
+
+        containedChildren ++ containedEdges ++ Seq(node)
+      } else {
+        Seq()
+      }
+
+      (containedPorts ++ containedNodes).headOption
+    }
+
+    val elkPoint = ((x - margin) / zoomLevel.toDouble, (y - margin) / zoomLevel.toDouble) // transform points to elk-space
+    intersectNode(rootNode, elkPoint)
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
+    val painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
     painter.paintComponent(paintGraphics, this.getBackground)
   }
 
@@ -100,7 +155,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   }
 
   override def getToolTipText(e: MouseEvent): String = {
-    painter.getElementForLocation(e.getX, e.getY) match {
+    getElementForLocation(e.getX, e.getY) match {
       case None => null
       case Some(element) => elementToolTips.get(element) match {
         case None => null
