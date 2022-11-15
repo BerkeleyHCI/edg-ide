@@ -266,10 +266,9 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
-        // TODO: create PDF here
-
-        PDFGeneratorUtil.generate(HierarchyGraphElk.HGraphToElkGraph(compiled.getContents),"test.pdf")
         console.print("Printing PDF\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+        PDFGeneratorUtil.generate(HierarchyGraphElk.HGraphToElkGraph(compiled.getContents),"test.pdf")
+
 
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")

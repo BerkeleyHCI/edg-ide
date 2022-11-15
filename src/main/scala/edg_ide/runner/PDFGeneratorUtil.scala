@@ -11,7 +11,7 @@ import java.io.FileOutputStream
 
 object PDFGeneratorUtil{
 
-  def generate(rootNode: ElkNode, fileName: String): Unit ={
+  def generate(rootNode: ElkNode, fileName: String): Unit = {
     val width = rootNode.getWidth.toFloat
     val height = rootNode.getHeight.toFloat
     val document = new Document(new Rectangle(width, height))
@@ -20,7 +20,6 @@ object PDFGeneratorUtil{
     val cb = writer.getDirectContent
     val graphics = cb.createGraphics(width, height)
 
-    println("In PDF Util, painting")
     val painter = new ElkNodePainter(rootNode)
     painter.paintComponent(graphics, Color.white)
 

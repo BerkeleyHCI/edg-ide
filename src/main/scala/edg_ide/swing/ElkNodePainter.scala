@@ -8,27 +8,8 @@ import java.awt.geom.AffineTransform
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
 
-class ElkNodePainter(var rootNode: ElkNode, var showTop: Boolean = false) {
-  private var zoomLevel: Float = 1.0f
-  private val margin: Int = 32
-  private var selected: Set[ElkGraphElement] = Set()
-  private var highlighted: Option[Set[ElkGraphElement]] = None
-
-  def setZoom(zoom: Float): Unit = {
-    zoomLevel = zoom
-  }
-
-  def setSelected(elts: Set[ElkGraphElement]): Unit = {
-    selected = elts
-  }
-
-  def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
-    highlighted = elts
-  }
-
-  def setRootNode(node: ElkNode): Unit ={
-    rootNode = node
-  }
+class ElkNodePainter(var rootNode: ElkNode, var showTop: Boolean = false,
+                     var zoomLevel: Float = 1.0f, val margin: Int = 32) {
 
   def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
     new Color(
@@ -39,7 +20,7 @@ class ElkNodePainter(var rootNode: ElkNode, var showTop: Boolean = false) {
   }
 
   // Modify the base graphics for filling some element, eg by highlighted status
-  def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+  protected def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     if (element == rootNode && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
@@ -52,19 +33,10 @@ class ElkNodePainter(var rootNode: ElkNode, var showTop: Boolean = false) {
   }
 
 
-  // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
   protected def strokeGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     if (element == rootNode && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
-      newGraphics
-    } else if (selected.contains(element)) { // emphasis for selected
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setStroke(new BasicStroke(3 / zoomLevel))
-      newGraphics
-    } else if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(blendColor(background, newGraphics.getColor, 0.25))
       newGraphics
     } else {
       base
@@ -72,17 +44,11 @@ class ElkNodePainter(var rootNode: ElkNode, var showTop: Boolean = false) {
   }
 
 
-  // Modify the base graphics for drawing some text, eg by highlighted status
-  def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+  protected def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     // Main difference is stroke isn't bolded
     if (element == rootNode && !showTop) { // completely transparent for root if not showing top
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
-      newGraphics
-    } else if (!selected.contains(element) &&
-      highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(blendColor(background, newGraphics.getColor, 0.25))
       newGraphics
     } else {
       base
@@ -285,11 +251,7 @@ class ElkNodePainter(var rootNode: ElkNode, var showTop: Boolean = false) {
     scaledG.setFont(newFont)
 
     def paintBlock(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Unit = {
-      val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
-        blendColor(containingBackground, containingG.getColor, 0.375)
-      } else {
-        blendColor(containingBackground, containingG.getColor, 0.15)
-      }
+      val nodeBackground = blendColor(containingBackground, containingG.getColor, 0.15)
 
       paintNode(containingG, nodeBackground, node)
 

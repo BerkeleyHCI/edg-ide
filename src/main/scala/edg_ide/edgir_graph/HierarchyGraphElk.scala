@@ -182,8 +182,7 @@ object HierarchyGraphElk {
 
 
   // Experimental
-  def HGraphToElkGraph(content: HierarchyBlock, focusPath: DesignPath = DesignPath(), depth: Int = 1): ElkNode ={
-
+  def HGraphToElkGraph(content: HierarchyBlock, focusPath: DesignPath = DesignPath(), depth: Int = 1): ElkNode = {
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(focusPath, content)

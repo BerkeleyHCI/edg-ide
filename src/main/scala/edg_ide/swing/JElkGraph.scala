@@ -13,7 +13,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   private val elementToolTips = mutable.Map[ElkGraphElement, String]()
   private var zoomLevel: Float = 1.0f
   private val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
-  private val painter = new ElkNodePainter(rootNode, showTop)
+  private var painter = new ModifiedElkNodePainter(rootNode, showTop)
 
   override def setZoom(zoom: Float): Unit = {
     zoomLevel = zoom
@@ -39,11 +39,11 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   setGraph(rootNode)
 
   def setGraph(newGraph: ElkNode): Unit = {
+    painter = new ModifiedElkNodePainter(newGraph, showTop, zoomLevel)
     elementToolTips.clear()
     highlighted = None
     painter.setSelected(Set())
     rootNode = newGraph
-    painter.setRootNode(rootNode)
     revalidate()
     repaint()
   }
@@ -71,7 +71,7 @@ class JElkGraph(var rootNode: ElkNode, var showTop: Boolean = false)
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    painter.setZoom(zoomLevel)
+    painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel)
     painter.paintComponent(paintGraphics, this.getBackground)
   }
 
