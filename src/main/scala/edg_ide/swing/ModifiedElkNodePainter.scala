@@ -141,47 +141,13 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
   }
 
 
-  override def paintComponent(paintGraphics: Graphics, backGround: Color): Unit = {
-    val scaling = new AffineTransform()
-    scaling.scale(zoomLevel, zoomLevel)
-    val scaledG = paintGraphics.create().asInstanceOf[Graphics2D]
-    scaledG.translate(margin, margin)
-    scaledG.transform(scaling)
-    scaledG.setStroke(new BasicStroke(1 / zoomLevel)) // keep stroke at 1px
-
-    // Keep the real font size constant, regardless of zoom
-    val currentFont = scaledG.getFont
-    val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
-    scaledG.setFont(newFont)
-
-    def paintBlock(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Unit = {
-      val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
-        blendColor(containingBackground, containingG.getColor, 0.375)
-      } else {
-        blendColor(containingBackground, containingG.getColor, 0.15)
-      }
-
-      paintNode(containingG, nodeBackground, node)
-
-      val nodeG = containingG.create().asInstanceOf[Graphics2D]
-      nodeG.translate(node.getX, node.getY)
-
-      node.getPorts.asScala.foreach { port =>
-        paintPort(nodeG, nodeBackground, port)
-      }
-
-      node.getChildren.asScala.foreach { childNode =>
-        paintBlock(nodeG, nodeBackground, childNode)
-      }
-
-      node.getContainedEdges.asScala.foreach { edge =>
-        // containing is passed in here as a hack around Elk not using container coordinates
-        // for self edges
-        paintEdge(strokeGraphics(containingG, nodeBackground, edge), strokeGraphics(nodeG, nodeBackground, edge),
-          nodeBackground, edge)
-      }
+  override def getNodeBackground(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Color = {
+    val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
+      blendColor(containingBackground, containingG.getColor, 0.375)
+    } else {
+      blendColor(containingBackground, containingG.getColor, 0.15)
     }
 
-    paintBlock(scaledG, backGround, rootNode)
+    nodeBackground
   }
 }

@@ -161,6 +161,36 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false){
   }
 
 
+  protected def getNodeBackground(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Color = {
+    val nodeBackground = blendColor(containingBackground, containingG.getColor, 0.15)
+    nodeBackground
+  }
+
+
+  def paintBlock(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Unit = {
+    val nodeBackground = getNodeBackground(containingG, containingBackground, node)
+    paintNode(containingG, nodeBackground, node)
+
+    val nodeG = containingG.create().asInstanceOf[Graphics2D]
+    nodeG.translate(node.getX, node.getY)
+
+    node.getPorts.asScala.foreach { port =>
+      paintPort(nodeG, nodeBackground, port)
+    }
+
+    node.getChildren.asScala.foreach { childNode =>
+      paintBlock(nodeG, nodeBackground, childNode)
+    }
+
+    node.getContainedEdges.asScala.foreach { edge =>
+      // containing is passed in here as a hack around Elk not using container coordinates
+      // for self edges
+      paintEdge(strokeGraphics(containingG, nodeBackground, edge), strokeGraphics(nodeG, nodeBackground, edge),
+        nodeBackground, edge)
+    }
+  }
+
+
   def paintComponent(paintGraphics: Graphics, backGround: Color): Unit = {
     val scaling = new AffineTransform()
     scaling.scale(zoomLevel, zoomLevel)
@@ -173,30 +203,6 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false){
     val currentFont = scaledG.getFont
     val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
     scaledG.setFont(newFont)
-
-    def paintBlock(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Unit = {
-      val nodeBackground = blendColor(containingBackground, containingG.getColor, 0.15)
-
-      paintNode(containingG, nodeBackground, node)
-
-      val nodeG = containingG.create().asInstanceOf[Graphics2D]
-      nodeG.translate(node.getX, node.getY)
-
-      node.getPorts.asScala.foreach { port =>
-        paintPort(nodeG, nodeBackground, port)
-      }
-
-      node.getChildren.asScala.foreach { childNode =>
-        paintBlock(nodeG, nodeBackground, childNode)
-      }
-
-      node.getContainedEdges.asScala.foreach { edge =>
-        // containing is passed in here as a hack around Elk not using container coordinates
-        // for self edges
-        paintEdge(strokeGraphics(containingG, nodeBackground, edge), strokeGraphics(nodeG, nodeBackground, edge),
-          nodeBackground, edge)
-      }
-    }
 
     paintBlock(scaledG, backGround, rootNode)
   }

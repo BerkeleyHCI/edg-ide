@@ -15,6 +15,8 @@ object PDFGeneratorUtil{
     val width = rootNode.getWidth.toFloat
     val height = rootNode.getHeight.toFloat
     val document = new Document(new Rectangle(width, height))
+
+    // TODO: make a try..catch for FileOutputStream
     val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
     document.open()
     val cb = writer.getDirectContent
