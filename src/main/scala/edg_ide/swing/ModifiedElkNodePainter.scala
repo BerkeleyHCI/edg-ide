@@ -16,7 +16,7 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
                              staleElts: Set[ElkGraphElement] = Set(),
                              selected: Set[ElkGraphElement] = Set(),
                              highlighted: Option[Set[ElkGraphElement]] = None)
-  extends ElkNodePainter(rootNode, showTop) {
+  extends ElkNodePainter(rootNode, showTop, zoomLevel) {
   private val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
 
 

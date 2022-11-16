@@ -12,8 +12,9 @@ import java.io.FileOutputStream
 object PDFGeneratorUtil{
 
   def generate(rootNode: ElkNode, fileName: String): Unit = {
-    val width = rootNode.getWidth.toFloat
-    val height = rootNode.getHeight.toFloat
+    // TODO: Set a fixed document size and scale graphics accordingly?
+    val width = rootNode.getWidth.toFloat + ElkNodePainter.margin.toFloat
+    val height = rootNode.getHeight.toFloat + ElkNodePainter.margin.toFloat
     val document = new Document(new Rectangle(width, height))
 
     // TODO: make a try..catch for FileOutputStream

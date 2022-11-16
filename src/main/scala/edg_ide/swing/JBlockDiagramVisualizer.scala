@@ -18,7 +18,6 @@ import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = false)
   extends JComponent with Scrollable with Zoomable {
   private var zoomLevel: Float = 1.0f
-  private val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
   private var selected: Set[ElkGraphElement] = Set()
   private var highlighted: Option[Set[ElkGraphElement]] = None
   private var errorElts: Set[ElkGraphElement] = Set()
@@ -129,7 +128,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       (containedPorts ++ containedNodes).headOption
     }
 
-    val elkPoint = ((x - margin) / zoomLevel.toDouble, (y - margin) / zoomLevel.toDouble) // transform points to elk-space
+    val elkPoint = ((x - ElkNodePainter.margin) / zoomLevel.toDouble, (y - ElkNodePainter.margin) / zoomLevel.toDouble) // transform points to elk-space
     intersectNode(rootNode, elkPoint)
   }
 
@@ -169,8 +168,8 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   // Scrollable APIs
   //
   override def getPreferredSize: Dimension =
-    new Dimension((rootNode.getWidth * zoomLevel + 2 * margin).toInt,
-      (rootNode.getHeight * zoomLevel + 2 * margin).toInt)
+    new Dimension((rootNode.getWidth * zoomLevel + 2 * ElkNodePainter.margin).toInt,
+      (rootNode.getHeight * zoomLevel + 2 * ElkNodePainter.margin).toInt)
 
   override def getScrollableBlockIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
 

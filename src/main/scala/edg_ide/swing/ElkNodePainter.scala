@@ -7,11 +7,12 @@ import java.awt._
 import java.awt.geom.AffineTransform
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
+object ElkNodePainter{
+  val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
+}
 
-class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false){
-  private val zoomLevel: Float = 1.0f
-  protected val margin: Int = 32
 
+class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Float = 1.0f){
 
   def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
     new Color(
@@ -195,7 +196,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false){
     val scaling = new AffineTransform()
     scaling.scale(zoomLevel, zoomLevel)
     val scaledG = paintGraphics.create().asInstanceOf[Graphics2D]
-    scaledG.translate(margin, margin)
+    scaledG.translate(ElkNodePainter.margin, ElkNodePainter.margin)
     scaledG.transform(scaling)
     scaledG.setStroke(new BasicStroke(1 / zoomLevel)) // keep stroke at 1px
 
