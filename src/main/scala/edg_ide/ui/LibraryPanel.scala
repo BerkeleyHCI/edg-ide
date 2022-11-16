@@ -330,7 +330,7 @@ class LibraryPreview(project: Project) extends JPanel {
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()),
     "")
-  private val graph = new JElkGraph(emptyHGraph)
+  private val graph = new JBlockDiagramVisualizer(emptyHGraph)
   splitter.setSecondComponent(graph)
 
   setLayout(new BorderLayout())

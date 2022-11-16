@@ -51,6 +51,7 @@ class DesignTopConfigurationFactory(confType: ConfigurationType) extends Configu
 class DesignTopRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var netlistFile: String = ""
+  var pdfFile: String = ""
 }
 
 
@@ -80,15 +81,18 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
 
   val kFieldDesignName = "DESIGN_NAME"
   val kFieldNetlistName = "NETLIST_NAME"
+  val kPdfFileName = "PDF_NAME"
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
     options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName, "")
+    options.pdfFile = JDOMExternalizerUtil.readField(element, kPdfFileName, "")
   }
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldNetlistName, options.netlistFile)
+    JDOMExternalizerUtil.writeField(element, kPdfFileName, options.pdfFile)
   }
 }
 
@@ -96,21 +100,25 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
 class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTopRunConfiguration] {
   protected val designName = new JTextField()
   protected val netlistFile = new JTextField()  // no browse button b/c FileChooser can't create new files
+  protected val pdfFile = new JTextField()
 
   protected val panel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("Design top name"), designName, false)
       .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
+      .addLabeledComponent(new JBLabel("PDF output file"), pdfFile, false)
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
 
   override def resetEditorFrom(s: DesignTopRunConfiguration): Unit = {
     designName.setText(s.options.designName)
     netlistFile.setText(s.options.netlistFile)
+    pdfFile.setText(s.options.pdfFile)
   }
 
   override def applyEditorTo(s: DesignTopRunConfiguration): Unit = {
     s.options.designName = designName.getText
     s.options.netlistFile = netlistFile.getText
+    s.options.pdfFile = pdfFile.getText
   }
 
   override def createEditor(): JComponent = panel

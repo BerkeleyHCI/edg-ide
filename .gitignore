@@ -15,3 +15,5 @@
 *.kicad_mod
 
 worksheet.*
+
+.DS_Store

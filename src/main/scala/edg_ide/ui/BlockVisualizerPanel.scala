@@ -338,30 +338,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, currentDesign)
-      focusPath = blockPath
-
-      // For now, this only updates the graph visualization, which can change with focus.
-      // In the future, maybe this will also update or filter the design tree.
-      val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
-      val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-        4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
-      val transformedGraph = highFanoutTransform(
-        CollapseLinkTransform(CollapseBridgeTransform(
-          InferEdgeDirectionTransform(SimplifyPortTransform(
-            PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))))
-
-      val name = if (focusPath == DesignPath()) {
-        "(root)"
-      } else {
-        focusPath.steps.last
-      }
-
-      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-        name,
-        Seq(ElkEdgirGraphUtils.DesignPathMapper),
-        // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
-        focusPath != DesignPath())  // need to make a root so root doesn't have ports
-
+      val layoutGraphRoot = HierarchyGraphElk.HGraphToElkGraph(block, blockPath, depthSpinner.getNumber)
       val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
       tooltipTextMap.map(design)
 
