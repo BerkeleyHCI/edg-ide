@@ -7,7 +7,7 @@ import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.dse.DseResult
-import edg_ide.runner.DseRunConfiguration
+import edg_ide.runner.{DseActiveRunConfiguration, DseRunConfiguration}
 import edg_ide.swing.{DseConfigTreeTableModel, DseResultTreeTableModel}
 
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -21,14 +21,9 @@ class DseConfigPanel(project: Project) extends JPanel {
 
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val newConfig = Option(RunManager.getInstance(project).getSelectedConfiguration).map(_.getConfiguration)
-    val newTypedConfig = newConfig match {
-      case Some(newConfig: DseRunConfiguration) => Some(newConfig)
-      case _ => None
-    }
-
-    if (newTypedConfig != config) {
-      config = newTypedConfig
+    val newConfig = BlockVisualizerService(project).getDseRunConfiguration
+    if (newConfig != config) {
+      config = newConfig
       onConfigUpdate()
     }
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
