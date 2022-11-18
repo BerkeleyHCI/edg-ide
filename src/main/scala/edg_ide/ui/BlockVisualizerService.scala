@@ -29,6 +29,8 @@ class BlockVisualizerService(project: Project) extends
 
   def visualizerPanelOption: Option[BlockVisualizerPanel] = visualizerPanel
 
+  def dsePanelOption: Option[DseConfigPanel] = visualizerPanelOption.map(_.getDsePanel)
+
   def createBlockVisualizerPanel(toolWindow: ToolWindow): BlockVisualizerPanel = {
     require(visualizerPanel.isEmpty)
     val created = new BlockVisualizerPanel(project, toolWindow)
@@ -73,7 +75,7 @@ class BlockVisualizerService(project: Project) extends
   }
 
   def setDseResults(results: Seq[DseResult]): Unit = {
-    visualizerPanelOption.foreach(_.setDseResults(results))
+    dsePanelOption.foreach(_.setResults(results))
   }
 
   override def getState: BlockVisualizerServiceState = {

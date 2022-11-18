@@ -268,6 +268,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // Actions
   //
+  def getDsePanel: DseConfigPanel = dsePanel
+
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
     EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))
   }
@@ -400,10 +402,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       staleTypes.clear()
     }
     updateStale()
-  }
-
-  def setDseResults(results: Seq[DseResult]): Unit = {
-    dsePanel.setResults(results)
   }
 
   // In place design tree modifications

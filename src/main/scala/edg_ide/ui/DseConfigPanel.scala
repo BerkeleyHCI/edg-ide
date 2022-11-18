@@ -1,35 +1,35 @@
 package edg_ide.ui
 
-import com.intellij.execution.RunManager
 import com.intellij.openapi.project.Project
-import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
+import com.intellij.ui.components.{JBLabel, JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.dse.DseResult
-import edg_ide.runner.{DseActiveRunConfiguration, DseRunConfiguration}
+import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing.{DseConfigTreeTableModel, DseResultTreeTableModel}
 
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
-import javax.swing.JPanel
+import javax.swing.{JPanel, JProgressBar}
 import scala.collection.SeqMap
 
 
 class DseConfigPanel(project: Project) extends JPanel {
-  private var config: Option[DseRunConfiguration] = None
+  // currently displayed config
+  private var displayedConfig: Option[DseRunConfiguration] = None
 
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
     val newConfig = BlockVisualizerService(project).getDseRunConfiguration
-    if (newConfig != config) {
-      config = newConfig
+    if (newConfig != displayedConfig) {
+      displayedConfig = newConfig
       onConfigUpdate()
     }
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
   protected def onConfigUpdate(): Unit = {
-    config match {
+    displayedConfig match {
       case Some(config) =>
         separator.setText(f"Design Space Exploration: ${config.getName}")
         configTree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
@@ -54,10 +54,10 @@ class DseConfigPanel(project: Project) extends JPanel {
 
   // TODO make the collapse function actually work
   private val separator = new CollapsibleTitledSeparator("Design Space Exploration")
-  add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
+  add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL, 2))
 
   private val tabbedPane = new JBTabbedPane()
-  add(tabbedPane, Gbc(0, 1, GridBagConstraints.BOTH))
+  add(tabbedPane, Gbc(0, 2, GridBagConstraints.BOTH, 2))
 
   // GUI: Config Tab
   //
