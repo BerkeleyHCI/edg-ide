@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.ui.scale.JBUIScale
 import edg.util.Errorable
 
 import java.awt.MouseInfo
@@ -18,6 +19,7 @@ object ContextMenuUtils {
       action() match {
         case Errorable.Error(msg) =>
           val (popup, height) = PopupUtils.createErrorPopup(msg)
+          clickLocation.y -= JBUIScale.scale(6) + height
           popup.showInScreenCoordinates(item, clickLocation)
         case Errorable.Success(_) => // ignored
       }
