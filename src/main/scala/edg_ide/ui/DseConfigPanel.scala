@@ -9,7 +9,7 @@ import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
-import edg_ide.util.exceptionPopup
+import edg_ide.util.exceptable
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -18,8 +18,8 @@ import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
 
 
-class DseSearchConfigPopupMenu(e: MouseEvent, searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
-  add(ContextMenuUtils.MenuItem(() => exceptionPopup(e) {
+class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
+  add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
     val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
     val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
@@ -29,8 +29,8 @@ class DseSearchConfigPopupMenu(e: MouseEvent, searchConfig: DseConfigElement, pr
 }
 
 
-class DseObjectivePopupMenu(e: MouseEvent, objective: DseObjective[Any], project: Project) extends JPopupMenu {
-  add(ContextMenuUtils.MenuItem(() => exceptionPopup(e) {
+class DseObjectivePopupMenu(objective: DseObjective[Any], project: Project) extends JPopupMenu {
+  add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
     val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no config")
     val originalObjectives = dseConfig.options.objectives
     val key = originalObjectives.find(objective == _._2).exceptNone("objective not in config")._1
@@ -105,11 +105,11 @@ class DseConfigPanel(project: Project) extends JPanel {
       selectedTreePath.getLastPathComponent match {
         case node: DseConfigTreeNode.DseSearchConfigNode =>
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
-            new DseSearchConfigPopupMenu(e, node.config, project).show(e.getComponent, e.getX, e.getY)
+            new DseSearchConfigPopupMenu(node.config, project).show(e.getComponent, e.getX, e.getY)
           }
         case node: DseConfigTreeNode.DseObjectiveNode =>
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
-            new DseObjectivePopupMenu(e, node.config, project).show(e.getComponent, e.getX, e.getY)
+            new DseObjectivePopupMenu(node.config, project).show(e.getComponent, e.getX, e.getY)
           }
         case _ =>  // any other type ignored
       }

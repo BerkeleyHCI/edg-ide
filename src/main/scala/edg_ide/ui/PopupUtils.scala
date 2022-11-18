@@ -61,7 +61,7 @@ object PopupUtils {
     popup.showCenteredInCurrentWindow(project)
   }
 
-  private def createErrorPopup(message: String): (JBPopup, Int) = {
+  def createErrorPopup(message: String): (JBPopup, Int) = {
     var hintHeight: Int = 0
     val popupBuilder = ComponentValidator.createPopupBuilder(
       new ValidationInfo(message, null),  // TODO support component?
