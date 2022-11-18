@@ -11,7 +11,6 @@ import edg.util.Errorable
 import java.awt.Point
 import java.awt.event.MouseEvent
 import javax.swing.JEditorPane
-import scala.jdk.CollectionConverters
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
 

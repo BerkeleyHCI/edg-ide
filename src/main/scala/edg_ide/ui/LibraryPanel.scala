@@ -2,7 +2,6 @@ package edg_ide.ui
 
 import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.ui.components.JBScrollPane
@@ -10,11 +9,9 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{PyClass, PyNamedParameter, PyPsiFacade}
+import com.jetbrains.python.psi.{PyClass, PyNamedParameter}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.{Ref, ValueExpr}
-import edgir.elem.elem
-import edgir.ref.ref
 import edg.util.{Errorable, NameCreator}
 import edg.wir
 import edg.wir.DesignPath
@@ -24,6 +21,8 @@ import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
+import edgir.elem.elem
+import edgir.ref.ref
 import org.eclipse.elk.graph.ElkNode
 
 import java.awt.event.{MouseAdapter, MouseEvent}
@@ -37,8 +36,6 @@ import javax.swing.tree.TreePath
 class BlockRootPopupMenu(project: Project) extends JPopupMenu {
   private val contextPyClass = InsertAction.getPyClassOfContext(project)
   private val contextPyName = contextPyClass.mapToString(_.getName)
-
-  private val pyPsi = PyPsiFacade.getInstance(project)
 
   add(new JLabel(s"Blocks"))
   addSeparator()
