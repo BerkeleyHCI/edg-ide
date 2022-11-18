@@ -7,6 +7,14 @@ import javax.swing.{JMenu, JMenuItem}
 
 
 object ContextMenuUtils {
+  def MenuItem(action: () => Unit, label: String): JMenuItem = {
+    val item = new JMenuItem(label)
+    item.addActionListener((e: ActionEvent) => {
+      action()
+    })
+    item
+  }
+
   def MenuItemFromErrorable(action: Errorable[() => Unit], label: String): JMenuItem = {
     val item = action match {
       case Errorable.Success(action) =>

@@ -67,6 +67,11 @@ class BlockVisualizerService(project: Project) extends
   // TODO maybe separate DSE functionality into its own class / service?
   // but this is mixed into the block diagram visualizer panel and the two are quite linked
 
+  // Called when the run configuration changes
+  def onDseConfigChanged(config: DseRunConfiguration): Unit = {
+    dsePanelOption.foreach(_.onConfigChange(config))
+  }
+
   // Returns the currently selected run configuration, if it is a DSE configuration
   def getDseRunConfiguration: Option[DseRunConfiguration] = {
     Option(RunManager.getInstance(project).getSelectedConfiguration)
