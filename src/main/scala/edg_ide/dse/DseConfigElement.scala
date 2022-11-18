@@ -1,9 +1,13 @@
 package edg_ide.dse
 
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{ExprValue, PartialCompile}
+import edg.compiler.{ExprValue, FloatValue, PartialCompile}
+import edg.util.Errorable
 import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
+import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
+import edg_ide.util.IterableExtensions.IterableExtension
+import edg_ide.util.{exceptable, requireExcept}
 
 import scala.collection.SeqMap
 
@@ -59,6 +63,28 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
 
   override def getValues: Seq[(ExprValue, Refinements)] = values.map { value =>
     (value, Refinements(instanceValues=Map(path -> value)))
+  }
+
+  // Returns the values as a string, that will parse back with valuesStringToConfig.
+  def valuesToString(): String = {
+    values.map(_.toStringValue).mkString(", ")
+  }
+
+  // Parses a string specification of values into a new DseParameterSearch (of the same path and type).
+  // The existing object is required to determine the path and value type.
+  // May fail with an error message that can be propagated back to the user.
+  // TODO handle quoting (strings) and range parentheses
+  def valuesStringToConfig(str: String): Errorable[DseParameterSearch] = exceptable {
+    val valueClass = values.map(_.getClass).allSameValue.exceptNone("internal error, inconsistent values")
+    val splitString = str.split(',').map(_.strip())
+    requireExcept(splitString.nonEmpty, "no values specified")
+    val newValues = (valueClass match {
+      case v if v == classOf[FloatValue] =>
+        Some(Seq(FloatValue(0)))
+      case _ =>
+        None
+    }).exceptNone("")
+    DseParameterSearch(path, newValues)
   }
 }
 
