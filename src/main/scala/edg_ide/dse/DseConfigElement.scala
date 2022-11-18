@@ -80,7 +80,10 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
     requireExcept(splitString.nonEmpty, "no values specified")
     val newValues = (valueClass match {
       case v if v == classOf[FloatValue] =>
-        Some(Seq(FloatValue(0)))
+        Some(splitString.zipWithIndex.map { case (str, index) =>
+          FloatValue(str.toFloatOption
+              .exceptNone(f"invalid value ${index + 1} '$str': not a float"))
+        })
       case _ =>
         None
     }).exceptNone("")
