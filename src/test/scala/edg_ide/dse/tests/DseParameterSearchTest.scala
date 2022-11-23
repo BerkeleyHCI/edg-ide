@@ -1,6 +1,6 @@
 package edg_ide.dse.tests
 
-import edg.compiler.{BooleanValue, FloatValue, IntValue, TextValue}
+import edg.compiler.{BooleanValue, FloatValue, IntValue, RangeValue, TextValue}
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.dse.DseParameterSearch
@@ -66,5 +66,38 @@ class DseParameterSearchTest extends AnyFlatSpec with Matchers {
       Seq(TextValue("abc"), TextValue("def")))
     reference.valuesStringToConfig("abc, def").get.getValues.map(_._1) should equal(
       Seq(TextValue("abc"), TextValue(" def")))
+    reference.valuesStringToConfig("abc,\" def\"").get.getValues.map(_._1) should equal(
+      Seq(TextValue("abc"), TextValue(" def")))
+    reference.valuesStringToConfig("abc,\" def, ghi\"").get.getValues.map(_._1) should equal(
+      Seq(TextValue("abc"), TextValue(" def, ghi")))
+    reference.valuesStringToConfig("abc,\\\" def, ghi\\\"").get.getValues.map(_._1) should equal(
+      Seq(TextValue("abc"), TextValue("\" def"), TextValue(" ghi\"")))
+    reference.valuesStringToConfig("a\\\\bc").get.getValues.map(_._1) should equal(
+      Seq(TextValue("a\\bc")))
+
+    reference.valuesStringToConfig("abc\"") shouldBe a[Errorable.Error]
+    reference.valuesStringToConfig("abc,\"") shouldBe a[Errorable.Error]
+    reference.valuesStringToConfig("abc,\"de") shouldBe a[Errorable.Error]
+    reference.valuesStringToConfig("abc,de\"de\"") shouldBe a[Errorable.Error]
+    reference.valuesStringToConfig("abc,de\\") shouldBe a[Errorable.Error]
+  }
+
+  it should "parse String to RangeValue" in {
+    val reference = DseParameterSearch(DesignPath(), Seq(RangeValue(-1, 1)))
+    reference.valuesStringToConfig("(1, 2)").get.getValues.map(_._1) should equal(
+      Seq(RangeValue(1, 2)))
+    reference.valuesStringToConfig("(-1, 1)").get.getValues.map(_._1) should equal(
+      Seq(RangeValue(-1, 1)))
+    reference.valuesStringToConfig("(-2.5, 4.2)").get.getValues.map(_._1) should equal(
+      Seq(RangeValue(-2.5, 4.2)))
+    reference.valuesStringToConfig("(-1, 1), (-2.5, 4.2)").get.getValues.map(_._1) should equal(
+      Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2)))
+    reference.valuesStringToConfig("(-1, 1), (-2.5, 4.2),(2,3)").get.getValues.map(_._1) should equal(
+      Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2), RangeValue(2, 3)))
+
+    reference.valuesStringToConfig("") shouldBe a[Errorable.Error]
+    reference.valuesStringToConfig("(-1, 1, 1)") shouldBe a[Errorable.Error]
+    reference.valuesStringToConfig("(-1)") shouldBe a[Errorable.Error]
+    reference.valuesStringToConfig("(-1), (-1, 2)") shouldBe a[Errorable.Error]
   }
 }
