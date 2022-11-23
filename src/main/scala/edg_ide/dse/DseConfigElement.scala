@@ -1,13 +1,13 @@
 package edg_ide.dse
 
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{ExprValue, FloatValue, PartialCompile}
+import edg.compiler.{BooleanValue, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable
 import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
-import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptOption, ExceptSeq}
 import edg_ide.util.IterableExtensions.IterableExtension
-import edg_ide.util.{exceptable, requireExcept}
+import edg_ide.util.{ExceptionNotifyException, exceptable, requireExcept}
 
 import scala.collection.SeqMap
 
@@ -51,10 +51,17 @@ sealed trait DseInstanceRefinementElement[+ValueType] extends DseRefinementEleme
 }
 
 
+object DseParameterSearch {
+  protected lazy val stringSplitRegex = ",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)".r
+  protected lazy val rangeSplitRegex = ",(?=(?:[^(]*\\([^)]*\\))*[^()]*$)".r
+  protected lazy val rangeParseRegex = raw"^\s*\(\s*([\d.])+\s*,\s*([\d.])+\s*\)\s*$".r
+}
+
+
 // Tries all values for some parameter
 case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
     extends DseInstanceRefinementElement[ExprValue] with Serializable {
-  override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(", ")})"
+  override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(",")})"
   override def configToString: String = f"Param($path)"
 
   override def getPartialCompile: PartialCompile = {
@@ -67,7 +74,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
 
   // Returns the values as a string, that will parse back with valuesStringToConfig.
   def valuesToString(): String = {
-    values.map(_.toStringValue).mkString(", ")
+    values.map(_.toStringValue).mkString(",")
   }
 
   // Parses a string specification of values into a new DseParameterSearch (of the same path and type).
@@ -76,17 +83,38 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
   // TODO handle quoting (strings) and range parentheses
   def valuesStringToConfig(str: String): Errorable[DseParameterSearch] = exceptable {
     val valueClass = values.map(_.getClass).allSameValue.exceptNone("internal error, inconsistent values")
-    val splitString = str.split(',').map(_.strip())
-    requireExcept(splitString.nonEmpty, "no values specified")
+
     val newValues = (valueClass match {
+      case v if v == classOf[BooleanValue] =>
+        str.split(',').zipWithIndex.map { case (str, index) =>
+          BooleanValue(str.strip().toBooleanOption.exceptNone(f"invalid value ${index + 1} '$str': not an bool"))
+        }
+      case v if v == classOf[IntValue] =>
+        str.split(',').zipWithIndex.map { case (str, index) =>
+          IntValue(str.strip().toIntOption.exceptNone(f"invalid value ${index + 1} '$str': not an int"))
+        }
       case v if v == classOf[FloatValue] =>
-        Some(splitString.zipWithIndex.map { case (str, index) =>
-          FloatValue(str.toFloatOption
-              .exceptNone(f"invalid value ${index + 1} '$str': not a float"))
-        })
-      case _ =>
-        None
-    }).exceptNone("")
+        str.split(',').zipWithIndex.map { case (str, index) =>
+          FloatValue(str.strip().toFloatOption.exceptNone(f"invalid value ${index + 1} '$str': not a float"))
+        }
+      case v if v == classOf[TextValue] =>
+        // parsing regex from https://stackoverflow.com/a/18893443/5875811, which includes a breakdown explanation!
+        DseParameterSearch.stringSplitRegex.split(str).map {
+          TextValue
+        }
+      case v if v == classOf[RangeValue] =>
+        DseParameterSearch.rangeSplitRegex.split(str).zipWithIndex.map { case (str, index) =>
+          val patMatch = DseParameterSearch.rangeParseRegex.findAllMatchIn(str).toSeq
+              .onlyExcept(f"invalid value ${index + 1} '$str': not a range")
+          requireExcept(patMatch.groupCount == 2, f"invalid value ${index + 1} '$str': not a range")
+          val min = patMatch.group(0).toFloatOption.exceptNone(f"invalid value ${index + 1} '$str': not a range")
+          val max = patMatch.group(1).toFloatOption.exceptNone(f"invalid value ${index + 1} '$str': not a range")
+          RangeValue(min, max)
+        }
+      case v =>
+        throw new ExceptionNotifyException(f"unknown type of value $v")
+    })
+    requireExcept(newValues.nonEmpty, "no values specified")
     DseParameterSearch(path, newValues)
   }
 }
