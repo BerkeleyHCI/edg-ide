@@ -134,8 +134,18 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
   }
 
   // Returns the values as a string, that will parse back with valuesStringToConfig.
+  // This contains special-case code to handle the TextValue case
   def valuesToString(): String = {
-    values.map(_.toStringValue).mkString(",")
+    values.map {
+      case TextValue(str) =>
+        val escaped = str.replace("\\", "\\\\").replace("\"", "\\\"")
+        if (escaped.contains(',')) {
+          f"\"$escaped\""
+        } else {
+          escaped
+        }
+      case value => value.toStringValue
+    }.mkString(",")
   }
 
   // Parses a string specification of values into a new DseParameterSearch (of the same path and type).
