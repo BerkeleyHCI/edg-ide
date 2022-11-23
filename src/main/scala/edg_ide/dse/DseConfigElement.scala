@@ -52,9 +52,9 @@ sealed trait DseInstanceRefinementElement[+ValueType] extends DseRefinementEleme
 
 
 object DseParameterSearch {
-  protected lazy val stringSplitRegex = ",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)".r
+  // parsing regex from https://stackoverflow.com/a/18893443/5875811, which includes a breakdown explanation!
   protected lazy val rangeSplitRegex = ",(?=(?:[^(]*\\([^)]*\\))*[^()]*$)".r
-  protected lazy val rangeParseRegex = raw"^\s*\(\s*([\d.])+\s*,\s*([\d.])+\s*\)\s*$".r
+  protected lazy val rangeParseRegex = raw"^\s*\(\s*([\d.])+\s*,\s*([\d.])+\s*\)\s*$$".r
 }
 
 
@@ -84,7 +84,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
   def valuesStringToConfig(str: String): Errorable[DseParameterSearch] = exceptable {
     val valueClass = values.map(_.getClass).allSameValue.exceptNone("internal error, inconsistent values")
 
-    val newValues = (valueClass match {
+    val newValues = valueClass match {
       case v if v == classOf[BooleanValue] =>
         str.split(',').zipWithIndex.map { case (str, index) =>
           BooleanValue(str.strip().toBooleanOption.exceptNone(f"invalid value ${index + 1} '$str': not an bool"))
@@ -98,8 +98,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
           FloatValue(str.strip().toFloatOption.exceptNone(f"invalid value ${index + 1} '$str': not a float"))
         }
       case v if v == classOf[TextValue] =>
-        // parsing regex from https://stackoverflow.com/a/18893443/5875811, which includes a breakdown explanation!
-        DseParameterSearch.stringSplitRegex.split(str).map {
+        str.split(',').map {  // TODO support escaping spaces - the above regex doesn't delete the quotes
           TextValue
         }
       case v if v == classOf[RangeValue] =>
@@ -112,8 +111,8 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
           RangeValue(min, max)
         }
       case v =>
-        throw new ExceptionNotifyException(f"unknown type of value $v")
-    })
+        throw ExceptionNotifyException(f"unknown type of value $v")
+    }
     requireExcept(newValues.nonEmpty, "no values specified")
     DseParameterSearch(path, newValues)
   }
