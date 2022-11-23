@@ -7,7 +7,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.runner.DseRunConfiguration
-import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeTableModel}
+import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeTableModel, TreeUpdateUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
 import edg_ide.util.exceptable
 
@@ -57,14 +57,16 @@ class DseConfigPanel(project: Project) extends JPanel {
     displayedConfig match {
       case Some(config) =>
         separator.setText(f"Design Space Exploration: ${config.getName}")
-        configTree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        configTree.setRootVisible(false)
+        TreeUpdateUtils.saveAndRestore(configTree) {
+          configTree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+        }
         resultsTree.setModel(new DseResultTreeTableModel(Seq()))  // clear existing data
         resultsTree.setRootVisible(false)
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
-        configTree.setModel(new DseConfigTreeTableModel(Seq(), SeqMap()))
-        configTree.setRootVisible(false)
+        TreeUpdateUtils.saveAndRestore(configTree) {
+          configTree.setModel(new DseConfigTreeTableModel(Seq(), SeqMap()))
+        }
         resultsTree.setModel(new DseResultTreeTableModel(Seq())) // clear existing data
         resultsTree.setRootVisible(false)
     }
