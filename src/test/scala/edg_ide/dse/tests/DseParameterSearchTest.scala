@@ -51,6 +51,12 @@ class DseParameterSearchTest extends AnyFlatSpec with Matchers {
     parseString(reference, "ducks") shouldBe a[Errorable.Error]
   }
 
+  it should "roundtrip IntValue" in {
+    shouldRoundtrip(Seq(IntValue(1)))
+    shouldRoundtrip(Seq(IntValue(1), IntValue(2)))
+    shouldRoundtrip(Seq(IntValue(1), IntValue(2), IntValue(3)))
+  }
+
   it should "parse String to FloatValue" in {
     val reference = Seq(FloatValue(1.0))
     parseString(reference, "1.0").get should equal(Seq(FloatValue(1.0)))
@@ -60,6 +66,12 @@ class DseParameterSearchTest extends AnyFlatSpec with Matchers {
     parseString(reference, "") shouldBe a[Errorable.Error]
     parseString(reference, ",") shouldBe a[Errorable.Error]
     parseString(reference, "ducks") shouldBe a[Errorable.Error]
+  }
+
+  it should "roundtrip FloatValue" in {
+    shouldRoundtrip(Seq(FloatValue(1.0)))
+    shouldRoundtrip(Seq(FloatValue(1.0), FloatValue(2.0)))
+    shouldRoundtrip(Seq(FloatValue(1.0), FloatValue(2.0), FloatValue(3.0)))
   }
 
   it should "parse String to TextValue" in {
@@ -82,6 +94,14 @@ class DseParameterSearchTest extends AnyFlatSpec with Matchers {
     parseString(reference, "abc,de\\") shouldBe a[Errorable.Error]
   }
 
+  it should "roundtrip TextValue" in {
+    shouldRoundtrip(Seq(TextValue("")))
+    shouldRoundtrip(Seq(TextValue("abc")))
+    shouldRoundtrip(Seq(TextValue(""), TextValue("def")))
+    shouldRoundtrip(Seq(TextValue("abc"), TextValue("def")))
+    shouldRoundtrip(Seq(TextValue("abc"), TextValue(" def")))
+  }
+
   it should "parse String to RangeValue" in {
     val reference = Seq(RangeValue(-1, 1))
     parseString(reference, "(1, 2)").get should equal(Seq(RangeValue(1, 2)))
@@ -96,5 +116,13 @@ class DseParameterSearchTest extends AnyFlatSpec with Matchers {
     parseString(reference, "(-1, 1, 1)") shouldBe a[Errorable.Error]
     parseString(reference, "(-1)") shouldBe a[Errorable.Error]
     parseString(reference, "(-1), (-1, 2)") shouldBe a[Errorable.Error]
+  }
+
+  it should "roundtrip RangeValue" in {
+    shouldRoundtrip(Seq(RangeValue(1, 2)))
+    shouldRoundtrip(Seq(RangeValue(-1, 1)))
+    shouldRoundtrip(Seq(RangeValue(-2.5, 4.2)))
+    shouldRoundtrip(Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2)))
+    shouldRoundtrip(Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2), RangeValue(2, 3)))
   }
 }
