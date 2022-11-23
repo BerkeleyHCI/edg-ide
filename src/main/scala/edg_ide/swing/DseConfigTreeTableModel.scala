@@ -108,10 +108,10 @@ object DseConfigTreeNode {
 // The clean solution would be to use TreeModelListener events, but these don't seem to behave
 // when the underlying node structure is modified, even if it's mostly isomorphic.
 object TreeUpdateUtils {
-  def saveAndRestore(treeTable: TreeTable)(modifyAction: => Unit): Unit = {
+  def updateModel(treeTable: TreeTable, newModel: TreeTableModel): Unit = {
     val savedNodes = getExpandedNodes(treeTable.getTree)
     val isRootVisible = treeTable.getTree.isRootVisible
-    modifyAction  // note that setModel resets TreeTable.getTree, so we need to get a fresh tree handle
+    treeTable.setModel(newModel)  // note that setModel resets TreeTable.getTree, so we need to get a fresh tree handle
     restoreExpandedNodes(treeTable.getTree, savedNodes)
     treeTable.setRootVisible(isRootVisible)
 

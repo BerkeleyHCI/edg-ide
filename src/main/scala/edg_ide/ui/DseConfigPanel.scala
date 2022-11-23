@@ -57,18 +57,12 @@ class DseConfigPanel(project: Project) extends JPanel {
     displayedConfig match {
       case Some(config) =>
         separator.setText(f"Design Space Exploration: ${config.getName}")
-        TreeUpdateUtils.saveAndRestore(configTree) {
-          configTree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        }
-        resultsTree.setModel(new DseResultTreeTableModel(Seq()))  // clear existing data
-        resultsTree.setRootVisible(false)
+        TreeUpdateUtils.updateModel(configTree, new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+        TreeUpdateUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
-        TreeUpdateUtils.saveAndRestore(configTree) {
-          configTree.setModel(new DseConfigTreeTableModel(Seq(), SeqMap()))
-        }
-        resultsTree.setModel(new DseResultTreeTableModel(Seq())) // clear existing data
-        resultsTree.setRootVisible(false)
+        TreeUpdateUtils.updateModel(configTree, new DseConfigTreeTableModel(Seq(), SeqMap()))
+        TreeUpdateUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
     }
   }
 
@@ -79,8 +73,7 @@ class DseConfigPanel(project: Project) extends JPanel {
   }
 
   def setResults(results: Seq[DseResult]): Unit = {
-    resultsTree.setModel(new DseResultTreeTableModel(results))
-    resultsTree.setRootVisible(false)
+    TreeUpdateUtils.updateModel(resultsTree, new DseResultTreeTableModel(results))
   }
 
   setLayout(new GridBagLayout())
