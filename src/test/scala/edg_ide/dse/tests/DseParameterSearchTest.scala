@@ -100,6 +100,9 @@ class DseParameterSearchTest extends AnyFlatSpec with Matchers {
     shouldRoundtrip(Seq(TextValue(""), TextValue("def")))
     shouldRoundtrip(Seq(TextValue("abc"), TextValue("def")))
     shouldRoundtrip(Seq(TextValue("abc"), TextValue(" def")))
+    shouldRoundtrip(Seq(TextValue("abc"), TextValue(" def, ghi")))
+    shouldRoundtrip(Seq(TextValue("abc"), TextValue("\" def"), TextValue(" ghi\"")))
+    shouldRoundtrip(Seq(TextValue("a\\bc")))
   }
 
   it should "parse String to RangeValue" in {
