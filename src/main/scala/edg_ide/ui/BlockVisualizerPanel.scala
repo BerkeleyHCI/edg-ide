@@ -270,7 +270,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   def selectPath(path: DesignPath): Unit = {
-    if (ignoreSelect) {
+    if (ignoreSelect) {  // setting the tree selection triggers a select event, this prevents an infinite loop
       return
     }
     ignoreSelect = true
