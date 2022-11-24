@@ -322,7 +322,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
     // Update the design tree first, in case graph layout fails
     designTreeModel = new BlockTreeTableModel(block)
-    designTree.setModel(designTreeModel)
+    TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 
     updateDisplay()
@@ -558,7 +558,7 @@ class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements
   // Actions
   //
   def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
-    tree.setModel(new ElementDetailTreeModel(path, root, refinements, compiler))
+    TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
   }
 
   // Configuration State
@@ -583,8 +583,7 @@ class ErrorPanel extends JPanel {
   // Actions
   //
   def setErrors(errs: Seq[CompilerError]): Unit = {
-    tree.setModel(new CompilerErrorTreeTableModel(errs))
-    tree.setRootVisible(false)
+    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs))
   }
 
   // Configuration State
