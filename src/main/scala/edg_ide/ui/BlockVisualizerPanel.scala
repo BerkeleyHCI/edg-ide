@@ -325,10 +325,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.design = design
     this.compiler = compiler
 
-    val block = design.contents.getOrElse(elem.HierarchyBlock())
-
     // Update the design tree first, in case graph layout fails
-    designTreeModel = new BlockTreeTableModel(block)
+    designTreeModel = new BlockTreeTableModel(design.contents.getOrElse(elem.HierarchyBlock()))
     TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 
