@@ -17,7 +17,6 @@ object TreeTableUtils {
     treeTable.setModel(newModel)  // note that setModel resets TreeTable.getTree, so we need to get a fresh tree handle
     restoreExpandedNodes(treeTable.getTree, savedNodes)
     treeTable.setRootVisible(isRootVisible)
-
   }
 
   // Returns the tree path of all expanded nodes (as sequence of node objects).
