@@ -69,7 +69,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
           NotificationType.ERROR
         ).notify(project)
       }
-      tree.setModel(model)
+      TreeTableUtils.updateModel(tree, model)
     }
 
     def pathToFootprintName(file: File): Option[String] = {
