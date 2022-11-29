@@ -56,8 +56,8 @@ class BlockVisualizerService(project: Project) extends
   }
 
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
-                   errors: Seq[CompilerError]): Unit = {
-    visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors))
+                   errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
+    visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors, namePrefix))
   }
 
   def getDesign: Option[schema.Design] = {

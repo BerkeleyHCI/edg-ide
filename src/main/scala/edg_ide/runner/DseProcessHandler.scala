@@ -164,7 +164,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             name -> objective.calculate(compiled, solvedValues)
           }
 
-          val result = DseResult(searchIndex, searchValues, searchRefinement,
+          val result = DseResult(searchIndex, searchValues, searchRefinement, refinements ++ searchRefinement,
             compiler, compiled, errors, objectiveValues, compileTime)
           results.append(result)
 

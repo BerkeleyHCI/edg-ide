@@ -52,7 +52,7 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
     }
   }
 
-  class ResultNode(result: DseResult) extends DseResultNodeBase {
+  class ResultNode(val result: DseResult) extends DseResultNodeBase {
     override val config = f"${result.index}: ${DseConfigElement.configMapToString(result.config)}"
     override def getColumns(index: Int): String = ""
     override val children: Seq[DseResultNodeBase] = Seq()

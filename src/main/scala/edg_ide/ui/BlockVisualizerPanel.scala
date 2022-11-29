@@ -303,20 +303,19 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   /** Sets the design and updates displays accordingly.
     */
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
-                   errors: Seq[CompilerError]): Unit = {
+                   errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
+    this.refinements = refinements  // must be updated before updateDisplay called in setDesign
     setDesign(design, compiler)
-    this.refinements = refinements
     tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
     errorPanel.setErrors(errors)
 
     ApplicationManager.getApplication.invokeLater(() => {
-      toolWindow.setTitle(design.getContents.getSelfClass.toSimpleString)
+      toolWindow.setTitle(namePrefix.getOrElse("") + design.getContents.getSelfClass.toSimpleString)
     })
 
     if (activeTool != defaultTool) { // revert to the default tool
       toolInterface.endTool() // TODO should we also preserve state like selected?
     }
-    updateDisplay()
   }
 
   /** Updates the design tree only, where the overall "top design" does not change.

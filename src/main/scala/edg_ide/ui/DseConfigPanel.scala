@@ -7,7 +7,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.runner.DseRunConfiguration
-import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeTableModel, TreeTableUtils}
+import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
 import edg_ide.util.exceptable
 
@@ -117,6 +117,24 @@ class DseConfigPanel(project: Project) extends JPanel {
   private val resultsTree = new TreeTable(new DseResultTreeTableModel(Seq()))
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
+  resultsTree.addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      val selectedTreePath = resultsTree.getTree.getPathForLocation(e.getX, e.getY)
+      if (selectedTreePath == null) {
+        return
+      }
+
+      selectedTreePath.getLastPathComponent match {
+        case node: DseResultTreeNode#ResultNode =>
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
+            val result = node.result
+            BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
+              result.allRefinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
+          }
+        case _ => // any other type ignored
+      }
+    }
+  })
   tabbedPane.addTab("Results", new JBScrollPane(resultsTree))
 
   onConfigUpdate()  // set initial state
