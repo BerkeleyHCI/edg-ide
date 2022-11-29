@@ -130,14 +130,8 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
 
 
 class DefaultTool(val interface: ToolInterface) extends BaseTool {
-  private var ignoreSelect: Boolean = false  // TODO synchronization?
-  private var selected: Option[DesignPath] = None  // TODO synchronization?
-
-  def getSelected: Option[DesignPath] = selected
-
   override def init(): Unit = {
     super.init()
-    selected = None
   }
 
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
@@ -145,7 +139,7 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
     val resolved = EdgirUtils.resolveExact(path, interface.getDesign)
 
     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) {
-      onSelect(path)
+      interface.setSelection(path)
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       // double click
       resolved match {
@@ -169,19 +163,5 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
         case _ =>  // TODO support other element types
       }
     }
-  }
-
-  // Event that is generated when the tree selection changes.
-  override def onSelect(path: DesignPath): Unit = {
-    if (ignoreSelect) {
-      return
-    }
-    ignoreSelect = true
-    val (containingPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, interface.getDesign)
-    interface.setDesignTreeSelection(Some(containingPath))
-    interface.setGraphSelections(Set(path))
-    interface.setDetailView(containingPath)
-    selected = Some(path)
-    ignoreSelect = false
   }
 }

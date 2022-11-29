@@ -72,6 +72,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // GUI-facing state
   //
   private var focusPath: DesignPath = DesignPath()  // visualize from root by default
+  private var ignoreSelect: Boolean = false  // ignore select operation to prevent infinite recursion
+  private var selectionPath: DesignPath = DesignPath()  // selection of detail view and graph selection
 
   // Tool
   //
@@ -82,17 +84,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   private val toolInterface = new ToolInterface {
-    override def setDesignTreeSelection(path: Option[DesignPath]): Unit = {
-      designTree.clearSelection()
-      path match {
-        case Some(path) =>
-          val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
-          val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) { _.pathByAddingChild(_) }
-          designTree.addSelectedPath(treePath)
-        case None =>  // do nothing
-      }
-    }
-
     override def scrollGraphToVisible(path: DesignPath): Unit = {
       // TODO IMPLEMENT ME
     }
@@ -112,10 +103,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       setContext(path)
     }
 
-    override def setDetailView(path: DesignPath): Unit = {
-      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
-      detailPanel.setLoaded(path, design, refinements, compiler)
-      kicadVizPanel.setBlock(path, design, compiler)
+    override def setSelection(path: DesignPath): Unit = {
+      BlockVisualizerPanel.this.selectPath(path)
     }
 
     override def setStatus(statusText: String): Unit = {
@@ -212,23 +201,18 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
       e.getPath.getLastPathComponent match {
-        case selectedNode: HierarchyBlockNode =>
-          activeTool.onSelect(selectedNode.path)
+        case selectedNode: HierarchyBlockNode => selectPath(selectedNode.path)
         case _ =>  // any other type ignored, not that there should be any other types
-          // TODO should this error out?
       }
     }
   }
   designTree.getTree.addTreeSelectionListener(designTreeListener)
   designTree.addMouseListener(new MouseAdapter {  // right click context menu
     override def mousePressed(e: MouseEvent): Unit = {
-      designTree.getTree.getPathForLocation(e.getX, e.getY) match {
-        case null =>  // ignored
-        case treePath: TreePath => treePath.getLastPathComponent match {
-          case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
-          case _ =>  // any other type ignored
-        }
-      }
+      Option(designTree.getTree.getPathForLocation(e.getX, e.getY)).foreach { _.getLastPathComponent match {
+        case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
+        case _ =>  // any other type ignored
+      } }
     }
   })
   designTree.setShowColumns(true)
@@ -277,7 +261,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   def getDesign: schema.Design = design
 
   def getSelectedPath: Option[DesignPath] = {
-    defaultTool.getSelected
+    Some(selectionPath)
   }
 
   def setContext(path: DesignPath): Unit = {
@@ -288,9 +272,32 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   def selectPath(path: DesignPath): Unit = {
-    if (activeTool == defaultTool) {
-      defaultTool.onSelect(path)
+    if (ignoreSelect) {  // setting the tree selection triggers a select event, this prevents an infinite loop
+      return
     }
+    ignoreSelect = true
+    selectionPath = path
+
+    val (containingPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, design)
+
+    designTree.clearSelection()
+    val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
+    val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) {
+      _.pathByAddingChild(_)
+    }
+    designTree.addSelectedPath(treePath)
+
+    graph.setSelected(pathsToGraphNodes(Set(path)))
+
+    BlockVisualizerPanel.this.setDetailView(containingPath)
+
+    ignoreSelect = false
+  }
+
+  def setDetailView(path: DesignPath): Unit = {
+    tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
+    detailPanel.setLoaded(path, design, refinements, compiler)
+    kicadVizPanel.setBlock(path, design, compiler)
   }
 
   /** Sets the design and updates displays accordingly.
@@ -320,12 +327,13 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.design = design
     this.compiler = compiler
 
-    val block = design.contents.getOrElse(elem.HierarchyBlock())
-
     // Update the design tree first, in case graph layout fails
-    designTreeModel = new BlockTreeTableModel(block)
-    designTree.setModel(designTreeModel)
+    designTreeModel = new BlockTreeTableModel(design.contents.getOrElse(elem.HierarchyBlock()))
+    TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+
+    // Also update the active detail panel
+    selectPath(selectionPath)
 
     updateDisplay()
   }
@@ -334,7 +342,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
-
     val currentDesign = design
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
@@ -555,7 +562,7 @@ class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements
   // Actions
   //
   def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
-    tree.setModel(new ElementDetailTreeModel(path, root, refinements, compiler))
+    TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
   }
 
   // Configuration State
@@ -580,8 +587,7 @@ class ErrorPanel extends JPanel {
   // Actions
   //
   def setErrors(errs: Seq[CompilerError]): Unit = {
-    tree.setModel(new CompilerErrorTreeTableModel(errs))
-    tree.setRootVisible(false)
+    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs))
   }
 
   // Configuration State

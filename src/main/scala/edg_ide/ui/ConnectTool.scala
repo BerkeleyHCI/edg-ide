@@ -479,7 +479,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
   }
 
   override def init(): Unit = {
-    interface.setDesignTreeSelection(None)
+    interface.setGraphSelections(Set())
     updateSelected()
   }
 

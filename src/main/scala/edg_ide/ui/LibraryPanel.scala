@@ -583,11 +583,10 @@ class LibraryPanel(project: Project) extends JPanel {
   def setLibrary(library: wir.Library): Unit = {
     this.library = library
     this.libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(this.library))
-    libraryTree.setModel(this.libraryTreeModel)
+    TreeTableUtils.updateModel(libraryTree, this.libraryTreeModel)
     updateFilter()
     libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
     libraryTree.setTreeCellRenderer(libraryTreeRenderer)
-    libraryTree.setRootVisible(false)  // this seems to get overridden when the model is updated
   }
 
   // Configuration State
