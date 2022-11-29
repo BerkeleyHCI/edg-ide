@@ -7,7 +7,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.runner.DseRunConfiguration
-import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeTableModel, TreeUpdateUtils}
+import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeTableModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
 import edg_ide.util.exceptable
 
@@ -57,12 +57,12 @@ class DseConfigPanel(project: Project) extends JPanel {
     displayedConfig match {
       case Some(config) =>
         separator.setText(f"Design Space Exploration: ${config.getName}")
-        TreeUpdateUtils.updateModel(configTree, new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        TreeUpdateUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
+        TreeTableUtils.updateModel(configTree, new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
-        TreeUpdateUtils.updateModel(configTree, new DseConfigTreeTableModel(Seq(), SeqMap()))
-        TreeUpdateUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
+        TreeTableUtils.updateModel(configTree, new DseConfigTreeTableModel(Seq(), SeqMap()))
+        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
     }
   }
 
@@ -73,7 +73,7 @@ class DseConfigPanel(project: Project) extends JPanel {
   }
 
   def setResults(results: Seq[DseResult]): Unit = {
-    TreeUpdateUtils.updateModel(resultsTree, new DseResultTreeTableModel(results))
+    TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(results))
   }
 
   setLayout(new GridBagLayout())
