@@ -5,7 +5,7 @@ import com.intellij.openapi.application.{ApplicationManager, ModalityState, Read
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
-import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
+import com.intellij.ui.components.{JBRadioButton, JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -30,7 +30,7 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel}
+import javax.swing.{ButtonGroup, JLabel, JPanel}
 import scala.collection.{SeqMap, mutable}
 
 
@@ -161,6 +161,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   )
   visualizationPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
+
   // TODO max value based on depth of tree?
   private val depthSpinner = new JBIntSpinner(1, 1, 8)
   depthSpinner.addChangeListener(new ChangeListener {
@@ -169,7 +170,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   })
   // TODO update visualization on change?
-  visualizationPanel.add(depthSpinner, Gbc(2, 0))
+  visualizationPanel.add(depthSpinner, Gbc(3, 0))
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
@@ -429,6 +430,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     setDesign(newDesign, compiler)
   }
 
+  // TODO: Add Radio button state
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
@@ -609,7 +611,6 @@ class DetailPanel extends JPanel {
   def loadState(state: BlockVisualizerServiceState): Unit = {
   }
 }
-
 
 class ErrorPanel extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
