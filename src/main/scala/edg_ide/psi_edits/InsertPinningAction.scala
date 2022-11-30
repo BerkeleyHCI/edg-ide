@@ -6,12 +6,12 @@ import com.intellij.psi.{PsiElement, PsiParserFacade}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{LanguageLevel, PyCallExpression, PyClass, PyDictLiteralExpression, PyElementGenerator, PyExpression, PyFunction, PyKeyValueExpression, PyStatementList, PyStringLiteralExpression}
 import com.jetbrains.python.psi.types.TypeEvalContext
-
 import edgir.elem.elem
 import edgir.ref.ref
 import edg.{ElemBuilder, ExprBuilder}
 import edg.compiler.ExprToString
 import edg.util.Errorable
+import edg.wir.ProtoUtil.PortProtoToSeqMap
 import edg_ide.ui.PopupUtils
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, requireExcept}
@@ -30,7 +30,7 @@ object InsertPinningAction {
     case elem.PortLike.Is.Port(port) => Seq((path, port.getSelfClass))
     case elem.PortLike.Is.Bundle(port) =>
       Seq((path, port.getSelfClass)) ++
-          port.ports.flatMap { case (name, subport) =>
+          port.ports.toSeqMap.flatMap { case (name, subport) =>
             val subpath = path.update(
               _.steps :+= ref.LocalStep().update(_.name := name)
             )
@@ -92,7 +92,7 @@ object InsertPinningAction {
 
     val priorPinned = pinning.values.toSet
 
-    val circuitPortItems = block.ports.flatMap { case (name, port) =>
+    val circuitPortItems = block.ports.toSeqMap.flatMap { case (name, port) =>
       val portPath = ExprBuilder.Ref(name)
       circuitPortsOf(portPath, port, project)
     }.toSeq.exceptEmpty(s"block contains no CircuitPorts")
