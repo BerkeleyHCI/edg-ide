@@ -268,7 +268,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.pdfFile.nonEmpty) {
           console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-          PDFGeneratorUtil.generate(HierarchyGraphElk.HGraphToElkGraph(compiled.getContents), options.pdfFile)
+          PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
           console.print(s"Wrote PDF to ${options.pdfFile}\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
         }

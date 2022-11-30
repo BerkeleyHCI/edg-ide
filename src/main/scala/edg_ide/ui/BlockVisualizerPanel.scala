@@ -338,7 +338,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, currentDesign)
-      val layoutGraphRoot = HierarchyGraphElk.HGraphToElkGraph(block, blockPath, depthSpinner.getNumber)
+      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(block, blockPath, depthSpinner.getNumber)
       val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
       tooltipTextMap.map(design)
 
