@@ -17,62 +17,22 @@ import scala.jdk.CollectionConverters.ListHasAsScala
 
 object PDFGeneratorUtil{
 
-//  private def getPrintableChildren(block: HierarchyBlock): Map[String, HierarchyBlock] = {
-//    val nameOrder = ProtoUtil.getNameOrder(block.meta)
-//    val children: Map[String, HierarchyBlock] = block.blocks.map {
-//      case (name, subblock) => (name, subblock.`type`)
-//    }  .sortKeysFrom(nameOrder)
-//      .collect {
-//        case (name, BlockLike.Type.Hierarchy(subblock)) => (name, subblock)
-//      }.toMap
-//
-//    println(children)
-//    children
-//  }
+  private def getPrintableChildren(block: HierarchyBlock): Map[String, HierarchyBlock] = {
+    val nameOrder = ProtoUtil.getNameOrder(block.meta)
+    val children: Map[String, HierarchyBlock] = block.blocks.map {
+      case (name, subblock) => (name, subblock.`type`)
+    }  .sortKeysFrom(nameOrder)
+      .collect {
+        case (name, BlockLike.Type.Hierarchy(subblock)) => (name, subblock)
+      }.toMap
 
-//  def generate(content: HierarchyBlock, fileName: String): Unit = {
-//
-//    val rootNode = HierarchyGraphElk.HBlockToElkNode(content, depth=2)
-//
-//    // TODO: Set a fixed document size and scale graphics accordingly?
-//    val width = rootNode.getWidth.toFloat + 2 * ElkNodePainter.margin.toFloat
-//    val height = rootNode.getHeight.toFloat + 2 * ElkNodePainter.margin.toFloat
-//    val document = new Document(new Rectangle(width, height))
-//
-//    // TODO: make a try..catch for FileOutputStream
-//    val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
-//    document.open()
-//    val cb = writer.getDirectContent
-//    val graphics = cb.createGraphics(width, height)
-//    val painter = new ElkNodePainter(rootNode)
-//    painter.paintComponent(graphics, Color.white)
-//    graphics.dispose()
-//
-//    def printChild(node: ElkNode, path: String): Unit ={
-//      println("Printing...")
-//      document.newPage
-//      val subGraphics = cb.createGraphics(width, height)
-//      val painter = new ElkNodePainter(node)
-//      painter.paintComponent(subGraphics, Color.white)
-//      subGraphics.dispose()
-//      println("Printed" + path)
-//    }
-//
-//    getPrintableChildren(content).foreach(hBlock => {
-//      if (hBlock != null) {
-//        val node = HierarchyGraphElk.HBlockToElkNode(hBlock._2)
-//        printChild(node, hBlock._1)
-//      }
-//      else{
-//        println("Null node encountered")
-//      }
-//    })
-//    println("FINISHED PRINTING")
-//    document.close()
-//  }
+    children
+  }
 
   def generate(content: HierarchyBlock, fileName: String): Unit = {
-    val rootNode = HierarchyGraphElk.HBlockToElkNode(content, depth=2)
+
+    val rootNode = HierarchyGraphElk.HBlockToElkNode(content)
+
     // TODO: Set a fixed document size and scale graphics accordingly?
     val width = rootNode.getWidth.toFloat + 2 * ElkNodePainter.margin.toFloat
     val height = rootNode.getHeight.toFloat + 2 * ElkNodePainter.margin.toFloat
@@ -86,6 +46,40 @@ object PDFGeneratorUtil{
     val painter = new ElkNodePainter(rootNode)
     painter.paintComponent(graphics, Color.white)
     graphics.dispose()
+
+    def printChild(node: ElkNode, path: String): Unit ={
+      println("Printing...")
+      document.newPage
+      val subGraphics = cb.createGraphics(width, height)
+      val painter = new ElkNodePainter(node)
+      painter.paintComponent(subGraphics, Color.white)
+      subGraphics.dispose()
+      println("Printed " + path)
+    }
+
+    getPrintableChildren(content).foreach(hBlock => {
+      val node = HierarchyGraphElk.HBlockToElkNode(hBlock._2, DesignPath()+hBlock._1)
+      printChild(node, hBlock._1)
+    })
+    println("FINISHED PRINTING")
     document.close()
   }
+
+//  def generate(content: HierarchyBlock, fileName: String): Unit = {
+//    val rootNode = HierarchyGraphElk.HBlockToElkNode(content, depth=2)
+//    // TODO: Set a fixed document size and scale graphics accordingly?
+//    val width = rootNode.getWidth.toFloat + 2 * ElkNodePainter.margin.toFloat
+//    val height = rootNode.getHeight.toFloat + 2 * ElkNodePainter.margin.toFloat
+//    val document = new Document(new Rectangle(width, height))
+//
+//    // TODO: make a try..catch for FileOutputStream
+//    val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
+//    document.open()
+//    val cb = writer.getDirectContent
+//    val graphics = cb.createGraphics(width, height)
+//    val painter = new ElkNodePainter(rootNode)
+//    painter.paintComponent(graphics, Color.white)
+//    graphics.dispose()
+//    document.close()
+//  }
 }

@@ -267,9 +267,11 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
         if (options.pdfFile.nonEmpty) {
+          val startTime = System.currentTimeMillis()
           console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
           PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
-          console.print(s"Wrote PDF to ${options.pdfFile}\n",
+          val printPdfTime = System.currentTimeMillis() - startTime
+          console.print(s"Wrote PDF to ${options.pdfFile} ($printPdfTime ms)\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
         }
 
