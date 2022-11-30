@@ -7,7 +7,7 @@ import edg.wir.DesignPath
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.Ref
 import edg.util.MapUtils
-import edg.wir.ProtoUtil.{BlockProtoToSeqMap, ConstraintProtoToSeqMap, LinkProtoToSeqMap, PortProtoToSeqMap}
+import edg.wir.ProtoUtil._
 
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(

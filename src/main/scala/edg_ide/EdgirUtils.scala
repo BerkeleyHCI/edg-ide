@@ -1,12 +1,11 @@
 package edg_ide
 
 import edgir.elem.elem
-import edgir.expr.expr
 import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir.DesignPath
 import edg.ElemBuilder
-import edg.wir.ProtoUtil.{BlockProtoToSeqMap, LinkProtoToSeqMap, PortProtoToSeqMap}
+import edg.wir.ProtoUtil._
 
 
 object EdgirUtils {

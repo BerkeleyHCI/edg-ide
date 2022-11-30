@@ -1,14 +1,12 @@
 package edg_ide.ui
-import edg.IrPort
-import edgir.elem.elem
-import edgir.ref.ref
+import edg.ExprBuilder.Ref
 import edg.util.Errorable
-import edg.util.SeqMapSortableFrom.MapSortableFrom
-import edg.wir
+import edg.{IrPort, wir}
 import edg.wir.{BlockConnectivityAnalysis, LibraryConnectivityAnalysis, ProtoUtil}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util.{ExceptionNotifyException, exceptable}
-import edg.ExprBuilder.Ref
+import edgir.elem.elem
+import edgir.ref.ref
 
 
 /** Utility methods for fast-path modifications to the design from a UI action.
@@ -83,8 +81,9 @@ class DesignFastPathUtil(library: wir.Library) {
     */
   def instantiateStubLinkLike[T](connectedTypes: Map[T, ref.LibraryPath]):
       Errorable[(elem.LinkLike, Map[T, ref.LocalPath])] = exceptable {
-    import collection.mutable
     import edg.ExprBuilder
+
+    import collection.mutable
 
     // TODO perhaps check here the link of the first port is consistent for the rest?
     val linkType = libraryAnalysis.linkOfPort(connectedTypes.head._2).exceptNone(s"no link")

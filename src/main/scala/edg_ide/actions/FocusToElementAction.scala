@@ -9,7 +9,7 @@ import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.wir.DesignPath
-import edg.wir.ProtoUtil.{BlockProtoToSeqMap, LinkProtoToSeqMap, PortProtoToSeqMap}
+import edg.wir.ProtoUtil._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}

@@ -2,9 +2,8 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.util.SeqMapSortableFrom._
-import edg.wir.ProtoUtil.BlockProtoToSeqMap
-import edg.wir.{DesignPath, ProtoUtil}
+import edg.wir.ProtoUtil._
+import edg.wir.DesignPath
 import edgir.elem.elem
 
 import javax.swing.JTree

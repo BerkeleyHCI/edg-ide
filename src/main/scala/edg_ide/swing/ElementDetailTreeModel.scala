@@ -11,8 +11,7 @@ import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
 import edg.compiler.{ArrayValue, Compiler, ExprResult, ExprToString, ExprValue}
-import edg.util.SeqMapSortableFrom._
-import edg.wir.ProtoUtil.{ConstraintProtoToSeqMap, LinkProtoToSeqMap, ParamProtoToSeqMap, PortProtoToSeqMap}
+import edg.wir.ProtoUtil._
 import edg_ide.EdgirUtils
 
 import javax.swing.JTree
