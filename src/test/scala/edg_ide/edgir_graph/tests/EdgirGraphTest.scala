@@ -1,13 +1,14 @@
 package edg_ide.edgir_graph.tests
 
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.flatspec.AnyFlatSpec
+import edg.ExprBuilder.ValueExpr
+import edg.wir.DesignPath
+import edg.wir.ProtoUtil._
+import edg_ide.edgir_graph.EdgirGraph.EdgirNode
+import edg_ide.edgir_graph._
 import edgir.elem.elem
 import edgir.expr.expr
-import edg.wir.DesignPath
-import edg_ide.edgir_graph.{BlockWrapper, ConnectWrapper, EdgirGraph, LinkWrapper, PortWrapper}
-import edg_ide.edgir_graph.EdgirGraph.EdgirNode
-import edg.ExprBuilder.ValueExpr
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.SeqMap
 
@@ -17,36 +18,36 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
 
   it should "work on a flat source-to-sink design" in {
     val blockIr = elem.HierarchyBlock(
-      blocks=Map(
+      blocks = SeqMap(
         "source" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-          ports=Map(
+          ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
-          ),
+          ).toPb,
         ))),
         "sink" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-          ports=Map(
+          ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSink)
             ))),
-          ),
+          ).toPb,
         ))),
-      ),
-      links=Map(
+      ).toPb,
+      links = SeqMap(
         "link" -> elem.LinkLike(`type`=elem.LinkLike.Type.Link(elem.Link(
           selfClass=Some(EdgirTestUtils.Links.Power),
-          ports=Map(
+          ports = SeqMap(
             "source" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
             "sink" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
-          ),
+          ).toPb,
         ))),
-      ),
-      constraints=Map(
+      ).toPb,
+      constraints = SeqMap(
         "connect_source" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
           blockPort = Some(ValueExpr.Ref("source", "port")),
           linkPort = Some(ValueExpr.Ref("link", "source"))
@@ -55,7 +56,7 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           blockPort = Some(ValueExpr.Ref("sink", "port")),
           linkPort = Some(ValueExpr.Ref("link", "sink"))
         ))),
-      ),
+      ).toPb,
     )
     val blocklikeIr = elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(blockIr))
     val edgirGraph = EdgirGraph.blockLikeToNode(
@@ -128,32 +129,32 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
 
   it should "work on a simple hierarchy export design" in {
     val blockIr = elem.HierarchyBlock(
-      blocks=Map(
+      blocks= SeqMap(
         "outer" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-          ports=Map(
+          ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
-          ),
-          blocks=Map(
+          ).toPb,
+          blocks = SeqMap(
             "inner" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-              ports=Map(
+              ports= SeqMap(
                 "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
                   selfClass=Some(EdgirTestUtils.Ports.PowerSource)
                 ))),
-              ),
+              ).toPb,
             ))),
-          ),
-          constraints=Map(
+          ).toPb,
+          constraints = SeqMap(
             "export" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Exported(expr.ExportedExpr(
               internalBlockPort = Some(ValueExpr.Ref("inner", "port")),
               exteriorPort = Some(ValueExpr.Ref("port"))
             ))),
-          ),
+          ).toPb,
         ))),
-      ),
-      links=Map(),
-      constraints=Map(),
+      ).toPb,
+      links = Seq(),
+      constraints = Seq(),
     )
     val blocklikeIr = elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(blockIr))
     val edgirGraph = EdgirGraph.blockLikeToNode(
@@ -207,27 +208,27 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
 
   it should "work with block-side arrays" in {
     val designIr = elem.HierarchyBlock(
-      blocks=Map(
+      blocks = SeqMap(
         "block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-          ports=Map(
+          ports = SeqMap(
             "ports" -> elem.PortLike(is=elem.PortLike.Is.Array(elem.PortArray(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource),
               contains=elem.PortArray.Contains.Ports(elem.PortArray.Ports(
-                ports=Map(
+                ports = SeqMap(
                   "0" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
                     selfClass=Some(EdgirTestUtils.Ports.PowerSource)
                   ))),
                   "test" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
                     selfClass=Some(EdgirTestUtils.Ports.PowerSource)
                   ))),
-                )
+                ).toPb
               ))
             ))),
-          ),
+          ).toPb,
         ))),
-      ),
-      links=Map(),
-      constraints=Map(),
+      ).toPb,
+      links = Seq(),
+      constraints = Seq(),
     )
     val designBlocklikeIr = elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(designIr))
     val edgirGraph = EdgirGraph.blockLikeToNode(

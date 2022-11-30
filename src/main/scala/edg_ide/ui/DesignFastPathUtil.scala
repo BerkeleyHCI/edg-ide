@@ -2,7 +2,8 @@ package edg_ide.ui
 import edg.ExprBuilder.Ref
 import edg.util.Errorable
 import edg.{IrPort, wir}
-import edg.wir.{BlockConnectivityAnalysis, LibraryConnectivityAnalysis, ProtoUtil}
+import edg.wir.ProtoUtil._
+import edg.wir.{BlockConnectivityAnalysis, LibraryConnectivityAnalysis}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util.{ExceptionNotifyException, exceptable}
 import edgir.elem.elem
@@ -41,11 +42,10 @@ class DesignFastPathUtil(library: wir.Library) {
     val newBlock = library.getBlock(blockType).exceptError
     newBlock.update(  // create a placeholder only
       _.selfClass := blockType,
-      _.ports := newBlock.ports.view.mapValues(recursiveExpandPort)
-          .mapValues(_.exceptError).toMap,
-      _.blocks := Map(),
-      _.links := Map(),
-      _.constraints := newBlock.constraints.filter { case (name, constr) =>
+      _.ports := newBlock.ports.mapValues(port => recursiveExpandPort(port).exceptError),
+      _.blocks := Seq(),
+      _.links := Seq(),
+      _.constraints := newBlock.constraints.mapFilter { case (name, constr) =>
         constr.expr.ref match {
           case Some(ref) => ref.steps.lastOption match {
             case Some(Ref.IsConnectedStep) => true
@@ -90,18 +90,17 @@ class DesignFastPathUtil(library: wir.Library) {
     val newLink = library.getLink(linkType).exceptError
     var stubLink = newLink.update(
       _.selfClass := linkType,
-      _.ports := newLink.ports.view.mapValues(recursiveExpandPort)
-          .mapValues(_.exceptError).toMap,
-      _.links := Map(),
-      _.constraints := Map()
+      _.ports := newLink.ports.mapValues(port => recursiveExpandPort(port).exceptError),
+      _.links := Seq(),
+      _.constraints := Seq()
     )
 
     // Allocate incoming connects to link ports, and allocate port array elts as needed
     // TODO it's yet another variant of the link connect algorithm, this has been written too many times.
     // Can these all be consolidated?
-    val linkSortedPorts = stubLink.ports.sortKeysFrom(ProtoUtil.getNameOrder(newLink.meta)).to(mutable.SeqMap)
+    val linkPorts = stubLink.ports.toMutableSeqMap
     def nextOfType(findType: ref.LibraryPath): Option[(String, elem.PortLike)] = {
-      linkSortedPorts.find {
+      linkPorts.find {
         case (name, portLike) => BlockConnectivityAnalysis.typeOfPortLike(portLike) == findType
       }
     }
@@ -112,14 +111,15 @@ class DesignFastPathUtil(library: wir.Library) {
       topPortLikeDummy.is match {
         case elem.PortLike.Is.Port(_) | elem.PortLike.Is.Bundle(_) =>
           // return the reference and remove the port
-          linkSortedPorts.remove(topPortName)
+          linkPorts.remove(topPortName)
           key -> ExprBuilder.Ref(topPortName)
         case elem.PortLike.Is.Array(array) =>
           // allocate a new array port and return the reference
           val i = arraySize.getOrElse(topPortName, 0)
           arraySize.put(topPortName, i+1)
           stubLink = stubLink.update(
-            _.ports(topPortName).array.ports.ports(i.toString) := instantiatePortLike(connectType).exceptError
+            _.ports(stubLink.ports.indexOfKey(topPortName)).value.array.ports.ports :+=
+                (i.toString, instantiatePortLike(connectType).exceptError).toPb
           )
           key -> ExprBuilder.Ref(topPortName, i.toString)
         case other => throw ExceptionNotifyException(s"unexpected ${other.getClass} in link connect mapping")
