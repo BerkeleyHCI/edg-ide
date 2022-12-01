@@ -48,7 +48,7 @@ class DesignTopConfigurationFactory(confType: ConfigurationType) extends Configu
   override def getOptionsClass: Class[DesignTopRunConfigurationOptions] = classOf[DesignTopRunConfigurationOptions]
 }
 
-object Toggle extends Enumeration {
+object RefdesMode extends Enumeration {
   type selections = Value
 
   val refdes = Value(0, "refdes")
@@ -62,7 +62,7 @@ object Toggle extends Enumeration {
 class DesignTopRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var netlistFile: String = ""
-  var toggle: Toggle.selections = Toggle.refdes
+  var toggle: RefdesMode.selections = RefdesMode.refdes
 }
 
 class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory, name: String)
@@ -92,21 +92,21 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
 
   val kFieldDesignName = "DESIGN_NAME"
   val kFieldNetlistName = "NETLIST_NAME"
-  val kFieldToggle = "TOGGLE_NAME"
+  val kFieldValueMode = "VALUEMODE_NAME"
 
   // Allows persistence of run configuration
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName)
     options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName)
-    Toggle.toEnum(JDOMExternalizerUtil.readField(element, kFieldToggle)).foreach(options.toggle = _)
+    RefdesMode.toEnum(JDOMExternalizerUtil.readField(element, kFieldValueMode)).foreach(options.toggle = _)
   }
 
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldNetlistName, options.netlistFile)
-    JDOMExternalizerUtil.writeField(element, kFieldToggle, options.toggle.toString)
+    JDOMExternalizerUtil.writeField(element, kFieldValueMode, options.toggle.toString)
   }
 }
 
@@ -114,16 +114,16 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
   protected val designName = new JTextField()
   protected val netlistFile = new JTextField()  // no browse button b/c FileChooser can't create new files
 
-  protected val toggleRefdes = new JBRadioButton("Refdes")
-  protected val togglePathname = new JBRadioButton("Path Name")
+  protected val toggleRefdes = new JBRadioButton()
+  protected val togglePathname = new JBRadioButton()
   protected val toggleButtons = new ButtonGroup()
   toggleButtons.add(toggleRefdes)
   toggleButtons.add(togglePathname)
 
   protected val panel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("Design top name"), designName, false)
-      .addComponent(toggleRefdes)
-      .addComponent(togglePathname)
+      .addLabeledComponent(new JBLabel("Select Netlist Refdes value"), toggleRefdes)
+      .addLabeledComponent(new JBLabel("Select Netlist Path Name"), togglePathname)
       .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
@@ -133,10 +133,10 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
     netlistFile.setText(s.options.netlistFile)
 
     s.options.toggle match {
-      case Toggle.refdes =>
+      case RefdesMode.refdes =>
         toggleRefdes.setSelected(true)
         togglePathname.setSelected(false)
-      case Toggle.pathName =>
+      case RefdesMode.pathName =>
         toggleRefdes.setSelected(false)
         togglePathname.setSelected(true)
     }
@@ -146,9 +146,9 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
     s.options.designName = designName.getText
     s.options.netlistFile = netlistFile.getText
     if (toggleRefdes.isSelected){
-      s.options.toggle = Toggle.refdes
+      s.options.toggle = RefdesMode.refdes
     } else if (togglePathname.isSelected) {
-      s.options.toggle = Toggle.pathName
+      s.options.toggle = RefdesMode.pathName
     } else {
       // Ignore invalid user selection
     }

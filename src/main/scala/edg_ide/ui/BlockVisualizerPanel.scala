@@ -5,7 +5,7 @@ import com.intellij.openapi.application.{ApplicationManager, ModalityState, Read
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
-import com.intellij.ui.components.{JBRadioButton, JBScrollPane, JBTabbedPane}
+import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -170,7 +170,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   })
   // TODO update visualization on change?
-  visualizationPanel.add(depthSpinner, Gbc(3, 0))
+  visualizationPanel.add(depthSpinner, Gbc(2, 0))
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
@@ -430,7 +430,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     setDesign(newDesign, compiler)
   }
 
-  // TODO: Add Radio button state
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {

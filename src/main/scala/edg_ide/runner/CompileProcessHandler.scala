@@ -267,7 +267,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")
 
-          val arguments = Map("valueMode" -> options.toggle.toString)
+          val arguments = Map("RefdesMode" -> options.toggle.toString)
 
           val (netlist, netlistTime) = timeExec {
             pythonInterface.get.runBackend(
