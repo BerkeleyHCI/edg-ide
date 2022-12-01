@@ -77,11 +77,11 @@ class FocusToElementAction() extends AnAction() {
 
       val matchBlockPathTypes = instancesOfClass.collect {
         case (blockPath, block) if block.ports.toSeqMap.contains(refName) =>
-          (blockPath, refName, block, EdgirUtils.typeOfPortLike(block.ports.toSeqMap(refName)))
+          (blockPath, refName, block, EdgirUtils.typeOfPortLike(block.ports(refName)))
         case (blockPath, block) if block.blocks.toSeqMap.contains(refName) =>
-          (blockPath, refName, block, EdgirUtils.typeOfBlockLike(block.blocks.toSeqMap(refName)))
+          (blockPath, refName, block, EdgirUtils.typeOfBlockLike(block.blocks(refName)))
         case (blockPath, block) if block.links.toSeqMap.contains(refName) =>
-          (blockPath, refName, block, EdgirUtils.typeOfLinkLike(block.links.toSeqMap(refName)))
+          (blockPath, refName, block, EdgirUtils.typeOfLinkLike(block.links(refName)))
       }.exceptEmpty(s"no ${containingClass.getName} containing $refName")
 
       val items = matchBlockPathTypes.map { case (blockPath, refName, block, desc) =>

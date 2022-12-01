@@ -9,6 +9,8 @@ import edg_ide.util.{ExceptionNotifyException, exceptable}
 import edgir.elem.elem
 import edgir.ref.ref
 
+import scala.collection.SeqMap
+
 
 /** Utility methods for fast-path modifications to the design from a UI action.
   */
@@ -45,8 +47,8 @@ class DesignFastPathUtil(library: wir.Library) {
       _.ports := newBlock.ports.mapValues(port => recursiveExpandPort(port).exceptError),
       _.blocks := Seq(),
       _.links := Seq(),
-      _.constraints := newBlock.constraints.mapFilter { case (name, constr) =>
-        constr.expr.ref match {
+      _.constraints := newBlock.constraints.filter {
+        _.value.get.expr.ref match {
           case Some(ref) => ref.steps.lastOption match {
             case Some(Ref.IsConnectedStep) => true
             case _ => false
@@ -98,7 +100,7 @@ class DesignFastPathUtil(library: wir.Library) {
     // Allocate incoming connects to link ports, and allocate port array elts as needed
     // TODO it's yet another variant of the link connect algorithm, this has been written too many times.
     // Can these all be consolidated?
-    val linkPorts = stubLink.ports.toMutableSeqMap
+    val linkPorts = stubLink.ports.toSeqMap.to(mutable.SeqMap)
     def nextOfType(findType: ref.LibraryPath): Option[(String, elem.PortLike)] = {
       linkPorts.find {
         case (name, portLike) => BlockConnectivityAnalysis.typeOfPortLike(portLike) == findType

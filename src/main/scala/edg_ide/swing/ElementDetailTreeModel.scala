@@ -76,7 +76,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
       Seq(
         linkNode,
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
-        port.params.toSeqMap.map {
+        port.params.asPairs.map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
         },
       ).flatten
@@ -91,10 +91,10 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
     override lazy val children = {
       Seq(
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
-        port.ports.toSeqMap.map {
+        port.ports.asPairs.map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
-        port.params.toSeqMap.map {
+        port.params.asPairs.map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
         },
       ).flatten
@@ -112,7 +112,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
         Some(new ParamNode(path.asIndirect + IndirectStep.Length, ExprBuilder.ValInit.Integer)),
         Some(new ParamNode(path.asIndirect + IndirectStep.Elements,
           ExprBuilder.ValInit.Array(ExprBuilder.ValInit.Text))),
-        port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.toSeqMap.map {
+        port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.asPairs.map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
       ).flatten
@@ -139,10 +139,10 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
   class BlockNode(path: DesignPath, block: elem.HierarchyBlock) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {  // don't recurse into blocks here
       Seq(
-        block.ports.toSeqMap.map {
+        block.ports.asPairs.map {
           case (name, port) => PortLikeNode(path + name, port)
         },
-        block.links.toSeqMap.map { case (name, sublink) =>
+        block.links.asPairs.map { case (name, sublink) =>
           LinkLikeNode(path + name, path.asIndirect + name, sublink)
         },
         block.meta.map { meta =>
@@ -159,7 +159,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
         } else {
           Seq()
         },
-        block.params.toSeqMap.map {
+        block.params.asPairs.map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
         },
       ).flatten
@@ -185,18 +185,18 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
     override lazy val children: Seq[ElementDetailNode] = {
       Seq(
         Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
-          link.ports.toSeqMap.map {
+          link.ports.asPairs.map {
             case (name, port) => PortLikeNode(path + name, port, true)
           }
         }.toSeq.flatten,
-        link.links.toSeqMap.map {
+        link.links.asPairs.map {
           case (name, sublink) => LinkLikeNode(path + name, relpath + name, sublink)
         },
         link.meta.map { meta =>
           new MetadataNode("Metadata", meta)
         },
         Some(new ConstraintsNode(path, link.constraints.toSeqMap)),
-        link.params.toSeqMap.map {
+        link.params.asPairs.map {
           case (name, param) => new ParamNode(relpath + name, param)
         },
       ).flatten
@@ -217,11 +217,11 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
     override lazy val children: Seq[ElementDetailNode] = {
       Seq(
         Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
-          link.ports.toSeqMap.map {
+          link.ports.asPairs.map {
             case (name, port) => PortLikeNode(path + name, port, true)
           }
         }.toSeq.flatten,
-        link.links.toSeqMap.map {
+        link.links.asPairs.map {
           case (name, sublink) => LinkLikeNode(path + name, relpath + name, sublink)
         },
         link.meta.map { meta =>
@@ -355,6 +355,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
       case common.Metadata.Meta.Members(members) => "(dict)"
       case common.Metadata.Meta.BinLeaf(binary) => s"(binary, ${binary.size()} long)"
       case common.Metadata.Meta.TextLeaf(text) => s"$text (text)"
+      case common.Metadata.Meta.Empty => s"empty"
       case other => s"(unknown ${other.getClass.getSimpleName})"
     }
   }

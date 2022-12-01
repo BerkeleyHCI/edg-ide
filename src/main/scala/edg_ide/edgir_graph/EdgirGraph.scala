@@ -107,7 +107,7 @@ object EdgirGraph {
         val allMembers = MapUtils.mergeSeqMapSafe(  // arrays not collapse
           block.ports.toSeqMap.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },
           block.blocks.toSeqMap.map { case (name, subblock) => Seq(name) -> blockLikeToNode(path + name, subblock) },
-          block.links.toSeqMap.map{ case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
+          block.links.toSeqMap.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
         ).to(SeqMap)
 
         // Read edges from constraints
@@ -170,7 +170,7 @@ object EdgirGraph {
         case elem.PortArray.Contains.Ports(portArray) =>
           // create an entry for the array itself
           Seq((name :+ "[]") -> portLikeToPort(path, portLike)) ++
-              portArray.ports.toSeqMap.flatMap { case (eltName, eltPort) =>
+              portArray.ports.asPairs.flatMap { case (eltName, eltPort) =>
                 expandPortsWithNames(path + eltName, name :+ eltName, eltPort)
               }.toSeq
         case elem.PortArray.Contains.Empty =>

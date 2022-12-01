@@ -21,7 +21,7 @@ object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[Strin
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                         blocks: SeqMap[String, (Seq[DesignPath], Seq[String])]):
       (Seq[DesignPath], Seq[String]) = {
-    val myConstrExprs = block.constraints.toSeqMap.map { case (constrName, constr) =>  // unpack constraint expression type
+    val myConstrExprs = block.constraints.asPairs.map { case (constrName, constr) =>  // unpack constraint expression type
       constr.expr
     }.toSeq  // allow multiple uses
 

@@ -30,7 +30,7 @@ object InsertPinningAction {
     case elem.PortLike.Is.Port(port) => Seq((path, port.getSelfClass))
     case elem.PortLike.Is.Bundle(port) =>
       Seq((path, port.getSelfClass)) ++
-          port.ports.toSeqMap.flatMap { case (name, subport) =>
+          port.ports.asPairs.flatMap { case (name, subport) =>
             val subpath = path.update(
               _.steps :+= ref.LocalStep().update(_.name := name)
             )
@@ -92,7 +92,7 @@ object InsertPinningAction {
 
     val priorPinned = pinning.values.toSet
 
-    val circuitPortItems = block.ports.toSeqMap.flatMap { case (name, port) =>
+    val circuitPortItems = block.ports.asPairs.flatMap { case (name, port) =>
       val portPath = ExprBuilder.Ref(name)
       circuitPortsOf(portPath, port, project)
     }.toSeq.exceptEmpty(s"block contains no CircuitPorts")
