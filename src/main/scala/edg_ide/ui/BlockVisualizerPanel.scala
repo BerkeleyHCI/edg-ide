@@ -146,7 +146,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   )
   visualizationPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
-
   // TODO max value based on depth of tree?
   private val depthSpinner = new JBIntSpinner(1, 1, 8)
   depthSpinner.addChangeListener(new ChangeListener {

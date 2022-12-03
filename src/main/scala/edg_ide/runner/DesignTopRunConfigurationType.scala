@@ -94,7 +94,7 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
   val kFieldDesignName = "DESIGN_NAME"
   val kFieldNetlistName = "NETLIST_NAME"
   val kPdfFileName = "PDF_NAME"
-  val kFieldValueMode = "VALUEMODE_NAME"
+  val kFieldRefdesMode = "REFDESMODE_NAME"
 
   // Allows persistence of run configuration
   override def readExternal(element: Element): Unit = {
