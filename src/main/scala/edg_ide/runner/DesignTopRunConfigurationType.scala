@@ -124,12 +124,6 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
   toggleButtons.add(toggleRefdes)
   toggleButtons.add(togglePathname)
 
-  protected val toggleRefdes = new JBRadioButton()
-  protected val togglePathname = new JBRadioButton()
-  protected val toggleButtons = new ButtonGroup()
-  toggleButtons.add(toggleRefdes)
-  toggleButtons.add(togglePathname)
-
   protected val panel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("Design top name"), designName, false)
       .addLabeledComponent(new JBLabel("Select Netlist Refdes value"), toggleRefdes)
