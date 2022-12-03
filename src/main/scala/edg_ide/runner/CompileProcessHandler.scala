@@ -282,6 +282,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           ).mapErr(msg => s"while refdesing: $msg").get
         }
         compiler.addValues(refdes, "refdes")
+        console.print(s"Refdesed ${refdes.size} components ($refdesTime ms)\n",
+          ConsoleViewContentType.SYSTEM_OUTPUT)
 
         indicator.setText("EDG compiling: updating visualization")
         BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
