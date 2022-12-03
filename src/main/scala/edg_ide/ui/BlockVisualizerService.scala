@@ -8,6 +8,7 @@ import edg.compiler.{Compiler, CompilerError, PythonInterfaceLibrary}
 import edgir.schema.schema
 import edgir.elem.elem
 import edg.wir.DesignPath
+import edg_ide.dse.DseResult
 import edgrpc.hdl.{hdl => edgrpc}
 
 
@@ -53,6 +54,10 @@ class BlockVisualizerService(project: Project) extends
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
                    errors: Seq[CompilerError]): Unit = {
     visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors))
+  }
+
+  def setDseResults(results: Seq[DseResult]): Unit = {
+    visualizerPanelOption.foreach(_.setDseResults(results))
   }
 
   def getDesign: Option[schema.Design] = {

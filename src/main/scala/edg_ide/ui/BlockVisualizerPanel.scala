@@ -1,8 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
@@ -15,9 +13,10 @@ import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
+import edg_ide.dse.{DseFeature, DseResult}
 import edg_ide.edgir_graph._
 import edg_ide.swing._
-import edg_ide.util.{DesignAnalysisUtils, DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
+import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -60,11 +59,10 @@ object Gbc {
 
 
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
-  private val logger = Logger.getInstance(classOf[BlockVisualizerPanel])
-
   // Internal State
   //
   private var design = schema.Design()
+  private var refinements = edgrpc.Refinements()
   private var compiler = new Compiler(design, EdgCompilerService(project).pyLib)
 
   // Shared state, access should be synchronized on the variable
@@ -74,6 +72,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // GUI-facing state
   //
   private var focusPath: DesignPath = DesignPath()  // visualize from root by default
+  private var ignoreSelect: Boolean = false  // ignore select operation to prevent infinite recursion
+  private var selectionPath: DesignPath = DesignPath()  // selection of detail view and graph selection
 
   // Tool
   //
@@ -84,17 +84,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   private val toolInterface = new ToolInterface {
-    override def setDesignTreeSelection(path: Option[DesignPath]): Unit = {
-      designTree.clearSelection()
-      path match {
-        case Some(path) =>
-          val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
-          val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) { _.pathByAddingChild(_) }
-          designTree.addSelectedPath(treePath)
-        case None =>  // do nothing
-      }
-    }
-
     override def scrollGraphToVisible(path: DesignPath): Unit = {
       // TODO IMPLEMENT ME
     }
@@ -114,10 +103,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       setContext(path)
     }
 
-    override def setDetailView(path: DesignPath): Unit = {
-      tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
-      detailPanel.setLoaded(path, design, compiler)
-      kicadVizPanel.setBlock(path, design, compiler)
+    override def setSelection(path: DesignPath): Unit = {
+      BlockVisualizerPanel.this.selectPath(path)
     }
 
     override def setStatus(statusText: String): Unit = {
@@ -146,8 +133,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI Components
   //
-  private val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.BlockVisualizerPanel")
-
   private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
 
   // GUI: Top half (status and block visualization)
@@ -201,8 +186,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI: Bottom half (design tree and task tabs)
   //
+  private val dseSplitter = new JBSplitter(true, 0.66f, 0.1f, 0.9f)
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
-  mainSplitter.setSecondComponent(bottomSplitter)
+  if (DseFeature.kEnabled) {
+    mainSplitter.setSecondComponent(dseSplitter)
+    dseSplitter.setFirstComponent(bottomSplitter)
+  } else {
+    mainSplitter.setSecondComponent(bottomSplitter)
+  }
 
   private var designTreeModel = new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel)
@@ -211,23 +202,18 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       import edg_ide.swing.HierarchyBlockNode
       e.getPath.getLastPathComponent match {
-        case selectedNode: HierarchyBlockNode =>
-          activeTool.onSelect(selectedNode.path)
+        case selectedNode: HierarchyBlockNode => selectPath(selectedNode.path)
         case _ =>  // any other type ignored, not that there should be any other types
-          // TODO should this error out?
       }
     }
   }
   designTree.getTree.addTreeSelectionListener(designTreeListener)
   designTree.addMouseListener(new MouseAdapter {  // right click context menu
     override def mousePressed(e: MouseEvent): Unit = {
-      designTree.getTree.getPathForLocation(e.getX, e.getY) match {
-        case null =>  // ignored
-        case treePath: TreePath => treePath.getLastPathComponent match {
-          case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
-          case _ =>  // any other type ignored
-        }
-      }
+      Option(designTree.getTree.getPathForLocation(e.getX, e.getY)).foreach { _.getLastPathComponent match {
+        case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
+        case _ =>  // any other type ignored
+      } }
     }
   })
   designTree.setShowColumns(true)
@@ -243,23 +229,24 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   tabbedPane.addTab("Library", libraryPanel)
   val TAB_INDEX_LIBRARY = 0
 
-  private val refinementsPanel = new RefinementsPanel()
-  tabbedPane.addTab("Refinements", refinementsPanel)
-  val TAB_INDEX_REFINEMENTS = 1
-
-  private val detailPanel = new DetailPanel()
+  private val detailPanel = new DetailPanel(DesignPath(), design, refinements, compiler)
   tabbedPane.addTab("Detail", detailPanel)
-  val TAB_INDEX_DETAIL = 2
+  val TAB_INDEX_DETAIL = 1
 
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
-  val TAB_INDEX_ERRORS = 3
+  val TAB_INDEX_ERRORS = 2
 
   // add a tab for kicad visualization
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
-  val TAB_KICAD_VIZ = 4
+  val TAB_KICAD_VIZ = 3
 
+
+  // GUI: Design Space Exploration (bottom tab)
+  //
+  private val dsePanel = new DseConfigPanel(project)
+  dseSplitter.setSecondComponent(dsePanel)
 
   setLayout(new BorderLayout())
   add(mainSplitter)
@@ -273,7 +260,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   def getDesign: schema.Design = design
 
   def getSelectedPath: Option[DesignPath] = {
-    defaultTool.getSelected
+    Some(selectionPath)
   }
 
   def setContext(path: DesignPath): Unit = {
@@ -284,9 +271,32 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   def selectPath(path: DesignPath): Unit = {
-    if (activeTool == defaultTool) {
-      defaultTool.onSelect(path)
+    if (ignoreSelect) {  // setting the tree selection triggers a select event, this prevents an infinite loop
+      return
     }
+    ignoreSelect = true
+    selectionPath = path
+
+    val (containingPath, containingBlock) = EdgirUtils.resolveDeepestBlock(path, design)
+
+    designTree.clearSelection()
+    val (targetDesignPrefix, targetDesignNode) = BlockTreeTableModel.follow(path, designTreeModel)
+    val treePath = targetDesignPrefix.tail.foldLeft(new TreePath(targetDesignPrefix.head)) {
+      _.pathByAddingChild(_)
+    }
+    designTree.addSelectedPath(treePath)
+
+    graph.setSelected(pathsToGraphNodes(Set(path)))
+
+    BlockVisualizerPanel.this.setDetailView(containingPath)
+
+    ignoreSelect = false
+  }
+
+  def setDetailView(path: DesignPath): Unit = {
+    tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
+    detailPanel.setLoaded(path, design, refinements, compiler)
+    kicadVizPanel.setBlock(path, design, compiler)
   }
 
   /** Sets the design and updates displays accordingly.
@@ -294,7 +304,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
                    errors: Seq[CompilerError]): Unit = {
     setDesign(design, compiler)
-    refinementsPanel.setRefinements(refinements)
+    this.refinements = refinements
     tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
     errorPanel.setErrors(errors)
 
@@ -308,19 +318,21 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateDisplay()
   }
 
-  /** Updates the design tree only
+  /** Updates the design tree only, where the overall "top design" does not change.
+    * Mainly used for speculative updates on graphical edit actions.
     */
   def setDesign(design: schema.Design, compiler: Compiler): Unit = {
     // Update state
     this.design = design
     this.compiler = compiler
 
-    val block = design.contents.getOrElse(elem.HierarchyBlock())
-
     // Update the design tree first, in case graph layout fails
-    designTreeModel = new BlockTreeTableModel(block)
-    designTree.setModel(designTreeModel)
+    designTreeModel = new BlockTreeTableModel(design.contents.getOrElse(elem.HierarchyBlock()))
+    TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+
+    // Also update the active detail panel
+    selectPath(selectionPath)
 
     updateDisplay()
   }
@@ -329,36 +341,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
-    import ElemBuilder.LibraryPath
-
     val currentDesign = design
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, currentDesign)
-      focusPath = blockPath
-
-      // For now, this only updates the graph visualization, which can change with focus.
-      // In the future, maybe this will also update or filter the design tree.
-      val edgirGraph = EdgirGraph.blockToNode(focusPath, block)
-      val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-        4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
-      val transformedGraph = highFanoutTransform(
-        CollapseLinkTransform(CollapseBridgeTransform(
-          InferEdgeDirectionTransform(SimplifyPortTransform(
-            PruneDepthTransform(edgirGraph, depthSpinner.getNumber))))))
-
-      val name = if (focusPath == DesignPath()) {
-        "(root)"
-      } else {
-        focusPath.steps.last
-      }
-
-      val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-        name,
-        Seq(ElkEdgirGraphUtils.DesignPathMapper),
-        // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
-        focusPath != DesignPath())  // need to make a root so root doesn't have ports
-
+      val layoutGraphRoot = HierarchyGraphElk.HGraphToElkGraph(block, blockPath, depthSpinner.getNumber)
       val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
       tooltipTextMap.map(design)
 
@@ -422,6 +409,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateStale()
   }
 
+  def setDseResults(results: Seq[DseResult]): Unit = {
+    dsePanel.setResults(results)
+  }
+
   // In place design tree modifications
   //
   def currentDesignModifyBlock(blockPath: DesignPath)
@@ -437,11 +428,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
+    state.dseSplitterPos = dseSplitter.getProportion
     libraryPanel.saveState(state)
-    refinementsPanel.saveState(state)
     detailPanel.saveState(state)
     errorPanel.saveState(state)
     kicadVizPanel.saveState(state)
+    dsePanel.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
@@ -449,11 +441,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)
+    dseSplitter.setProportion(state.dseSplitterPos)
     libraryPanel.loadState(state)
-    refinementsPanel.loadState(state)
     detailPanel.loadState(state)
     errorPanel.loadState(state)
     kicadVizPanel.loadState(state)
+    dsePanel.loadState(state)
   }
 }
 
@@ -555,41 +548,14 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
     val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
   }
-
-
-}
-
-class RefinementsPanel extends JPanel {
-  private val tree = new TreeTable(new RefinementsTreeTableModel(edgrpc.Refinements()))
-  new TreeTableSpeedSearch(tree)
-  tree.setShowColumns(true)
-  tree.setRootVisible(false)
-  private val treeScrollPane = new JBScrollPane(tree)
-
-  setLayout(new BorderLayout())
-  add(treeScrollPane)
-
-  // Actions
-  //
-  def setRefinements(refinements: edgrpc.Refinements): Unit = {
-    tree.setModel(new RefinementsTreeTableModel(refinements))
-    tree.setRootVisible(false)
-  }
-
-  // Configuration State
-  //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-  }
-
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-  }
 }
 
 
-class DetailPanel extends JPanel {
+class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements: edgrpc.Refinements,
+                  initCompiler: Compiler) extends JPanel {
   import edg_ide.swing.ElementDetailTreeModel
 
-  private val tree = new TreeTable(new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock()))
+  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, initRoot, initRefinements, initCompiler))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
 
@@ -598,8 +564,8 @@ class DetailPanel extends JPanel {
 
   // Actions
   //
-  def setLoaded(path: DesignPath, root: schema.Design, compiler: Compiler): Unit = {
-    tree.setModel(new ElementDetailTreeModel(path, root, compiler))
+  def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
+    TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
   }
 
   // Configuration State
@@ -623,8 +589,7 @@ class ErrorPanel extends JPanel {
   // Actions
   //
   def setErrors(errs: Seq[CompilerError]): Unit = {
-    tree.setModel(new CompilerErrorTreeTableModel(errs))
-    tree.setRootVisible(false)
+    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs))
   }
 
   // Configuration State

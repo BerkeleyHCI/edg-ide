@@ -16,6 +16,8 @@ import edg.ElemBuilder
 import edg.compiler.{DesignAssertionCheck, DesignRefsValidate, DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
+import edg_ide.edgir_graph.HierarchyGraphElk
+import edg_ide.swing.ElkNodePainter
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
@@ -263,6 +265,13 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         indicator.setText("EDG compiling: updating visualization")
         BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
+
+        if (options.pdfFile.nonEmpty) {
+          console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+          PDFGeneratorUtil.generate(HierarchyGraphElk.HGraphToElkGraph(compiled.getContents), options.pdfFile)
+          console.print(s"Wrote PDF to ${options.pdfFile}\n",
+            ConsoleViewContentType.SYSTEM_OUTPUT)
+        }
 
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")

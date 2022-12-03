@@ -1,120 +1,181 @@
 package edg_ide.swing
 
-import com.intellij.util.ui.UIUtil
-import edg.wir.DesignPath
-import edg_ide.edgir_graph.ElkEdgirGraphUtils
-import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort}
+import edg_ide.swing.ElkNodeUtil.edgeSectionPairs
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
-import java.awt.geom.Rectangle2D
-import java.awt.image.BufferedImage
-import java.awt.{BasicStroke, Color, Graphics2D, TexturePaint}
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import java.awt.event.{MouseAdapter, MouseEvent}
+import java.awt.{Dimension, Graphics, Rectangle}
+import javax.swing.{JComponent, Scrollable}
+import scala.collection.mutable
+import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
+/** Block diagram visualizer that customizes the rendering with options specific to
+ * design block diagrams:
+ * - tunnel link names by heuristic matching (degenerate self-to-self links)
+ * - additional setError(elts) to render elts as filled in red
+ * - additional setStable(elts) to render elts as stale (???)
+ */
+class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = false)
+  extends JComponent with Scrollable with Zoomable {
+  private var zoomLevel: Float = 1.0f
+  private var selected: Set[ElkGraphElement] = Set()
+  private var highlighted: Option[Set[ElkGraphElement]] = None
+  private var errorElts: Set[ElkGraphElement] = Set()
+  private var staleElts: Set[ElkGraphElement] = Set()
+  private val elementToolTips = mutable.Map[ElkGraphElement, String]()
 
-/** Block diagram visualizer that customizes the rendering in JElkGraph with options specific to
-  * design block diagrams:
-  * - tunnel link names by heuristic matching (degenerate self-to-self links)
-  * - additional setError(elts) to render elts as filled in red
-  * - additional setStable(elts) to render elts as stale (???)
-  */
-class JBlockDiagramVisualizer(rootNode: ElkNode, showTop: Boolean = false) extends
-    JElkGraph(rootNode, showTop) {
-  protected val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
-  def makeHatchTexture(backgroundColor: Color, foregroundColor: Color): TexturePaint = {
-    val hatchImage = new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
-    val hatchGraphics = hatchImage.createGraphics()
-    val hatchTexture = new TexturePaint(hatchImage, hatchRect)
-    hatchGraphics.setColor(backgroundColor)
-    hatchGraphics.fill(hatchRect)
-    hatchGraphics.setColor(foregroundColor)
-    hatchGraphics.setStroke(new BasicStroke(2))
-    hatchGraphics.drawLine(0, 16, 16, 0)
-    hatchTexture
+  override def getZoom = zoomLevel
+
+  override def setZoom(zoom: Float): Unit = {
+    zoomLevel = zoom
   }
 
+  def setSelected(elts: Set[ElkGraphElement]): Unit = {
+    selected = elts
+    validate()
+    repaint()
+  }
 
-  protected var errorElts: Set[ElkGraphElement] = Set()
+  def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
+    highlighted = elts
+    validate()
+    repaint()
+  }
+
   def setError(elts: Set[ElkGraphElement]): Unit = {
     errorElts = elts
     validate()
     repaint()
   }
 
-  protected var staleElts: Set[ElkGraphElement] = Set()
   def setStale(elts: Set[ElkGraphElement]): Unit = {
     staleElts = elts
     validate()
     repaint()
   }
 
-  override def setGraph(newGraph: ElkNode): Unit = {
+  setGraph(rootNode)
+
+  def getGraph: ElkNode = rootNode
+
+  def setGraph(newGraph: ElkNode): Unit = {
     errorElts = Set()
     staleElts = Set()
-    super.setGraph(newGraph)
+    elementToolTips.clear()
+    highlighted = None
+    selected = Set()
+    rootNode = newGraph
+    revalidate()
+    repaint()
   }
 
-  override def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    if (errorElts.contains(element)) {
-      val newBase = base.create().asInstanceOf[Graphics2D]
-      newBase.setColor(blendColor(background, Color.RED, 0.25))
-      newBase  // explicitly ignores showTop invisibility if it's an error
-    } else if (staleElts.contains(element)) {
-      val newBase = base.create().asInstanceOf[Graphics2D]
-      if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-        newBase.setPaint(makeHatchTexture(background, blendColor(background, base.getColor, 0.0375)))
+  val EDGE_CLICK_WIDTH = 5.0f // how thick edges are for click detection purposes
+
+  def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
+    def shapeContainsPoint(shape: ElkShape, point: (Double, Double)): Boolean = {
+      (shape.getX <= point._1 && point._1 <= shape.getX + shape.getWidth) &&
+        (shape.getY <= point._2 && point._2 <= shape.getY + shape.getHeight)
+    }
+
+    def lineClosestDist(line1: (Double, Double), line2: (Double, Double), point: (Double, Double)): Double = {
+      // Adapted from https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+      val lengthSq = Math.pow(line2._1 - line1._1, 2) +
+        Math.pow(line2._2 - line1._2, 2)
+      if (lengthSq == 0) { // "line" is a point, return distance to the point
+        Math.sqrt(Math.pow(point._1 - line1._1, 2) + Math.pow(point._2 - line1._2, 2)).toFloat
       } else {
-        newBase.setPaint(makeHatchTexture(background, blendColor(background, base.getColor, 0.15)))
+        val dot = (point._1 - line1._1) * (line2._1 - line1._1) +
+          (point._2 - line1._2) * (line2._2 - line1._2)
+        val t = Math.max(0, Math.min(1, dot / lengthSq))
+        val proj = (line1._1 + t * (line2._1 - line1._1),
+          line1._2 + t * (line2._2 - line1._2))
+        val dist = Math.sqrt(Math.pow(point._1 - proj._1, 2) + Math.pow(point._2 - proj._2, 2))
+        dist.toFloat
       }
-      newBase
-    } else {
-      super.fillGraphics(base, background, element)
     }
-  }
 
+    def edgeClosestDistance(edge: ElkEdge, point: (Double, Double)): Double = {
+      edge.getSections.asScala.map { section =>
+        edgeSectionPairs(section).map { case (line1, line2) =>
+          lineClosestDist(line1, line2, point)
+        }.min
+      }.min
+    }
 
-
-  override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, background: Color, edge: ElkEdge): Unit = {
-    super.paintEdge(parentG, blockG, background, edge)
-
-    // TODO dedup from JElkGraph
-    val thisG = if (edge.getSources == edge.getTargets) {
-      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect {
-        case sourcePort: ElkPort => sourcePort.getParent
+    // Tests the clicked point against a node, returning either a sub-node, port, or edge
+    def intersectNode(node: ElkNode, point: (Double, Double)): Option[ElkGraphElement] = {
+      // Ports can be outside the main shape and can't be gated by the node shape test
+      val nodePoint = (point._1 - node.getX, point._2 - node.getY) // transform to node space
+      val containedPorts = node.getPorts.asScala.collect {
+        case port if shapeContainsPoint(port, nodePoint) => port
       }
-      if (edgeTargetBlockOption == Some(edge.getContainingNode)) {
-        parentG
+
+      // Test node, and if within node, recurse into children
+      val containedNodes = if (shapeContainsPoint(node, point)) {
+        val containedChildren = node.getChildren.asScala.flatMap(intersectNode(_, nodePoint))
+        val edgeDistances = node.getContainedEdges.asScala.map { edge =>
+          (edge, edgeClosestDistance(edge, nodePoint) * zoomLevel) // attach distance calculation
+        }.sortBy(_._2) // sort to get closest to cursor
+        val containedEdges = edgeDistances.collect { case (edge, dist)
+          if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
+        }
+
+        containedChildren ++ containedEdges ++ Seq(node)
       } else {
-        blockG
+        Seq()
       }
-    } else {
-      blockG
+
+      (containedPorts ++ containedNodes).headOption
     }
 
-    if (edge.getSources == edge.getTargets) {  // degenerate, "tunnel" (by heuristic / transform) edge
-      val label = edge.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
-        case DesignPath(steps) => steps.lastOption.getOrElse("")
-        case _ => ""
-      }
+    val elkPoint = ((x - ElkNodePainter.margin) / zoomLevel.toDouble, (y - ElkNodePainter.margin) / zoomLevel.toDouble) // transform points to elk-space
+    intersectNode(rootNode, elkPoint)
+  }
 
-      val targetPointOpt = edge.getSections.asScala.headOption.map { section =>
-        val bend = section.getBendPoints.asScala.head
-        (bend.getX, bend.getY, section.getStartX, section.getStartY)
-      }
+  override def paintComponent(paintGraphics: Graphics): Unit = {
+    val painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
+    painter.paintComponent(paintGraphics, this.getBackground)
+  }
 
-      val textG = textGraphics(thisG, background, edge)
-      targetPointOpt match {
-        case Some((x, y, x1, y1)) if (x1 == x) && (y > y1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Top)
-        case Some((x, y, x1, y1)) if (x1 == x) && (y < y1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Bottom)
-        case Some((x, y, x1, y1)) if (y1 == y) && (x > x1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Left)
-        case Some((x, y, x1, y1)) if (y1 == y) && (x < x1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Right)
-        case Some((x, y, _, _)) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Center)
-        case None =>
+  // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
+  setAutoscrolls(true)
+  // TODO proper drag support
+
+  addMouseListener(new MouseAdapter {
+    override def mousePressed(e: MouseEvent): Unit = {
+      requestFocusInWindow()
+    }
+  })
+
+  // Tooltip operations
+  //
+  def setElementToolTip(element: ElkGraphElement, text: String): Unit = {
+    elementToolTips.put(element, text)
+  }
+
+  override def getToolTipText(e: MouseEvent): String = {
+    getElementForLocation(e.getX, e.getY) match {
+      case None => null
+      case Some(element) => elementToolTips.get(element) match {
+        case None => null
+        case Some(text) => text
       }
     }
   }
+
+  override def getPreferredScrollableViewportSize: Dimension = getPreferredSize
+
+  // Scrollable APIs
+  //
+  override def getPreferredSize: Dimension =
+    new Dimension((rootNode.getWidth * zoomLevel + 2 * ElkNodePainter.margin).toInt,
+      (rootNode.getHeight * zoomLevel + 2 * ElkNodePainter.margin).toInt)
+
+  override def getScrollableBlockIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
+
+  override def getScrollableUnitIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
+
+  override def getScrollableTracksViewportWidth: Boolean = false
+
+  override def getScrollableTracksViewportHeight: Boolean = false
 }
