@@ -102,7 +102,7 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
     options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName, "")
     options.pdfFile = JDOMExternalizerUtil.readField(element, kPdfFileName, "")
-    RefdesMode.toEnum(JDOMExternalizerUtil.readField(element, kFieldValueMode)).foreach(options.toggle = _)
+    RefdesMode.toEnum(JDOMExternalizerUtil.readField(element, kFieldRefdesMode)).foreach(options.toggle = _)
   }
 
   override def writeExternal(element: Element): Unit = {
@@ -110,7 +110,7 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldNetlistName, options.netlistFile)
     JDOMExternalizerUtil.writeField(element, kPdfFileName, options.pdfFile)
-    JDOMExternalizerUtil.writeField(element, kFieldValueMode, options.toggle.toString)
+    JDOMExternalizerUtil.writeField(element, kFieldRefdesMode, options.toggle.toString)
   }
 }
 
