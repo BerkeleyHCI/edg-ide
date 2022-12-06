@@ -6,6 +6,7 @@ import edgir.elem.elem
 import edgir.expr.expr
 import edgir.ref.ref
 import edg.wir.DesignPath
+import edg.wir.ProtoUtil.ConstraintProtoToSeqMap
 
 import scala.collection.SeqMap
 
@@ -20,7 +21,7 @@ object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[Strin
   override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
                         blocks: SeqMap[String, (Seq[DesignPath], Seq[String])]):
       (Seq[DesignPath], Seq[String]) = {
-    val myConstrExprs = block.constraints.map { case (constrName, constr) =>  // unpack constraint expression type
+    val myConstrExprs = block.constraints.asPairs.map { case (constrName, constr) =>  // unpack constraint expression type
       constr.expr
     }.toSeq  // allow multiple uses
 

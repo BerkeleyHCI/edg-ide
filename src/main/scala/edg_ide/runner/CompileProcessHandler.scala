@@ -298,11 +298,14 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.netlistFile.nonEmpty) {
           indicator.setText("EDG compiling: netlisting")
+
+          val arguments = Map("RefdesMode" -> options.toggle.toString)
+
           val (netlist, netlistTime) = timeExec {
-             pythonInterface.get.runBackend(
-               ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
-               compiled, compiler.getAllSolved
-             ).mapErr(msg => s"while netlisting: $msg").get
+            pythonInterface.get.runBackend(
+              ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
+              compiled, compiler.getAllSolved, arguments
+            ).mapErr(msg => s"while netlisting: $msg").get
           }
           require(netlist.size == 1)
 
