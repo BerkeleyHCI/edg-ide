@@ -13,11 +13,10 @@ import com.jetbrains.python.run.{PythonCommandLineState, PythonRunParams}
 import com.jetbrains.python.sdk.PythonSdkUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
-import edg.compiler.{DesignAssertionCheck, DesignRefsValidate, DesignStructuralValidate, ElaborateRecord, ExprToString, ExprValue, PythonInterface}
+import edg.compiler._
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.HierarchyGraphElk
-import edg_ide.swing.ElkNodePainter
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
@@ -26,7 +25,7 @@ import edgir.ref.ref
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
-import java.io.{File, FileWriter, OutputStream, PrintWriter, StringWriter}
+import java.io._
 import java.nio.file.Paths
 import scala.jdk.CollectionConverters.MapHasAsJava
 
@@ -110,6 +109,19 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
   override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
                                                    values: Map[ref.LocalPath, ExprValue],
                                                    result: Errorable[elem.HierarchyBlock]): Unit = {
+    forwardProcessOutput()
+    result match {
+      case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
+      case _ =>
+    }
+  }
+
+  override def onRunRefinementPass(refinementPass: ref.LibraryPath): Unit = {
+    console.print(s"Run refinement ${refinementPass.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+  }
+
+  override def onRunRefinementPassComplete(refinementPass: ref.LibraryPath,
+                                           result: Errorable[Map[DesignPath, ExprValue]]): Unit = {
     forwardProcessOutput()
     result match {
       case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
@@ -261,6 +273,17 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         if (errors.nonEmpty) {
           console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
         }
+
+        indicator.setText("EDG compiling: refdesing")
+        val (refdes, refdesTime) = timeExec {
+          pythonInterface.get.runRefinementPass(
+            ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
+            compiled, compiler.getAllSolved
+          ).mapErr(msg => s"while refdesing: $msg").get
+        }
+        compiler.addValues(refdes, "refdes")
+        console.print(s"Refdesed ${refdes.size} components ($refdesTime ms)\n",
+          ConsoleViewContentType.SYSTEM_OUTPUT)
 
         indicator.setText("EDG compiling: updating visualization")
         BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
