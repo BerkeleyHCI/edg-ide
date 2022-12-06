@@ -9,6 +9,7 @@ import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.wir.DesignPath
+import edg.wir.ProtoUtil._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
@@ -75,11 +76,11 @@ class FocusToElementAction() extends AnAction() {
           }
 
       val matchBlockPathTypes = instancesOfClass.collect {
-        case (blockPath, block) if block.ports.contains(refName) =>
+        case (blockPath, block) if block.ports.toSeqMap.contains(refName) =>
           (blockPath, refName, block, EdgirUtils.typeOfPortLike(block.ports(refName)))
-        case (blockPath, block) if block.blocks.contains(refName) =>
+        case (blockPath, block) if block.blocks.toSeqMap.contains(refName) =>
           (blockPath, refName, block, EdgirUtils.typeOfBlockLike(block.blocks(refName)))
-        case (blockPath, block) if block.links.contains(refName) =>
+        case (blockPath, block) if block.links.toSeqMap.contains(refName) =>
           (blockPath, refName, block, EdgirUtils.typeOfLinkLike(block.links(refName)))
       }.exceptEmpty(s"no ${containingClass.getName} containing $refName")
 
