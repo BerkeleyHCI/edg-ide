@@ -29,7 +29,7 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel}
+import javax.swing.{ButtonGroup, JLabel, JPanel}
 import scala.collection.{SeqMap, mutable}
 
 
@@ -575,7 +575,6 @@ class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements
   def loadState(state: BlockVisualizerServiceState): Unit = {
   }
 }
-
 
 class ErrorPanel extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
