@@ -3,8 +3,7 @@ package edg_ide.edgir_graph
 import com.intellij.openapi.diagnostic.Logger
 import edg.ElemBuilder.LibraryPath
 import edg.wir.DesignPath
-import edg_ide.EdgirUtils
-import edg_ide.ui.DesignToolTipTextMap
+import edg_ide.edgir_graph.ElkEdgirGraphUtils.TitleProperty
 import edgir.elem.elem.HierarchyBlock
 import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
 import org.eclipse.elk.core.RecursiveGraphLayoutEngine
@@ -109,7 +108,8 @@ object HierarchyGraphElk {
       }
     }
 
-    ElkGraphUtil.createLabel(name, elkNode)
+    val title = Option(elkNode.getProperty(TitleProperty)).getOrElse(name)
+    ElkGraphUtil.createLabel(title, elkNode)
         .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopLeft())
     ElkGraphUtil.createLabel(node.data.toString, elkNode)
         .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.insideTopCenter())
@@ -124,7 +124,8 @@ object HierarchyGraphElk {
           }
         }
 
-        ElkGraphUtil.createLabel(childName.mkString("."), childElkPort)
+        val title = Option(childElkPort.getProperty(TitleProperty)).getOrElse(childName.mkString("."))
+        ElkGraphUtil.createLabel(title, childElkPort)
         // TODO: currently only name label is displayed. Is there a sane way to display additional data?
         // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)
         childName -> childElkPort
@@ -182,10 +183,11 @@ object HierarchyGraphElk {
 
 
   // Experimental
-  def HGraphToElkGraph(content: HierarchyBlock, focusPath: DesignPath = DesignPath(), depth: Int = 1): ElkNode = {
+  def HGraphToElkGraph(block: HierarchyBlock, blockPath: DesignPath = DesignPath(), depth: Int = 1,
+                       mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq()): ElkNode = {
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
-    val edgirGraph = EdgirGraph.blockToNode(focusPath, content)
+    val edgirGraph = EdgirGraph.blockToNode(blockPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
       4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
     val transformedGraph = highFanoutTransform(
@@ -193,17 +195,17 @@ object HierarchyGraphElk {
         InferEdgeDirectionTransform(SimplifyPortTransform(
           PruneDepthTransform(edgirGraph, depth))))))
 
-    val name = if (focusPath == DesignPath()) {
+    val name = if (blockPath == DesignPath()) {
       "(root)"
     } else {
-      focusPath.steps.last
+      blockPath.steps.last
     }
 
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
       name,
-      Seq(ElkEdgirGraphUtils.DesignPathMapper),
+      mappers ++ Seq(ElkEdgirGraphUtils.DesignPathMapper),
       // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
-      focusPath != DesignPath())  // need to make a root so root doesn't have ports
+      blockPath != DesignPath())  // need to make a root so root doesn't have ports
 
     layoutGraphRoot
   }

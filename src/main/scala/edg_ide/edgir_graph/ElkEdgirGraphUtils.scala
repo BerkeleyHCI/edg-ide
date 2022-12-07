@@ -1,6 +1,7 @@
 package edg_ide.edgir_graph
 
 import edg.EdgirUtils.SimpleLibraryPath
+import edg.compiler.Compiler
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
 import edg_ide.EdgirUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
@@ -10,6 +11,9 @@ import scala.jdk.CollectionConverters._
 
 object ElkEdgirGraphUtils {
   import org.eclipse.elk.graph.properties.IProperty
+
+  // Adds the DesignPatnProperty, containing the node's DesignPath, to nodes.
+  // Used as metadata to track where a node is
   object DesignPathMapper
       extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
     type PropertyType = DesignPath
@@ -26,6 +30,26 @@ object ElkEdgirGraphUtils {
     override def nodeConv(node: NodeDataWrapper): Option[DesignPath] = Some(node.path)
     override def portConv(port: PortWrapper): Option[DesignPath] = Some(port.path)
     override def edgeConv(edge: EdgeWrapper): Option[DesignPath] = Some(edge.path)
+  }
+
+  object TitleProperty extends IProperty[String] {
+    override def getDefault: String = null
+    override def getId: String = "Title"
+    override def getLowerBound: Comparable[_ >: String] = null
+    override def getUpperBound: Comparable[_ >: String] = null
+  }
+
+  // Adds an optional title to nodes, here defaulting to the refdes (if applicable) and node name.
+  class TitleMapper(compiler: Compiler)
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    type PropertyType = String
+    override val property: IProperty[String] = TitleProperty
+
+    override def nodeConv(node: NodeDataWrapper): Option[String] = Some("lol" + node.path.lastString)
+
+    override def portConv(port: PortWrapper): Option[String] = None
+
+    override def edgeConv(edge: EdgeWrapper): Option[String] = None
   }
 
   import org.eclipse.elk.core.options.PortSide
