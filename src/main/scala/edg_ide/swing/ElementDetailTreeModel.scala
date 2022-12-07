@@ -6,6 +6,7 @@ import edgir.common.common
 import edgir.elem.elem
 import edgir.expr.expr
 import edgir.init.init
+import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
@@ -75,6 +76,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
     override lazy val children = {
       Seq(
         linkNode,
+        Some(new SuperclassesNode(port.superclasses)),
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
         port.params.asPairs.map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
@@ -90,6 +92,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
       extends BasePortNode {
     override lazy val children = {
       Seq(
+        Some(new SuperclassesNode(port.superclasses)),
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
         port.ports.asPairs.map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
@@ -139,6 +142,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
   class BlockNode(path: DesignPath, block: elem.HierarchyBlock) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {  // don't recurse into blocks here
       Seq(
+        Some(new SuperclassesNode(block.superclasses)),
         block.ports.asPairs.map {
           case (name, port) => PortLikeNode(path + name, port)
         },
@@ -184,6 +188,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
   class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.Link) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {
       Seq(
+        Some(new SuperclassesNode(link.superclasses)),
         Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
           link.ports.asPairs.map {
             case (name, port) => PortLikeNode(path + name, port, true)
@@ -264,7 +269,12 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
 
     override def toString: String = path.steps match {
       case Seq() => ""
-      case steps => steps.last.toString
+      case steps =>
+        val annotation = compiler.getParamValue(path) match {
+          case Some(ArrayValue(values)) => f" (${values.length})"
+          case _ => ""
+        }
+        steps.last.toString + annotation
     }
 
     override def getColumns(index: Int): String = {
@@ -339,6 +349,24 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
     override def toString: String = nameDescChildren._1
 
     override def getColumns(index: Int): String = nameDescChildren._2
+  }
+
+  class SuperclassesNode(superclasses: Seq[ref.LibraryPath]) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = superclasses.zipWithIndex.map { case (superclass, index) =>
+      new SuperclassNode(index.toString, superclass)
+    }
+
+    override def toString: String = f"Superclasses (${superclasses.size})"
+
+    override def getColumns(index: Int): String = superclasses.map(_.toSimpleString).mkString(", ")
+  }
+
+  class SuperclassNode(index: String, superclass: ref.LibraryPath) extends ElementDetailNode {
+    override val children: Seq[ElementDetailNode] = Seq()
+
+    override def toString: String = index
+
+    override def getColumns(index: Int): String = superclass.toSimpleString
   }
 
   class MetadataNode(name: String, meta: common.Metadata) extends ElementDetailNode {
