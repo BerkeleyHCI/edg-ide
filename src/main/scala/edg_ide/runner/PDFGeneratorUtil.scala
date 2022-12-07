@@ -1,19 +1,16 @@
 package edg_ide.runner
 
-import com.lowagie.text.{Document, Rectangle}
-import com.lowagie.text.pdf.{PdfContentByte, PdfWriter}
-import edg_ide.swing.{ElkNodePainter, HierarchyBlockNode}
+import com.lowagie.text.{Document, Element, HeaderFooter, Rectangle}
+import com.lowagie.text.pdf.PdfWriter
+import edg_ide.swing.ElkNodePainter
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import org.eclipse.elk.graph.ElkNode
-import edgir.elem.elem
 import edg.util.SeqMapSortableFrom._
 import edg.wir.{DesignPath, ProtoUtil}
 import edg_ide.edgir_graph.HierarchyGraphElk
 
 import java.awt.Color
 import java.io.FileOutputStream
-import com.lowagie.text.HeaderFooter
-import com.lowagie.text.Phrase
 
 
 object PDFGeneratorUtil{
@@ -32,6 +29,11 @@ object PDFGeneratorUtil{
 
     // TODO: make a try..catch for FileOutputStream
     val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
+    val header = new HeaderFooter(true)
+    header.setBorder(Rectangle.NO_BORDER)
+    header.setAlignment(Element.ALIGN_RIGHT)
+    header.setPadding(0)
+    document.setFooter(header)
     document.open()
     val cb = writer.getDirectContent
     val graphics = cb.createGraphics(initWidth, initHeight)
@@ -50,8 +52,8 @@ object PDFGeneratorUtil{
 
       def printChild(node: ElkNode, path: String): Unit ={
         val (width, height) = generatePageSize(node)
-        document.newPage
         document.setPageSize(new Rectangle(width, height))
+        document.newPage
         val subGraphics = cb.createGraphics(width, height)
         val painter = new ElkNodePainter(node)
         painter.paintComponent(subGraphics, Color.white)
@@ -66,7 +68,6 @@ object PDFGeneratorUtil{
     }
 
     printNextHierarchyLevel(content)
-    println("FINISHED PRINTING")
     document.close()
   }
 }
