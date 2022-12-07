@@ -1,9 +1,10 @@
 package edg_ide.edgir_graph
 
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.Compiler
+import edg.compiler.{Compiler, TextValue}
+import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
-import edg_ide.EdgirUtils
+import edgir.elem.elem
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import scala.jdk.CollectionConverters._
@@ -45,10 +46,27 @@ object ElkEdgirGraphUtils {
     type PropertyType = String
     override val property: IProperty[String] = TitleProperty
 
-    override def nodeConv(node: NodeDataWrapper): Option[String] = Some("lol" + node.path.lastString)
+    override def nodeConv(node: NodeDataWrapper): Option[String] = node match {
+      case BlockWrapper(path, block) => block.`type` match {
+        case elem.BlockLike.Type.Hierarchy(block) =>
+          if (block.params.toSeqMap.contains("fp_refdes")) {
+            compiler.getParamValue((node.path + "fp_refdes").asIndirect) match {
+              case Some(TextValue(refdes)) => Some(f"$refdes ${node.path.lastString}")
+              case None => None
+            }
+          } else {
+            None
+          }
+        case _ => None  // use default in other cases
+      }
+      case _ => None  // use default for now
+    }
 
+    // port name not supported, since ports are not hierarchical (can't just use the last path component)
+    // and we don't have a link to the block (so can't do a path subtraction to get the port subpath)
     override def portConv(port: PortWrapper): Option[String] = None
 
+    // edge labels don't currently exist
     override def edgeConv(edge: EdgeWrapper): Option[String] = None
   }
 
