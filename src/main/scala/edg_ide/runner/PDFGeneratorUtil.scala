@@ -10,7 +10,7 @@ import edg.wir.{DesignPath, ProtoUtil}
 import edg_ide.edgir_graph.HierarchyGraphElk
 
 import java.awt.Color
-import java.io.FileOutputStream
+import java.io.{FileNotFoundException, FileOutputStream, IOException}
 
 
 object PDFGeneratorUtil{
@@ -22,52 +22,55 @@ object PDFGeneratorUtil{
   }
 
   def generate(content: HierarchyBlock, fileName: String): Unit = {
+    try {
+      val document = new Document()
+      val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
+      val header = new HeaderFooter(true)
+      header.setBorder(Rectangle.NO_BORDER)
+      header.setAlignment(Element.ALIGN_RIGHT)
+      document.setFooter(header)
 
-    val rootNode = HierarchyGraphElk.HBlockToElkNode(content)
-    val (initWidth, initHeight) = generatePageSize(rootNode)
-    val document = new Document(new Rectangle(initWidth, initHeight))
-
-    // TODO: make a try..catch for FileOutputStream
-    val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
-    val header = new HeaderFooter(true)
-    header.setBorder(Rectangle.NO_BORDER)
-    header.setAlignment(Element.ALIGN_RIGHT)
-    header.setPadding(0)
-    document.setFooter(header)
-    document.open()
-    val cb = writer.getDirectContent
-    val graphics = cb.createGraphics(initWidth, initHeight)
-    val painter = new ElkNodePainter(rootNode)
-    painter.paintComponent(graphics, Color.white)
-    graphics.dispose()
-
-    def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
-      val nameOrder = ProtoUtil.getNameOrder(block.meta)
-      val children: Map[DesignPath, HierarchyBlock] = block.blocks.map {
-        case (name, subblock) => (name, subblock.`type`)
-      }  .sortKeysFrom(nameOrder)
-        .collect {
-          case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path+name, subblock)
-        }.toMap
-
-      def printChild(node: ElkNode, path: String): Unit ={
+      def printNode(node: ElkNode): Unit = {
         val (width, height) = generatePageSize(node)
         document.setPageSize(new Rectangle(width, height))
-        document.newPage
-        val subGraphics = cb.createGraphics(width, height)
+
+        if (document.isOpen) {
+          document.newPage
+        }
+        else {
+          document.open()
+        }
+
+        val cb = writer.getDirectContent
+        val graphics = cb.createGraphics(width, height)
         val painter = new ElkNodePainter(node)
-        painter.paintComponent(subGraphics, Color.white)
-        subGraphics.dispose()
+        painter.paintComponent(graphics, Color.white)
+        graphics.dispose()
       }
 
-      children.foreach(hBlock => {
-        val node = HierarchyGraphElk.HBlockToElkNode(hBlock._2, hBlock._1)
-        printChild(node, hBlock._1.toString)
-        printNextHierarchyLevel(hBlock._2, hBlock._1)
-      })
-    }
+      def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
+        val node = HierarchyGraphElk.HBlockToElkNode(block, path)
+        printNode(node)
 
-    printNextHierarchyLevel(content)
-    document.close()
+        val nameOrder = ProtoUtil.getNameOrder(block.meta)
+        val children: Map[DesignPath, HierarchyBlock] = block.blocks.map {
+          case (name, subblock) => (name, subblock.`type`)
+        }.sortKeysFrom(nameOrder)
+          .collect {
+            case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock)
+          }.toMap
+
+        children.foreach(hBlock => {
+          printNextHierarchyLevel(hBlock._2, hBlock._1)
+        })
+      }
+
+      printNextHierarchyLevel(content)
+      document.close()
+    } catch {
+      case e: FileNotFoundException => println(s"Couldn't find ${fileName}.")
+      case e: SecurityException => println(s"Access to ${fileName} denied.")
+      case e: IOException => println(s"Had an IOException trying to read ${fileName}")
+    }
   }
 }
