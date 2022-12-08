@@ -348,6 +348,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
       val layoutGraphRoot = HierarchyGraphElk.HGraphToElkGraph(
         block, blockPath, depthSpinner.getNumber,
+        // note, adding port side constraints with hierarchy seems to break ELK
         Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
           ElkEdgirGraphUtils.DesignPathMapper)
       )
