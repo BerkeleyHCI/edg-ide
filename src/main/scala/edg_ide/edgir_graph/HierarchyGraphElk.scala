@@ -195,14 +195,8 @@ object HierarchyGraphElk {
         InferEdgeDirectionTransform(SimplifyPortTransform(
           PruneDepthTransform(edgirGraph, depth))))))
 
-    val name = if (blockPath == DesignPath()) {
-      "(root)"
-    } else {
-      blockPath.steps.last
-    }
-
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-      name, mappers, blockPath != DesignPath())  // need to make a root so root doesn't have ports
+      blockPath.lastString, mappers, blockPath != DesignPath())  // need to make a root so root doesn't have ports
 
     layoutGraphRoot
   }
