@@ -4,6 +4,7 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, TextValue}
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
+import edg_ide.util.EdgirAnalysisUtils
 import edgir.elem.elem
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
@@ -47,19 +48,17 @@ object ElkEdgirGraphUtils {
     override val property: IProperty[String] = TitleProperty
 
     override def nodeConv(node: NodeDataWrapper): Option[String] = node match {
-      case BlockWrapper(path, block) => block.`type` match {
-        case elem.BlockLike.Type.Hierarchy(block) =>
-          if (block.params.toSeqMap.contains("fp_refdes")) {
-            compiler.getParamValue((node.path + "fp_refdes").asIndirect) match {
-              case Some(TextValue(refdes)) => Some(f"$refdes ${node.path.lastString}")
-              case None => None
-            }
-          } else {
-            None
-          }
-        case _ => None  // use default in other cases
-      }
-      case _ => None  // use default for now
+      case BlockWrapper(path, block) =>
+        val refdesStringMaybe = block.`type`.hierarchy.flatMap { block =>
+          EdgirAnalysisUtils.getInnermostSubblock(node.path, block)
+        }.flatMap { case (innerPath, innerBlock) =>
+          compiler.getParamValue((innerPath + "fp_refdes").asIndirect)
+        } match {
+          case Some(TextValue(refdes)) => Some(f"${node.path.lastString}, $refdes")
+          case _ => None
+        }
+        Some(refdesStringMaybe.getOrElse(node.path.lastString))
+      case _ => None  // use default for non-blocks
     }
 
     // port name not supported, since ports are not hierarchical (can't just use the last path component)
