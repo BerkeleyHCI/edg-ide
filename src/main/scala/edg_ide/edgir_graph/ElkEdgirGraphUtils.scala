@@ -15,7 +15,7 @@ object ElkEdgirGraphUtils {
   import org.eclipse.elk.graph.properties.IProperty
 
   // Adds the DesignPatnProperty, containing the node's DesignPath, to nodes.
-  // Used as metadata to track where a node is
+  // Useful, for example, to resolve the ElkNode by walking from the root inwards given a path.
   object DesignPathMapper
       extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
     type PropertyType = DesignPath
