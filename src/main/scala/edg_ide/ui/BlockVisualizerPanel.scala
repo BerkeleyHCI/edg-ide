@@ -348,7 +348,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
       val layoutGraphRoot = HierarchyGraphElk.HGraphToElkGraph(
         block, blockPath, depthSpinner.getNumber,
-        Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler))
+        Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
+          ElkEdgirGraphUtils.DesignPathMapper)
       )
       val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
       tooltipTextMap.map(currentDesign)

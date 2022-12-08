@@ -16,7 +16,7 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
-import edg_ide.edgir_graph.HierarchyGraphElk
+import edg_ide.edgir_graph.{ElkEdgirGraphUtils, HierarchyGraphElk}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
@@ -291,7 +291,10 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.pdfFile.nonEmpty) {
           console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-          PDFGeneratorUtil.generate(HierarchyGraphElk.HGraphToElkGraph(compiled.getContents), options.pdfFile)
+          PDFGeneratorUtil.generate(
+            HierarchyGraphElk.HGraphToElkGraph(compiled.getContents,
+              mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler))),
+            options.pdfFile)
           console.print(s"Wrote PDF to ${options.pdfFile}\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
         }

@@ -203,7 +203,7 @@ object HierarchyGraphElk {
 
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
       name,
-      mappers ++ Seq(ElkEdgirGraphUtils.DesignPathMapper),
+      mappers,
       // note, we can't add port sides because ELK breaks with nested hierarchy visualizations
       blockPath != DesignPath())  // need to make a root so root doesn't have ports
 
