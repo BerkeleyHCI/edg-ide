@@ -25,20 +25,23 @@ object PDFGeneratorUtil{
     try {
       val document = new Document()
       val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
-      val header = new HeaderFooter(true)
-      header.setBorder(Rectangle.NO_BORDER)
-      header.setAlignment(Element.ALIGN_RIGHT)
-      document.setFooter(header)
+      val footer = new HeaderFooter(true)
+      footer.setBorder(Rectangle.NO_BORDER)
+      footer.setAlignment(Element.ALIGN_RIGHT)
+      document.setFooter(footer)
 
       def printNode(node: ElkNode): Unit = {
         val (width, height) = generatePageSize(node)
         document.setPageSize(new Rectangle(width, height))
 
-        if (document.isOpen) {
-          document.newPage
-        }
-        else {
+        /*
+        Metadata for the Footer does not align the page number correctly if
+        document.open() is called before document.setPageSize() was executed
+         */
+        if (!document.isOpen) {
           document.open()
+        } else {
+          document.newPage
         }
 
         val cb = writer.getDirectContent
@@ -53,16 +56,14 @@ object PDFGeneratorUtil{
         printNode(node)
 
         val nameOrder = ProtoUtil.getNameOrder(block.meta)
-        val children: Map[DesignPath, HierarchyBlock] = block.blocks.map {
+        block.blocks.map {
           case (name, subblock) => (name, subblock.`type`)
         }.sortKeysFrom(nameOrder)
           .collect {
             case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock)
-          }.toMap
-
-        children.foreach(hBlock => {
-          printNextHierarchyLevel(hBlock._2, hBlock._1)
-        })
+          }.toMap.foreach {
+          case (path, subblock) => printNextHierarchyLevel(subblock, path)
+        }
       }
 
       printNextHierarchyLevel(content)

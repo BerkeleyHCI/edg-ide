@@ -1,6 +1,7 @@
-package edg_ide.edgir_graph.tests
+package edg_ide.util.tests
 
 import edg.ExprBuilder.ValueExpr
+import edg_ide.edgir_graph.tests.EdgirTestUtils
 import edg_ide.runner.PDFGeneratorUtil
 import edgir.elem.elem
 import edgir.expr.expr
@@ -73,7 +74,7 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
       ),
     )
 
-    PDFGeneratorUtil.generate( blockIr, "unit_test.pdf")
+    PDFGeneratorUtil.generate(blockIr, "unit_test.pdf")
 
     val bufferedInputStream = new BufferedInputStream(new FileInputStream("unit_test.pdf"))
     val byteArray = LazyList.continually(bufferedInputStream.read).takeWhile(-1 !=).map(_.toByte).toArray
