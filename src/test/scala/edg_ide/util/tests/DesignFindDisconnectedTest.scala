@@ -1,48 +1,51 @@
 package edg_ide.util.tests
 
-import edg.ElemBuilder.{Block, Port, Design, Constraint}
+import edg.ElemBuilder.{Block, Constraint, Design, Port}
 import edg.ExprBuilder.{Ref, ValueExpr}
 import edg.wir.DesignPath
+import edg.wir.ProtoUtil._
 import edg_ide.util.DesignFindDisconnected
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.collection.SeqMap
 
 
 class DesignFindDisconnectedTest extends AnyFlatSpec with Matchers {
   behavior of "DesignDisconnectedType"
 
   val testBlock = Block.Block("topDesign",
-    blocks = Map(
+    blocks = SeqMap(
       "requiredConnectedBlock" -> Block.Block("test1",
-        ports = Map("port" -> Port.Port("port")),
-        constraints = Map(
+        ports = SeqMap("port" -> Port.Port("port")),
+        constraints = SeqMap(
           "required" -> ValueExpr.Ref(Ref.IsConnected(Ref("port")))
         )
       ),
       "requiredDisconnectedBlock" -> Block.Block("test2",
-        ports = Map("port" -> Port.Port("port")),
-        constraints = Map(
+        ports = SeqMap("port" -> Port.Port("port")),
+        constraints = SeqMap(
           "required" -> ValueExpr.Ref(Ref.IsConnected(Ref("port")))
         )
       ),
       "requiredDisconnectedBlock2" -> Block.Block("test3",
-        ports = Map(
+        ports = SeqMap(
           "porta" -> Port.Port("port"),
           "portb" -> Port.Port("port"),
         ),
-        constraints = Map(
+        constraints = SeqMap(
           "requireda" -> ValueExpr.Ref(Ref.IsConnected(Ref("porta"))),
           "requiredb" -> ValueExpr.Ref(Ref.IsConnected(Ref("portb"))),
         )
       ),
       "nonRequiredConnectedBlock" -> Block.Block("test4",
-        ports = Map("port" -> Port.Port("port"))
+        ports = SeqMap("port" -> Port.Port("port"))
       ),
       "nonRequiredDisconnectedBlock" -> Block.Block("test5",
-        ports = Map("port" -> Port.Port("port"))
+        ports = SeqMap("port" -> Port.Port("port"))
       ),
     ),
-    constraints = Map(
+    constraints = SeqMap(
       "requiredConnected" -> Constraint.Connected(Ref("requiredConnectedBlock", "port"), Ref("link")),
       "nonRequiredConnected" -> Constraint.Connected(Ref("nonRequiredConnectedBlock", "port"), Ref("link"))
     )
@@ -60,7 +63,7 @@ class DesignFindDisconnectedTest extends AnyFlatSpec with Matchers {
 
   it should "find disconnected in a nested block" in {
     val design = Design(Block.Block("topDesign",
-      blocks = Map(
+      blocks = SeqMap(
         "inner" -> testBlock
       )
     ))

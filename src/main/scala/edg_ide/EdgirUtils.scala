@@ -1,11 +1,11 @@
 package edg_ide
 
 import edgir.elem.elem
-import edgir.expr.expr
 import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir.DesignPath
 import edg.ElemBuilder
+import edg.wir.ProtoUtil._
 
 
 object EdgirUtils {
@@ -112,11 +112,11 @@ object EdgirUtils {
         case (Seq(), ResolveTarget.Any | ResolveTarget.Block) => Some((prefix, block.asInstanceOf[T]))
         case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
         case (Seq(head, tail@_*), target) =>
-          if (block.blocks.contains(head) && followIntoBlock.contains(target)) {
+          if (block.blocks.toSeqMap.contains(head) && followIntoBlock.contains(target)) {
             fromBlockLike(prefix :+ head, tail, block.blocks(head), target)
-          } else if (block.links.contains(head) && followIntoLink.contains(target)) {
+          } else if (block.links.toSeqMap.contains(head) && followIntoLink.contains(target)) {
             fromLinkLike(prefix :+ head, tail, block.links(head), target)
-          } else if (block.ports.contains(head) && followIntoPort.contains(target)) {
+          } else if (block.ports.toSeqMap.contains(head) && followIntoPort.contains(target)) {
             fromPortLike(prefix :+ head, tail, block.ports(head), target)
           } else if (target == ResolveTarget.Any || target == ResolveTarget.Block) {  // deepest possible target along path
             Some(prefix, block.asInstanceOf[T])
@@ -142,9 +142,9 @@ object EdgirUtils {
             case (Seq(), ResolveTarget.Any | ResolveTarget.Link) => Some((prefix, link.asInstanceOf[T]))
             case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
             case (Seq(head, tail@_*), target) =>
-              if (link.links.contains(head) && followIntoLink.contains(target)) {
+              if (link.links.toSeqMap.contains(head) && followIntoLink.contains(target)) {
                 fromLinkLike(prefix :+ head, tail, link.links(head), target)
-              } else if (link.ports.contains(head) && followIntoPort.contains(target)) {
+              } else if (link.ports.toSeqMap.contains(head) && followIntoPort.contains(target)) {
                 fromPortLike(prefix :+ head, tail, link.ports(head), target)
               } else if (target == ResolveTarget.Any || target == ResolveTarget.Link) {  // deepest possible target along path
                 Some(prefix, link.asInstanceOf[T])
@@ -170,7 +170,7 @@ object EdgirUtils {
             case (Seq(), ResolveTarget.Port) => ???  // TODO return non-Port PortType
             case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
             case (Seq(head, tail@_*), target) =>
-              if (port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.contains(head) && target == ResolveTarget.Port) {
+              if (port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.toSeqMap.contains(head) && target == ResolveTarget.Port) {
                 fromPortLike(prefix :+ head, tail, port.getPorts.ports(head), target)
               } else if (target == ResolveTarget.Port) {  // deepest possible target along path
                 ???  // TODO return non-Port PortType
@@ -187,7 +187,7 @@ object EdgirUtils {
             case (Seq(), ResolveTarget.Port) => ???  // TODO return non-Port PortType
             case (Seq(), _) => None  // target isn't the right type, but nowhere to continue
             case (Seq(head, tail@_*), target) =>
-              if (port.ports.contains(head) && target == ResolveTarget.Port) {
+              if (port.ports.toSeqMap.contains(head) && target == ResolveTarget.Port) {
                 fromPortLike(prefix :+ head, tail, port.ports(head), target)
               } else if (target == ResolveTarget.Port) {  // deepest possible target along path
                 ???  // TODO return non-Port PortType

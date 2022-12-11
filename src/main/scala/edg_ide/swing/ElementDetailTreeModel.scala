@@ -6,12 +6,13 @@ import edgir.common.common
 import edgir.elem.elem
 import edgir.expr.expr
 import edgir.init.init
+import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
 import edg.compiler.{ArrayValue, Compiler, ExprResult, ExprToString, ExprValue}
-import edg.util.SeqMapSortableFrom._
+import edg.wir.ProtoUtil._
 import edg_ide.EdgirUtils
 
 import javax.swing.JTree
@@ -73,11 +74,11 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
                  val fromLink: Boolean=false)
       extends BasePortNode {
     override lazy val children = {
-      val nameOrder = ProtoUtil.getNameOrder(port.meta)
       Seq(
         linkNode,
+        Some(new SuperclassesNode(port.superclasses)),
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
-        port.params.sortKeysFrom(nameOrder).map {
+        port.params.asPairs.map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
         },
       ).flatten
@@ -90,13 +91,13 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
                    val fromLink: Boolean=false)
       extends BasePortNode {
     override lazy val children = {
-      val nameOrder = ProtoUtil.getNameOrder(port.meta)
       Seq(
+        Some(new SuperclassesNode(port.superclasses)),
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
-        port.ports.sortKeysFrom(nameOrder).map {
+        port.ports.asPairs.map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
-        port.params.sortKeysFrom(nameOrder).map {
+        port.params.asPairs.map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
         },
       ).flatten
@@ -108,14 +109,13 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
   class PortArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
       extends BasePortNode {
     override lazy val children = {
-      val nameOrder = ProtoUtil.getNameOrder(port.meta)
       Seq(
         linkNode,
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
         Some(new ParamNode(path.asIndirect + IndirectStep.Length, ExprBuilder.ValInit.Integer)),
         Some(new ParamNode(path.asIndirect + IndirectStep.Elements,
           ExprBuilder.ValInit.Array(ExprBuilder.ValInit.Text))),
-        port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.sortKeysFrom(nameOrder).map {
+        port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.asPairs.map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
       ).flatten
@@ -141,18 +141,18 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
 
   class BlockNode(path: DesignPath, block: elem.HierarchyBlock) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {  // don't recurse into blocks here
-      val nameOrder = ProtoUtil.getNameOrder(block.meta)
       Seq(
-        block.ports.sortKeysFrom(nameOrder).map {
+        Some(new SuperclassesNode(block.superclasses)),
+        block.ports.asPairs.map {
           case (name, port) => PortLikeNode(path + name, port)
         },
-        block.links.sortKeysFrom(nameOrder).map { case (name, sublink) =>
+        block.links.asPairs.map { case (name, sublink) =>
           LinkLikeNode(path + name, path.asIndirect + name, sublink)
         },
         block.meta.map { meta =>
           new MetadataNode("Metadata", meta)
         },
-        Some(new ConstraintsNode(path, block.constraints.sortKeysFrom(nameOrder))),
+        Some(new ConstraintsNode(path, block.constraints.toSeqMap)),
         if (path == DesignPath()) {  // display refinements if root
           Seq(
             new RefinementsNodes.ClassRefinementsNode(refinements),
@@ -163,7 +163,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
         } else {
           Seq()
         },
-        block.params.sortKeysFrom(nameOrder).map {
+        block.params.asPairs.map {
           case (name, param) => new ParamNode(path.asIndirect + name, param)
         },
       ).flatten
@@ -187,21 +187,21 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
 
   class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.Link) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {
-      val nameOrder = ProtoUtil.getNameOrder(link.meta)
       Seq(
+        Some(new SuperclassesNode(link.superclasses)),
         Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
-          link.ports.sortKeysFrom(nameOrder).map {
+          link.ports.asPairs.map {
             case (name, port) => PortLikeNode(path + name, port, true)
           }
         }.toSeq.flatten,
-        link.links.sortKeysFrom(nameOrder).map {
+        link.links.asPairs.map {
           case (name, sublink) => LinkLikeNode(path + name, relpath + name, sublink)
         },
         link.meta.map { meta =>
           new MetadataNode("Metadata", meta)
         },
-        Some(new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder))),
-        link.params.sortKeysFrom(nameOrder).map {
+        Some(new ConstraintsNode(path, link.constraints.toSeqMap)),
+        link.params.asPairs.map {
           case (name, param) => new ParamNode(relpath + name, param)
         },
       ).flatten
@@ -220,20 +220,19 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
 
   class LinkArrayNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkArray) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {
-      val nameOrder = ProtoUtil.getNameOrder(link.meta)
       Seq(
         Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
-          link.ports.sortKeysFrom(nameOrder).map {
+          link.ports.asPairs.map {
             case (name, port) => PortLikeNode(path + name, port, true)
           }
         }.toSeq.flatten,
-        link.links.sortKeysFrom(nameOrder).map {
+        link.links.asPairs.map {
           case (name, sublink) => LinkLikeNode(path + name, relpath + name, sublink)
         },
         link.meta.map { meta =>
           new MetadataNode("Metadata", meta)
         },
-        Some(new ConstraintsNode(path, link.constraints.sortKeysFrom(nameOrder))),
+        Some(new ConstraintsNode(path, link.constraints.toSeqMap)),
       ).flatten
     }
 
@@ -270,7 +269,12 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
 
     override def toString: String = path.steps match {
       case Seq() => ""
-      case steps => steps.last.toString
+      case steps =>
+        val annotation = compiler.getParamValue(path) match {
+          case Some(ArrayValue(values)) => f" (${values.length})"
+          case _ => ""
+        }
+        steps.last.toString + annotation
     }
 
     override def getColumns(index: Int): String = {
@@ -347,6 +351,24 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
     override def getColumns(index: Int): String = nameDescChildren._2
   }
 
+  class SuperclassesNode(superclasses: Seq[ref.LibraryPath]) extends ElementDetailNode {
+    override lazy val children: Seq[ElementDetailNode] = superclasses.zipWithIndex.map { case (superclass, index) =>
+      new SuperclassNode(index.toString, superclass)
+    }
+
+    override def toString: String = f"Superclasses (${superclasses.size})"
+
+    override def getColumns(index: Int): String = superclasses.map(_.toSimpleString).mkString(", ")
+  }
+
+  class SuperclassNode(index: String, superclass: ref.LibraryPath) extends ElementDetailNode {
+    override val children: Seq[ElementDetailNode] = Seq()
+
+    override def toString: String = index
+
+    override def getColumns(index: Int): String = superclass.toSimpleString
+  }
+
   class MetadataNode(name: String, meta: common.Metadata) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = meta.meta match {
       case common.Metadata.Meta.Members(members) => members.node.map { case (subName, subMeta) =>
@@ -361,6 +383,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
       case common.Metadata.Meta.Members(members) => "(dict)"
       case common.Metadata.Meta.BinLeaf(binary) => s"(binary, ${binary.size()} long)"
       case common.Metadata.Meta.TextLeaf(text) => s"$text (text)"
+      case common.Metadata.Meta.Empty => s"empty"
       case other => s"(unknown ${other.getClass.getSimpleName})"
     }
   }

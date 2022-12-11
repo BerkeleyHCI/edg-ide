@@ -3,19 +3,20 @@ package edg_ide.ui
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{PyFunction, PyStatementList}
+import edg.wir.ProtoUtil._
+import edg.util.{Errorable, NameCreator}
+import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
+import edg_ide.psi_edits.{InsertAction, InsertBlockAction, InsertConnectAction}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup}
+import edg_ide.{EdgirUtils, PsiUtils}
 import edgir.elem.elem
 import edgir.expr.expr
 import edgir.ref.ref
-import edg.util.{Errorable, NameCreator}
-import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
-import edg_ide.{EdgirUtils, PsiUtils}
-import edg_ide.psi_edits.{InsertAction, InsertBlockAction, InsertConnectAction}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup, requireExcept}
 
 import java.awt.event.MouseEvent
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
-import collection.mutable
+import scala.collection.mutable
 
 
 object ConnectTool {
@@ -150,20 +151,20 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
         val linkNewName = namer.newName(linkName)
         block.update(
           _.blocks :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
-            bridgeName -> bridge
+            (bridgeName, bridge).toPb
           },
-          _.links :+= (linkNewName -> link),
+          _.links :+= (linkNewName -> link).toPb,
           _.constraints :++= linkConnects.map { case (innerPortPath, linkRef) =>
-            namer.newName(s"_new_${linkName}_connect") -> ElemBuilder.Constraint.Connected(
+            (namer.newName(s"_new_${linkName}_connect") -> ElemBuilder.Constraint.Connected(
               innerPortPath.postfixFromOption(focusPath).get,
               (focusPath + linkNewName ++ linkRef).postfixFromOption(focusPath).get
-            )
+            )).toPb
           },
           _.constraints :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
-            namer.newName(s"_new_${linkName}_export") -> ElemBuilder.Constraint.Exported(
+            (namer.newName(s"_new_${linkName}_export") -> ElemBuilder.Constraint.Exported(
               extPortPath.postfixFromOption(focusPath).get,
               (focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeOuterPort).postfixFromOption(focusPath).get
-            )
+            )).toPb
           }
         )
       }
@@ -175,14 +176,14 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
             initialPort, priorPorts, priorBridgedPorts, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>  // TODO in-place append?
             val cleanedBlock = block.update(
-              _.constraints := block.constraints.filter { case (name, constraint) =>  // disconnect existing link
+              _.constraints := block.constraints.toSeqMap.filter { case (name, constraint) =>  // disconnect existing link
                 constraint.expr match {
                   case expr.ValueExpr.Expr.Connected(connected) =>
                     connected.getLinkPort.getRef.steps.head.getName != linkName
                   case _ => true
                 }
-              },
-              _.links := block.links - linkName,
+              }.toPb,
+              _.links := block.links.toSeqMap.filter(_._1 != linkName).toPb,
             )
             transformBlockMakeLink(cleanedBlock, linkName, focusPath, priorPorts ++ linkPorts, bridgePorts)
           }
@@ -197,14 +198,14 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
               _.constraints :+= (namer.newName(s"_new_${linkName}_export") ->
                   ElemBuilder.Constraint.Exported(exteriorPort.postfixFromOption(focusPath).get,
                     innerPort.postfixFromOption(focusPath).get)
-                  )
+                  ).toPb
             )
           }
         case ConnectToolAction.RefactorExportToLink(focusPath, constrName,
             initialPort, priorExteriorPort, priorInnerPort, linkPorts, bridgePorts) =>
           { block: elem.HierarchyBlock =>
             val cleanedBlock = block.update(
-              _.constraints := block.constraints - constrName,
+              _.constraints := block.constraints.toSeqMap.filter(_._1 != constrName).toPb,
             )
             transformBlockMakeLink(cleanedBlock, linkName, focusPath,
               priorInnerPort +: linkPorts, priorExteriorPort +:bridgePorts)
@@ -479,7 +480,7 @@ class ConnectTool(val interface: ToolInterface, focusPath: DesignPath, portPath:
   }
 
   override def init(): Unit = {
-    interface.setDesignTreeSelection(None)
+    interface.setGraphSelections(Set())
     updateSelected()
   }
 
