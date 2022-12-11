@@ -2,10 +2,10 @@ package edg_ide.runner
 
 import com.lowagie.text.{Document, Element, HeaderFooter, Rectangle}
 import com.lowagie.text.pdf.PdfWriter
+import edg.wir.ProtoUtil.BlockProtoToSeqMap
 import edg_ide.swing.ElkNodePainter
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import org.eclipse.elk.graph.ElkNode
-import edg.util.SeqMapSortableFrom._
 import edg.wir.{DesignPath, ProtoUtil}
 import edg_ide.edgir_graph.HierarchyGraphElk
 
@@ -55,10 +55,9 @@ object PDFGeneratorUtil{
         val node = HierarchyGraphElk.HBlockToElkNode(block, path)
         printNode(node)
 
-        val nameOrder = ProtoUtil.getNameOrder(block.meta)
-        block.blocks.map {
+        block.blocks.asPairs.map {
           case (name, subblock) => (name, subblock.`type`)
-        }.sortKeysFrom(nameOrder)
+        }
           .collect {
             case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock)
           }.toMap.foreach {
