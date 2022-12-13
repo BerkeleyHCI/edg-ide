@@ -6,7 +6,7 @@ import edg.wir.ProtoUtil.BlockProtoToSeqMap
 import edg_ide.swing.ElkNodePainter
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import org.eclipse.elk.graph.ElkNode
-import edg.wir.{DesignPath, ProtoUtil}
+import edg.wir.{DesignPath}
 import edg_ide.edgir_graph.HierarchyGraphElk
 
 import java.awt.Color
