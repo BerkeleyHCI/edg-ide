@@ -1,6 +1,7 @@
 package edg_ide.util.tests
 
 import edg.ExprBuilder.ValueExpr
+import edg.wir.ProtoUtil.{BlockSeqMapToProto, ConstraintSeqMapToProto, LinkSeqMapToProto, PortSeqMapToProto}
 import edg_ide.edgir_graph.tests.EdgirTestUtils
 import edg_ide.runner.PDFGeneratorUtil
 import edgir.elem.elem
@@ -9,6 +10,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.io.{BufferedInputStream, FileInputStream}
+import scala.collection.SeqMap
 import scala.language.postfixOps
 
 
@@ -18,51 +20,45 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
   it should "generate a working PDF file" in {
 
     val blockIr = elem.HierarchyBlock(
-      blocks=Map(
+      blocks = SeqMap(
         "source" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-          ports=Map(
+          ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
-          ),
-          blocks=Map(
-            "inner" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-              ports=Map(
-                "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-                  selfClass=Some(EdgirTestUtils.Ports.PowerSource)
+          ).toPb,
+          blocks = SeqMap(
+            "inner_block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+              ports = SeqMap(
+                "inner_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+                  selfClass=Some(EdgirTestUtils.Ports.PowerSource),
                 ))),
-              ),
+              ).toPb,
             ))),
-          ),
-          constraints=Map(
-            "export" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Exported(expr.ExportedExpr(
-              internalBlockPort = Some(ValueExpr.Ref("inner", "port")),
-              exteriorPort = Some(ValueExpr.Ref("port"))
-            ))),
-          ),
+          ).toPb,
         ))),
         "sink" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
-          ports=Map(
+          ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSink)
             ))),
-          ),
+          ).toPb,
         ))),
-      ),
-      links=Map(
+      ).toPb,
+      links = SeqMap(
         "link" -> elem.LinkLike(`type`=elem.LinkLike.Type.Link(elem.Link(
           selfClass=Some(EdgirTestUtils.Links.Power),
-          ports=Map(
+          ports = SeqMap(
             "source" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
             "sink" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
-          ),
+          ).toPb,
         ))),
-      ),
-      constraints=Map(
+      ).toPb,
+      constraints = SeqMap(
         "connect_source" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
           blockPort = Some(ValueExpr.Ref("source", "port")),
           linkPort = Some(ValueExpr.Ref("link", "source"))
@@ -71,7 +67,7 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
           blockPort = Some(ValueExpr.Ref("sink", "port")),
           linkPort = Some(ValueExpr.Ref("link", "sink"))
         ))),
-      ),
+      ).toPb,
     )
 
     PDFGeneratorUtil.generate(blockIr, "unit_test.pdf")
