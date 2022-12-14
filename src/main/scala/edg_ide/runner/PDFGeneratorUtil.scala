@@ -57,10 +57,9 @@ object PDFGeneratorUtil{
 
         block.blocks.asPairs.map {
           case (name, subblock) => (name, subblock.`type`)
-        }
-          .collect {
-            case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock)
-          }.toMap.foreach {
+        }.collect {
+          case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock)
+        }.foreach {
           case (path, subblock) => printNextHierarchyLevel(subblock, path)
         }
       }
