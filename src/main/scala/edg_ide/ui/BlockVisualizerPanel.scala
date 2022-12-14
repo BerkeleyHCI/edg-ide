@@ -346,7 +346,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
-      val layoutGraphRoot = HierarchyGraphElk.HGraphToElkGraph(
+      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(
         block, blockPath, depthSpinner.getNumber,
         // note, adding port side constraints with hierarchy seems to break ELK
         Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),

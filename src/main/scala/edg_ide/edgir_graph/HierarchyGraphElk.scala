@@ -182,8 +182,7 @@ object HierarchyGraphElk {
   }
 
 
-  // Experimental
-  def HGraphToElkGraph(block: HierarchyBlock, blockPath: DesignPath = DesignPath(), depth: Int = 1,
+  def HBlockToElkNode(block: HierarchyBlock, blockPath: DesignPath = DesignPath(), depth: Int = 1,
                        mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq()): ElkNode = {
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.

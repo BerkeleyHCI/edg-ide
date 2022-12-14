@@ -94,7 +94,8 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
                                         result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(msg + "Error compiling \n", ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) => console.print(f"Error while compiling ${element.toSimpleString}: $msg\n",
+        ConsoleViewContentType.ERROR_OUTPUT)
       case _ =>
     }
   }
@@ -111,7 +112,8 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
                                                    result: Errorable[elem.HierarchyBlock]): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) => console.print(f"Error while generating ${element.toSimpleString}: $msg\n",
+        ConsoleViewContentType.ERROR_OUTPUT)
       case _ =>
     }
   }
@@ -124,7 +126,8 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
                                            result: Errorable[Map[DesignPath, ExprValue]]): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) => console.print(f"Error while running refinement ${refinementPass.toSimpleString}: $msg\n",
+        ConsoleViewContentType.ERROR_OUTPUT)
       case _ =>
     }
   }
@@ -137,7 +140,8 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
                                     result: Errorable[Map[DesignPath, String]]): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(msg + "\n", ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) => console.print(f"Error while running backend ${backend.toSimpleString}: $msg\n",
+        ConsoleViewContentType.ERROR_OUTPUT)
       case _ =>
     }
   }
@@ -290,13 +294,19 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
         if (options.pdfFile.nonEmpty) {
+          indicator.setText("EDG compiling: generating PDF")
           console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-          PDFGeneratorUtil.generate(
-            HierarchyGraphElk.HGraphToElkGraph(compiled.getContents,
+          val (pdfGeneration, pdfTime) = timeExec {
+            PDFGeneratorUtil.generate(
+            HierarchyGraphElk.HBlockToElkNode(compiled.getContents,
               mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler))),
             options.pdfFile)
-          console.print(s"Wrote PDF to ${options.pdfFile}\n",
+          }
+          console.print(s"Printed PDF at ${options.pdfFile} ($pdfTime ms)\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
+        } else {
+          console.print(s"Not generating PDF, no PDF file specified in run options\n",
+            ConsoleViewContentType.ERROR_OUTPUT)
         }
 
         if (options.netlistFile.nonEmpty) {
@@ -333,7 +343,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         val stackWriter = new StringWriter()
         e.printStackTrace(new PrintWriter(stackWriter))
-        console.print(s"Compiler internal error\n", ConsoleViewContentType.ERROR_OUTPUT)
+        console.print(s"Compiler internal error, compilation stopped:\n", ConsoleViewContentType.ERROR_OUTPUT)
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
     terminatedNotify(exitCode)
