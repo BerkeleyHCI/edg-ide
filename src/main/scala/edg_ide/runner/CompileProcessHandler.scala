@@ -294,10 +294,16 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
         if (options.pdfFile.nonEmpty) {
+          indicator.setText("EDG compiling: generating PDF")
           console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-          PDFGeneratorUtil.generate(HierarchyGraphElk.HGraphToElkGraph(compiled.getContents), options.pdfFile)
-          console.print(s"Wrote PDF to ${options.pdfFile}\n",
+          val (pdfGeneration, pdfTime) = timeExec {
+            PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
+          }
+          console.print(s"Printed PDF at ${options.pdfFile} ($pdfTime ms)\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
+        } else {
+          console.print(s"Not generating PDF, no PDF file specified in run options\n",
+            ConsoleViewContentType.ERROR_OUTPUT)
         }
 
         if (options.netlistFile.nonEmpty) {
