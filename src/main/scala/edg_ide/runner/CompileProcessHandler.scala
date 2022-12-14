@@ -297,10 +297,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           indicator.setText("EDG compiling: generating PDF")
           console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
           val (pdfGeneration, pdfTime) = timeExec {
-            PDFGeneratorUtil.generate(
-            HierarchyGraphElk.HBlockToElkNode(compiled.getContents,
-              mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler))),
-            options.pdfFile)
+            PDFGeneratorUtil.generate(compiled.getContents, mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)),options.pdfFile)
           }
           console.print(s"Printed PDF at ${options.pdfFile} ($pdfTime ms)\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
