@@ -2,10 +2,8 @@ package edg_ide.edgir_graph
 
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, TextValue}
-import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
 import edg_ide.util.EdgirAnalysisUtils
-import edgir.elem.elem
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import scala.jdk.CollectionConverters._
@@ -14,7 +12,7 @@ import scala.jdk.CollectionConverters._
 object ElkEdgirGraphUtils {
   import org.eclipse.elk.graph.properties.IProperty
 
-  // Adds the DesignPatnProperty, containing the node's DesignPath, to nodes.
+  // Adds the DesignPathProperty, containing the node's DesignPath, to nodes.
   // Useful, for example, to resolve the ElkNode by walking from the root inwards given a path.
   object DesignPathMapper
       extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
