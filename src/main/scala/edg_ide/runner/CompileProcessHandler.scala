@@ -182,8 +182,14 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
   })
 
+  /** Logging and status wrappers for running a stage that returns some value.
+    * Exceptions are not caught and propagated up.
+    * The stage function returns both a type and a message (can be empty) that is printed to the console.
+    */
   private def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
                                           (fn: => (ReturnType, String)): ReturnType = {
+    indicator.setText(f"EDG compiling: $name")
+    indicator.setIndeterminate(true)
     val ((fnResult, fnResultStr), fnTime) = timeExec {
       fn
     }
@@ -192,23 +198,25 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     fnResult
   }
 
-  /** Logging and status wrappers for running a stage that can non-fatally fail
-    * (does not stop compilation, does not return anything - done for side effects).
-    * The function returns a string which is printed to the console with the completion message.
+  /** Similar to (actually wraps) runRequiredStage, except error are non-fatal and logs to console.
+    * If the function fails, a specified default is returned.
     */
-  private def runFailableStage(name: String, indicator: ProgressIndicator)(fn: => String): Unit = {
-    indicator.setText(f"EDG compiling: $name")
-    indicator.setIndeterminate(true)
+  private def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator)
+                                          (fn: => (ReturnType, String)): ReturnType = {
     try {
-      val (fnResultStr, fnTime) = timeExec {
-        fn
-      }
-      val addedStr = if (fnResultStr.nonEmpty) f": $fnResultStr" else ""
-      console.print(s"Completed: $name$addedStr ($fnTime ms)\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+      runRequiredStage(name, indicator) { fn }
     } catch {
       case e: Exception =>
         console.print(s"Failed: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
+        default
     }
+  }
+
+  /** Wrapper around runFailableStage for fns that don't return anything.
+    */
+  private def runFailableStage(name: String, indicator: ProgressIndicator)
+                              (fn: => String): Unit = {
+    runFailableStage[Unit](name, (), indicator) { ((), fn) }
   }
 
   private def runCompile(indicator: ProgressIndicator): Unit = {
@@ -261,7 +269,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           (output, "")
         }
 
-        val errors = runRequiredStage("validate", indicator) {
+        val errors = runFailableStage("validate", Seq[CompilerError](), indicator) {
           val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
               new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
           if (errors.nonEmpty) {
