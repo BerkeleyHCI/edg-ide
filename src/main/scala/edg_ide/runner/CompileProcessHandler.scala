@@ -315,7 +315,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         }
 
         if (options.netlistFile.nonEmpty) {
-          runFailableStage("generate PDF", indicator) {
+          runFailableStage("generate netlist", indicator) {
             val netlist =pythonInterface.get.runBackend(
               ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
               compiled, compiler.getAllSolved,
