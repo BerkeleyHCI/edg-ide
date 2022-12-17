@@ -86,6 +86,11 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
     }
   }
 
+  override def onLibraryRequest(element: ref.LibraryPath): Unit = {
+    // this needs to be here to only print on requests that made it to Python (instead of just hit cache)
+    console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+  }
+
   override def onLibraryRequestComplete(element: ref.LibraryPath,
                                         result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
     forwardProcessOutput()
@@ -177,26 +182,6 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
   })
 
-
-  def elaborateRecordToProgressString(record: ElaborateRecord): String = record match {
-    case ElaborateRecord.ExpandBlock(blockPath) => s"block at $blockPath"
-    case ElaborateRecord.Block(blockPath) => s"block at $blockPath"
-    case ElaborateRecord.Link(linkPath) => s"link at $linkPath"
-    case ElaborateRecord.LinkArray(linkPath) => s"link array at $linkPath"
-    case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) => s"connect $toLinkPortPath - $fromLinkPortPath"
-    case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
-    case ElaborateRecord.AssignLinkElements(target, _, _) => s"link elements at $target"
-
-    case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
-      s"expand array connection $parent.$constrName"
-    case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
-      s"rewrite connection allocates ${parent ++ portPath}"
-    case ElaborateRecord.ResolveArrayIsConnected(parent, portPath, _, _, _) =>
-      s"resolve array connectivity ${parent ++ portPath}"
-
-    case record: ElaborateRecord.ElaborateDependency => s"unexpected dependency $record"
-  }
-
   private def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
                                           (fn: => (ReturnType, String)): ReturnType = {
     val ((fnResult, fnResultStr), fnTime) = timeExec {
@@ -259,16 +244,13 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         }
 
         runFailableStage("rebuild libraries", indicator) {
-          val designModule = options.designName.split('.').init.mkString(".")
-
           def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
-            // TODO this is called even if the library is not recompiled
-            console.print(s"Compile ${library.toSimpleString}\n",
-              ConsoleViewContentType.LOG_INFO_OUTPUT)
-            indicator.setIndeterminate(false)
+            // this also includes requests that hit cache
             indicator.setFraction(index.toFloat / total)
           }
 
+          indicator.setIndeterminate(false)
+          val designModule = options.designName.split('.').init.mkString(".")
           val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, Some(rebuildProgressFn)).get
           f"${indexed.size} elements"
         }
