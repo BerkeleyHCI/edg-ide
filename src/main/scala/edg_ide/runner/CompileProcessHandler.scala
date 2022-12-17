@@ -275,12 +275,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         val (compiled, compiler, refinements) = runRequiredStage("compile", indicator) {
           val designType = ElemBuilder.LibraryPath(options.designName)
-
-          def compileProgressFn(record: ElaborateRecord): Unit = {
-            indicator.setText(s"EDG compiling: ${elaborateRecordToProgressString(record)}")
-          }
-
-          val output = EdgCompilerService(project).compile(designType, Some(compileProgressFn))
+          val output = EdgCompilerService(project).compile(designType, None)
           (output, "")
         }
 
