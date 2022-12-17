@@ -262,6 +262,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           val designModule = options.designName.split('.').init.mkString(".")
 
           def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
+            // TODO this is called even if the library is not recompiled
             console.print(s"Compile ${library.toSimpleString}\n",
               ConsoleViewContentType.LOG_INFO_OUTPUT)
             indicator.setIndeterminate(false)
@@ -309,9 +310,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.pdfFile.nonEmpty) {
           runFailableStage("generate PDF", indicator) {
-            val (pdfGeneration, pdfTime) = timeExec {
-              PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
-            }
+            PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
             f"wrote ${options.pdfFile}"
           }
         } else {
@@ -321,7 +320,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.netlistFile.nonEmpty) {
           runFailableStage("generate netlist", indicator) {
-            val netlist =pythonInterface.get.runBackend(
+            val netlist = pythonInterface.get.runBackend(
               ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
               compiled, compiler.getAllSolved,
               Map("RefdesMode" -> options.toggle.toString)
