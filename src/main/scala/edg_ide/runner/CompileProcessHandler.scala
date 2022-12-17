@@ -197,6 +197,16 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     case record: ElaborateRecord.ElaborateDependency => s"unexpected dependency $record"
   }
 
+  private def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
+                                          (fn: => (ReturnType, String)): ReturnType = {
+    val ((fnResult, fnResultStr), fnTime) = timeExec {
+      fn
+    }
+    val addedStr = if (fnResultStr.nonEmpty) f": $fnResultStr" else ""
+    console.print(s"Completed: $name$addedStr ($fnTime ms)\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    fnResult
+  }
+
   /** Logging and status wrappers for running a stage that can non-fatally fail
     * (does not stop compilation, does not return anything - done for side effects).
     * The function returns a string which is printed to the console with the completion message.
@@ -262,30 +272,25 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           f"${indexed.size} elements"
         }
 
+        val (compiled, compiler, refinements) = runRequiredStage("compile", indicator) {
+          val designType = ElemBuilder.LibraryPath(options.designName)
 
+          def compileProgressFn(record: ElaborateRecord): Unit = {
+            indicator.setText(s"EDG compiling: ${elaborateRecordToProgressString(record)}")
+          }
 
-        indicator.setText("EDG compiling: design top")
-        indicator.setIndeterminate(true)
-        val designType = ElemBuilder.LibraryPath(options.designName)
-        def compileProgressFn(record: ElaborateRecord): Unit = {
-          indicator.setText(s"EDG compiling: ${elaborateRecordToProgressString(record)}")
-        }
-        val ((compiled, compiler, refinements), compileTime) =
-          EdgCompilerService(project).compile(designType, Some(compileProgressFn))
-        console.print(s"Compiled ($compileTime ms)\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
-
-
-        val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-            new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
-        if (errors.nonEmpty) {
-          console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+          val output = EdgCompilerService(project).compile(designType, Some(compileProgressFn))
+          (output, "")
         }
 
-//        runFailableStage("validate", indicator) {
-//
-//          f"${errors.length} errors"
-//        }
+        val errors = runRequiredStage("validate", indicator) {
+          val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+              new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+          if (errors.nonEmpty) {
+            console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+          }
+          (errors, f"${errors.length} errors")
+        }
 
         runFailableStage("refdes", indicator) {
           val refdes = pythonInterface.get.runRefinementPass(
