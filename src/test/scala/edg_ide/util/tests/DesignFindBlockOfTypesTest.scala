@@ -8,6 +8,8 @@ import edg_ide.util.DesignFindBlockOfTypes
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.SeqMap
+
 
 class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
   behavior of "DesignFindBlockOfType"
@@ -15,7 +17,7 @@ class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
   it should "find blocks by single type" in {
     val inputDesign = Design(Block.Block(
       selfClass = "top",
-      blocks = Map(
+      blocks = SeqMap(
         "source" -> Block.Library("sourceContainerBlock"),
         "sink1" -> Block.Library("sinkContainerBlock"),
         "sink2" -> Block.Library("sinkContainerBlock"),
@@ -45,7 +47,7 @@ class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
   it should "find blocks by multiple types" in {
     val inputDesign = Design(Block.Block(
       selfClass = "top",
-      blocks = Map(
+      blocks = SeqMap(
         "source" -> Block.Library("sourceContainerBlock"),
         "sink1" -> Block.Library("sinkContainerBlock"),
         "sink2" -> Block.Library("sinkContainerBlock"),

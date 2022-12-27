@@ -89,7 +89,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     }).map { valueRefinements =>
       val (values, refinements) = valueRefinements.unzip
       val combinedRefinement = refinements.reduce(_ ++ _)
-      val valuesMap = SeqMap.from(values)
+      val valuesMap = values.to(SeqMap)
       (valuesMap, combinedRefinement)
     }
 

@@ -15,6 +15,7 @@ import edg.ExprBuilder.{Ref, ValueExpr}
 import edg.util.{Errorable, NameCreator}
 import edg.wir
 import edg.wir.DesignPath
+import edg.wir.ProtoUtil._
 import edg_ide.edgir_graph._
 import edg_ide.psi_edits._
 import edg_ide.swing._
@@ -92,7 +93,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
       val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
           .exceptNone("no visualizer panel")
       visualizerPanel.currentDesignModifyBlock(contextPath) { _.update(
-        _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(blockType).exceptError)
+        _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(blockType).exceptError).toPb
       )}
       visualizerPanel.addStaleBlocks(Seq(contextPath + name))
     }
@@ -249,8 +250,8 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
       visualizerPanel.currentDesignModifyBlock(contextPath) { block =>
         val namer = NameCreator.fromBlock(block)
         block.update(
-          _.ports :+= (name, fastPathUtil.instantiatePortLike(portType).exceptError),
-          _.constraints :+= (namer.newName(s"_new_(reqd)$name"), ValueExpr.Ref(Ref.IsConnected(Ref(name)))),
+          _.ports :+= (name, fastPathUtil.instantiatePortLike(portType).exceptError).toPb,
+          _.constraints :+= (namer.newName(s"_new_(reqd)$name"), ValueExpr.Ref(Ref.IsConnected(Ref(name)))).toPb,
       )}
       visualizerPanel.addStaleBlocks(Seq(contextPath))
     }

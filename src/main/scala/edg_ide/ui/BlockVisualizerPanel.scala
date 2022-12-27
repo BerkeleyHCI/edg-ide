@@ -29,7 +29,7 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel}
+import javax.swing.{ButtonGroup, JLabel, JPanel}
 import scala.collection.{SeqMap, mutable}
 
 
@@ -345,7 +345,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, currentDesign)
-      val layoutGraphRoot = HierarchyGraphElk.HGraphToElkGraph(block, blockPath, depthSpinner.getNumber)
+      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(block, blockPath, depthSpinner.getNumber)
       val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
       tooltipTextMap.map(design)
 
@@ -572,7 +572,6 @@ class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements
   def loadState(state: BlockVisualizerServiceState): Unit = {
   }
 }
-
 
 class ErrorPanel extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
