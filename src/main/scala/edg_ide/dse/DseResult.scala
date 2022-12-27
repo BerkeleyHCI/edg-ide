@@ -12,6 +12,7 @@ case class DseResult(
                         index: Int,
                         config: SeqMap[DseConfigElement, Any],
                         configRefinement: Refinements,
+                        allRefinements: Refinements,
                         compiler: Compiler,
                         compiled: Design,
                         errors: Seq[CompilerError],

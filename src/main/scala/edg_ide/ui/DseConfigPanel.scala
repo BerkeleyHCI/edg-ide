@@ -1,58 +1,79 @@
 package edg_ide.ui
 
-import com.intellij.execution.RunManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
-import edg_ide.dse.DseResult
+import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.runner.DseRunConfiguration
-import edg_ide.swing.{DseConfigTreeTableModel, DseResultTreeTableModel}
+import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, TreeTableUtils}
+import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
+import edg_ide.util.exceptable
 
+import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
-import javax.swing.JPanel
+import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
 
 
+class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
+  add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
+    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no config")
+    val originalSearchConfigs = dseConfig.options.searchConfigs
+    val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
+    dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
+    BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+  }, s"Delete"))
+}
+
+
+class DseObjectivePopupMenu(objective: DseObjective[Any], project: Project) extends JPopupMenu {
+  add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
+    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no config")
+    val originalObjectives = dseConfig.options.objectives
+    val key = originalObjectives.find(objective == _._2).exceptNone("objective not in config")._1
+    dseConfig.options.objectives = originalObjectives.filter(_._1 != key)
+    BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+  }, s"Delete"))
+}
+
+
 class DseConfigPanel(project: Project) extends JPanel {
-  private var config: Option[DseRunConfiguration] = None
+  // currently displayed config
+  private var displayedConfig: Option[DseRunConfiguration] = None
 
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val newConfig = Option(RunManager.getInstance(project).getSelectedConfiguration).map(_.getConfiguration)
-    val newTypedConfig = newConfig match {
-      case Some(newConfig: DseRunConfiguration) => Some(newConfig)
-      case _ => None
-    }
-
-    if (newTypedConfig != config) {
-      config = newTypedConfig
+    val newConfig = BlockVisualizerService(project).getDseRunConfiguration
+    if (newConfig != displayedConfig) {
+      displayedConfig = newConfig
       onConfigUpdate()
     }
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
   protected def onConfigUpdate(): Unit = {
-    config match {
+    displayedConfig match {
       case Some(config) =>
         separator.setText(f"Design Space Exploration: ${config.getName}")
-        configTree.setModel(new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        configTree.setRootVisible(false)
-        resultsTree.setModel(new DseResultTreeTableModel(Seq()))  // clear existing data
-        resultsTree.setRootVisible(false)
+        TreeTableUtils.updateModel(configTree, new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
-        configTree.setModel(new DseConfigTreeTableModel(Seq(), SeqMap()))
-        configTree.setRootVisible(false)
-        resultsTree.setModel(new DseResultTreeTableModel(Seq())) // clear existing data
-        resultsTree.setRootVisible(false)
+        TreeTableUtils.updateModel(configTree, new DseConfigTreeTableModel(Seq(), SeqMap()))
+        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
+    }
+  }
+
+  def onConfigChange(config: DseRunConfiguration): Unit = {
+    if (displayedConfig.contains(config)) {
+      onConfigUpdate()
     }
   }
 
   def setResults(results: Seq[DseResult]): Unit = {
-    resultsTree.setModel(new DseResultTreeTableModel(results))
-    resultsTree.setRootVisible(false)
+    TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(results))
   }
 
   setLayout(new GridBagLayout())
@@ -69,6 +90,26 @@ class DseConfigPanel(project: Project) extends JPanel {
   private val configTree = new TreeTable(new DseConfigTreeTableModel(Seq(), SeqMap()))
   configTree.setShowColumns(true)
   configTree.setRootVisible(false)
+  configTree.addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      val selectedTreePath = configTree.getTree.getPathForLocation(e.getX, e.getY)
+      if (selectedTreePath == null) {
+        return
+      }
+
+      selectedTreePath.getLastPathComponent match {
+        case node: DseConfigTreeNode.DseSearchConfigNode =>
+          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+            new DseSearchConfigPopupMenu(node.config, project).show(e.getComponent, e.getX, e.getY)
+          }
+        case node: DseConfigTreeNode.DseObjectiveNode =>
+          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
+            new DseObjectivePopupMenu(node.config, project).show(e.getComponent, e.getX, e.getY)
+          }
+        case _ =>  // any other type ignored
+      }
+    }
+  })
   tabbedPane.addTab("Config", new JBScrollPane(configTree))
 
   // GUI: Results Tab
@@ -76,6 +117,24 @@ class DseConfigPanel(project: Project) extends JPanel {
   private val resultsTree = new TreeTable(new DseResultTreeTableModel(Seq()))
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
+  resultsTree.addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      val selectedTreePath = resultsTree.getTree.getPathForLocation(e.getX, e.getY)
+      if (selectedTreePath == null) {
+        return
+      }
+
+      selectedTreePath.getLastPathComponent match {
+        case node: DseResultTreeNode#ResultNode =>
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
+            val result = node.result
+            BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
+              result.allRefinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
+          }
+        case _ => // any other type ignored
+      }
+    }
+  })
   tabbedPane.addTab("Results", new JBScrollPane(resultsTree))
 
   onConfigUpdate()  // set initial state

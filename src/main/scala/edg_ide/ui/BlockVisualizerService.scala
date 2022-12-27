@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.execution.RunManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
@@ -9,6 +10,7 @@ import edgir.schema.schema
 import edgir.elem.elem
 import edg.wir.DesignPath
 import edg_ide.dse.DseResult
+import edg_ide.runner.DseRunConfiguration
 import edgrpc.hdl.{hdl => edgrpc}
 
 
@@ -26,6 +28,8 @@ class BlockVisualizerService(project: Project) extends
   private var initialState: Option[BlockVisualizerServiceState] = None
 
   def visualizerPanelOption: Option[BlockVisualizerPanel] = visualizerPanel
+
+  def dsePanelOption: Option[DseConfigPanel] = visualizerPanelOption.map(_.getDsePanel)
 
   def createBlockVisualizerPanel(toolWindow: ToolWindow): BlockVisualizerPanel = {
     require(visualizerPanel.isEmpty)
@@ -52,16 +56,31 @@ class BlockVisualizerService(project: Project) extends
   }
 
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
-                   errors: Seq[CompilerError]): Unit = {
-    visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors))
-  }
-
-  def setDseResults(results: Seq[DseResult]): Unit = {
-    visualizerPanelOption.foreach(_.setDseResults(results))
+                   errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
+    visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors, namePrefix))
   }
 
   def getDesign: Option[schema.Design] = {
     visualizerPanelOption.map(_.getDesign)
+  }
+
+  // TODO maybe separate DSE functionality into its own class / service?
+  // but this is mixed into the block diagram visualizer panel and the two are quite linked
+
+  // Called when the run configuration changes
+  def onDseConfigChanged(config: DseRunConfiguration): Unit = {
+    dsePanelOption.foreach(_.onConfigChange(config))
+  }
+
+  // Returns the currently selected run configuration, if it is a DSE configuration
+  def getDseRunConfiguration: Option[DseRunConfiguration] = {
+    Option(RunManager.getInstance(project).getSelectedConfiguration)
+        .map(_.getConfiguration)
+        .collect { case config: DseRunConfiguration => config }
+  }
+
+  def setDseResults(results: Seq[DseResult]): Unit = {
+    dsePanelOption.foreach(_.setResults(results))
   }
 
   override def getState: BlockVisualizerServiceState = {

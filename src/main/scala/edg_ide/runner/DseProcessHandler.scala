@@ -142,13 +142,13 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         console.print(s"($commonCompileTime ms) compiled base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
 
         val results = mutable.ListBuffer[DseResult]()
-
-        indicator.setText("EDG searching: design space")
-        indicator.setFraction(0)
-        indicator.setIndeterminate(false)
         for (((searchValues, searchRefinement), searchIndex) <- allValueRefinements.zipWithIndex) {
           console.print(s"Compile ${DseConfigElement.configMapToString(searchValues)}\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
+          indicator.setText(f"EDG searching: design space ${searchIndex + 1} / ${allValueRefinements.size}")
+          indicator.setIndeterminate(false)
+          indicator.setFraction(searchIndex.toFloat / allValueRefinements.size)
+
           val (compiler, forkTime) = timeExec {
             commonCompiler.fork(searchRefinement)
           }
@@ -164,7 +164,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
             name -> objective.calculate(compiled, solvedValues)
           }
 
-          val result = DseResult(searchIndex, searchValues, searchRefinement,
+          val result = DseResult(searchIndex, searchValues, searchRefinement, refinements ++ searchRefinement,
             compiler, compiled, errors, objectiveValues, compileTime)
           results.append(result)
 
@@ -183,9 +183,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
                 objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
             fileWriter.flush()
           }
-
-          indicator.setFraction((searchIndex + 1.0) / allValueRefinements.size)
         }
+        indicator.setText(f"EDG searching: finalizing")
+        indicator.setFraction(1)
 
         csvFile.foreach { case (fileWriter, csv) =>
           csv.close()
