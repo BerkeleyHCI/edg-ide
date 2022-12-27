@@ -87,6 +87,7 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
   }
 
   override def onLibraryRequest(element: ref.LibraryPath): Unit = {
+    // this needs to be here to only print on requests that made it to Python (instead of just hit cache)
     console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
   }
 
@@ -118,10 +119,6 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
     }
   }
 
-  override def onRunRefinementPass(refinementPass: ref.LibraryPath): Unit = {
-    console.print(s"Run refinement ${refinementPass.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-  }
-
   override def onRunRefinementPassComplete(refinementPass: ref.LibraryPath,
                                            result: Errorable[Map[DesignPath, ExprValue]]): Unit = {
     forwardProcessOutput()
@@ -130,10 +127,6 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
         ConsoleViewContentType.ERROR_OUTPUT)
       case _ =>
     }
-  }
-
-  override def onRunBackend(backend: ref.LibraryPath): Unit = {
-    console.print(s"Run backend ${backend.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
   }
 
   override def onRunBackendComplete(backend: ref.LibraryPath,
@@ -189,24 +182,41 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
   })
 
+  /** Logging and status wrappers for running a stage that returns some value.
+    * Exceptions are not caught and propagated up.
+    * The stage function returns both a type and a message (can be empty) that is printed to the console.
+    */
+  private def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
+                                          (fn: => (ReturnType, String)): ReturnType = {
+    indicator.setText(f"EDG compiling: $name")
+    indicator.setIndeterminate(true)
+    val ((fnResult, fnResultStr), fnTime) = timeExec {
+      fn
+    }
+    val addedStr = if (fnResultStr.nonEmpty) f": $fnResultStr" else ""
+    console.print(s"Completed: $name$addedStr ($fnTime ms)\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    fnResult
+  }
 
-  def elaborateRecordToProgressString(record: ElaborateRecord): String = record match {
-    case ElaborateRecord.ExpandBlock(blockPath) => s"block at $blockPath"
-    case ElaborateRecord.Block(blockPath) => s"block at $blockPath"
-    case ElaborateRecord.Link(linkPath) => s"link at $linkPath"
-    case ElaborateRecord.LinkArray(linkPath) => s"link array at $linkPath"
-    case ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath) => s"connect $toLinkPortPath - $fromLinkPortPath"
-    case ElaborateRecord.ElaboratePortArray(portPath) => s"expand port array $portPath"
-    case ElaborateRecord.AssignLinkElements(target, _, _) => s"link elements at $target"
+  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console.
+    * If the function fails, a specified default is returned.
+    */
+  private def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator)
+                                          (fn: => (ReturnType, String)): ReturnType = {
+    try {
+      runRequiredStage(name, indicator) { fn }
+    } catch {
+      case e: Exception =>
+        console.print(s"Failed: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
+        default
+    }
+  }
 
-    case ElaborateRecord.ExpandArrayConnections(parent, constrName) =>
-      s"expand array connection $parent.$constrName"
-    case ElaborateRecord.RewriteConnectAllocate(parent, portPath, _, _, _) =>
-      s"rewrite connection allocates ${parent ++ portPath}"
-    case ElaborateRecord.ResolveArrayIsConnected(parent, portPath, _, _, _) =>
-      s"resolve array connectivity ${parent ++ portPath}"
-
-    case record: ElaborateRecord.ElaborateDependency => s"unexpected dependency $record"
+  /** Wrapper around runFailableStage for fns that don't return anything.
+    */
+  private def runFailableStage(name: String, indicator: ProgressIndicator)
+                              (fn: => String): Unit = {
+    runFailableStage[Unit](name, (), indicator) { ((), fn) }
   }
 
   private def runCompile(indicator: ProgressIndicator): Unit = {
@@ -231,107 +241,90 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
-        indicator.setText("EDG compiling: discarding stale")
-        indicator.setIndeterminate(true)
-        val discarded = EdgCompilerService(project).discardStale()
-        if (discarded.nonEmpty) {
-          val discardedNames = discarded.map {
-            _.toSimpleString
-          }.toSeq.sorted.mkString(", ")
-          console.print(s"Discarded ${discarded.size} changed cached libraries: $discardedNames\n",
-            ConsoleViewContentType.SYSTEM_OUTPUT)
-        } else {
-          console.print(s"No changed libraries detected, no libraries discarded\n",
-            ConsoleViewContentType.SYSTEM_OUTPUT)
+        runFailableStage("discard stale", indicator) {
+          val discarded = EdgCompilerService(project).discardStale()
+          if (discarded.nonEmpty) {
+            val discardedNames = discarded.toSeq.map { _.toSimpleString }.sorted
+            s"${discarded.size} library elements: ${discardedNames.mkString(", ")}"
+          } else {
+            "no changed libraries"
+          }
         }
 
-        indicator.setText("EDG compiling: rebuilding libraries")
-        indicator.setIndeterminate(false)
-        val designModule = options.designName.split('.').init.mkString(".")
-        def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
-          indicator.setFraction(index.toFloat / total)
-        }
-        EdgCompilerService(project).rebuildLibraries(designModule, Some(rebuildProgressFn)) match {
-          case Errorable.Success((indexed, indexTime, rebuildTime)) =>
-            console.print(s"Rebuilt ${indexed.size} library elements " +
-                s"(index: $indexTime ms, build: $rebuildTime ms)\n",
-              ConsoleViewContentType.SYSTEM_OUTPUT)
-          case Errorable.Error(errMsg) =>
-            console.print(s"Failed to index: $errMsg\n", ConsoleViewContentType.ERROR_OUTPUT)
+        runFailableStage("rebuild libraries", indicator) {
+          def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
+            // this also includes requests that hit cache
+            indicator.setFraction(index.toFloat / total)
+          }
+
+          indicator.setIndeterminate(false)
+          val designModule = options.designName.split('.').init.mkString(".")
+          val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, Some(rebuildProgressFn)).get
+          f"${indexed.size} elements"
         }
 
-        indicator.setText("EDG compiling: design top")
-        indicator.setIndeterminate(true)
-        val designType = ElemBuilder.LibraryPath(options.designName)
-        def compileProgressFn(record: ElaborateRecord): Unit = {
-          indicator.setText(s"EDG compiling: ${elaborateRecordToProgressString(record)}")
-        }
-        val ((compiled, compiler, refinements), compileTime) =
-          EdgCompilerService(project).compile(designType, Some(compileProgressFn))
-        console.print(s"Compiled ($compileTime ms)\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
-        
-        indicator.setText("EDG compiling: validating")
-        val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-          new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
-        if (errors.nonEmpty) {
-          console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+        val (compiled, compiler, refinements) = runRequiredStage("compile", indicator) {
+          val designType = ElemBuilder.LibraryPath(options.designName)
+          val output = EdgCompilerService(project).compile(designType, None)
+          (output, "")
         }
 
-        indicator.setText("EDG compiling: refdesing")
-        val (refdes, refdesTime) = timeExec {
-          pythonInterface.get.runRefinementPass(
+        val errors = runFailableStage("validate", Seq[CompilerError](), indicator) {
+          val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+              new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+          if (errors.nonEmpty) {
+            console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+          }
+          (errors, f"${errors.length} errors")
+        }
+
+        runFailableStage("refdes", indicator) {
+          val refdes = pythonInterface.get.runRefinementPass(
             ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
             compiled, compiler.getAllSolved
           ).mapErr(msg => s"while refdesing: $msg").get
+          compiler.addValues(refdes, "refdes")
+          f"${refdes.size} components"
         }
-        compiler.addValues(refdes, "refdes")
-        console.print(s"Refdesed ${refdes.size} components ($refdesTime ms)\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
 
-        indicator.setText("EDG compiling: updating visualization")
-        BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
-        BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
+        runFailableStage("update visualization", indicator) {
+          BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
+          BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
+          ""
+        }
 
         if (options.pdfFile.nonEmpty) {
-          indicator.setText("EDG compiling: generating PDF")
-          console.print("Printing PDF\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-          val (pdfGeneration, pdfTime) = timeExec {
+          runFailableStage("generate PDF", indicator) {
             PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
+            f"wrote ${options.pdfFile}"
           }
-          console.print(s"Printed PDF at ${options.pdfFile} ($pdfTime ms)\n",
-            ConsoleViewContentType.SYSTEM_OUTPUT)
         } else {
-          console.print(s"Not generating PDF, no PDF file specified in run options\n",
+          console.print(s"Skip generating PDF, no PDF file specified in run options\n",
             ConsoleViewContentType.ERROR_OUTPUT)
         }
 
         if (options.netlistFile.nonEmpty) {
-          indicator.setText("EDG compiling: netlisting")
-
-          val arguments = Map("RefdesMode" -> options.toggle.toString)
-
-          val (netlist, netlistTime) = timeExec {
-            pythonInterface.get.runBackend(
+          runFailableStage("generate netlist", indicator) {
+            val netlist = pythonInterface.get.runBackend(
               ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
-              compiled, compiler.getAllSolved, arguments
+              compiled, compiler.getAllSolved,
+              Map("RefdesMode" -> options.toggle.toString)
             ).mapErr(msg => s"while netlisting: $msg").get
-          }
-          require(netlist.size == 1)
+            require(netlist.size == 1)
 
-          val writer = new FileWriter(options.netlistFile)
-          writer.write(netlist.head._2)
-          writer.close()
-          console.print(s"Wrote netlist to ${options.netlistFile} ($netlistTime ms)\n",
-            ConsoleViewContentType.SYSTEM_OUTPUT)
+            val writer = new FileWriter(options.netlistFile)
+            writer.write(netlist.head._2)
+            writer.close()
+            f"wrote ${options.netlistFile}"
+          }
         } else {
-          console.print(s"Not generating netlist, no netlist file specified in run options\n",
+          console.print(s"Skip generating netlist, no netlist file specified in run options\n",
             ConsoleViewContentType.ERROR_OUTPUT)
         }
       }
       exitCode = pythonInterface.get.shutdown()
       pythonInterface.get.forwardProcessOutput() // dump remaining process output (shouldn't happen)
-    } catch {
+    } catch {  // this generally shouldn't happen but is an overall catch-all and clean-up
       case e: Throwable =>
         pythonInterface.foreach { pyIf =>
           exitCode = pyIf.shutdown()
