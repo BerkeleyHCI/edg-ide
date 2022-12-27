@@ -198,7 +198,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     fnResult
   }
 
-  /** Similar to (actually wraps) runRequiredStage, except error are non-fatal and logs to console.
+  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console.
     * If the function fails, a specified default is returned.
     */
   private def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator)
