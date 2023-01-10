@@ -109,7 +109,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         pythonCommand,
         console))
 
-
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
         // compared to the single design compiler the debug info is a lot sparser here
         indicator.setText("EDG searching: rebuilding libraries")

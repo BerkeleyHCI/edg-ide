@@ -210,10 +210,10 @@ case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
 
 // Search config where the search space is generated from a compiled design.
 // This does not provide additional refinements to the generating compilation,
-// but the search space afterwards may add refinements
+// but the search space afterwards may add refinements.
+// partial_compile here does not apply to the generating compilation,
+// only to the inner search loop.
 sealed trait DseDerivedSearch extends DseConfigElement { self: Serializable =>
-  def getPartialCompile: PartialCompile = PartialCompile()  // basically a no-op
-
   def configFromDesign(compiledDesign: Compiler): Errorable[DseConfigElement]
 }
 
@@ -221,6 +221,10 @@ sealed trait DseDerivedSearch extends DseConfigElement { self: Serializable =>
 // Search config of all matching parts from a test compile run
 case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedSearch with Serializable {
   def configToString: String = f"Parts($path)"
+
+  override def getPartialCompile: PartialCompile = {
+    PartialCompile(params=Seq(path + "part_spec"))
+  }
 
   override def configFromDesign(compiledDesign: Compiler): Errorable[DseParameterSearch] = {
     val matchingPartsPath = path.asIndirect + "matching_parts"
