@@ -5,11 +5,12 @@ import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
-import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
+import edg_ide.dse.{DseConfigElement, DseObjective, DseParameterSearch, DseResult}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, TreeTableUtils}
-import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
-import edg_ide.util.exceptable
+import edg_ide.ui.PopupUtils.createStringEntryPopup
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
+import edg_ide.util.{exceptable, requireExcept}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -20,18 +21,35 @@ import scala.collection.SeqMap
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
-    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no config")
+    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
     val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
     dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
     BlockVisualizerService(project).onDseConfigChanged(dseConfig)
   }, s"Delete"))
+
+  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
+    val initialValue = parseableSearchConfig.valuesToString()
+
+    () => PopupUtils.createStringEntryPopup("Search Values", project, initialValue) { text => exceptable {
+      val parsed = parseableSearchConfig.valuesStringToConfig(text).exceptError
+
+      val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+      val originalSearchConfigs = dseConfig.options.searchConfigs
+      val index = originalSearchConfigs.indexOf(searchConfig)
+      requireExcept(index >= 0, "config not found")
+      val newSearchConfigs = originalSearchConfigs.take(index) ++ Seq(parsed) ++ originalSearchConfigs.drop(index + 1)
+      dseConfig.options.searchConfigs = newSearchConfigs
+      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+    } }
+  }, s"Edit"))
 }
 
 
 class DseObjectivePopupMenu(objective: DseObjective[Any], project: Project) extends JPopupMenu {
   add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
-    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no config")
+    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
     val key = originalObjectives.find(objective == _._2).exceptNone("objective not in config")._1
     dseConfig.options.objectives = originalObjectives.filter(_._1 != key)

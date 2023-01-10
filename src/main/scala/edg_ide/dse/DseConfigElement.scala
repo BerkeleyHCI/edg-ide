@@ -53,7 +53,7 @@ sealed trait DseInstanceRefinementElement[+ValueType] extends DseRefinementEleme
 
 object DseParameterSearch {
   // Splits a list of ranges, ignoring commas within parens
-  def splitRange(str: String): Array[String] = {
+  def splitRange(str: String): Seq[String] = {
     val builder = new mutable.StringBuilder()
     val comps = mutable.ListBuffer[String]()
     var inParens: Boolean = false
@@ -76,11 +76,11 @@ object DseParameterSearch {
       }
     }
     comps.append(builder.toString())
-    comps.toArray
+    comps.toSeq
   }
 
   // Splits a list of strings, ignoring commas within quotes
-  def splitString(str: String): Errorable[Array[String]] = exceptable {
+  def splitString(str: String): Errorable[Seq[String]] = exceptable {
     val builder = new mutable.StringBuilder()
     val comps = mutable.ListBuffer[String]()
     var inEscape: Boolean = false
@@ -112,7 +112,7 @@ object DseParameterSearch {
     inQuotes.exceptTrue("missing end quote")
     inEscape.exceptTrue("missing escaped character")
     comps.append(builder.toString())
-    comps.toArray
+    comps.toSeq
   }
 
   protected lazy val rangeParseRegex = raw"^\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*$$".r
@@ -151,25 +151,24 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
   // Parses a string specification of values into a new DseParameterSearch (of the same path and type).
   // The existing object is required to determine the path and value type.
   // May fail with an error message that can be propagated back to the user.
-  // TODO handle quoting (strings) and range parentheses
   def valuesStringToConfig(str: String): Errorable[DseParameterSearch] = exceptable {
     val valueClass = values.map(_.getClass).allSameValue.exceptNone("internal error, inconsistent values")
 
     val newValues = valueClass match {
       case v if v == classOf[BooleanValue] =>
-        str.split(',').zipWithIndex.map { case (str, index) =>
+        str.split(',').toSeq.zipWithIndex.map { case (str, index) =>
           BooleanValue(str.strip().toBooleanOption.exceptNone(f"invalid value ${index + 1} '$str': not an bool"))
         }
       case v if v == classOf[IntValue] =>
-        str.split(',').zipWithIndex.map { case (str, index) =>
+        str.split(',').toSeq.zipWithIndex.map { case (str, index) =>
           IntValue(str.strip().toIntOption.exceptNone(f"invalid value ${index + 1} '$str': not an int"))
         }
       case v if v == classOf[FloatValue] =>
-        str.split(',').zipWithIndex.map { case (str, index) =>
+        str.split(',').toSeq.zipWithIndex.map { case (str, index) =>
           FloatValue(str.strip().toFloatOption.exceptNone(f"invalid value ${index + 1} '$str': not a float"))
         }
       case v if v == classOf[TextValue] =>
-        DseParameterSearch.splitString(str).exceptError.map {  // TODO support escaping spaces - the above regex doesn't delete the quotes
+        DseParameterSearch.splitString(str).exceptError.map {
           TextValue
         }
       case v if v == classOf[RangeValue] =>
@@ -181,6 +180,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
               .exceptNone(f"invalid value ${index + 1} '$str': not a range: invalid min")
           val max = patMatch.group(2).toFloatOption
               .exceptNone(f"invalid value ${index + 1} '$str': not a range: invalid max")
+          requireExcept(min <= max, f"invalid value ${index + 1}: '$str': lower > upper")
           RangeValue(min, max)
         }
       case v =>
