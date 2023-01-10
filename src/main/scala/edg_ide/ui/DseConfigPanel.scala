@@ -39,7 +39,7 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
       val originalSearchConfigs = dseConfig.options.searchConfigs
       val index = originalSearchConfigs.indexOf(searchConfig)
       requireExcept(index >= 0, "config not found")
-      val newSearchConfigs = originalSearchConfigs.take(index) ++ Seq(parsed) ++ originalSearchConfigs.drop(index + 1)
+      val newSearchConfigs = originalSearchConfigs.patch(index, Seq(parsed), 1)
       dseConfig.options.searchConfigs = newSearchConfigs
       BlockVisualizerService(project).onDseConfigChanged(dseConfig)
     } }
