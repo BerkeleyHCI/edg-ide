@@ -1,7 +1,7 @@
 package edg_ide.dse
 
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, BooleanValue, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
+import edg.compiler.{Compiler, BooleanValue, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue, ArrayValue}
 import edg.util.Errorable
 import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
@@ -214,7 +214,7 @@ case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
 sealed trait DseDerivedSearch extends DseConfigElement { self: Serializable =>
   def getPartialCompile: PartialCompile = PartialCompile()  // basically a no-op
 
-  def configFromDesign(compiledDesign: Compiler): DseConfigElement
+  def configFromDesign(compiledDesign: Compiler): Errorable[DseConfigElement]
 }
 
 
@@ -222,7 +222,13 @@ sealed trait DseDerivedSearch extends DseConfigElement { self: Serializable =>
 case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedSearch with Serializable {
   def configToString: String = f"Parts($path)"
 
-  override def configFromDesign(compiledDesign: Compiler): DseParameterSearch[TextValue] = {
-    // TODO implement me
+  override def configFromDesign(compiledDesign: Compiler): Errorable[DseParameterSearch] = {
+    val matchingPartsPath = path.asIndirect + "matching_parts"
+    compiledDesign.getParamValue(matchingPartsPath) match {
+      case Some(ArrayValue.ExtractText(values)) =>
+        Errorable.Success(DseParameterSearch(path + "part_spec", values.map(TextValue)))
+      case Some(ArrayValue.Empty(_)) => Errorable.Error(f"no matching parts: $matchingPartsPath")
+      case None => Errorable.Error(f"matching parts unavailable: $matchingPartsPath")
+    }
   }
 }
