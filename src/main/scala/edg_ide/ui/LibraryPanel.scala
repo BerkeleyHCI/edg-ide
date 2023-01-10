@@ -9,7 +9,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{PyClass, PyNamedParameter, PyPsiFacade}
+import com.jetbrains.python.psi.{PyClass, PyNamedParameter}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.{Ref, ValueExpr}
 import edg.util.{Errorable, NameCreator}
@@ -37,8 +37,6 @@ import javax.swing.tree.TreePath
 class BlockRootPopupMenu(project: Project) extends JPopupMenu {
   private val contextPyClass = InsertAction.getPyClassOfContext(project)
   private val contextPyName = contextPyClass.mapToString(_.getName)
-
-  private val pyPsi = PyPsiFacade.getInstance(project)
 
   add(new JLabel(s"Blocks"))
   addSeparator()

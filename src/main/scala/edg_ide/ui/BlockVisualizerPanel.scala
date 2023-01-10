@@ -8,12 +8,12 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
+import edg.ElemModifier
 import edg.compiler.{Compiler, CompilerError, DesignMap, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue}
 import edg.wir.{DesignPath, IndirectDesignPath, Library}
-import edg.{ElemBuilder, ElemModifier}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
-import edg_ide.dse.{DseFeature, DseResult}
+import edg_ide.dse.DseFeature
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
@@ -252,6 +252,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // Actions
   //
+  def getDsePanel: DseConfigPanel = dsePanel
+
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
     EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))
   }
@@ -301,20 +303,19 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   /** Sets the design and updates displays accordingly.
     */
   def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
-                   errors: Seq[CompilerError]): Unit = {
+                   errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
+    this.refinements = refinements  // must be updated before updateDisplay called in setDesign
     setDesign(design, compiler)
-    this.refinements = refinements
     tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
     errorPanel.setErrors(errors)
 
     ApplicationManager.getApplication.invokeLater(() => {
-      toolWindow.setTitle(design.getContents.getSelfClass.toSimpleString)
+      toolWindow.setTitle(namePrefix.getOrElse("") + design.getContents.getSelfClass.toSimpleString)
     })
 
     if (activeTool != defaultTool) { // revert to the default tool
       toolInterface.endTool() // TODO should we also preserve state like selected?
     }
-    updateDisplay()
   }
 
   /** Updates the design tree only, where the overall "top design" does not change.
@@ -413,10 +414,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       staleTypes.clear()
     }
     updateStale()
-  }
-
-  def setDseResults(results: Seq[DseResult]): Unit = {
-    dsePanel.setResults(results)
   }
 
   // In place design tree modifications
