@@ -295,7 +295,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.pdfFile.nonEmpty) {
           runFailableStage("generate PDF", indicator) {
-            PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
+            PDFGeneratorUtil.generate(compiled.getContents, mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
             f"wrote ${options.pdfFile}"
           }
         } else {
