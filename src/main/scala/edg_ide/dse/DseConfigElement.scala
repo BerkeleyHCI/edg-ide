@@ -1,7 +1,7 @@
 package edg_ide.dse
 
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{BooleanValue, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
+import edg.compiler.{Compiler, BooleanValue, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable
 import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
@@ -204,5 +204,25 @@ case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
 
   override def getValues: Seq[(ref.LibraryPath, Refinements)] = subclasses.map { value =>
     (value, Refinements(instanceRefinements=Map(path -> value)))
+  }
+}
+
+
+// Search config where the search space is generated from a compiled design.
+// This does not provide additional refinements to the generating compilation,
+// but the search space afterwards may add refinements
+sealed trait DseDerivedSearch extends DseConfigElement { self: Serializable =>
+  def getPartialCompile: PartialCompile = PartialCompile()  // basically a no-op
+
+  def configFromDesign(compiledDesign: Compiler): DseConfigElement
+}
+
+
+// Search config of all matching parts from a test compile run
+case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedSearch with Serializable {
+  def configToString: String = f"Parts($path)"
+
+  override def configFromDesign(compiledDesign: Compiler): DseParameterSearch[TextValue] = {
+    // TODO implement me
   }
 }
