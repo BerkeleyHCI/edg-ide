@@ -5,6 +5,7 @@ import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import de.siegmar.fastcsv.writer.CsvWriter
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
@@ -20,8 +21,8 @@ import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
 
-class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, console: ConsoleView)
-    extends ProcessHandler {
+class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, val console: ConsoleView)
+    extends ProcessHandler with HasConsoleStages {
   var runThread: Option[Thread] = None
 
   override def destroyProcessImpl(): Unit = {
@@ -87,7 +88,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
       case config: DseDerivedConfig => Right(config)
     }
 
-    val allValueRefinements = crossProduct(staticConfigs.map {
+    val staticSearchRefinements = crossProduct(staticConfigs.map {
       searchConfig => searchConfig.getValues.map{ case (value, refinement) =>
         (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
       }
@@ -111,24 +112,21 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
         // compared to the single design compiler the debug info is a lot sparser here
-        indicator.setText("EDG searching: rebuilding libraries")
-        indicator.setIndeterminate(true)
-        EdgCompilerService(project).discardStale()
-        val designModule = options.designName.split('.').init.mkString(".")
-        val (indexed, indexTime, rebuildTime) = EdgCompilerService(project).rebuildLibraries(designModule, None)
-            .mapErr {
-          msg => s"while rebuilding libraries: $msg"
-        }.get
-        console.print(s"Rebuilt ${indexed.size} library elements\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
+        runFailableStage("discard stale", indicator) {
+          val discarded = EdgCompilerService(project).discardStale()
+          s"${discarded.size} library elements"
+        }
 
-        indicator.setText("EDG searching: compile base design")
+        runFailableStage("rebuild libraries", indicator) {
+          val designModule = options.designName.split('.').init.mkString(".")
+          val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, None).get
+          f"${indexed.size} elements"
+        }
+
         val designType = ElemBuilder.LibraryPath(options.designName)
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
         val design = schema.Design(contents = Some(block))
-
-        console.print(s"Compile base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
         val partialCompile = options.searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
         val (removedRefinements, refinements) = Refinements(refinementsPb).partitionBy(
           partialCompile.blocks.toSet, partialCompile.params.toSet
@@ -137,65 +135,60 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
           console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)
         }
 
-        val (commonCompiler, commonCompileTime) = timeExec {
+        val commonCompiler = runRequiredStage("compile base design", indicator) {
           val commonCompiler = new Compiler(design, EdgCompilerService(project).pyLib,
             refinements = refinements, partial = partialCompile)
           commonCompiler.compile()
-          commonCompiler
+          (commonCompiler, "")
         }
-        console.print(s"($commonCompileTime ms) compiled base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
 
         val results = mutable.ListBuffer[DseResult]()
-        for (((searchValues, searchRefinement), searchIndex) <- allValueRefinements.zipWithIndex) {
-          console.print(s"Compile ${DseConfigElement.configMapToString(searchValues)}\n",
-            ConsoleViewContentType.SYSTEM_OUTPUT)
-          indicator.setText(f"EDG searching: design space ${searchIndex + 1} / ${allValueRefinements.size}")
-          indicator.setIndeterminate(false)
-          indicator.setFraction(searchIndex.toFloat / allValueRefinements.size)
+        runFailableStage("design space search", indicator) {
+          // outer (static configuration) loop
+          for (((staticSearchValues, staticSearchRefinement), staticIndex) <- staticSearchRefinements.zipWithIndex) {
+            indicator.setIndeterminate(false)
+            indicator.setFraction(staticIndex.toFloat / staticSearchRefinements.size)
 
-          val (compiler, forkTime) = timeExec {
-            commonCompiler.fork(searchRefinement)
+            val compiler = commonCompiler.fork(staticSearchRefinement)
+            val (compiled, compileTime) = timeExec {
+              compiler.compile()
+            }
+            val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+                new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+
+            val solvedValues = compiler.getAllSolved
+            val objectiveValues = options.objectives.map { case (name, objective) =>
+              name -> objective.calculate(compiled, solvedValues)
+            }
+
+            val result = DseResult(staticIndex, staticSearchValues,
+              staticSearchRefinement, refinements ++ staticSearchRefinement,
+              compiler, compiled, errors, objectiveValues, compileTime)
+            results.append(result)
+
+            if (errors.nonEmpty) {
+              console.print(s"${errors.size} errors, ${result.objectiveToString} ($compileTime ms)\n",
+                ConsoleViewContentType.ERROR_OUTPUT)
+            } else {
+              console.print(s"${result.objectiveToString} ($compileTime ms)\n",
+                ConsoleViewContentType.SYSTEM_OUTPUT)
+            }
+
+            // Write to CSV
+            csvFile.foreach { case (fileWriter, csv) =>
+              csv.writeRow((Seq(staticIndex.toString, errors.length.toString) ++
+                  staticSearchValues.map { case (config, value) => DseConfigElement.valueToString(value) } ++
+                  objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
+              fileWriter.flush()
+            }
           }
-          val (compiled, compileTime) = timeExec {
-            compiler.compile()
-          }
-
-          val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-            new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
-
-          val solvedValues = compiler.getAllSolved
-          val objectiveValues = options.objectives.map { case (name, objective) =>
-            name -> objective.calculate(compiled, solvedValues)
-          }
-
-          val result = DseResult(searchIndex, searchValues, searchRefinement, refinements ++ searchRefinement,
-            compiler, compiled, errors, objectiveValues, compileTime)
-          results.append(result)
-
-          if (errors.nonEmpty) {
-            console.print(s"($forkTime + $compileTime ms) ${errors.size} errors, ${result.objectiveToString}\n",
-              ConsoleViewContentType.ERROR_OUTPUT)
-          } else {
-            console.print(s"($forkTime + $compileTime ms) ${result.objectiveToString}\n",
-              ConsoleViewContentType.SYSTEM_OUTPUT)
-          }
-
-          // Write to CSV
-          csvFile.foreach { case (fileWriter, csv) =>
-            csv.writeRow((Seq(searchIndex.toString, errors.length.toString) ++
-                searchValues.map{case (config, value) => DseConfigElement.valueToString(value)} ++
-                objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
-            fileWriter.flush()
-          }
-        }
-        indicator.setText(f"EDG searching: finalizing")
-        indicator.setFraction(1)
-
-        csvFile.foreach { case (fileWriter, csv) =>
-          csv.close()
+          s"${results.length} configurations"
         }
 
-        BlockVisualizerService(project).setDseResults(results.toSeq)  // plumb results to UI
+        runFailableStage("update visualization", indicator) {
+          BlockVisualizerService(project).setDseResults(results.toSeq)  // plumb results to UI
+          ""
+        }
       }
     } catch {
       case e: Throwable =>
@@ -207,6 +200,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         e.printStackTrace(new PrintWriter(stackWriter))
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
+
+    csvFile.foreach { case (fileWriter, csv) =>
+      runFailableStage("closing CSV", indicator) {
+        csv.close()
+        f"closed ${options.resultCsvFile}"
+      }
+    }
+
     terminatedNotify(exitCode)
   }
 }
