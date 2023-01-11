@@ -41,7 +41,7 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
     } else {
       ""
     }
-    override val config = f"Set of ${setMembers.length}" + errString
+    override val config = f"${setMembers.length} points" + errString
     override lazy val children = setMembers.map(result => new ResultNode(result))
     override def getColumns(index: Int): String = columnToObjectiveName.get(index) match {
       case Some(objectiveName) => exampleResult.objectives.get(objectiveName) match {

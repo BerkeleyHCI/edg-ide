@@ -1,5 +1,6 @@
 package edg_ide.dse
 import edg.compiler.{ArrayValue, BooleanValue, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.ui.{EdgSettingsState, KicadParser}
 import edgir.elem.elem.HierarchyBlock
@@ -86,8 +87,8 @@ case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
-        val thisValues = if (path.startsWith(rootPath) && block.params.contains("fp_footprint")) 1 else 0
-        thisValues + blocks.values.sum
+        val thisValue = if (path.startsWith(rootPath) && block.params.toSeqMap.contains("fp_footprint")) 1 else 0
+        thisValue + blocks.values.sum
       }
     }.map(design)
   }
