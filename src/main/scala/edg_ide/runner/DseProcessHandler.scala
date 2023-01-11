@@ -180,7 +180,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
               val compiler = staticOuterCompiler.fork(derivedSearchRefinement)
               val (compiled, compileTime) = timeExec {
-                generatingCompiler.compile()
+                compiler.compile()
               }
 
               val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
@@ -198,10 +198,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               results.append(result)
 
               if (errors.nonEmpty) {
-                console.print(s"Result $resultIndex: ${errors.size} errors, ${result.objectiveToString} ($compileTime ms)\n",
+                console.print(s"Result $resultIndex, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
                   ConsoleViewContentType.ERROR_OUTPUT)
               } else {
-                console.print(s"Result $resultIndex: ${result.objectiveToString} ($compileTime ms)\n",
+                console.print(s"Result $resultIndex ($compileTime ms): ${result.objectiveToString}\n",
                   ConsoleViewContentType.SYSTEM_OUTPUT)
               }
 
