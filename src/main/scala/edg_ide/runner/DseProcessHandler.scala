@@ -41,7 +41,7 @@ class SingleThreadRunner() {
   }
 
   def join(): Unit = {
-    thread.map { _.join() }
+    thread.foreach { _.join() }
   }
 }
 
