@@ -88,15 +88,13 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       case config: DseDerivedConfig => Right(config)
     }
 
-    val staticSearchRefinements = crossProduct(staticConfigs.map {
-      searchConfig => searchConfig.getValues.map{ case (value, refinement) =>
-        (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
+    val staticSearchRefinements = crossProduct(staticConfigs.map { searchConfig =>  // generate values for each config
+      searchConfig.getValues.map { case (value, refinement) =>
+        (searchConfig -> value, refinement)  // tag config onto the value
       }
-    }).map { valueRefinements =>
+    }).map { valueRefinements =>  // combine values across the configs
       val (values, refinements) = valueRefinements.unzip
-      val combinedRefinement = refinements.reduce(_ ++ _)
-      val valuesMap = values.to(SeqMap)
-      (valuesMap, combinedRefinement)
+      (values.to(SeqMap), refinements.reduce(_ ++ _))
     }
 
     try {
@@ -144,42 +142,68 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         val results = mutable.ListBuffer[DseResult]()
         runFailableStage("design space search", indicator) {
-          // outer (static configuration) loop
+          // Outer (static configuration) loop
           for (((staticSearchValues, staticSearchRefinement), staticIndex) <- staticSearchRefinements.zipWithIndex) {
             indicator.setIndeterminate(false)
             indicator.setFraction(staticIndex.toFloat / staticSearchRefinements.size)
 
-            val compiler = commonCompiler.fork(staticSearchRefinement)
-            val (compiled, compileTime) = timeExec {
-              compiler.compile()
-            }
-            val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-                new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
-
-            val solvedValues = compiler.getAllSolved
-            val objectiveValues = options.objectives.map { case (name, objective) =>
-              name -> objective.calculate(compiled, solvedValues)
-            }
-
-            val result = DseResult(staticIndex, staticSearchValues,
-              staticSearchRefinement, refinements ++ staticSearchRefinement,
-              compiler, compiled, errors, objectiveValues, compileTime)
-            results.append(result)
-
-            if (errors.nonEmpty) {
-              console.print(s"${errors.size} errors, ${result.objectiveToString} ($compileTime ms)\n",
-                ConsoleViewContentType.ERROR_OUTPUT)
-            } else {
-              console.print(s"${result.objectiveToString} ($compileTime ms)\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
+            // for the derived case, compile with the static refinements, but hold back the derived configs
+            val staticOuterCompiler = commonCompiler.fork(staticSearchRefinement,
+              partial=derivedConfigs.map(_.getPartialCompile).reduce(_ ++ _))
+            staticOuterCompiler.compile()
+            // if there are derived configs, do a full compile to obtain the derived search space
+            // TODO: if there aren't derived configs, skip this
+            val generatingCompiler = staticOuterCompiler.fork()
+            val (generatingCompiled, compileTime) = timeExec {
+              generatingCompiler.compile()
             }
 
-            // Write to CSV
-            csvFile.foreach { case (fileWriter, csv) =>
-              csv.writeRow((Seq(staticIndex.toString, errors.length.toString) ++
-                  staticSearchValues.map { case (config, value) => DseConfigElement.valueToString(value) } ++
-                  objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
-              fileWriter.flush()
+            // Inner loop: derived configs and record results
+            val derivedConfigVals = derivedConfigs.map { _.configFromDesign(generatingCompiler) }
+            val derivedSearchRefinements = crossProduct(staticConfigs.map { searchConfig => // TODO dedup w/ static case
+              searchConfig.getValues.map { case (value, refinement) =>
+                (searchConfig -> value, refinement) // tag config onto the value
+              }
+            }).map { valueRefinements => // combine values across the configs
+              val (values, refinements) = valueRefinements.unzip
+              (values.to(SeqMap), refinements.reduce(_ ++ _))
+            }
+
+
+            for (((derivedSearchValues, derivedSearchRefinement), derivedIndex) <- derivedSearchRefinements.zipWithIndex) {
+              // TODO FIXME
+              val compiled = generatingCompiled
+              val compiler = generatingCompiler
+
+              val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+                  new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+
+              val solvedValues = compiler.getAllSolved
+              val objectiveValues = options.objectives.map { case (name, objective) =>
+                name -> objective.calculate(compiled, solvedValues)
+              }
+
+              val resultValues = staticSearchValues.map { case (config, value) => config.asInstanceOf[DseConfigElement] -> value }
+              val result = DseResult(staticIndex, resultValues,
+                staticSearchRefinement, refinements ++ staticSearchRefinement,
+                compiler, compiled, errors, objectiveValues, compileTime)
+              results.append(result)
+
+              if (errors.nonEmpty) {
+                console.print(s"${errors.size} errors, ${result.objectiveToString} ($compileTime ms)\n",
+                  ConsoleViewContentType.ERROR_OUTPUT)
+              } else {
+                console.print(s"${result.objectiveToString} ($compileTime ms)\n",
+                  ConsoleViewContentType.SYSTEM_OUTPUT)
+              }
+
+              // Write to CSV
+              csvFile.foreach { case (fileWriter, csv) =>
+                csv.writeRow((Seq(staticIndex.toString, errors.length.toString) ++
+                    staticSearchValues.map { case (config, value) => DseConfigElement.valueToString(value) } ++
+                    objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
+                fileWriter.flush()
+              }
             }
           }
           s"${results.length} configurations"
