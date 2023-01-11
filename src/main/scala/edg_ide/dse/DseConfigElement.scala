@@ -39,7 +39,7 @@ sealed trait DseConfigElement { self: Serializable =>
 
 
 // Abstract trait for a config that is static, that is, the search space does not depend on a compilation run.
-sealed trait DseStaticConfig { self: Serializable =>
+sealed trait DseStaticConfig extends DseConfigElement { self: Serializable =>
 }
 
 
