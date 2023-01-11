@@ -2,7 +2,8 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.{TreeTable, TreeTableModel}
 import edg.EdgirUtils.SimpleLibraryPath
-import edg_ide.dse.{DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
+import edg.wir.DesignPath
+import edg_ide.dse.{DseConfigElement, DseDerivedPartSearch, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -45,6 +46,7 @@ object DseConfigTreeNode {
     override lazy val children = configs.map {
       case config: DseParameterSearch => new DseParameterSearchNode(config)
       case config: DseSubclassSearch => new DseSubclassSearchNode(config)
+      case config: DseDerivedPartSearch => new DseSearchConfigSingleNode(config.path, "Matching Parts")
     }
     override val path = "Search Configs"
     override val value = ""
@@ -52,9 +54,9 @@ object DseConfigTreeNode {
 
   class Objectives(objectives: SeqMap[String, DseObjective[Any]]) extends DseConfigTreeNode {
     override lazy val children =  objectives.map { case (name, objective) => objective match {
-      case config: DseObjectiveParameter => new DseObjectiveParameterNode(name, config)
-      case config: DseObjectiveFootprintArea => new DseObjectiveFootprintAreaNode(name, config)
-      case config: DseObjectiveFootprintCount => new DseObjectiveFootprintCountNode(name, config)
+      case config: DseObjectiveParameter => new DseObjectiveSingleNode(name, f"Parameter @ ${config.path}")
+      case config: DseObjectiveFootprintArea => new DseObjectiveSingleNode(name, f"Footprint Area in ${config.rootPath}")
+      case config: DseObjectiveFootprintCount => new DseObjectiveSingleNode(name, f"Footprint Count in ${config.rootPath}")
     } }.toSeq
     override val path = "Objective Functions"
     override val value = ""
@@ -62,6 +64,11 @@ object DseConfigTreeNode {
 
   sealed trait DseSearchConfigNode extends DseConfigTreeNode {
     def config: DseConfigElement
+  }
+
+  class DseSearchConfigSingleNode(nodePath: DesignPath, val value: String) extends DseConfigTreeNode {
+    override val path = nodePath.toString
+    override lazy val children = Seq()
   }
 
   class DseParameterSearchNode(val config: DseParameterSearch) extends DseSearchConfigNode {
@@ -84,21 +91,8 @@ object DseConfigTreeNode {
     def config: DseObjective[Any]
   }
 
-  class DseObjectiveParameterNode(name: String, val config: DseObjectiveParameter) extends DseObjectiveNode {
+  class DseObjectiveSingleNode(name: String, val value: String) extends DseConfigTreeNode {
     override val path = name
-    override val value = f"Parameter @ ${config.path}"
-    override lazy val children = Seq()
-  }
-
-  class DseObjectiveFootprintAreaNode(name: String, val config: DseObjectiveFootprintArea) extends DseObjectiveNode {
-    override val path = name
-    override val value = f"Footprint Area in ${config.rootPath}"
-    override lazy val children = Seq()
-  }
-
-  class DseObjectiveFootprintCountNode(name: String, val config: DseObjectiveFootprintCount) extends DseObjectiveNode {
-    override val path = name
-    override val value = f"Footprint Count in ${config.rootPath}"
     override lazy val children = Seq()
   }
 }

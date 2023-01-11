@@ -237,6 +237,7 @@ case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedConfig with 
       case Some(ArrayValue.ExtractText(values)) =>
         Errorable.Success(DseParameterSearch(path + "part_spec", values.map(TextValue)))
       case Some(ArrayValue.Empty(_)) => Errorable.Error(f"no matching parts: $matchingPartsPath")
+      case Some(value) => Errorable.Error(f"invalid matching parts: $matchingPartsPath = ${value.toStringValue}")
       case None => Errorable.Error(f"matching parts unavailable: $matchingPartsPath")
     }
   }
