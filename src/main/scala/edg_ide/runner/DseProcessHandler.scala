@@ -255,9 +255,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           s"${results.length} configurations"
         }
 
-        uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
-
         runFailableStage("update visualization", indicator) {
+          uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
           BlockVisualizerService(project).setDseResults(results.toSeq, false)  // plumb results to UI
           ""
         }
