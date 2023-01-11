@@ -76,11 +76,11 @@ class DseConfigPanel(project: Project) extends JPanel {
       case Some(config) =>
         separator.setText(f"Design Space Exploration: ${config.getName}")
         TreeTableUtils.updateModel(configTree, new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
+        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq(), false))  // clear existing data
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
         TreeTableUtils.updateModel(configTree, new DseConfigTreeTableModel(Seq(), SeqMap()))
-        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq()))  // clear existing data
+        TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(Seq(), false))  // clear existing data
     }
   }
 
@@ -90,8 +90,8 @@ class DseConfigPanel(project: Project) extends JPanel {
     }
   }
 
-  def setResults(results: Seq[DseResult]): Unit = {
-    TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(results))
+  def setResults(results: Seq[DseResult], inProgress: Boolean): Unit = {
+    TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(results, inProgress))
   }
 
   setLayout(new GridBagLayout())
@@ -132,7 +132,7 @@ class DseConfigPanel(project: Project) extends JPanel {
 
   // GUI: Results Tab
   //
-  private val resultsTree = new TreeTable(new DseResultTreeTableModel(Seq()))
+  private val resultsTree = new TreeTable(new DseResultTreeTableModel(Seq(), false))
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
   resultsTree.addMouseListener(new MouseAdapter {

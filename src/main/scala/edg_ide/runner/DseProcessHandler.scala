@@ -46,6 +46,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    BlockVisualizerService(project).setDseResults(Seq(), true)  // show searching in UI
 
     // Open a CSV file (if desired) and write result rows as they are computed.
     // This is done first to empty out the result file, if one already exists.
@@ -205,6 +206,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                   ConsoleViewContentType.SYSTEM_OUTPUT)
               }
 
+              // Update UI reuslts
+              BlockVisualizerService(project).setDseResults(results.toSeq, true)  // plumb results to UI
+
               // Write to CSV
               csvFile.foreach { case (fileWriter, csv) =>
                 csv.writeRow((Seq(staticIndex.toString, errors.length.toString) ++
@@ -221,7 +225,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         }
 
         runFailableStage("update visualization", indicator) {
-          BlockVisualizerService(project).setDseResults(results.toSeq)  // plumb results to UI
+          BlockVisualizerService(project).setDseResults(results.toSeq, false)  // plumb results to UI
           ""
         }
       }
