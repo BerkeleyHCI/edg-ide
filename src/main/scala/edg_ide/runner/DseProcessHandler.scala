@@ -5,7 +5,6 @@ import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
 import de.siegmar.fastcsv.writer.CsvWriter
-import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
@@ -19,6 +18,32 @@ import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
+
+
+/** Utility class that allows one running instance at any time, additional runIfIdle requests are discarded.
+  * Useful for background-able tasks that can return an outdated result, eg UI updates.
+  *
+  * This in itself is not thread-safe!
+  */
+class SingleThreadRunner() {
+  var thread: Option[Thread] = None
+
+  def runIfIdle(runnable: => Unit): Unit = {
+    if (thread.isEmpty || thread.get.getState == Thread.State.TERMINATED) {
+      val newThread = new Thread() {
+        override def run(): Unit = {
+          runnable
+        }
+      }
+      newThread.start()
+      thread = Some(newThread)
+    }
+  }
+
+  def join(): Unit = {
+    thread.map { _.join() }
+  }
+}
 
 
 class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, val console: ConsoleView)
@@ -46,7 +71,12 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
-    BlockVisualizerService(project).setDseResults(Seq(), true)  // show searching in UI
+
+    // the UI update is in a thread so it doesn't block the main search loop
+    val uiUpdater = new SingleThreadRunner()
+    uiUpdater.runIfIdle {
+      BlockVisualizerService(project).setDseResults(Seq(), true)  // show searching in UI
+    }
 
     // Open a CSV file (if desired) and write result rows as they are computed.
     // This is done first to empty out the result file, if one already exists.
@@ -205,9 +235,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                   ConsoleViewContentType.SYSTEM_OUTPUT)
               }
 
-              // Update UI reuslts
-              BlockVisualizerService(project).setDseResults(results.toSeq, true)  // plumb results to UI
-
               // Write to CSV
               csvFile.foreach { case (fileWriter, csv) =>
                 csv.writeRow((Seq(staticIndex.toString, errors.length.toString) ++
@@ -216,12 +243,19 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 fileWriter.flush()
               }
 
-              System.gc()  // clean up after this compile run
+              // only have one UI update in progress at any time
+              uiUpdater.runIfIdle {
+                System.gc() // clean up after this compile run
+                BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
+              }
+
               resultIndex += 1
             }
           }
           s"${results.length} configurations"
         }
+
+        uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
 
         runFailableStage("update visualization", indicator) {
           BlockVisualizerService(project).setDseResults(results.toSeq, false)  // plumb results to UI
