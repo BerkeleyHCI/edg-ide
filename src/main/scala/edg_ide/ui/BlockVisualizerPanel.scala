@@ -341,13 +341,20 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
+    val currentFocusPath = focusPath
     val currentDesign = design
+    val currentCompiler = compiler
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
-      val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, currentDesign)
-      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(block, blockPath, depthSpinner.getNumber)
-      val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
-      tooltipTextMap.map(design)
+      val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
+      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(
+        block, blockPath, depthSpinner.getNumber,
+        // note, adding port side constraints with hierarchy seems to break ELK
+        Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
+          ElkEdgirGraphUtils.DesignPathMapper)
+      )
+      val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
+      tooltipTextMap.map(currentDesign)
 
       (layoutGraphRoot, tooltipTextMap.getTextMap)
     }): Callable[(ElkNode, Map[DesignPath, String])])
@@ -447,7 +454,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 }
 
 
-class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignMap[Unit, Unit, Unit] {
+class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
   // TODO this really doesn't belong in the IDE
   // Instead there should be a way to specify short descriptions in the HDL
   // Perhaps also short names

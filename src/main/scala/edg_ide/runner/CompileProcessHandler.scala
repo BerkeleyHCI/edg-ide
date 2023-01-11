@@ -16,7 +16,7 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
-import edg_ide.edgir_graph.HierarchyGraphElk
+import edg_ide.edgir_graph.{ElkEdgirGraphUtils, HierarchyGraphElk}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
@@ -295,7 +295,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.pdfFile.nonEmpty) {
           runFailableStage("generate PDF", indicator) {
-            PDFGeneratorUtil.generate(compiled.getContents, options.pdfFile)
+            PDFGeneratorUtil.generate(compiled.getContents, mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
             f"wrote ${options.pdfFile}"
           }
         } else {

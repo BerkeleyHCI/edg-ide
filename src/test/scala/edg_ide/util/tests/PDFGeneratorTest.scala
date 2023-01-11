@@ -70,7 +70,7 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
       ).toPb,
     )
 
-    PDFGeneratorUtil.generate(blockIr, "unit_test.pdf")
+    PDFGeneratorUtil.generate(blockIr, fileName="unit_test.pdf")
 
     val bufferedInputStream = new BufferedInputStream(new FileInputStream("unit_test.pdf"))
     val byteArray = LazyList.continually(bufferedInputStream.read).takeWhile(-1 !=).map(_.toByte).toArray
