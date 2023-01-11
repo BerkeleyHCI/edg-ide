@@ -141,6 +141,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         }
 
         val results = mutable.ListBuffer[DseResult]()
+        var resultIndex: Int = 0
         runFailableStage("design space search", indicator) {
           // Outer (static configuration) loop
           for (((staticSearchValues, staticSearchRefinement), staticIndex) <- staticSearchRefinements.zipWithIndex) {
@@ -159,8 +160,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
             }
 
             // Inner loop: derived configs and record results
-            val derivedConfigVals = derivedConfigs.map { _.configFromDesign(generatingCompiler) }
-            val derivedSearchRefinements = crossProduct(staticConfigs.map { searchConfig => // TODO dedup w/ static case
+            val derivedConfigVals = derivedConfigs.map { _.configFromDesign(generatingCompiler).get }  // TODO handle errors better
+            val derivedSearchRefinements = crossProduct(derivedConfigVals.map { searchConfig => // TODO dedup w/ static case
               searchConfig.getValues.map { case (value, refinement) =>
                 (searchConfig -> value, refinement) // tag config onto the value
               }
@@ -169,11 +170,18 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               (values.to(SeqMap), refinements.reduce(_ ++ _))
             }
 
+            if (derivedConfigs.nonEmpty) {
+              console.print(s"${derivedSearchRefinements.size} derived points\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+            }
 
             for (((derivedSearchValues, derivedSearchRefinement), derivedIndex) <- derivedSearchRefinements.zipWithIndex) {
-              // TODO FIXME
-              val compiled = generatingCompiled
-              val compiler = generatingCompiler
+              indicator.setFraction((staticIndex.toFloat + derivedIndex.toFloat / derivedSearchRefinements.size)
+                  / staticSearchRefinements.size)
+
+              val compiler = staticOuterCompiler.fork(derivedSearchRefinement)
+              val (compiled, compileTime) = timeExec {
+                generatingCompiler.compile()
+              }
 
               val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
                   new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
@@ -183,17 +191,17 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 name -> objective.calculate(compiled, solvedValues)
               }
 
-              val resultValues = staticSearchValues.map { case (config, value) => config.asInstanceOf[DseConfigElement] -> value }
-              val result = DseResult(staticIndex, resultValues,
-                staticSearchRefinement, refinements ++ staticSearchRefinement,
+              val resultValues = (staticSearchValues ++ derivedSearchValues).map { case (config, value) => config.asInstanceOf[DseConfigElement] -> value }
+              val result = DseResult(resultIndex, resultValues,
+                staticSearchRefinement ++ derivedSearchRefinement, refinements ++ staticSearchRefinement ++ derivedSearchRefinement,
                 compiler, compiled, errors, objectiveValues, compileTime)
               results.append(result)
 
               if (errors.nonEmpty) {
-                console.print(s"${errors.size} errors, ${result.objectiveToString} ($compileTime ms)\n",
+                console.print(s"Result $resultIndex: ${errors.size} errors, ${result.objectiveToString} ($compileTime ms)\n",
                   ConsoleViewContentType.ERROR_OUTPUT)
               } else {
-                console.print(s"${result.objectiveToString} ($compileTime ms)\n",
+                console.print(s"Result $resultIndex: ${result.objectiveToString} ($compileTime ms)\n",
                   ConsoleViewContentType.SYSTEM_OUTPUT)
               }
 
@@ -204,6 +212,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                     objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
                 fileWriter.flush()
               }
+
+              System.gc()  // clean up after this compile run
+              resultIndex += 1
             }
           }
           s"${results.length} configurations"

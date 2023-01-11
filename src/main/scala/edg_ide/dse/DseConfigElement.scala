@@ -219,7 +219,7 @@ case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
 // partial_compile here does not apply to the generating compilation,
 // only to the inner search loop.
 sealed trait DseDerivedConfig extends DseConfigElement { self: Serializable =>
-  def configFromDesign(compiledDesign: Compiler): Errorable[DseConfigElement]
+  def configFromDesign(compiledDesign: Compiler): Errorable[DseRefinementElement[Any]]
 }
 
 
@@ -228,14 +228,14 @@ case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedConfig with 
   def configToString: String = f"Parts($path)"
 
   override def getPartialCompile: PartialCompile = {
-    PartialCompile(params=Seq(path + "part_spec"))
+    PartialCompile(params=Seq(path + "part"))
   }
 
   override def configFromDesign(compiledDesign: Compiler): Errorable[DseParameterSearch] = {
     val matchingPartsPath = path.asIndirect + "matching_parts"
     compiledDesign.getParamValue(matchingPartsPath) match {
       case Some(ArrayValue.ExtractText(values)) =>
-        Errorable.Success(DseParameterSearch(path + "part_spec", values.map(TextValue)))
+        Errorable.Success(DseParameterSearch(path + "part", values.map(TextValue)))
       case Some(ArrayValue.Empty(_)) => Errorable.Error(f"no matching parts: $matchingPartsPath")
       case Some(value) => Errorable.Error(f"invalid matching parts: $matchingPartsPath = ${value.toStringValue}")
       case None => Errorable.Error(f"matching parts unavailable: $matchingPartsPath")
