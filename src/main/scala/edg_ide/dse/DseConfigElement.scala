@@ -38,8 +38,13 @@ sealed trait DseConfigElement { self: Serializable =>
 }
 
 
+// Abstract trait for a config that is static, that is, the search space does not depend on a compilation run.
+sealed trait DseStaticConfig { self: Serializable =>
+}
+
+
 // DSE element that generates into a set of refinements with no dynamic dependencies
-sealed trait DseRefinementElement[+ValueType] extends DseConfigElement { self: Serializable =>
+sealed trait DseRefinementElement[+ValueType] extends DseStaticConfig { self: Serializable =>
   // Returns a list of possibilities, as both a raw value and a refinement
   def getValues: Seq[(ValueType, Refinements)]
 }
@@ -213,13 +218,13 @@ case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
 // but the search space afterwards may add refinements.
 // partial_compile here does not apply to the generating compilation,
 // only to the inner search loop.
-sealed trait DseDerivedSearch extends DseConfigElement { self: Serializable =>
+sealed trait DseDerivedConfig extends DseConfigElement { self: Serializable =>
   def configFromDesign(compiledDesign: Compiler): Errorable[DseConfigElement]
 }
 
 
 // Search config of all matching parts from a test compile run
-case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedSearch with Serializable {
+case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedConfig with Serializable {
   def configToString: String = f"Parts($path)"
 
   override def getPartialCompile: PartialCompile = {

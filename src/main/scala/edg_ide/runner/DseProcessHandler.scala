@@ -9,7 +9,7 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
-import edg_ide.dse.{DseConfigElement, DseDerivedSearch, DseRefinementElement, DseResult}
+import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseRefinementElement, DseResult}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
@@ -84,7 +84,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
 
     val (staticConfigs, derivedConfigs) = options.searchConfigs.partitionMap {
       case config: DseRefinementElement[Any] => Left(config)
-      case config: DseDerivedSearch => Right(config)
+      case config: DseDerivedConfig => Right(config)
     }
 
     val allValueRefinements = crossProduct(staticConfigs.map {
