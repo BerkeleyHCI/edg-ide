@@ -154,10 +154,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               partial=derivedConfigs.map(_.getPartialCompile).reduce(_ ++ _))
             staticOuterCompiler.compile()
             // if there are derived configs, do a full compile to obtain the derived search space
-            // TODO: if there aren't derived configs, skip this
-            val generatingCompiler = staticOuterCompiler.fork()
-            val (generatingCompiled, compileTime) = timeExec {
-              generatingCompiler.compile()
+            val ((generatingCompiler, generatingCompiled), compileTime) = timeExec {
+              val generatingCompiler = staticOuterCompiler.fork()
+              val generatingCompiled = generatingCompiler.compile()
+              (generatingCompiler, generatingCompiled)
             }
 
             // Inner loop: derived configs and record results
@@ -170,22 +170,21 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               val (values, refinements) = valueRefinements.unzip
               (values.to(SeqMap), refinements.reduce(_ ++ _))
             }
-
             if (derivedConfigs.nonEmpty) {
               console.print(s"${derivedSearchRefinements.size} derived points\n", ConsoleViewContentType.SYSTEM_OUTPUT)
             }
 
+            // TODO support non-derived case
             for (((derivedSearchValues, derivedSearchRefinement), derivedIndex) <- derivedSearchRefinements.zipWithIndex) {
               indicator.setFraction((staticIndex.toFloat + derivedIndex.toFloat / derivedSearchRefinements.size)
                   / staticSearchRefinements.size)
-
-              val compiler = staticOuterCompiler.fork(derivedSearchRefinement)
-              val (compiled, compileTime) = timeExec {
-                compiler.compile()
+              val ((compiler, compiled, errors), compileTime) = timeExec {
+                val compiler = staticOuterCompiler.fork(derivedSearchRefinement)
+                val compiled = compiler.compile()
+                val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+                    new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+                (compiler, compiled, errors)
               }
-
-              val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-                  new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
               val solvedValues = compiler.getAllSolved
               val objectiveValues = options.objectives.map { case (name, objective) =>
