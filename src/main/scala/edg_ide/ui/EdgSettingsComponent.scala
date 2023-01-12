@@ -22,7 +22,6 @@ class EdgSettingsComponent {
     + "Persists compiled blocks across IDE restarts for a faster first compile. "
     + "May not detect HDL changes when the IDE is not running.")
   persistBlockCacheHelp.setEnabled(false)
-  persistBlockCacheHelp.setAllowAutoWrapping(true)
 
   val mainPanel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
