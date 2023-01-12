@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 )
 public class EdgSettingsState implements PersistentStateComponent<EdgSettingsState> {
     public String kicadDirectory = "";
+    public boolean persistBlockCache = false;
 
 
     public static EdgSettingsState getInstance() {
