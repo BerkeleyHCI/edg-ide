@@ -60,8 +60,8 @@ object DseCsvWriter {
 
 class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[DseConfigElement],
                    objectives: SeqMap[String, DseObjective[Any]]) {
-  val objectiveNames = objectives.keys.toSeq
-  val searchNames = searchConfigs.map(_.configToString)
+  private val objectiveNames = objectives.keys.toSeq
+  private val searchNames = searchConfigs.map(_.configToString)
 
   csv.writeRow((Seq("index", "errors") ++ searchNames ++ objectiveNames).asJava) // write header row
   writer.flush()
@@ -257,9 +257,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 name -> objective.calculate(compiled, solvedValues)
               }
 
-              val resultValues = staticSearchValues ++ derivedSearchValues
-              val result = DseResult(resultIndex, resultValues,
-                staticSearchRefinement ++ derivedSearchRefinement, refinements ++ staticSearchRefinement ++ derivedSearchRefinement,
+              val result = DseResult(resultIndex, staticSearchValues ++ derivedSearchValues,
+                staticSearchRefinement ++ derivedSearchRefinement,
+                refinements ++ staticSearchRefinement ++ derivedSearchRefinement,
                 compiler, compiled, errors, objectiveValues, compileTime)
 
               if (errors.nonEmpty) {
