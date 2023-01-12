@@ -9,7 +9,7 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
-import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseRefinementElement, DseResult}
+import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseObjective, DseRefinementElement, DseResult}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
@@ -43,6 +43,46 @@ class SingleThreadRunner() {
   def join(): Unit = {
     thread.foreach { _.join() }
   }
+}
+
+
+/** Utility class for writing CSV output for design space exploration
+  */
+object DseCsvWriter {
+  def apply(writer: java.io.Writer, elts: Seq[DseConfigElement],
+            objectives: SeqMap[String, DseObjective[Any]]): Option[DseCsvWriter] = {
+    Option(CsvWriter.builder().build(writer)).map { csv =>
+      new DseCsvWriter(writer, csv, elts, objectives)
+    }
+  }
+}
+
+
+class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[DseConfigElement],
+                   objectives: SeqMap[String, DseObjective[Any]]) {
+  val objectiveNames = objectives.keys.toSeq
+  val searchNames = searchConfigs.map(_.configToString)
+
+  csv.writeRow((Seq("index", "errors") ++ searchNames ++ objectiveNames).asJava) // write header row
+  writer.flush()
+
+  def writeRow(result: DseResult): Unit = {
+    val headerCols = Seq(result.index.toString, result.errors.length.toString)
+    val searchValueCols = searchConfigs.map {
+      config => DseConfigElement.valueToString(result.config(config))
+    }
+    val objectiveValueCols = objectiveNames.map { name =>
+      DseConfigElement.valueToString(result.objectives(name))
+    }
+
+    csv.writeRow((headerCols ++ searchValueCols ++ objectiveValueCols).asJava)
+    writer.flush()
+  }
+
+  def close(): Unit = {
+    csv.close()
+  }
+
 }
 
 
@@ -80,18 +120,12 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     // Open a CSV file (if desired) and write result rows as they are computed.
     // This is done first to empty out the result file, if one already exists.
-    val objectiveNames = options.objectives.keys.toSeq
-    val configNames = options.searchConfigs.map(_.configToString)
     val csvFile = if (options.resultCsvFile.nonEmpty) {
-      val fileWriter = new FileWriter(options.resultCsvFile) // need a separate fileWriter to be flushable
-      Option(CsvWriter.builder().build(fileWriter)) match {
+      DseCsvWriter(new FileWriter(options.resultCsvFile), options.searchConfigs, options.objectives) match {
         case Some(csv) =>
-          csv.writeRow((Seq("index", "errors") ++ configNames ++ objectiveNames).asJava) // write header row
-          fileWriter.flush()
-
           console.print(s"Opening results CSV at ${options.resultCsvFile}\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
-          Some((fileWriter, csv))
+          Some(csv)
         case None =>
           console.print(s"Failed to open results CSV at ${options.resultCsvFile}\n",
             ConsoleViewContentType.ERROR_OUTPUT)
@@ -121,7 +155,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     val staticSearchRefinements = crossProduct(staticConfigs.map { searchConfig =>  // generate values for each config
       searchConfig.getValues.map { case (value, refinement) =>
-        (searchConfig -> value, refinement)  // tag config onto the value
+        (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
       }
     }).map { valueRefinements =>  // combine values across the configs
       val (values, refinements) = valueRefinements.unzip
@@ -204,7 +238,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               console.print(s"${derivedSearchRefinements.size} derived points\n", ConsoleViewContentType.SYSTEM_OUTPUT)
             }
 
-            // TODO support non-derived case
+            // TODO IMPLEMENT ME
+//            val innerLoopRefinements = if (derivedSearchRefinements)
+
             for (((derivedSearchValues, derivedSearchRefinement), derivedIndex) <- derivedSearchRefinements.zipWithIndex) {
               indicator.setFraction((staticIndex.toFloat + derivedIndex.toFloat / derivedSearchRefinements.size)
                   / staticSearchRefinements.size)
@@ -221,11 +257,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 name -> objective.calculate(compiled, solvedValues)
               }
 
-              val resultValues = (staticSearchValues ++ derivedSearchValues).map { case (config, value) => config.asInstanceOf[DseConfigElement] -> value }
+              val resultValues = staticSearchValues ++ derivedSearchValues
               val result = DseResult(resultIndex, resultValues,
                 staticSearchRefinement ++ derivedSearchRefinement, refinements ++ staticSearchRefinement ++ derivedSearchRefinement,
                 compiler, compiled, errors, objectiveValues, compileTime)
-              results.append(result)
 
               if (errors.nonEmpty) {
                 console.print(s"Result $resultIndex, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
@@ -235,16 +270,12 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                   ConsoleViewContentType.SYSTEM_OUTPUT)
               }
 
-              // Write to CSV
-              csvFile.foreach { case (fileWriter, csv) =>
-                csv.writeRow((Seq(staticIndex.toString, errors.length.toString) ++
-                    staticSearchValues.map { case (config, value) => DseConfigElement.valueToString(value) } ++
-                    objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
-                fileWriter.flush()
+              results.append(result)
+              csvFile.foreach { csvFile =>
+                csvFile.writeRow(result)
               }
 
-              // only have one UI update in progress at any time
-              uiUpdater.runIfIdle {
+              uiUpdater.runIfIdle {  // only have one UI update in progress at any time
                 System.gc() // clean up after this compile run
                 BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
               }
@@ -272,9 +303,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
 
-    csvFile.foreach { case (fileWriter, csv) =>
+    csvFile.foreach { case csvFile =>
       runFailableStage("closing CSV", indicator) {
-        csv.close()
+        csvFile.close()
         f"closed ${options.resultCsvFile}"
       }
     }
