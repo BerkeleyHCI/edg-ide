@@ -54,7 +54,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
     //     feed that back into the design space for derived configs, and repeat stack behavior with derived configs
     staticStack.map { staticStack =>
       require(staticStack.length == staticCompilerStack.length)
-      val partialCompileRule = staticConfigs.drop(staticStack.length).map(_.getPartialCompile).reduce(_ ++ _)
+      val partialCompileRule = staticConfigs.drop(staticStack.length).map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
       val baseCompiler = staticCompilerStack.lastOption  // initial is None
       val (searchValues, refinements) = (staticConfigs zip staticStack).map { case (staticConfig, staticValues) =>
         val (thisValue, thisRefinement) = staticValues.head
