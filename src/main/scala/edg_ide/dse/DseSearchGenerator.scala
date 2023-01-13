@@ -74,7 +74,8 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         staticStack.append(staticConfigs(staticStack.length).getValues.to(mutable.ListBuffer))
         staticCompilerStack.append(compiler)
       } else {  // just evaluated a concrete design point, pop up the stack
-        require(false)
+        staticStack.last.remove(0)  // remove the first (just evaluated) point
+        require(staticStack.last.nonEmpty)
       }
     }
 
