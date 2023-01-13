@@ -26,12 +26,13 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // if the stack is incomplete (stack.length != config.length), it means a partial compilation is requested
   // for example, for a config of [[1, 2], [10, 20]]
   // a stack of [[2], [10, 20]], points (1, 10), (1, 20) have been evaluated and (2, 10) is next
-  // a stack of None is the initial state, no points have been searched
+  // a stack of [] is the initial state, no points have been searched
   // a stack of [[1, 2]] means the initial partial compile is done, and a partial compile of 1 for the first element
   //   and holding back the second element is requested
-  // a stack of [] means all points have been searched
-  private val staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = None
-  private val derivedStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = None
+  // a stack of None means all points have been searched
+  // inner list values must not be empty
+  private val staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(Seq())
+  private val derivedStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(Seq())
 
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
   // on top of, so the first element would be holding back everything
@@ -42,7 +43,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // If a design point has an empty PartialCompile, it can be used in the output.
   // This only changes after addEvaluatedPoint is called, when the point is marked as evaluated
   // and derived points are added.
-  def nextPoint(): (PartialCompile, SeqMap[DseConfigElement, Any], Refinements) = {
+  def nextPoint(): Option[(Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements)] = {
     // initial point: add partial compile root, with all config holdbacks
     // for each static config: do a partial compile while holding back the rest
     // when all static configs have an assignment:
@@ -50,7 +51,18 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
     //   if derived configs: derived configs are still held back
     //     do an additional generating compile with derived configs no held back
     //     feed that back into the design space for derived configs, and repeat stack behavior with derived configs
-    
+    staticStack.map { staticStack =>
+      require(staticStack.length == staticCompilerStack.length)
+      val partialCompileRule = staticConfigs.drop(staticStack.length).map(_.getPartialCompile).reduce(_ ++ _)
+      val baseCompiler = staticCompilerStack.lastOption  // initial is None
+      val (searchValues, refinements) = (staticConfigs zip staticStack).map { case (staticConfig, staticValues) =>
+        val (thisValue, thisRefinement) = staticValues.head
+        (staticConfig.asInstanceOf[DseConfigElement] -> thisValue, thisRefinement)
+      }.unzip
+      val combinedSearchValueMap = searchValues.to(SeqMap)
+      val combinedRefinement = refinements.reduce(_ ++ _)
+      (baseCompiler, partialCompileRule, combinedSearchValueMap, combinedRefinement)
+    }
   }
 
   // Call with the result of getNextPoint() to mark that point as searched, and either
