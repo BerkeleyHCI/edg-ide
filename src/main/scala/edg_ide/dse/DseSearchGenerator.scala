@@ -31,7 +31,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   //   and holding back the second element is requested
   // a stack of None means all points have been searched
   // inner list values must not be empty
-  private val staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
+  private var staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
   private val derivedStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
 
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
@@ -75,9 +75,18 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         staticCompilerStack.append(compiler)
       } else {  // just evaluated a concrete design point, pop up the stack
         staticStack.last.remove(0)  // remove the first (just evaluated) point
-        require(staticStack.last.nonEmpty)
+        while (staticStack.nonEmpty && staticStack.last.isEmpty) {  // backtrack as needed
+          staticCompilerStack.remove(staticStack.length - 1)
+          staticStack.remove(staticStack.length - 1)
+          if (staticStack.nonEmpty) {  // make sure we don't go past the beginning of the stack
+            staticStack.last.remove(0)  // remove the first (just evaluated) point
+          }
+        }
+      }
+
+      if (staticStack.isEmpty) {
+        this.staticStack = None
       }
     }
-
   }
 }

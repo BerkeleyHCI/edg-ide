@@ -61,5 +61,23 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
       SeqMap(valuesConfig1 -> IntValue(1)),
       Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1)))))
 
+    val fork1Compiler = rootCompiler.fork()
+    generator.addEvaluatedPoint(fork1Compiler)
+    generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
+      SeqMap(valuesConfig1 -> IntValue(1), valuesConfig2 -> IntValue(10)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1), DesignPath() + "param2" -> IntValue(10)))))
+
+    generator.addEvaluatedPoint(fork1Compiler)
+    generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
+      SeqMap(valuesConfig1 -> IntValue(1), valuesConfig2 -> IntValue(11)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1), DesignPath() + "param2" -> IntValue(11)))))
+
+    generator.addEvaluatedPoint(fork1Compiler)
+    generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
+      SeqMap(valuesConfig1 -> IntValue(1), valuesConfig2 -> IntValue(12)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1), DesignPath() + "param2" -> IntValue(12)))))
+
+    generator.addEvaluatedPoint(fork1Compiler)
+    generator.nextPoint() should equal(None)
   }
 }
