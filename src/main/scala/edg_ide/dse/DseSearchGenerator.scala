@@ -60,7 +60,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         (staticConfig.asInstanceOf[DseConfigElement] -> thisValue, thisRefinement)
       }.unzip
       val combinedSearchValueMap = searchValues.to(SeqMap)
-      val combinedRefinement = refinements.reduce(_ ++ _)
+      val combinedRefinement = refinements.fold(Refinements())(_ ++ _)
       (baseCompiler, partialCompileRule, combinedSearchValueMap, combinedRefinement)
     }
   }
