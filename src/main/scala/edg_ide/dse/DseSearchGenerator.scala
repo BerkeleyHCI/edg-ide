@@ -20,7 +20,8 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   }
 
   // stack of partial compiles up to the next point under evaluation
-  // staticStack elements correspond in ordering to staticConfigs, ditto for dynamicStack
+  // the first elements (up to staticConfigs.length) correspond to the static config,
+  // the ones after (up to derivedConfigs.length) correspond to those.
   //
   // the first element of each element is the next point to be evaluated
   // if the stack is incomplete (stack.length != config.length), it means a partial compilation is requested
@@ -31,20 +32,17 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   //   and holding back the second element is requested
   // a stack of None means all points have been searched
   // inner list values must not be empty
-  private var staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
-  private val derivedStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
+  private var searchStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
 
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
   // on top of, so the first element would be holding back everything
-  private val staticCompilerStack = mutable.ListBuffer[Compiler]()
-  private val derivedCompilerStack = mutable.ListBuffer[Compiler]()
+  private val compilerStack = mutable.ListBuffer[Compiler]()
 
   // Returns the next point to search in the design space. Returns new points and the prior one is evaluated.
   // If a design point has an empty PartialCompile, it can be used in the output.
   // This only changes after addEvaluatedPoint is called, when the point is marked as evaluated
   // and derived points are added.
   def nextPoint(): Option[(Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements)] = {
-    require(derivedConfigs.isEmpty && derivedStack.isEmpty || derivedStack.get.isEmpty && derivedCompilerStack.isEmpty)
     // initial point: add partial compile root, with all config holdbacks
     // for each static config: do a partial compile while holding back the rest
     // when all static configs have an assignment:
@@ -52,11 +50,14 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
     //   if derived configs: derived configs are still held back
     //     do an additional generating compile with derived configs no held back
     //     feed that back into the design space for derived configs, and repeat stack behavior with derived configs
-    staticStack.map { staticStack =>
-      require(staticStack.length == staticCompilerStack.length)
-      val partialCompileRule = staticConfigs.drop(staticStack.length).map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
-      val baseCompiler = staticCompilerStack.lastOption  // initial is None
-      val (searchValues, refinements) = (staticConfigs zip staticStack).map { case (staticConfig, staticValues) =>
+    searchStack.map { searchStack =>
+      require(derivedConfigs.isEmpty)
+      require(searchStack.length <= staticConfigs.length)
+
+      require(searchStack.length == compilerStack.length)
+      val partialCompileRule = staticConfigs.drop(searchStack.length).map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
+      val baseCompiler = compilerStack.lastOption  // initial is None
+      val (searchValues, refinements) = (staticConfigs zip searchStack).map { case (staticConfig, staticValues) =>
         val (thisValue, thisRefinement) = staticValues.head
         (staticConfig.asInstanceOf[DseConfigElement] -> thisValue, thisRefinement)
       }.unzip
@@ -68,24 +69,24 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
 
   // Call with the result of getNextPoint() to mark that point as searched and update the next nextPoint
   def addEvaluatedPoint(compiler: Compiler): Unit = {
-    require(staticStack.nonEmpty)
-    staticStack.foreach { staticStack =>
-      if (staticStack.size != staticConfigs.length) {  // just evaluated an intermediate point, add down the stack
-        staticStack.append(staticConfigs(staticStack.length).getValues.to(mutable.ListBuffer))
-        staticCompilerStack.append(compiler)
+    require(searchStack.nonEmpty)
+    searchStack.foreach { searchStack =>
+      if (searchStack.size != staticConfigs.length) {  // just evaluated an intermediate point, add down the stack
+        searchStack.append(staticConfigs(searchStack.length).getValues.to(mutable.ListBuffer))
+        compilerStack.append(compiler)
       } else {  // just evaluated a concrete design point, pop up the stack
-        staticStack.last.remove(0)  // remove the first (just evaluated) point
-        while (staticStack.nonEmpty && staticStack.last.isEmpty) {  // backtrack as needed
-          staticCompilerStack.remove(staticStack.length - 1)
-          staticStack.remove(staticStack.length - 1)
-          if (staticStack.nonEmpty) {  // make sure we don't go past the beginning of the stack
-            staticStack.last.remove(0)  // remove the first (just evaluated) point
+        searchStack.last.remove(0)  // remove the first (just evaluated) point
+        while (searchStack.nonEmpty && searchStack.last.isEmpty) {  // backtrack as needed
+          compilerStack.remove(searchStack.length - 1)
+          searchStack.remove(searchStack.length - 1)
+          if (searchStack.nonEmpty) {  // make sure we don't go past the beginning of the stack
+            searchStack.last.remove(0)  // remove the first (just evaluated) point
           }
         }
       }
 
-      if (staticStack.isEmpty) {
-        this.staticStack = None
+      if (searchStack.isEmpty) {
+        this.searchStack = None
       }
     }
   }

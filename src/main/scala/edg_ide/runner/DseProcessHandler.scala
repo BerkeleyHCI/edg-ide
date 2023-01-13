@@ -9,7 +9,7 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
-import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseObjective, DseRefinementElement, DseResult}
+import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseObjective, DseRefinementElement, DseResult, DseSearchGenerator}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
@@ -148,19 +148,21 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       }}
     }
 
-    val (staticConfigs, derivedConfigs) = options.searchConfigs.partitionMap {
-      case config: DseRefinementElement[Any] => Left(config)
-      case config: DseDerivedConfig => Right(config)
-    }
+//    val (staticConfigs, derivedConfigs) = options.searchConfigs.partitionMap {
+//      case config: DseRefinementElement[Any] => Left(config)
+//      case config: DseDerivedConfig => Right(config)
+//    }
+//
+//    val staticSearchRefinements = crossProduct(staticConfigs.map { searchConfig =>  // generate values for each config
+//      searchConfig.getValues.map { case (value, refinement) =>
+//        (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
+//      }
+//    }).map { valueRefinements =>  // combine values across the configs
+//      val (values, refinements) = valueRefinements.unzip
+//      (values.to(SeqMap), refinements.reduce(_ ++ _))
+//    }
 
-    val staticSearchRefinements = crossProduct(staticConfigs.map { searchConfig =>  // generate values for each config
-      searchConfig.getValues.map { case (value, refinement) =>
-        (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
-      }
-    }).map { valueRefinements =>  // combine values across the configs
-      val (values, refinements) = valueRefinements.unzip
-      (values.to(SeqMap), refinements.reduce(_ ++ _))
-    }
+    val searchGenerator = new DseSearchGenerator(options.searchConfigs)
 
     try {
       val (pythonCommand, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName).mapErr(
@@ -198,93 +200,59 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)
         }
 
-        val commonCompiler = runRequiredStage("compile base design", indicator) {
-          val commonCompiler = new Compiler(design, EdgCompilerService(project).pyLib,
-            refinements = refinements, partial = partialCompile)
-          commonCompiler.compile()
-          (commonCompiler, "")
-        }
-
+        var nextPoint = searchGenerator.nextPoint()
         val results = mutable.ListBuffer[DseResult]()
-        var resultIndex: Int = 0
-        runFailableStage("design space search", indicator) {
-          // Outer (static configuration) loop
-          for (((staticSearchValues, staticSearchRefinement), staticIndex) <- staticSearchRefinements.zipWithIndex) {
-            indicator.setIndeterminate(false)
-            indicator.setFraction(staticIndex.toFloat / staticSearchRefinements.size)
+        while (nextPoint.nonEmpty) {
+          val (baseCompilerOpt, partialCompile, pointValues, pointRefinements) = nextPoint.get
 
-            // for the derived case, compile with the static refinements, but hold back the derived configs
-            val staticOuterCompiler = commonCompiler.fork(staticSearchRefinement,
-              partial=derivedConfigs.map(_.getPartialCompile).reduce(_ ++ _))
-            staticOuterCompiler.compile()
-            // if there are derived configs, do a full compile to obtain the derived search space
-            val ((generatingCompiler, generatingCompiled), compileTime) = timeExec {
-              val generatingCompiler = staticOuterCompiler.fork()
-              val generatingCompiled = generatingCompiler.compile()
-              (generatingCompiler, generatingCompiled)
+//          indicator.setIndeterminate(false)
+//          indicator.setFraction(staticIndex.toFloat / staticSearchRefinements.size)
+
+          val ((compiler, compiled), compileTime) = timeExec {
+            val compiler = baseCompilerOpt match {
+              case Some(baseCompiler) => baseCompiler.fork()
+              case None => new Compiler(design, EdgCompilerService(project).pyLib,
+                refinements = pointRefinements, partial = partialCompile)
             }
-
-            // Inner loop: derived configs and record results
-            val derivedConfigVals = derivedConfigs.map { _.configFromDesign(generatingCompiler).get }  // TODO handle errors better
-            val derivedSearchRefinements = crossProduct(derivedConfigVals.map { searchConfig => // TODO dedup w/ static case
-              searchConfig.getValues.map { case (value, refinement) =>
-                (searchConfig -> value, refinement) // tag config onto the value
-              }
-            }).map { valueRefinements => // combine values across the configs
-              val (values, refinements) = valueRefinements.unzip
-              (values.to(SeqMap), refinements.reduce(_ ++ _))
-            }
-            if (derivedConfigs.nonEmpty) {
-              console.print(s"${derivedSearchRefinements.size} derived points\n", ConsoleViewContentType.SYSTEM_OUTPUT)
-            }
-
-            // TODO IMPLEMENT ME
-//            val innerLoopRefinements = if (derivedSearchRefinements)
-
-            for (((derivedSearchValues, derivedSearchRefinement), derivedIndex) <- derivedSearchRefinements.zipWithIndex) {
-              indicator.setFraction((staticIndex.toFloat + derivedIndex.toFloat / derivedSearchRefinements.size)
-                  / staticSearchRefinements.size)
-              val ((compiler, compiled, errors), compileTime) = timeExec {
-                val compiler = staticOuterCompiler.fork(derivedSearchRefinement)
-                val compiled = compiler.compile()
-                val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-                    new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
-                (compiler, compiled, errors)
-              }
-
-              val solvedValues = compiler.getAllSolved
-              val objectiveValues = options.objectives.map { case (name, objective) =>
-                name -> objective.calculate(compiled, solvedValues)
-              }
-
-              val result = DseResult(resultIndex, staticSearchValues ++ derivedSearchValues,
-                staticSearchRefinement ++ derivedSearchRefinement,
-                refinements ++ staticSearchRefinement ++ derivedSearchRefinement,
-                compiler, compiled, errors, objectiveValues, compileTime)
-
-              if (errors.nonEmpty) {
-                console.print(s"Result $resultIndex, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
-                  ConsoleViewContentType.ERROR_OUTPUT)
-              } else {
-                console.print(s"Result $resultIndex ($compileTime ms): ${result.objectiveToString}\n",
-                  ConsoleViewContentType.SYSTEM_OUTPUT)
-              }
-
-              results.append(result)
-              csvFile.foreach { csvFile =>
-                csvFile.writeRow(result)
-              }
-
-              uiUpdater.runIfIdle {  // only have one UI update in progress at any time
-                System.gc() // clean up after this compile run
-                BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
-              }
-
-              resultIndex += 1
-            }
+            val compiled = compiler.compile()
+            (compiler, compiled)
           }
-          s"${results.length} configurations"
+          searchGenerator.addEvaluatedPoint(compiler)
+
+          val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+              new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+
+          val solvedValues = compiler.getAllSolved
+          val objectiveValues = options.objectives.map { case (name, objective) =>
+            name -> objective.calculate(compiled, solvedValues)
+          }
+
+          val result = DseResult(results.length, pointValues,
+            pointRefinements,
+            refinements ++ pointRefinements,
+            compiler, compiled, errors, objectiveValues, compileTime)
+
+          if (errors.nonEmpty) {
+            console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
+              ConsoleViewContentType.ERROR_OUTPUT)
+          } else {
+            console.print(s"Result ${results.length} ($compileTime ms): ${result.objectiveToString}\n",
+              ConsoleViewContentType.SYSTEM_OUTPUT)
+          }
+
+          results.append(result)
+          csvFile.foreach { csvFile =>
+            csvFile.writeRow(result)
+          }
+
+          uiUpdater.runIfIdle { // only have one UI update in progress at any time
+            System.gc() // clean up after this compile run
+            BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
+          }
+
+          nextPoint = searchGenerator.nextPoint()
         }
+        s"${results.length} configurations"
 
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
