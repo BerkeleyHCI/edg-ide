@@ -31,8 +31,8 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   //   and holding back the second element is requested
   // a stack of None means all points have been searched
   // inner list values must not be empty
-  private val staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(Seq())
-  private val derivedStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(Seq())
+  private val staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
+  private val derivedStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
 
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
   // on top of, so the first element would be holding back everything
