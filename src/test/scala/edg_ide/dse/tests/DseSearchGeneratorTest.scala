@@ -1,9 +1,9 @@
 package edg_ide.dse.tests
 
-import edgir.schema.schema
-import edg.wir.{DesignPath, EdgirLibrary, Library, Refinements}
-import edg.compiler.{Compiler, IntValue, PartialCompile, RangeValue, TextValue}
+import edg.compiler.{Compiler, IntValue, PartialCompile}
+import edg.wir.{DesignPath, EdgirLibrary, Refinements}
 import edg_ide.dse.{DseParameterSearch, DseSearchGenerator}
+import edgir.schema.schema
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -36,7 +36,7 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     generator.addEvaluatedPoint(dummyBaseCompiler)
 
     generator.nextPoint() should equal(Some(Some(dummyBaseCompiler), partial2,
-      SeqMap(valuesConfig1 -> 0),
+      SeqMap(valuesConfig1 -> IntValue(0)),
       Refinements(instanceValues=Map(DesignPath() + "param1" -> IntValue(0)))))
   }
 }
