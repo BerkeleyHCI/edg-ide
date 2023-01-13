@@ -30,28 +30,27 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // a stack of [[1, 2]] means the initial partial compile is done, and a partial compile of 1 for the first element
   //   and holding back the second element is requested
   // a stack of [] means all points have been searched
-  private val staticStack = ...
-  private val dynamicStack = ...
+  private val staticStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = None
+  private val derivedStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = None
 
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
   // on top of, so the first element would be holding back everything
   private val staticCompilerStack = mutable.ListBuffer[Compiler]()
-  private val dynamicCompilerStack = mutable.ListBuffer[Compiler]()
+  private val derivedCompilerStack = mutable.ListBuffer[Compiler]()
 
   // Returns the currently known design space. May return new values as points are evaluated.
   // If a design point has an empty PartialCompile, it can be used in the output.
   // This only changes after addEvaluatedPoint is called, when the point is marked as evaluated
   // and derived points are added.
-  def getNextPoint(): (PartialCompile, SeqMap[DseConfigElement, Any], Refinements) = {
-    // initial point: add partial compile root
-    // in derived case: add derived config holdbacks to all partial compile
-    // for all static configs:
-    //   for each one, do a partial compile while holding back the rest
-    //
-    // subsequent, in non-derived case:
-    //   for each derived point add a partial compile
-    // subsequent, in derived case:
-    //
+  def nextPoint(): (PartialCompile, SeqMap[DseConfigElement, Any], Refinements) = {
+    // initial point: add partial compile root, with all config holdbacks
+    // for each static config: do a partial compile while holding back the rest
+    // when all static configs have an assignment:
+    //   if no derived configs: the last one has no partial configs and is a design point
+    //   if derived configs: derived configs are still held back
+    //     do an additional generating compile with derived configs no held back
+    //     feed that back into the design space for derived configs, and repeat stack behavior with derived configs
+    
   }
 
   // Call with the result of getNextPoint() to mark that point as searched, and either
