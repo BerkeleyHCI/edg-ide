@@ -44,5 +44,10 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
       SeqMap(valuesConfig1 -> IntValue(0), valuesConfig2 -> IntValue(10)),
       Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0), DesignPath() + "param2" -> IntValue(10)))))
+
+    generator.addEvaluatedPoint(fork0Compiler)
+    generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
+      SeqMap(valuesConfig1 -> IntValue(0), valuesConfig2 -> IntValue(11)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0), DesignPath() + "param2" -> IntValue(11)))))
   }
 }
