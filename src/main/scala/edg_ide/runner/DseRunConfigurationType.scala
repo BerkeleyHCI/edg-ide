@@ -57,7 +57,7 @@ class DseRunConfigurationOptions extends RunConfigurationOptions {
   var resultCsvFile: String = ""
 
   // TODO this should be the more generic DseConfigElement, but for now it's refinement types only
-  var searchConfigs: Seq[DseRefinementElement[Any]] = Seq(
+  var searchConfigs: Seq[DseConfigElement] = Seq(
     DseSubclassSearch(DesignPath() + "reg_5v",
       Seq(
         "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
@@ -67,6 +67,7 @@ class DseRunConfigurationOptions extends RunConfigurationOptions {
     DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
       Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
     ),
+    DseDerivedPartSearch(DesignPath() + "reg_5v" + "power_path" + "inductor"),
   )
   var objectives: SeqMap[String, DseObjective[Any]] = SeqMap(
     "inductor" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_part"),

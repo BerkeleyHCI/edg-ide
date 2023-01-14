@@ -1,5 +1,6 @@
 package edg_ide.dse
 import edg.compiler.{ArrayValue, BooleanValue, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.ui.{EdgSettingsState, KicadParser}
 import edgir.elem.elem.HierarchyBlock
@@ -16,6 +17,8 @@ import scala.collection.{SeqMap, mutable}
 // Must be serializable so configs can be saved and persist across IDE restarts
 sealed trait DseObjective[+T] { self: Serializable =>
   // TODO: also needs libraries and external sources?
+  def objectiveToString: String  // short human-friendly string describing this configuration
+
   def calculate(design: schema.Design, values: Map[IndirectDesignPath, ExprValue]): T
 }
 
@@ -23,6 +26,8 @@ sealed trait DseObjective[+T] { self: Serializable =>
 // Extracts the value of a single parameter
 case class DseObjectiveParameter(path: DesignPath)
     extends DseObjective[Option[Any]] with Serializable {
+  override def objectiveToString = f"Parameter($path)"
+
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Option[Any] = {
     values.get(path.asIndirect) match {
       case Some(FloatValue(value)) => Some(value)
@@ -62,6 +67,8 @@ object DseObjectiveFootprintArea {
 
 case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
     extends DseObjective[Float] with Serializable {
+  override def objectiveToString = f"FootprintArea($rootPath)"
+
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Float = {
     new DesignBlockMap[Float] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float]): Float = {
@@ -83,11 +90,13 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
 // Counts the total number of footprints
 case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
     extends DseObjective[Int] with Serializable {
+  override def objectiveToString = f"FootprintCount($rootPath)"
+
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
-        val thisValues = if (path.startsWith(rootPath) && block.params.contains("fp_footprint")) 1 else 0
-        thisValues + blocks.values.sum
+        val thisValue = if (path.startsWith(rootPath) && block.params.toSeqMap.contains("fp_footprint")) 1 else 0
+        thisValue + blocks.values.sum
       }
     }.map(design)
   }

@@ -79,8 +79,8 @@ class BlockVisualizerService(project: Project) extends
         .collect { case config: DseRunConfiguration => config }
   }
 
-  def setDseResults(results: Seq[DseResult]): Unit = {
-    dsePanelOption.foreach(_.setResults(results))
+  def setDseResults(results: Seq[DseResult], inProgress: Boolean): Unit = {
+    dsePanelOption.foreach(_.setResults(results, inProgress))
   }
 
   override def getState: BlockVisualizerServiceState = {

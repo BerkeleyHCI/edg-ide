@@ -46,9 +46,11 @@ object PopupUtils {
     popup.showInScreenCoordinates(e.getComponent, new Point(e.getXOnScreen, e.getYOnScreen))
   }
 
-  def createStringEntryPopup(title: String, project: Project)(accept: String => Errorable[Unit]): Unit = {
+  def createStringEntryPopup(title: String, project: Project, initialValue: String = "")
+                            (accept: String => Errorable[Unit]): Unit = {
     val contentPanel = new NewItemSimplePopupPanel
     val nameField = contentPanel.getTextField
+    nameField.setText(initialValue)
     val popup = NewItemPopupUtil.createNewItemPopup(title, contentPanel, nameField)
     contentPanel.setApplyAction { event =>
       val input = nameField.getText()

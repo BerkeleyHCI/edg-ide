@@ -161,8 +161,53 @@ object CompileProcessHandler {
   }
 }
 
-class CompileProcessHandler(project: Project, options: DesignTopRunConfigurationOptions, console: ConsoleView)
-    extends ProcessHandler {
+trait HasConsoleStages {
+  val console: ConsoleView
+
+  /** Logging and status wrappers for running a stage that returns some value.
+    * Exceptions are not caught and propagated up.
+    * The stage function returns both a type and a message (can be empty) that is printed to the console.
+    */
+  protected def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
+                                          (fn: => (ReturnType, String)): ReturnType = {
+    indicator.setText(f"EDG compiling: $name")
+    indicator.setIndeterminate(true)
+    val ((fnResult, fnResultStr), fnTime) = timeExec {
+      fn
+    }
+    val addedStr = if (fnResultStr.nonEmpty) f": $fnResultStr" else ""
+    console.print(s"Completed: $name$addedStr ($fnTime ms)\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    fnResult
+  }
+
+  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console.
+    * If the function fails, a specified default is returned.
+    */
+  protected def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator)
+                                          (fn: => (ReturnType, String)): ReturnType = {
+    try {
+      runRequiredStage(name, indicator) {
+        fn
+      }
+    } catch {
+      case e: Exception =>
+        console.print(s"Failed: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
+        default
+    }
+  }
+
+  /** Wrapper around runFailableStage for fns that don't return anything.
+    */
+  protected def runFailableStage(name: String, indicator: ProgressIndicator)
+                              (fn: => String): Unit = {
+    runFailableStage[Unit](name, (), indicator) {
+      ((), fn)
+    }
+  }
+}
+
+class CompileProcessHandler(project: Project, options: DesignTopRunConfigurationOptions, val console: ConsoleView)
+    extends ProcessHandler with HasConsoleStages {
   var runThread: Option[Thread] = None
 
   override def destroyProcessImpl(): Unit = {
@@ -181,43 +226,6 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
   ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
     override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
   })
-
-  /** Logging and status wrappers for running a stage that returns some value.
-    * Exceptions are not caught and propagated up.
-    * The stage function returns both a type and a message (can be empty) that is printed to the console.
-    */
-  private def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
-                                          (fn: => (ReturnType, String)): ReturnType = {
-    indicator.setText(f"EDG compiling: $name")
-    indicator.setIndeterminate(true)
-    val ((fnResult, fnResultStr), fnTime) = timeExec {
-      fn
-    }
-    val addedStr = if (fnResultStr.nonEmpty) f": $fnResultStr" else ""
-    console.print(s"Completed: $name$addedStr ($fnTime ms)\n", ConsoleViewContentType.SYSTEM_OUTPUT)
-    fnResult
-  }
-
-  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console.
-    * If the function fails, a specified default is returned.
-    */
-  private def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator)
-                                          (fn: => (ReturnType, String)): ReturnType = {
-    try {
-      runRequiredStage(name, indicator) { fn }
-    } catch {
-      case e: Exception =>
-        console.print(s"Failed: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
-        default
-    }
-  }
-
-  /** Wrapper around runFailableStage for fns that don't return anything.
-    */
-  private def runFailableStage(name: String, indicator: ProgressIndicator)
-                              (fn: => String): Unit = {
-    runFailableStage[Unit](name, (), indicator) { ((), fn) }
-  }
 
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
@@ -251,6 +259,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         }
 
+        // this is mainly here to provide an index of library elements for the part browser
+        // this can be skipped - library elements can be built dynamically as they are used during compile
         runFailableStage("rebuild libraries", indicator) {
           def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
             // this also includes requests that hit cache

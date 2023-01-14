@@ -9,7 +9,7 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
-import edg_ide.dse.{DseConfigElement, DseResult}
+import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseObjective, DseRefinementElement, DseResult, DseSearchGenerator}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
 import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
@@ -20,8 +20,73 @@ import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
 
-class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, console: ConsoleView)
-    extends ProcessHandler {
+/** Utility class that allows one running instance at any time, additional runIfIdle requests are discarded.
+  * Useful for background-able tasks that can return an outdated result, eg UI updates.
+  *
+  * This in itself is not thread-safe!
+  */
+class SingleThreadRunner() {
+  var thread: Option[Thread] = None
+
+  def runIfIdle(runnable: => Unit): Unit = {
+    if (thread.isEmpty || thread.get.getState == Thread.State.TERMINATED) {
+      val newThread = new Thread() {
+        override def run(): Unit = {
+          runnable
+        }
+      }
+      newThread.start()
+      thread = Some(newThread)
+    }
+  }
+
+  def join(): Unit = {
+    thread.foreach { _.join() }
+  }
+}
+
+
+/** Utility class for writing CSV output for design space exploration
+  */
+object DseCsvWriter {
+  def apply(writer: java.io.Writer, elts: Seq[DseConfigElement],
+            objectives: SeqMap[String, DseObjective[Any]]): Option[DseCsvWriter] = {
+    Option(CsvWriter.builder().build(writer)).map { csv =>
+      new DseCsvWriter(writer, csv, elts, objectives)
+    }
+  }
+}
+
+
+class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[DseConfigElement],
+                   objectives: SeqMap[String, DseObjective[Any]]) {
+  private val objectiveNames = objectives.keys.toSeq
+  private val searchNames = searchConfigs.map(_.configToString)
+
+  csv.writeRow((Seq("index", "errors") ++ searchNames ++ objectiveNames).asJava) // write header row
+  writer.flush()
+
+  def writeRow(result: DseResult): Unit = {
+    val headerCols = Seq(result.index.toString, result.errors.length.toString)
+    val searchValueCols = searchConfigs.map {
+      config => DseConfigElement.valueToString(result.config(config))
+    }
+    val objectiveValueCols = objectiveNames.map { name =>
+      DseConfigElement.valueToString(result.objectives(name))
+    }
+
+    csv.writeRow((headerCols ++ searchValueCols ++ objectiveValueCols).asJava)
+    writer.flush()
+  }
+
+  def close(): Unit = {
+    csv.close()
+  }
+}
+
+
+class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, val console: ConsoleView)
+    extends ProcessHandler with HasConsoleStages {
   var runThread: Option[Thread] = None
 
   override def destroyProcessImpl(): Unit = {
@@ -46,20 +111,20 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
 
+    // the UI update is in a thread so it doesn't block the main search loop
+    val uiUpdater = new SingleThreadRunner()
+    uiUpdater.runIfIdle {
+      BlockVisualizerService(project).setDseResults(Seq(), true)  // show searching in UI
+    }
+
     // Open a CSV file (if desired) and write result rows as they are computed.
     // This is done first to empty out the result file, if one already exists.
-    val objectiveNames = options.objectives.keys.toSeq
-    val configNames = options.searchConfigs.map(_.configToString)
     val csvFile = if (options.resultCsvFile.nonEmpty) {
-      val fileWriter = new FileWriter(options.resultCsvFile) // need a separate fileWriter to be flushable
-      Option(CsvWriter.builder().build(fileWriter)) match {
+      DseCsvWriter(new FileWriter(options.resultCsvFile), options.searchConfigs, options.objectives) match {
         case Some(csv) =>
-          csv.writeRow((Seq("index", "errors") ++ configNames ++ objectiveNames).asJava) // write header row
-          fileWriter.flush()
-
           console.print(s"Opening results CSV at ${options.resultCsvFile}\n",
             ConsoleViewContentType.SYSTEM_OUTPUT)
-          Some((fileWriter, csv))
+          Some(csv)
         case None =>
           console.print(s"Failed to open results CSV at ${options.resultCsvFile}\n",
             ConsoleViewContentType.ERROR_OUTPUT)
@@ -82,17 +147,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
       }}
     }
 
-    val allValueRefinements = crossProduct(options.searchConfigs.map {
-      searchConfig => searchConfig.getValues.map{ case (value, refinement) =>
-        (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
-      }
-    }).map { valueRefinements =>
-      val (values, refinements) = valueRefinements.unzip
-      val combinedRefinement = refinements.reduce(_ ++ _)
-      val valuesMap = values.to(SeqMap)
-      (valuesMap, combinedRefinement)
-    }
-
     try {
       val (pythonCommand, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName).mapErr(
         msg => s"while getting Python interpreter path: $msg"
@@ -104,27 +158,17 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         pythonCommand,
         console))
 
-
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
         // compared to the single design compiler the debug info is a lot sparser here
-        indicator.setText("EDG searching: rebuilding libraries")
-        indicator.setIndeterminate(true)
-        EdgCompilerService(project).discardStale()
-        val designModule = options.designName.split('.').init.mkString(".")
-        val (indexed, indexTime, rebuildTime) = EdgCompilerService(project).rebuildLibraries(designModule, None)
-            .mapErr {
-          msg => s"while rebuilding libraries: $msg"
-        }.get
-        console.print(s"Rebuilt ${indexed.size} library elements\n",
-          ConsoleViewContentType.SYSTEM_OUTPUT)
+        runFailableStage("discard stale", indicator) {
+          val discarded = EdgCompilerService(project).discardStale()
+          s"${discarded.size} library elements"
+        }
 
-        indicator.setText("EDG searching: compile base design")
         val designType = ElemBuilder.LibraryPath(options.designName)
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
         val design = schema.Design(contents = Some(block))
-
-        console.print(s"Compile base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
         val partialCompile = options.searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
         val (removedRefinements, refinements) = Refinements(refinementsPb).partitionBy(
           partialCompile.blocks.toSet, partialCompile.params.toSet
@@ -133,65 +177,72 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
           console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)
         }
 
-        val (commonCompiler, commonCompileTime) = timeExec {
-          val commonCompiler = new Compiler(design, EdgCompilerService(project).pyLib,
-            refinements = refinements, partial = partialCompile)
-          commonCompiler.compile()
-          commonCompiler
-        }
-        console.print(s"($commonCompileTime ms) compiled base design\n", ConsoleViewContentType.SYSTEM_OUTPUT)
-
         val results = mutable.ListBuffer[DseResult]()
-        for (((searchValues, searchRefinement), searchIndex) <- allValueRefinements.zipWithIndex) {
-          console.print(s"Compile ${DseConfigElement.configMapToString(searchValues)}\n",
-            ConsoleViewContentType.SYSTEM_OUTPUT)
-          indicator.setText(f"EDG searching: design space ${searchIndex + 1} / ${allValueRefinements.size}")
-          indicator.setIndeterminate(false)
-          indicator.setFraction(searchIndex.toFloat / allValueRefinements.size)
+        runFailableStage("search", indicator) {
+          val searchGenerator = new DseSearchGenerator(options.searchConfigs)
+          var nextPoint = searchGenerator.nextPoint()
+          while (nextPoint.nonEmpty) {
+            val (baseCompilerOpt, partialCompile, pointValues, incrRefinements, completedFraction) = nextPoint.get
 
-          val (compiler, forkTime) = timeExec {
-            commonCompiler.fork(searchRefinement)
+            indicator.setIndeterminate(false)
+            indicator.setFraction(completedFraction)
+
+            val ((compiler, compiled), compileTime) = timeExec {
+              val compiler = baseCompilerOpt match {
+                case Some(baseCompiler) => baseCompiler.fork(
+                  additionalRefinements = incrRefinements, partial = partialCompile)
+                case None => new Compiler(design, EdgCompilerService(project).pyLib,
+                  refinements = refinements ++ incrRefinements, partial = partialCompile)
+              }
+              val compiled = compiler.compile()
+              (compiler, compiled)
+            }
+
+            if (partialCompile.isEmpty) { // only evaluate the point if it's a full point
+              val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+                  new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+
+              val solvedValues = compiler.getAllSolved
+              val objectiveValues = options.objectives.map { case (name, objective) =>
+                name -> objective.calculate(compiled, solvedValues)
+              }
+
+              val result = DseResult(results.length, pointValues,
+                compiler, compiled, errors, objectiveValues, compileTime)
+
+              if (errors.nonEmpty) {
+                console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
+                  ConsoleViewContentType.ERROR_OUTPUT)
+              } else {
+                console.print(s"Result ${results.length} ($compileTime ms): ${result.objectiveToString}\n",
+                  ConsoleViewContentType.SYSTEM_OUTPUT)
+              }
+
+              results.append(result)
+              csvFile.foreach { csvFile =>
+                csvFile.writeRow(result)
+              }
+
+              uiUpdater.runIfIdle { // only have one UI update in progress at any time
+                System.gc() // clean up after this compile run
+                BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
+              }
+            } else {
+              console.print(s"Intermediate point ($compileTime ms)\n",
+                ConsoleViewContentType.SYSTEM_OUTPUT)
+            }
+
+            searchGenerator.addEvaluatedPoint(compiler)
+            nextPoint = searchGenerator.nextPoint()
           }
-          val (compiled, compileTime) = timeExec {
-            compiler.compile()
-          }
-
-          val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-            new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
-
-          val solvedValues = compiler.getAllSolved
-          val objectiveValues = options.objectives.map { case (name, objective) =>
-            name -> objective.calculate(compiled, solvedValues)
-          }
-
-          val result = DseResult(searchIndex, searchValues, searchRefinement, refinements ++ searchRefinement,
-            compiler, compiled, errors, objectiveValues, compileTime)
-          results.append(result)
-
-          if (errors.nonEmpty) {
-            console.print(s"($forkTime + $compileTime ms) ${errors.size} errors, ${result.objectiveToString}\n",
-              ConsoleViewContentType.ERROR_OUTPUT)
-          } else {
-            console.print(s"($forkTime + $compileTime ms) ${result.objectiveToString}\n",
-              ConsoleViewContentType.SYSTEM_OUTPUT)
-          }
-
-          // Write to CSV
-          csvFile.foreach { case (fileWriter, csv) =>
-            csv.writeRow((Seq(searchIndex.toString, errors.length.toString) ++
-                searchValues.map{case (config, value) => DseConfigElement.valueToString(value)} ++
-                objectiveNames.map(name => DseConfigElement.valueToString(objectiveValues(name)))).asJava)
-            fileWriter.flush()
-          }
+          s"${results.length} configurations"
         }
-        indicator.setText(f"EDG searching: finalizing")
-        indicator.setFraction(1)
 
-        csvFile.foreach { case (fileWriter, csv) =>
-          csv.close()
+        runFailableStage("update visualization", indicator) {
+          uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
+          BlockVisualizerService(project).setDseResults(results.toSeq, false)  // plumb results to UI
+          ""
         }
-
-        BlockVisualizerService(project).setDseResults(results.toSeq)  // plumb results to UI
       }
     } catch {
       case e: Throwable =>
@@ -203,6 +254,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, c
         e.printStackTrace(new PrintWriter(stackWriter))
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
+
+    csvFile.foreach { case csvFile =>
+      runFailableStage("closing CSV", indicator) {
+        csvFile.close()
+        f"closed ${options.resultCsvFile}"
+      }
+    }
+
     terminatedNotify(exitCode)
   }
 }
