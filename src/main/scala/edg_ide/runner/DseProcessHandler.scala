@@ -204,50 +204,56 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         val results = mutable.ListBuffer[DseResult]()
         while (nextPoint.nonEmpty) {
           val (baseCompilerOpt, partialCompile, pointValues, pointRefinements) = nextPoint.get
+          val allRefinements = refinements ++ pointRefinements
 
 //          indicator.setIndeterminate(false)
 //          indicator.setFraction(staticIndex.toFloat / staticSearchRefinements.size)
 
           val ((compiler, compiled), compileTime) = timeExec {
             val compiler = baseCompilerOpt match {
-              case Some(baseCompiler) => baseCompiler.fork()
+              case Some(baseCompiler) => baseCompiler.fork(
+                additionalRefinements = pointRefinements, partial = partialCompile)
               case None => new Compiler(design, EdgCompilerService(project).pyLib,
-                refinements = pointRefinements, partial = partialCompile)
+                refinements = allRefinements, partial = partialCompile)
             }
             val compiled = compiler.compile()
             (compiler, compiled)
           }
           searchGenerator.addEvaluatedPoint(compiler)
 
-          val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+          if (partialCompile.isEmpty) {  // only evaluate the point if it's a full point
+            val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
               new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
-          val solvedValues = compiler.getAllSolved
-          val objectiveValues = options.objectives.map { case (name, objective) =>
-            name -> objective.calculate(compiled, solvedValues)
-          }
+            val solvedValues = compiler.getAllSolved
+            val objectiveValues = options.objectives.map { case (name, objective) =>
+              name -> objective.calculate(compiled, solvedValues)
+            }
 
-          val result = DseResult(results.length, pointValues,
-            pointRefinements,
-            refinements ++ pointRefinements,
-            compiler, compiled, errors, objectiveValues, compileTime)
+            val result = DseResult(results.length, pointValues,
+              pointRefinements, allRefinements,
+              compiler, compiled, errors, objectiveValues, compileTime)
 
-          if (errors.nonEmpty) {
-            console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
-              ConsoleViewContentType.ERROR_OUTPUT)
+            if (errors.nonEmpty) {
+              console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
+                ConsoleViewContentType.ERROR_OUTPUT)
+            } else {
+              console.print(s"Result ${results.length} ($compileTime ms): ${result.objectiveToString}\n",
+                ConsoleViewContentType.SYSTEM_OUTPUT)
+            }
+
+            results.append(result)
+            csvFile.foreach { csvFile =>
+              csvFile.writeRow(result)
+            }
+
+            uiUpdater.runIfIdle { // only have one UI update in progress at any time
+              System.gc() // clean up after this compile run
+              BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
+            }
           } else {
-            console.print(s"Result ${results.length} ($compileTime ms): ${result.objectiveToString}\n",
+            console.print(s"Intermediate point ($compileTime ms)\n",
               ConsoleViewContentType.SYSTEM_OUTPUT)
-          }
-
-          results.append(result)
-          csvFile.foreach { csvFile =>
-            csvFile.writeRow(result)
-          }
-
-          uiUpdater.runIfIdle { // only have one UI update in progress at any time
-            System.gc() // clean up after this compile run
-            BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
           }
 
           nextPoint = searchGenerator.nextPoint()
