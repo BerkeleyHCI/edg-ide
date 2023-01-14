@@ -33,6 +33,9 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // a stack of None means all points have been searched
   // inner list values must not be empty
   private var searchStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
+  // the total derived space for the current staticConfig part of searchStack
+  // if searchStack does not have a fully defined staticConfig, this must be None
+  private var derivedSpace: Option[Seq[Seq[(Any, Refinements)]]] = None
 
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
   // on top of, so the first element would be holding back everything
@@ -51,10 +54,12 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
     //     do an additional generating compile with derived configs no held back
     //     feed that back into the design space for derived configs, and repeat stack behavior with derived configs
     searchStack.map { searchStack =>
-      require(derivedConfigs.isEmpty)
-      require(searchStack.length <= staticConfigs.length)
-
+      // check invariants
+      if (searchStack.length < staticConfigs.length) {
+        require(derivedSpace.isEmpty)
+      }
       require(searchStack.length == compilerStack.length)
+
       val partialCompileRule = staticConfigs.drop(searchStack.length).map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
       val baseCompiler = compilerStack.lastOption  // initial is None
       val searchValues = (staticConfigs zip searchStack).map { case (staticConfig, staticValues) =>
