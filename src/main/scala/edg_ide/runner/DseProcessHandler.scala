@@ -82,7 +82,6 @@ class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[Ds
   def close(): Unit = {
     csv.close()
   }
-
 }
 
 
