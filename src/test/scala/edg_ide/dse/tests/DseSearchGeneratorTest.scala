@@ -78,7 +78,7 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
       2.0f/6))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
-    // Param 2 searched, backtrack to param 1
+    // param 2 searched, backtrack to param 1
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(config1 -> IntValue(1)),
       Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))),
