@@ -218,7 +218,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
             val compiled = compiler.compile()
             (compiler, compiled)
           }
-          searchGenerator.addEvaluatedPoint(compiler)
 
           if (partialCompile.isEmpty) {  // only evaluate the point if it's a full point
             val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
@@ -254,6 +253,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               ConsoleViewContentType.SYSTEM_OUTPUT)
           }
 
+          searchGenerator.addEvaluatedPoint(compiler)
           nextPoint = searchGenerator.nextPoint()
         }
         s"${results.length} configurations"
