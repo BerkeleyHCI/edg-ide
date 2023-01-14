@@ -229,9 +229,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               name -> objective.calculate(compiled, solvedValues)
             }
 
-            // TODO: get refinements
             val result = DseResult(results.length, pointValues,
-              compiler.refinements,
               compiler, compiled, errors, objectiveValues, compileTime)
 
             if (errors.nonEmpty) {

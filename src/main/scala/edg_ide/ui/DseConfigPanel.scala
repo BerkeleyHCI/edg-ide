@@ -147,7 +147,7 @@ class DseConfigPanel(project: Project) extends JPanel {
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
             val result = node.result
             BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
-              result.allRefinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
+              result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
           }
         case _ => // any other type ignored
       }

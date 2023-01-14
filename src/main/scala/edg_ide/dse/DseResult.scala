@@ -11,7 +11,6 @@ import scala.collection.SeqMap
 case class DseResult(
                         index: Int,
                         config: SeqMap[DseConfigElement, Any],
-                        allRefinements: Refinements,
                         compiler: Compiler,
                         compiled: Design,
                         errors: Seq[CompilerError],
