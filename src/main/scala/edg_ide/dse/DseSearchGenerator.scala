@@ -18,6 +18,9 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
     case config: DseRefinementElement[Any] => Left(config)
     case config: DseDerivedConfig => Right(config)
   }
+  val allConfigs = staticConfigs ++ derivedConfigs
+
+  private val staticSpace = staticConfigs.to(IndexedSeq).map(_.getValues)
 
   // stack of partial compiles up to the next point under evaluation
   // the first elements (up to staticConfigs.length) correspond to the static config,
@@ -65,11 +68,11 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       val derivedPartialCompile = if (derivedSpace.isEmpty && searchStack.length == staticConfigs.length) {  // do generating compile
         PartialCompile()
       } else {  // for all other cases, it's a normal part of backtracking search
-        derivedConfigs.drop(math.max(0, searchStack.length-staticConfigs.length))
+        derivedConfigs.drop(math.max(0, searchStack.length - staticConfigs.length))
             .map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
       }
       val baseCompiler = compilerStack.lastOption  // initial is None
-      val searchValues = (staticConfigs zip searchStack).map { case (staticConfig, staticValues) =>
+      val searchValues = (allConfigs zip searchStack).map { case (staticConfig, staticValues) =>
         val (thisValue, thisRefinement) = staticValues.head
         staticConfig.asInstanceOf[DseConfigElement] -> thisValue
       }
@@ -87,9 +90,9 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         derivedSpace = Some(derivedConfigs.to(IndexedSeq).map { derivedConfig =>
           derivedConfig.configFromDesign(compiler).get.getValues
         })
-      } else if (searchStack.size != staticConfigs.length + derivedConfigs.length) {  // just evaluated an intermediate point, add down the stack
-        if (searchStack.size <= staticConfigs.length) {  // static config case
-          searchStack.append(staticConfigs(searchStack.length).getValues.to(mutable.ListBuffer))
+      } else if (searchStack.size < allConfigs.length) {  // just evaluated an intermediate point, add down the stack
+        if (searchStack.size < staticConfigs.length) {  // static config case
+          searchStack.append(staticSpace(searchStack.length).to(mutable.ListBuffer))
         } else {  // dynamic config case
           searchStack.append(derivedSpace.get(searchStack.length - staticConfigs.length).to(mutable.ListBuffer))
         }
@@ -105,7 +108,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         }
       }
 
-      if (searchStack.isEmpty) {
+      if (searchStack.isEmpty && derivedSpace.isEmpty) {
         this.searchStack = None
       }
     }

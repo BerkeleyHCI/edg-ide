@@ -218,7 +218,7 @@ case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
 // but the search space afterwards may add refinements.
 // partial_compile here does not apply to the generating compilation,
 // only to the inner search loop.
-sealed trait DseDerivedConfig extends DseConfigElement { self: Serializable =>
+trait DseDerivedConfig extends DseConfigElement { self: Serializable =>
   def configFromDesign(compiledDesign: Compiler): Errorable[DseRefinementElement[Any]]
 }
 
