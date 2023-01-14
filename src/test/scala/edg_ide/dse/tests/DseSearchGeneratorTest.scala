@@ -129,30 +129,34 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     val generatingCompiler = new MockCompiler()
     generator.addEvaluatedPoint(generatingCompiler)  // should never be used
 
-    generator.nextPoint() should equal(Some(None, partial12, SeqMap(), Refinements()))  // now the root compile
+    generator.nextPoint() should equal(Some(None, partial12, SeqMap(), Refinements(), 0.0))  // now the root compile
     val rootCompiler = new MockCompiler()
     generator.addEvaluatedPoint(rootCompiler)
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(derivedConfig1 -> IntValue(0)),
-      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0))))) // intermediate
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0))),
+      0.0)) // intermediate
     val fork0Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork0Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
       SeqMap(derivedConfig1 -> IntValue(0), derivedConfig2 -> IntValue(10)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))))) // concrete value
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))),
+      0.0)) // concrete value
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(derivedConfig1 -> IntValue(1)),
-      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))))) // intermediate
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))),
+      0.5)) // intermediate
     val fork1Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork1Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
       SeqMap(derivedConfig1 -> IntValue(1), derivedConfig2 -> IntValue(10)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))))) // concrete value
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))),
+      0.5)) // concrete value
     generator.addEvaluatedPoint(rootCompiler) // dummy - ignore
 
     generator.nextPoint() should equal(None)

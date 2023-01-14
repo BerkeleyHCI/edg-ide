@@ -77,14 +77,18 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       val baseCompiler = compilerStack.lastOption  // initial is None
       val searchValues = (allConfigs zip searchStack).map { case (staticConfig, staticValues) =>
         val (thisValue, thisRefinement) = staticValues.head
-        staticConfig.asInstanceOf[DseConfigElement] -> thisValue
+        staticConfig -> thisValue
       }
       val combinedSearchValueMap = searchValues.to(SeqMap)
       val incrRefinement = searchStack.lastOption.map(_.head._2).getOrElse(Refinements())
 
+      // the implicit count is the number of elements from the implicit tail past searchStack
+      val implicitStaticCount = if (searchStack.size >= staticConfigs.length) 1 else staticSpaceSize(searchStack.size)
+      // this pushes back the accounting for the last element of each config (the one currently under evaluation)
+      // to the next config, and eventually onto the 1 in implicitStaticCount
       val remainingStaticCount = (searchStack zip staticSpaceSize.drop(1)).map { case (remainingElts, searchSpace) =>
         (remainingElts.length - 1) * searchSpace
-      }.sum + staticSpaceSize(searchStack.size)
+      }.sum + implicitStaticCount
 
       val completedFraction = (staticSpaceSize.head - remainingStaticCount).toFloat / staticSpaceSize.head
 
