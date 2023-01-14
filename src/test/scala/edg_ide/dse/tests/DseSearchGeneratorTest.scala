@@ -3,7 +3,7 @@ package edg_ide.dse.tests
 import edg.compiler.{Compiler, IntValue, PartialCompile}
 import edg.util.Errorable
 import edg.wir.{DesignPath, EdgirLibrary, Refinements}
-import edg_ide.dse.{DseDerivedConfig, DseDerivedPartSearch, DseParameterSearch, DseSearchGenerator}
+import edg_ide.dse.{DseDerivedConfig, DseParameterSearch, DseSearchGenerator}
 import edgir.schema.schema
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,7 +15,7 @@ class MockCompiler extends Compiler(schema.Design(), new EdgirLibrary(schema.Lib
 }
 
 
-case class DseDerivedStatic(path: DesignPath, value: DseParameterSearch) extends DseDerivedConfig with Serializable {
+case class DseDerivedStatic(path: DesignPath, var value: DseParameterSearch) extends DseDerivedConfig with Serializable {
   def configToString: String = f"DerivedStatic($path)"
 
   override def getPartialCompile: PartialCompile = {
@@ -32,10 +32,10 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
   behavior of "DseSearchGenerator"
 
   it should "generate a static config space" in {
-    val valuesConfig1 = DseParameterSearch(DesignPath() + "param1",
+    val config1 = DseParameterSearch(DesignPath() + "param1",
       Seq(0, 1).map(IntValue(_))
     )
-    val valuesConfig2 = DseParameterSearch(DesignPath() + "param2",
+    val config2 = DseParameterSearch(DesignPath() + "param2",
       Seq(10, 11, 12).map(IntValue(_))
     )
 
@@ -48,51 +48,51 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     ))
     val partialEmpty = PartialCompile()
 
-    val generator = new DseSearchGenerator(Seq(valuesConfig1, valuesConfig2))
+    val generator = new DseSearchGenerator(Seq(config1, config2))
     generator.nextPoint() should equal(Some(None, partial12, SeqMap(), Refinements()))
     val rootCompiler = new MockCompiler()
     generator.addEvaluatedPoint(rootCompiler)
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
-      SeqMap(valuesConfig1 -> IntValue(0)),
+      SeqMap(config1 -> IntValue(0)),
       Refinements(instanceValues=Map(DesignPath() + "param1" -> IntValue(0)))))
     val fork0Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork0Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
-      SeqMap(valuesConfig1 -> IntValue(0), valuesConfig2 -> IntValue(10)),
+      SeqMap(config1 -> IntValue(0), config2 -> IntValue(10)),
       Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10)))))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
-      SeqMap(valuesConfig1 -> IntValue(0), valuesConfig2 -> IntValue(11)),
+      SeqMap(config1 -> IntValue(0), config2 -> IntValue(11)),
       Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11)))))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
-      SeqMap(valuesConfig1 -> IntValue(0), valuesConfig2 -> IntValue(12)),
+      SeqMap(config1 -> IntValue(0), config2 -> IntValue(12)),
       Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(12)))))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     // Param 2 searched, backtrack to param 1
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
-      SeqMap(valuesConfig1 -> IntValue(1)),
+      SeqMap(config1 -> IntValue(1)),
       Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1)))))
     val fork1Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork1Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
-      SeqMap(valuesConfig1 -> IntValue(1), valuesConfig2 -> IntValue(10)),
+      SeqMap(config1 -> IntValue(1), config2 -> IntValue(10)),
       Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10)))))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
-      SeqMap(valuesConfig1 -> IntValue(1), valuesConfig2 -> IntValue(11)),
+      SeqMap(config1 -> IntValue(1), config2 -> IntValue(11)),
       Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11)))))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
-      SeqMap(valuesConfig1 -> IntValue(1), valuesConfig2 -> IntValue(12)),
+      SeqMap(config1 -> IntValue(1), config2 -> IntValue(12)),
       Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(12)))))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
@@ -100,6 +100,7 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate a derived config space" in {
+    // we can't test dynamic behavior here since the derived space is generated only once at the test start
     val containedConfig1 = DseParameterSearch(DesignPath() + "param1",
       Seq(0, 1).map(IntValue(_))
     )
@@ -118,7 +119,7 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
       SeqMap(),
       Refinements()))
     val generatingCompiler = new MockCompiler()
-    generator.addEvaluatedPoint(generatingCompiler)
+    generator.addEvaluatedPoint(generatingCompiler)  // should never be used
 
     generator.nextPoint() should equal(Some(None, partial12, SeqMap(), Refinements()))  // now the root compile
     val rootCompiler = new MockCompiler()
@@ -144,6 +145,69 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
       SeqMap(derivedConfig1 -> IntValue(1), derivedConfig2 -> IntValue(10)),
       Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))))) // concrete value
+    generator.addEvaluatedPoint(rootCompiler) // dummy - ignore
+
+    generator.nextPoint() should equal(None)
+  }
+
+  it should "generate a hybrid derived config space" in {
+    val config1 = DseParameterSearch(DesignPath() + "param1",
+      Seq(0, 1).map(IntValue(_))
+    )
+    val containedConfig2 = DseParameterSearch(DesignPath() + "param2",
+      Seq(10).map(IntValue(_))
+    )
+    val derivedConfig2 = DseDerivedStatic(DesignPath() + "param2", containedConfig2)
+
+    val partial12 = PartialCompile(params = Seq(DesignPath() + "param1", DesignPath() + "param2"))
+    val partial2 = PartialCompile(params = Seq(DesignPath() + "param2"))
+    val partialEmpty = PartialCompile()
+
+    val generator = new DseSearchGenerator(Seq(config1, derivedConfig2))
+    generator.nextPoint() should equal(Some(None, partial12, // first is root compile pre-config1
+      SeqMap(),
+      Refinements()))
+    val rootCompiler = new MockCompiler()
+    generator.addEvaluatedPoint(rootCompiler)
+
+    generator.nextPoint() should equal(Some(Some(rootCompiler), partialEmpty, // generating compile
+      SeqMap(config1 -> IntValue(0)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0)))))
+    val generatingCompiler1 = new MockCompiler()
+    generator.addEvaluatedPoint(generatingCompiler1)  // should never be used
+
+    generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
+      SeqMap(config1 -> IntValue(0)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0))))) // intermediate
+    val fork0Compiler = new MockCompiler()
+    generator.addEvaluatedPoint(fork0Compiler)
+
+    generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
+      SeqMap(config1 -> IntValue(0), derivedConfig2 -> IntValue(10)),
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))))) // concrete value
+    generator.addEvaluatedPoint(rootCompiler) // dummy - ignore
+
+    // create a new dynamic value which should take effect
+    val containedConfig2new = DseParameterSearch(DesignPath() + "param2",
+      Seq(11).map(IntValue(_))
+    )
+    derivedConfig2.value = containedConfig2new
+
+    generator.nextPoint() should equal(Some(Some(rootCompiler), partialEmpty, // generating compile
+      SeqMap(config1 -> IntValue(1)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1)))))
+    val generatingCompiler2 = new MockCompiler()
+    generator.addEvaluatedPoint(generatingCompiler2) // should never be used
+
+    generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
+      SeqMap(config1 -> IntValue(1)),
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))))) // intermediate
+    val fork1Compiler = new MockCompiler()
+    generator.addEvaluatedPoint(fork1Compiler)
+
+    generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
+      SeqMap(config1 -> IntValue(1), derivedConfig2 -> IntValue(11)),
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11))))) // concrete value
     generator.addEvaluatedPoint(rootCompiler) // dummy - ignore
 
     generator.nextPoint() should equal(None)
