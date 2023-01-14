@@ -35,7 +35,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   private var searchStack: Option[mutable.ListBuffer[mutable.ListBuffer[(Any, Refinements)]]] = Some(mutable.ListBuffer())
   // the total derived space for the current staticConfig part of searchStack
   // if searchStack does not have a fully defined staticConfig, this must be None
-  private var derivedSpace: Option[Seq[Seq[(Any, Refinements)]]] = None
+  private var derivedSpace: Option[IndexedSeq[Seq[(Any, Refinements)]]] = None
 
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
   // on top of, so the first element would be holding back everything
@@ -60,7 +60,14 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       }
       require(searchStack.length == compilerStack.length)
 
-      val partialCompileRule = staticConfigs.drop(searchStack.length).map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
+      val staticPartialCompile = staticConfigs.drop(searchStack.length)
+          .map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
+      val derivedPartialCompile = if (derivedSpace.isEmpty && searchStack.length == staticConfigs.length) {  // do generating compile
+        PartialCompile()
+      } else {  // for all other cases, it's a normal part of backtracking search
+        derivedConfigs.drop(math.max(0, searchStack.length-staticConfigs.length))
+            .map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
+      }
       val baseCompiler = compilerStack.lastOption  // initial is None
       val searchValues = (staticConfigs zip searchStack).map { case (staticConfig, staticValues) =>
         val (thisValue, thisRefinement) = staticValues.head
@@ -68,7 +75,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       }
       val combinedSearchValueMap = searchValues.to(SeqMap)
       val incrRefinement = searchStack.lastOption.map(_.head._2).getOrElse(Refinements())
-      (baseCompiler, partialCompileRule, combinedSearchValueMap, incrRefinement)
+      (baseCompiler, staticPartialCompile ++ derivedPartialCompile, combinedSearchValueMap, incrRefinement)
     }
   }
 
@@ -76,8 +83,16 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   def addEvaluatedPoint(compiler: Compiler): Unit = {
     require(searchStack.nonEmpty)
     searchStack.foreach { searchStack =>
-      if (searchStack.size != staticConfigs.length) {  // just evaluated an intermediate point, add down the stack
-        searchStack.append(staticConfigs(searchStack.length).getValues.to(mutable.ListBuffer))
+      if (derivedConfigs.nonEmpty && derivedSpace.isEmpty && searchStack.length == staticConfigs.length) {  // is generating compile
+        derivedSpace = Some(derivedConfigs.to(IndexedSeq).map { derivedConfig =>
+          derivedConfig.configFromDesign(compiler).get.getValues
+        })
+      } else if (searchStack.size != staticConfigs.length + derivedConfigs.length) {  // just evaluated an intermediate point, add down the stack
+        if (searchStack.size <= staticConfigs.length) {  // static config case
+          searchStack.append(staticConfigs(searchStack.length).getValues.to(mutable.ListBuffer))
+        } else {  // dynamic config case
+          searchStack.append(derivedSpace.get(searchStack.length - staticConfigs.length).to(mutable.ListBuffer))
+        }
         compilerStack.append(compiler)
       } else {  // just evaluated a concrete design point, pop up the stack
         searchStack.last.remove(0)  // remove the first (just evaluated) point

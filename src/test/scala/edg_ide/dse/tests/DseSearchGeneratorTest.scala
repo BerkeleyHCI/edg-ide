@@ -95,9 +95,9 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     val partialEmpty = PartialCompile()
 
     val generator = new DseSearchGenerator(Seq(partConfig))
-    generator.nextPoint() should equal(Some(None, partial,  // first is the base compile holding back everything
+    generator.nextPoint() should equal(Some(None, partialEmpty,  // first is the generating compile
       SeqMap(),
-      Refinements(instanceValues = Map())))
+      Refinements()))
 
     val rootCompiler = new MockCompiler()
     generator.addEvaluatedPoint(rootCompiler)
