@@ -204,7 +204,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         val results = mutable.ListBuffer[DseResult]()
         while (nextPoint.nonEmpty) {
           val (baseCompilerOpt, partialCompile, pointValues, incrRefinements) = nextPoint.get
-          val allRefinements = refinements ++ incrRefinements
 
 //          indicator.setIndeterminate(false)
 //          indicator.setFraction(staticIndex.toFloat / staticSearchRefinements.size)
@@ -214,7 +213,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               case Some(baseCompiler) => baseCompiler.fork(
                 additionalRefinements = incrRefinements, partial = partialCompile)
               case None => new Compiler(design, EdgCompilerService(project).pyLib,
-                refinements = allRefinements, partial = partialCompile)
+                refinements = refinements ++ incrRefinements, partial = partialCompile)
             }
             val compiled = compiler.compile()
             (compiler, compiled)
@@ -230,8 +229,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               name -> objective.calculate(compiled, solvedValues)
             }
 
+            // TODO: get refinements
             val result = DseResult(results.length, pointValues,
-              incrRefinements, allRefinements,
+              compiler.refinements,
               compiler, compiled, errors, objectiveValues, compileTime)
 
             if (errors.nonEmpty) {
