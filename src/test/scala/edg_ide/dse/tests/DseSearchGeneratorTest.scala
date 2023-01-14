@@ -10,6 +10,11 @@ import org.scalatest.matchers.should.Matchers
 import scala.collection.SeqMap
 
 
+class MockCompiler extends Compiler(schema.Design(), new EdgirLibrary(schema.Library())) {
+
+}
+
+
 class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
   behavior of "DseSearchGenerator"
 
@@ -33,13 +38,13 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     val generator = new DseSearchGenerator(Seq(valuesConfig1, valuesConfig2))
     generator.nextPoint() should equal(Some(None, partial12, SeqMap(), Refinements()))
 
-    val rootCompiler = new Compiler(schema.Design(), new EdgirLibrary(schema.Library()))
+    val rootCompiler = new MockCompiler()
     generator.addEvaluatedPoint(rootCompiler)
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(valuesConfig1 -> IntValue(0)),
       Refinements(instanceValues=Map(DesignPath() + "param1" -> IntValue(0)))))
 
-    val fork0Compiler = rootCompiler.fork()
+    val fork0Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork0Compiler)
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
       SeqMap(valuesConfig1 -> IntValue(0), valuesConfig2 -> IntValue(10)),
@@ -61,7 +66,7 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
       SeqMap(valuesConfig1 -> IntValue(1)),
       Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1)))))
 
-    val fork1Compiler = rootCompiler.fork()
+    val fork1Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork1Compiler)
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
       SeqMap(valuesConfig1 -> IntValue(1), valuesConfig2 -> IntValue(10)),
