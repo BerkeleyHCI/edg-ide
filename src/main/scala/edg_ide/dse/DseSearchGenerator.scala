@@ -102,6 +102,10 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         while (searchStack.nonEmpty && searchStack.last.isEmpty) {  // backtrack as needed
           compilerStack.remove(searchStack.length - 1)
           searchStack.remove(searchStack.length - 1)
+          if (searchStack.length == staticConfigs.length) {  // if backtracking past a derived space, clear the prior
+            require(derivedSpace.nonEmpty)
+            derivedSpace = None
+          }
           if (searchStack.nonEmpty) {  // make sure we don't go past the beginning of the stack
             searchStack.last.remove(0)  // remove the first (just evaluated) point
           }
