@@ -21,9 +21,6 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   private val allConfigs = staticConfigs ++ derivedConfigs
 
   private val staticSpace = staticConfigs.to(IndexedSeq).map(_.getValues)
-  // the search space for each element of each level, eg elt 1 is the search space for one value in staticConfigs[0]
-  // elt 0 is the total search space size
-  private val staticSpaceSize = staticSpace.map(_.length).reverse.scan(1)(_ * _).reverse
 
   // stack of partial compiles up to the next point under evaluation
   // the first elements (up to staticConfigs.length) correspond to the static config,
@@ -46,6 +43,24 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // partial compiles, element correlates to the maximal partial compilation that the corresponding config builds
   // on top of, so the first element would be holding back everything
   private val compilerStack = mutable.ListBuffer[Compiler]()
+
+  // returns the points remaining in the search and the total points, given the current stack and space
+  // (where space is defined as points for each variable)
+  private def getRemainingSearchSpace(stackCount: Seq[Int], space: Seq[Int]): (Int, Int) = {
+    // the search space for each element of each level, assuming we increment the last element
+    // index 1 corresponds to the search space for the first element, and index 0 is the total search space size
+    val cumulativeSpaceSize = space.reverse.scan(1)(_ * _).reverse
+
+    // the implicit count is the number of elements from the implicit tail past searchStack
+    val implicitStaticCount = if (stackCount.size >= space.length) 1 else cumulativeSpaceSize(stackCount.size)
+    // this pushes back the accounting for the last element of each config (the one currently under evaluation)
+    // to the next config, and eventually onto the 1 in implicitStaticCount
+    val remainingStaticCount = (stackCount zip cumulativeSpaceSize.drop(1)).map { case (remainingCount, searchSpace) =>
+      (remainingCount - 1) * searchSpace
+    }.sum + implicitStaticCount
+
+    (remainingStaticCount, cumulativeSpaceSize.head)
+  }
 
   // Returns the next point to search in the design space. Returns new points as the prior one is evaluated.
   // If a design point has an empty PartialCompile, it can be used in the output.
@@ -82,15 +97,17 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       val combinedSearchValueMap = searchValues.to(SeqMap)
       val incrRefinement = searchStack.lastOption.map(_.head._2).getOrElse(Refinements())
 
-      // the implicit count is the number of elements from the implicit tail past searchStack
-      val implicitStaticCount = if (searchStack.size >= staticConfigs.length) 1 else staticSpaceSize(searchStack.size)
-      // this pushes back the accounting for the last element of each config (the one currently under evaluation)
-      // to the next config, and eventually onto the 1 in implicitStaticCount
-      val remainingStaticCount = (searchStack zip staticSpaceSize.drop(1)).map { case (remainingElts, searchSpace) =>
-        (remainingElts.length - 1) * searchSpace
-      }.sum + implicitStaticCount
+      val (staticSpaceRemain, staticSpaceTotal) = getRemainingSearchSpace(
+        searchStack.map(_.length).toSeq, staticSpace.map(_.length))
 
-      val completedFraction = (staticSpaceSize.head - remainingStaticCount).toFloat / staticSpaceSize.head
+      val derivedCompletedFraction = derivedSpace match {  // this counts against the last element of staticSpaceRemain
+        case Some(derivedSpace) =>
+          val (derivedSpaceRemain, derivedSpaceTotal) = getRemainingSearchSpace(
+            searchStack.drop(staticSpace.length).map(_.length).toSeq, derivedSpace.map(_.length))
+          (derivedSpaceTotal - derivedSpaceRemain.toFloat) / derivedSpaceTotal
+        case None => 0
+      }
+      val completedFraction = (staticSpaceTotal - (staticSpaceRemain.toFloat - derivedCompletedFraction)) / staticSpaceTotal
 
       (baseCompiler, staticPartialCompile ++ derivedPartialCompile, combinedSearchValueMap, incrRefinement, completedFraction)
     }
