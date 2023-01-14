@@ -200,63 +200,65 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)
         }
 
-        var nextPoint = searchGenerator.nextPoint()
         val results = mutable.ListBuffer[DseResult]()
-        while (nextPoint.nonEmpty) {
-          val (baseCompilerOpt, partialCompile, pointValues, incrRefinements, completedFraction) = nextPoint.get
+        runFailableStage("search", indicator) {
+          var nextPoint = searchGenerator.nextPoint()
+          while (nextPoint.nonEmpty) {
+            val (baseCompilerOpt, partialCompile, pointValues, incrRefinements, completedFraction) = nextPoint.get
 
-          indicator.setIndeterminate(false)
-          indicator.setFraction(completedFraction)
+            indicator.setIndeterminate(false)
+            indicator.setFraction(completedFraction)
 
-          val ((compiler, compiled), compileTime) = timeExec {
-            val compiler = baseCompilerOpt match {
-              case Some(baseCompiler) => baseCompiler.fork(
-                additionalRefinements = incrRefinements, partial = partialCompile)
-              case None => new Compiler(design, EdgCompilerService(project).pyLib,
-                refinements = refinements ++ incrRefinements, partial = partialCompile)
-            }
-            val compiled = compiler.compile()
-            (compiler, compiled)
-          }
-
-          if (partialCompile.isEmpty) {  // only evaluate the point if it's a full point
-            val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-              new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
-
-            val solvedValues = compiler.getAllSolved
-            val objectiveValues = options.objectives.map { case (name, objective) =>
-              name -> objective.calculate(compiled, solvedValues)
+            val ((compiler, compiled), compileTime) = timeExec {
+              val compiler = baseCompilerOpt match {
+                case Some(baseCompiler) => baseCompiler.fork(
+                  additionalRefinements = incrRefinements, partial = partialCompile)
+                case None => new Compiler(design, EdgCompilerService(project).pyLib,
+                  refinements = refinements ++ incrRefinements, partial = partialCompile)
+              }
+              val compiled = compiler.compile()
+              (compiler, compiled)
             }
 
-            val result = DseResult(results.length, pointValues,
-              compiler, compiled, errors, objectiveValues, compileTime)
+            if (partialCompile.isEmpty) { // only evaluate the point if it's a full point
+              val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+                  new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
-            if (errors.nonEmpty) {
-              console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
-                ConsoleViewContentType.ERROR_OUTPUT)
+              val solvedValues = compiler.getAllSolved
+              val objectiveValues = options.objectives.map { case (name, objective) =>
+                name -> objective.calculate(compiled, solvedValues)
+              }
+
+              val result = DseResult(results.length, pointValues,
+                compiler, compiled, errors, objectiveValues, compileTime)
+
+              if (errors.nonEmpty) {
+                console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
+                  ConsoleViewContentType.ERROR_OUTPUT)
+              } else {
+                console.print(s"Result ${results.length} ($compileTime ms): ${result.objectiveToString}\n",
+                  ConsoleViewContentType.SYSTEM_OUTPUT)
+              }
+
+              results.append(result)
+              csvFile.foreach { csvFile =>
+                csvFile.writeRow(result)
+              }
+
+              uiUpdater.runIfIdle { // only have one UI update in progress at any time
+                System.gc() // clean up after this compile run
+                BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
+              }
             } else {
-              console.print(s"Result ${results.length} ($compileTime ms): ${result.objectiveToString}\n",
+              console.print(s"Intermediate point ($compileTime ms)\n",
                 ConsoleViewContentType.SYSTEM_OUTPUT)
             }
 
-            results.append(result)
-            csvFile.foreach { csvFile =>
-              csvFile.writeRow(result)
-            }
-
-            uiUpdater.runIfIdle { // only have one UI update in progress at any time
-              System.gc() // clean up after this compile run
-              BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
-            }
-          } else {
-            console.print(s"Intermediate point ($compileTime ms)\n",
-              ConsoleViewContentType.SYSTEM_OUTPUT)
+            searchGenerator.addEvaluatedPoint(compiler)
+            nextPoint = searchGenerator.nextPoint()
           }
-
-          searchGenerator.addEvaluatedPoint(compiler)
-          nextPoint = searchGenerator.nextPoint()
+          s"${results.length} configurations"
         }
-        s"${results.length} configurations"
 
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
