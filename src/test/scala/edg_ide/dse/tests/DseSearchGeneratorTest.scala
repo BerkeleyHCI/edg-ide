@@ -2,7 +2,7 @@ package edg_ide.dse.tests
 
 import edg.compiler.{Compiler, IntValue, PartialCompile}
 import edg.wir.{DesignPath, EdgirLibrary, Refinements}
-import edg_ide.dse.{DseParameterSearch, DseSearchGenerator}
+import edg_ide.dse.{DseDerivedPartSearch, DseParameterSearch, DseSearchGenerator}
 import edgir.schema.schema
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -84,5 +84,25 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
 
     generator.addEvaluatedPoint(fork1Compiler)
     generator.nextPoint() should equal(None)
+  }
+
+  it should "generate a derived config space" in {
+    val partConfig = DseDerivedPartSearch(DesignPath())
+
+    val partial = PartialCompile(params = Seq(
+      DesignPath() + "part"
+    ))
+    val partialEmpty = PartialCompile()
+
+    val generator = new DseSearchGenerator(Seq(partConfig))
+    generator.nextPoint() should equal(Some(None, partial,  // first is the base compile holding back everything
+      SeqMap(),
+      Refinements(instanceValues = Map())))
+
+    val rootCompiler = new MockCompiler()
+    generator.addEvaluatedPoint(rootCompiler)
+    generator.nextPoint() should equal(Some(None, partial, SeqMap(), Refinements()))  // generating compile is next
+
+    // TODO scan parts space
   }
 }
