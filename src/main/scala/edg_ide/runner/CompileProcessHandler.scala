@@ -259,6 +259,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         }
 
+        // this is mainly here to provide an index of library elements for the part browser
+        // this can be skipped - library elements can be built dynamically as they are used during compile
         runFailableStage("rebuild libraries", indicator) {
           def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
             // this also includes requests that hit cache

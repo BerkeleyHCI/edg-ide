@@ -147,22 +147,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       }}
     }
 
-//    val (staticConfigs, derivedConfigs) = options.searchConfigs.partitionMap {
-//      case config: DseRefinementElement[Any] => Left(config)
-//      case config: DseDerivedConfig => Right(config)
-//    }
-//
-//    val staticSearchRefinements = crossProduct(staticConfigs.map { searchConfig =>  // generate values for each config
-//      searchConfig.getValues.map { case (value, refinement) =>
-//        (searchConfig.asInstanceOf[DseConfigElement] -> value, refinement)  // tag config onto the value
-//      }
-//    }).map { valueRefinements =>  // combine values across the configs
-//      val (values, refinements) = valueRefinements.unzip
-//      (values.to(SeqMap), refinements.reduce(_ ++ _))
-//    }
-
-    val searchGenerator = new DseSearchGenerator(options.searchConfigs)
-
     try {
       val (pythonCommand, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName).mapErr(
         msg => s"while getting Python interpreter path: $msg"
@@ -181,12 +165,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           s"${discarded.size} library elements"
         }
 
-        runFailableStage("rebuild libraries", indicator) {
-          val designModule = options.designName.split('.').init.mkString(".")
-          val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, None).get
-          f"${indexed.size} elements"
-        }
-
         val designType = ElemBuilder.LibraryPath(options.designName)
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
@@ -201,6 +179,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         val results = mutable.ListBuffer[DseResult]()
         runFailableStage("search", indicator) {
+          val searchGenerator = new DseSearchGenerator(options.searchConfigs)
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
             val (baseCompilerOpt, partialCompile, pointValues, incrRefinements, completedFraction) = nextPoint.get
