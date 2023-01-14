@@ -38,7 +38,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // on top of, so the first element would be holding back everything
   private val compilerStack = mutable.ListBuffer[Compiler]()
 
-  // Returns the next point to search in the design space. Returns new points and the prior one is evaluated.
+  // Returns the next point to search in the design space. Returns new points as the prior one is evaluated.
   // If a design point has an empty PartialCompile, it can be used in the output.
   // This only changes after addEvaluatedPoint is called, when the point is marked as evaluated
   // and derived points are added.
@@ -57,13 +57,13 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       require(searchStack.length == compilerStack.length)
       val partialCompileRule = staticConfigs.drop(searchStack.length).map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
       val baseCompiler = compilerStack.lastOption  // initial is None
-      val (searchValues, refinements) = (staticConfigs zip searchStack).map { case (staticConfig, staticValues) =>
+      val searchValues = (staticConfigs zip searchStack).map { case (staticConfig, staticValues) =>
         val (thisValue, thisRefinement) = staticValues.head
-        (staticConfig.asInstanceOf[DseConfigElement] -> thisValue, thisRefinement)
-      }.unzip
+        staticConfig.asInstanceOf[DseConfigElement] -> thisValue
+      }
       val combinedSearchValueMap = searchValues.to(SeqMap)
-      val combinedRefinement = refinements.fold(Refinements())(_ ++ _)
-      (baseCompiler, partialCompileRule, combinedSearchValueMap, combinedRefinement)
+      val incrRefinement = searchStack.lastOption.map(_.head._2).getOrElse(Refinements())
+      (baseCompiler, partialCompileRule, combinedSearchValueMap, incrRefinement)
     }
   }
 
