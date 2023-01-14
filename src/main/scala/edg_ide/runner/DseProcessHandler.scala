@@ -203,10 +203,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         var nextPoint = searchGenerator.nextPoint()
         val results = mutable.ListBuffer[DseResult]()
         while (nextPoint.nonEmpty) {
-          val (baseCompilerOpt, partialCompile, pointValues, incrRefinements) = nextPoint.get
+          val (baseCompilerOpt, partialCompile, pointValues, incrRefinements, completedFraction) = nextPoint.get
 
-//          indicator.setIndeterminate(false)
-//          indicator.setFraction(staticIndex.toFloat / staticSearchRefinements.size)
+          indicator.setIndeterminate(false)
+          indicator.setFraction(completedFraction)
 
           val ((compiler, compiled), compileTime) = timeExec {
             val compiler = baseCompilerOpt match {

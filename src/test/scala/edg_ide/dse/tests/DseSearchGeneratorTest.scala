@@ -49,51 +49,59 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     val partialEmpty = PartialCompile()
 
     val generator = new DseSearchGenerator(Seq(config1, config2))
-    generator.nextPoint() should equal(Some(None, partial12, SeqMap(), Refinements()))
+    generator.nextPoint() should equal(Some(None, partial12, SeqMap(), Refinements(), 0.0))
     val rootCompiler = new MockCompiler()
     generator.addEvaluatedPoint(rootCompiler)
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(config1 -> IntValue(0)),
-      Refinements(instanceValues=Map(DesignPath() + "param1" -> IntValue(0)))))
+      Refinements(instanceValues=Map(DesignPath() + "param1" -> IntValue(0))),
+      0.0))
     val fork0Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork0Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(0), config2 -> IntValue(10)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10)))))
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))),
+      0.0))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(0), config2 -> IntValue(11)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11)))))
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11))),
+      1.0f/6))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(0), config2 -> IntValue(12)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(12)))))
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(12))),
+      2.0f/6))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     // Param 2 searched, backtrack to param 1
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(config1 -> IntValue(1)),
-      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1)))))
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))),
+      3.0f/6))
     val fork1Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork1Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(1), config2 -> IntValue(10)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10)))))
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))),
+      3.0f/6))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(1), config2 -> IntValue(11)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11)))))
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11))),
+      4.0f/6))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(1), config2 -> IntValue(12)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(12)))))
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(12))),
+      5.0f/6))
     generator.addEvaluatedPoint(rootCompiler)  // dummy - ignore
 
     generator.nextPoint() should equal(None)
@@ -166,25 +174,29 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     val generator = new DseSearchGenerator(Seq(config1, derivedConfig2))
     generator.nextPoint() should equal(Some(None, partial12, // first is root compile pre-config1
       SeqMap(),
-      Refinements()))
+      Refinements(),
+      0.0))
     val rootCompiler = new MockCompiler()
     generator.addEvaluatedPoint(rootCompiler)
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partialEmpty, // generating compile
       SeqMap(config1 -> IntValue(0)),
-      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0)))))
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0))),
+      0.0))
     val generatingCompiler1 = new MockCompiler()
     generator.addEvaluatedPoint(generatingCompiler1)  // should never be used
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(config1 -> IntValue(0)),
-      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0))))) // intermediate
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(0))),
+      0.0)) // intermediate
     val fork0Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork0Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork0Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(0), derivedConfig2 -> IntValue(10)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))))) // concrete value
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(10))),
+      0.0)) // concrete value
     generator.addEvaluatedPoint(rootCompiler) // dummy - ignore
 
     // create a new dynamic value which should take effect
@@ -195,19 +207,22 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partialEmpty, // generating compile
       SeqMap(config1 -> IntValue(1)),
-      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1)))))
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))),
+      0.5))
     val generatingCompiler2 = new MockCompiler()
     generator.addEvaluatedPoint(generatingCompiler2) // should never be used
 
     generator.nextPoint() should equal(Some(Some(rootCompiler), partial2,
       SeqMap(config1 -> IntValue(1)),
-      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))))) // intermediate
+      Refinements(instanceValues = Map(DesignPath() + "param1" -> IntValue(1))),
+      0.5)) // intermediate
     val fork1Compiler = new MockCompiler()
     generator.addEvaluatedPoint(fork1Compiler)
 
     generator.nextPoint() should equal(Some(Some(fork1Compiler), partialEmpty,
       SeqMap(config1 -> IntValue(1), derivedConfig2 -> IntValue(11)),
-      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11))))) // concrete value
+      Refinements(instanceValues = Map(DesignPath() + "param2" -> IntValue(11))),
+      0.5)) // concrete value
     generator.addEvaluatedPoint(rootCompiler) // dummy - ignore
 
     generator.nextPoint() should equal(None)

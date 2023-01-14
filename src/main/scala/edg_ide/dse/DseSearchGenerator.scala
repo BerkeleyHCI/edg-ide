@@ -18,9 +18,12 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
     case config: DseRefinementElement[Any] => Left(config)
     case config: DseDerivedConfig => Right(config)
   }
-  val allConfigs = staticConfigs ++ derivedConfigs
+  private val allConfigs = staticConfigs ++ derivedConfigs
 
   private val staticSpace = staticConfigs.to(IndexedSeq).map(_.getValues)
+  // the search space for each element of each level, eg elt 1 is the search space for one value in staticConfigs[0]
+  // elt 0 is the total search space size
+  private val staticSpaceSize = staticSpace.map(_.length).reverse.scan(1)(_ * _).reverse
 
   // stack of partial compiles up to the next point under evaluation
   // the first elements (up to staticConfigs.length) correspond to the static config,
@@ -48,7 +51,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // If a design point has an empty PartialCompile, it can be used in the output.
   // This only changes after addEvaluatedPoint is called, when the point is marked as evaluated
   // and derived points are added.
-  def nextPoint(): Option[(Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements)] = {
+  def nextPoint(): Option[(Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements, Float)] = {
     // initial point: add partial compile root, with all config holdbacks
     // for each static config: do a partial compile while holding back the rest
     // when all static configs have an assignment:
@@ -78,7 +81,14 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       }
       val combinedSearchValueMap = searchValues.to(SeqMap)
       val incrRefinement = searchStack.lastOption.map(_.head._2).getOrElse(Refinements())
-      (baseCompiler, staticPartialCompile ++ derivedPartialCompile, combinedSearchValueMap, incrRefinement)
+
+      val remainingStaticCount = (searchStack zip staticSpaceSize.drop(1)).map { case (remainingElts, searchSpace) =>
+        (remainingElts.length - 1) * searchSpace
+      }.sum + staticSpaceSize(searchStack.size)
+
+      val completedFraction = (staticSpaceSize.head - remainingStaticCount).toFloat / staticSpaceSize.head
+
+      (baseCompiler, staticPartialCompile ++ derivedPartialCompile, combinedSearchValueMap, incrRefinement, completedFraction)
     }
   }
 
