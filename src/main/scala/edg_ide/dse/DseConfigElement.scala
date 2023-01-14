@@ -34,7 +34,8 @@ object DseConfigElement {
 // Must be serializable so configs can be saved and persist across IDE restarts
 sealed trait DseConfigElement { self: Serializable =>
   def getPartialCompile: PartialCompile
-  def configToString: String
+
+  def configToString: String  // short human-friendly string describing this configuration, excluding values
 }
 
 

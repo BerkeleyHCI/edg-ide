@@ -1,19 +1,17 @@
 package edg_ide.swing
 
-import com.intellij.ui.treeStructure.treetable.{TreeTable, TreeTableModel}
-import edg.EdgirUtils.SimpleLibraryPath
-import edg.wir.DesignPath
-import edg_ide.dse.{DseConfigElement, DseDerivedPartSearch, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseSubclassSearch}
+import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseObjective, DseRefinementElement}
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
-import scala.collection.{SeqMap, mutable}
+import scala.collection.SeqMap
 
 
 sealed trait SeqNodeBase {
-  val children: Seq[SeqNodeBase]
   def getColumns(index: Int): String
+  val children: Seq[SeqNodeBase]
 }
 
 
@@ -34,56 +32,47 @@ object DseConfigTreeNode {
   }
 
   class Root(configs: Seq[DseConfigElement], objectives: SeqMap[String, DseObjective[Any]]) extends DseConfigTreeNode {
+    override val path = ""
+    override val value = ""
     override lazy val children = Seq(
+      new LeafNode("add configs with the right-click menu on blocks and parameters", ""),
       new SearchConfigs(configs),
       new Objectives(objectives)
     )
-    override val path = ""
-    override val value = ""
   }
 
   class SearchConfigs(configs: Seq[DseConfigElement]) extends DseConfigTreeNode {
-    override lazy val children = configs.map {
-      case config: DseParameterSearch => new DseParameterSearchNode(config)
-      case config: DseSubclassSearch => new DseSubclassSearchNode(config)
-      case config: DseDerivedPartSearch => new DseSearchConfigSingleNode(config.path, "Matching Parts")
-    }
     override val path = "Search Configs"
     override val value = ""
+    override lazy val children = configs.map {
+      case config: DseRefinementElement[Any] => new DseRefinementElementNode(config)
+      case config: DseDerivedConfig => new DseDerivedConfigNode(config)
+    }
   }
 
   class Objectives(objectives: SeqMap[String, DseObjective[Any]]) extends DseConfigTreeNode {
-    override lazy val children =  objectives.map { case (name, objective) => objective match {
-      case config: DseObjectiveParameter => new DseObjectiveSingleNode(name, f"Parameter @ ${config.path}")
-      case config: DseObjectiveFootprintArea => new DseObjectiveSingleNode(name, f"Footprint Area in ${config.rootPath}")
-      case config: DseObjectiveFootprintCount => new DseObjectiveSingleNode(name, f"Footprint Count in ${config.rootPath}")
-    } }.toSeq
     override val path = "Objective Functions"
     override val value = ""
+    override lazy val children = objectives.map { case (name, config) =>
+      new DseObjectiveSingleNode(name, config)
+    }.toSeq
   }
 
   sealed trait DseSearchConfigNode extends DseConfigTreeNode {
     def config: DseConfigElement
   }
 
-  class DseSearchConfigSingleNode(nodePath: DesignPath, val value: String) extends DseConfigTreeNode {
-    override val path = nodePath.toString
+  class DseDerivedConfigNode(val config: DseDerivedConfig) extends DseSearchConfigNode {
+    override val path = config.configToString
+    override val value = "(dynamically determined)"
     override lazy val children = Seq()
   }
 
-  class DseParameterSearchNode(val config: DseParameterSearch) extends DseSearchConfigNode {
-    override val path = config.path.toString
-    override val value = f"Parameters (${config.values.length})"
-    override lazy val children = config.values.map { value =>
-      new LeafNode("", value.toStringValue)
-    }
-  }
-
-  class DseSubclassSearchNode(val config: DseSubclassSearch) extends DseSearchConfigNode {
-    override val path = config.path.toString
-    override val value = f"Subclasses (${config.subclasses.length})"
-    override lazy val children = config.subclasses.map { subclass =>
-      new LeafNode("", subclass.toSimpleString)
+  class DseRefinementElementNode(val config: DseRefinementElement[Any]) extends DseSearchConfigNode {
+    override val path = config.configToString
+    override val value = config.getValues.length.toString
+    override lazy val children = config.getValues.map { case (value, refinement) =>
+      new LeafNode("", value.toString)
     }
   }
 
@@ -91,8 +80,9 @@ object DseConfigTreeNode {
     def config: DseObjective[Any]
   }
 
-  class DseObjectiveSingleNode(name: String, val value: String) extends DseConfigTreeNode {
+  class DseObjectiveSingleNode(name: String, val config: DseObjective[Any]) extends DseObjectiveNode {
     override val path = name
+    override val value = config.objectiveToString
     override lazy val children = Seq()
   }
 }
