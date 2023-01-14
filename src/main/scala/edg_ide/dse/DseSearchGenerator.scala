@@ -1,6 +1,5 @@
 package edg_ide.dse
 
-import edgir.schema.schema
 import edg.compiler.{Compiler, PartialCompile}
 import edg.wir.Refinements
 
