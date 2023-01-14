@@ -35,7 +35,6 @@ object DseConfigTreeNode {
     override val path = ""
     override val value = ""
     override lazy val children = Seq(
-      new LeafNode("add configs with the right-click menu on blocks and parameters", ""),
       new SearchConfigs(configs),
       new Objectives(objectives)
     )
