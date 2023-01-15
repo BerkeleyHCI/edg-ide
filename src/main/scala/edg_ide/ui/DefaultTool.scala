@@ -23,26 +23,6 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 trait NavigationPopupMenu extends JPopupMenu {
-  def addGotoDefinitionItem(superclass: ref.LibraryPath,
-                            project: Project): Unit = {
-
-
-    val pyClass = exceptable {
-      val pyClass = DesignAnalysisUtils.pyClassOf(superclass, project).exceptError
-      requireExcept(pyClass.canNavigateToSource, "class not navigatable")
-      pyClass
-    }
-    val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project))
-        .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-    val action = exceptable {
-      () => pyClass.exceptError.navigate(true)
-    }
-    val actionName = s"Goto Definition$fileLine"
-
-    val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(action, actionName)
-    add(gotoDefinitionItem)
-  }
-
   def addGotoInstantiationItems(path: DesignPath,
                                 design: schema.Design, project: Project): Unit = {
     val placeholder = ContextMenuUtils.MenuItem(() => {}, "Goto Instantiation (searching...)")
@@ -64,6 +44,26 @@ trait NavigationPopupMenu extends JPopupMenu {
           .reverse.foreach(insert(_, insertionIndex))
       this.remove(placeholder)
     }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
+  }
+
+  def addGotoDefinitionItem(superclass: ref.LibraryPath,
+                            project: Project): Unit = {
+
+
+    val pyClass = exceptable {
+      val pyClass = DesignAnalysisUtils.pyClassOf(superclass, project).exceptError
+      requireExcept(pyClass.canNavigateToSource, "class not navigatable")
+      pyClass
+    }
+    val fileLine = pyClass.flatMap(PsiUtils.fileLineOf(_, project))
+        .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+    val action = exceptable {
+      () => pyClass.exceptError.navigate(true)
+    }
+    val actionName = s"Goto Definition$fileLine"
+
+    val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(action, actionName)
+    add(gotoDefinitionItem)
   }
 }
 
@@ -103,8 +103,8 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   add(setFocusItem)
   addSeparator()
 
-  addGotoDefinitionItem(blockClass, project)
   addGotoInstantiationItems(path, interface.getDesign, project)
+  addGotoDefinitionItem(blockClass, project)
 
   if (DseFeature.kEnabled) {
     val rootClass = interface.getDesign.getContents.getSelfClass
@@ -203,8 +203,8 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   add(startConnectItem)
   addSeparator()
 
-  addGotoDefinitionItem(portClass, interface.getProject)
   addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
+  addGotoDefinitionItem(portClass, interface.getProject)
 
   val gotoConnectPairs = exceptable {
     val assigns = DesignAnalysisUtils.allConnectsTo(path, interface.getDesign, interface.getProject).exceptError
