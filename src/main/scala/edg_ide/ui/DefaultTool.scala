@@ -102,7 +102,6 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         //        "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
         //      ).map(value => ElemBuilder.LibraryPath(value))
         //    ),
-        )
       }
     }, "Search refinements"))
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
@@ -111,20 +110,27 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       () => {
         val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
         config.options.searchConfigs = config.options.searchConfigs ++ Seq(DseDerivedPartSearch(path))
+        BlockVisualizerService(project).onDseConfigChanged(config)
     }}, "Search matching parts"))
 
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       val rootClass = interface.getDesign.getContents.getSelfClass
       () => {
-        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-        config.options.objectives += ("test", DseObjectiveFootprintArea(DesignPath() + "reg_5v"))
+        PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
+          val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+          config.options.objectives += ("test", DseObjectiveFootprintArea(path))
+          BlockVisualizerService(project).onDseConfigChanged(config)
+        } }
       }
     }, "Add objective contained footprint area"))
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       val rootClass = interface.getDesign.getContents.getSelfClass
       () => {
-        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-        config.options.objectives += ("test", DseObjectiveFootprintCount(DesignPath() + "reg_5v"),)
+        PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
+          val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+          config.options.objectives += (text, DseObjectiveFootprintCount(path))
+          BlockVisualizerService(project).onDseConfigChanged(config)
+        } }
       }
     }, "Add objective contained footprint count"))
   }
