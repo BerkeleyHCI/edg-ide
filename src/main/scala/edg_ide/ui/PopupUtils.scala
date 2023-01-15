@@ -62,7 +62,8 @@ object PopupUtils {
     popup.showCenteredInCurrentWindow(project)
   }
 
-  def createErrorPopup(message: String): (JBPopup, Int) = {
+  // creates an error popup without showing it
+  private def createErrorPopupRaw(message: String): (JBPopup, Int) = {
     var hintHeight: Int = 0
     val popupBuilder = ComponentValidator.createPopupBuilder(
       new ValidationInfo(message, null),  // TODO support component?
@@ -76,14 +77,23 @@ object PopupUtils {
     (popupBuilder.createPopup, hintHeight)
   }
 
+  // creates and shows an error popup at some point in screen coordinates
+  // point will be the top left of the popup
+  def createErrorPopup(message: String, owner: java.awt.Component, point: Point): Unit = {
+    val (popup, height) = createErrorPopupRaw(message)
+    val newPoint = new Point(point)
+    newPoint.translate(0, height)
+    popup.showInScreenCoordinates(owner, newPoint)
+  }
+
   def createErrorPopup(message: String, e: MouseEvent): Unit = {
-    val (popup, height) = createErrorPopup(message)
+    val (popup, height) = createErrorPopupRaw(message)
     popup.showInScreenCoordinates(e.getComponent,
       new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - height))
   }
 
   def createErrorPopup(message: String, editor: Editor): Unit = {
-    val (popup, height) = createErrorPopup(message)
+    val (popup, height) = createErrorPopupRaw(message)
     popup.showInBestPositionFor(editor)
   }
 }

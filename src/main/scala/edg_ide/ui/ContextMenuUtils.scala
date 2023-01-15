@@ -18,9 +18,8 @@ object ContextMenuUtils {
       val clickLocation = MouseInfo.getPointerInfo.getLocation
       action() match {
         case Errorable.Error(msg) =>
-          val (popup, height) = PopupUtils.createErrorPopup(msg)
-          clickLocation.y -= JBUIScale.scale(6) + height
-          popup.showInScreenCoordinates(item, clickLocation)
+          clickLocation.y -= JBUIScale.scale(6)
+          PopupUtils.createErrorPopup(msg, item, clickLocation)
         case Errorable.Success(_) => // ignored
       }
     })
