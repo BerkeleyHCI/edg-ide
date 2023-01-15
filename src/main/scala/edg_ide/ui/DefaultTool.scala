@@ -39,10 +39,10 @@ trait NavigationPopupMenu extends JPopupMenu {
         .foreach(add)
   }
 
-  def addGotoDefinitionItem(superclass: Errorable[ref.LibraryPath],
+  def addGotoDefinitionItem(superclass: ref.LibraryPath,
                             project: Project): Unit = {
     val pyClass = exceptable {
-      val pyClass = DesignAnalysisUtils.pyClassOf(superclass.exceptError, project).exceptError
+      val pyClass = DesignAnalysisUtils.pyClassOf(superclass, project).exceptError
       requireExcept(pyClass.canNavigateToSource, "class not navigatable")
       pyClass
     }
@@ -62,10 +62,13 @@ trait NavigationPopupMenu extends JPopupMenu {
 class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
   private val project = interface.getProject
-  private val block = Errorable(EdgirUtils.resolveExactBlock(path, interface.getDesign), "no block at path")
-  private val blockClass = block.map(_.getSelfClass)
+  private val block = EdgirUtils.resolveExactBlock(path, interface.getDesign).getOrElse {
+    PopupUtils.createErrorPopupAtMouse(f"internal error: no block at $path", this)
+    throw new Exception()
+  }
+  private val blockClass = block.getSelfClass
 
-  add(new JLabel(s"Design Block: ${blockClass.mapToString(_.toSimpleString)} at $path"))
+  add(new JLabel(s"Design Block: ${blockClass.toSimpleString} at $path"))
   addSeparator()
 
   val setFocusAction: Errorable[() => Unit] = exceptable {
@@ -99,10 +102,10 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
 
     addSeparator()
 
-    val (refinementClass, refinementLabel) = block.get.prerefineClass match {
-      case Some(prerefineClass) if prerefineClass != block.get.getSelfClass =>
+    val (refinementClass, refinementLabel) = block.prerefineClass match {
+      case Some(prerefineClass) if prerefineClass != block.getSelfClass =>
         (prerefineClass, f"Search refinements of base ${prerefineClass.toSimpleString}")
-      case _ => (block.get.getSelfClass, f"Search refinements of ${block.get.getSelfClass.toSimpleString}")
+      case _ => (block.getSelfClass, f"Search refinements of ${block.getSelfClass.toSimpleString}")
     }
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).get
@@ -131,7 +134,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       }
     }, refinementLabel))
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      requireExcept(block.get.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
+      requireExcept(block.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
       () => {
         val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
         config.options.searchConfigs = config.options.searchConfigs ++ Seq(DseDerivedPartSearch(path))
@@ -169,17 +172,18 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
 
 class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
-  private val portClass = exceptable {
-    val port = EdgirUtils.resolveExact(path, interface.getDesign).exceptNone("no port at path")
-    // TODO replace w/ EdgirUtils.typeOfPort, but this needs to take a PortLike instead of Any Port
-    port match {
-      case port: elem.Port => port.getSelfClass
-      case bundle: elem.Bundle => bundle.getSelfClass
-      case array: elem.PortArray => array.getSelfClass
-      case other => throw ExceptionNotifyException(s"unknown ${other.getClass} at path")
-    }
+  private val port = EdgirUtils.resolveExact(path, interface.getDesign).getOrElse {
+    PopupUtils.createErrorPopupAtMouse(f"internal error: no port at $path", this)
+    throw new Exception()
   }
-  add(new JLabel(s"Design Port: ${portClass.mapToString(_.toSimpleString)} at $path"))
+  private val portClass = port match {
+    case port: elem.Port => port.getSelfClass
+    case bundle: elem.Bundle => bundle.getSelfClass
+    case array: elem.PortArray => array.getSelfClass
+    case other => PopupUtils.createErrorPopupAtMouse(f"internal error: unknown ${other.getClass} at $path", this)
+      throw new Exception()
+  }
+  add(new JLabel(s"Design Port: ${portClass.toSimpleString} at $path"))
   addSeparator()
 
   val startConnectAction = exceptable {
