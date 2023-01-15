@@ -115,9 +115,8 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
             DesignAnalysisUtils.typeOf(subclass)
           }
         }): Callable[Iterable[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), subclasses => {
-          exceptionNotify
           if (subclasses.isEmpty) {
-            ExceptionNotifyException
+            PopupUtils.createErrorPopupAtMouse(s"${blockPyClass.getName} has no non-abstract subclasses", this)
           } else {
             val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
             config.options.searchConfigs = config.options.searchConfigs ++ Seq(

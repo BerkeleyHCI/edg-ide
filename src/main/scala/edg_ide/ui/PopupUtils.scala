@@ -8,7 +8,7 @@ import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.ui.scale.JBUIScale
 import edg.util.Errorable
 
-import java.awt.Point
+import java.awt.{MouseInfo, Point}
 import java.awt.event.MouseEvent
 import javax.swing.JEditorPane
 import scala.jdk.CollectionConverters.SeqHasAsJava
@@ -79,11 +79,11 @@ object PopupUtils {
 
   // creates and shows an error popup at some point in screen coordinates
   // point will be the top left of the popup
-  def createErrorPopup(message: String, owner: java.awt.Component, point: Point): Unit = {
+  def createErrorPopupAtMouse(message: String, owner: java.awt.Component): Unit = {
     val (popup, height) = createErrorPopupRaw(message)
-    val newPoint = new Point(point)
-    newPoint.translate(0, height)
-    popup.showInScreenCoordinates(owner, newPoint)
+    val clickLocation = MouseInfo.getPointerInfo.getLocation
+    val adjustedLocation = new Point(clickLocation.x, clickLocation.y - JBUIScale.scale(6) + height)
+    popup.showInScreenCoordinates(owner, adjustedLocation)
   }
 
   def createErrorPopup(message: String, e: MouseEvent): Unit = {

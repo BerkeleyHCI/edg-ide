@@ -19,12 +19,14 @@ import scala.collection.SeqMap
 
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
-  add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
+  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
     val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
-    dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
-    BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+    () => {
+      dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
+      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+    }
   }, s"Delete"))
 
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
@@ -47,12 +49,14 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
 
 
 class DseObjectivePopupMenu(objective: DseObjective[Any], project: Project) extends JPopupMenu {
-  add(ContextMenuUtils.ErrorableMenuItem(() => exceptable {
+  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
     val key = originalObjectives.find(objective == _._2).exceptNone("objective not in config")._1
-    dseConfig.options.objectives = originalObjectives.filter(_._1 != key)
-    BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+    () => {
+      dseConfig.options.objectives = originalObjectives.filter(_._1 != key)
+      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+    }
   }, s"Delete"))
 }
 
