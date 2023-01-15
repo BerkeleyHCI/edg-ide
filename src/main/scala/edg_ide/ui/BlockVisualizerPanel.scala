@@ -29,7 +29,7 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{ButtonGroup, JLabel, JPanel}
+import javax.swing.{JLabel, JPanel}
 import scala.collection.{SeqMap, mutable}
 
 
@@ -226,20 +226,20 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   private val libraryPanel = new LibraryPanel(project)
   tabbedPane.addTab("Library", libraryPanel)
-  val TAB_INDEX_LIBRARY = 0
+  private val TAB_INDEX_LIBRARY = 0
 
-  private val detailPanel = new DetailPanel(DesignPath(), design, refinements, compiler)
+  private val detailPanel = new DetailPanel(DesignPath(), compiler, project)
   tabbedPane.addTab("Detail", detailPanel)
-  val TAB_INDEX_DETAIL = 1
+  private val TAB_INDEX_DETAIL = 1
 
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
-  val TAB_INDEX_ERRORS = 2
+  private val TAB_INDEX_ERRORS = 2
 
   // add a tab for kicad visualization
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
-  val TAB_KICAD_VIZ = 3
+  private val TAB_KICAD_VIZ = 3
 
 
   // GUI: Design Space Exploration (bottom tab)
@@ -553,32 +553,6 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   }
 }
 
-
-class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements: edgrpc.Refinements,
-                  initCompiler: Compiler) extends JPanel {
-  import edg_ide.swing.ElementDetailTreeModel
-
-  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, initRoot, initRefinements, initCompiler))
-  tree.setShowColumns(true)
-  private val treeScrollPane = new JBScrollPane(tree)
-
-  setLayout(new BorderLayout())
-  add(treeScrollPane)
-
-  // Actions
-  //
-  def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
-    TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
-  }
-
-  // Configuration State
-  //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-  }
-
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-  }
-}
 
 class ErrorPanel extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))

@@ -5,12 +5,14 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, PythonInterfaceLibrary}
 import edgir.schema.schema
 import edgir.elem.elem
+import edgir.ref.ref
 import edg.wir.DesignPath
 import edg_ide.dse.DseResult
-import edg_ide.runner.DseRunConfiguration
+import edg_ide.runner.{DseConfigurationFactory, DseRunConfiguration, DseRunConfigurationType}
 import edgrpc.hdl.{hdl => edgrpc}
 
 
@@ -79,10 +81,32 @@ class BlockVisualizerService(project: Project) extends
         .collect { case config: DseRunConfiguration => config }
   }
 
+  def getOrCreateDseRunConfiguration(blockType: ref.LibraryPath): DseRunConfiguration = {
+    val existingConfig = Option(RunManager.getInstance(project).getSelectedConfiguration)
+        .map(_.getConfiguration)
+        .collect { case config: DseRunConfiguration => config } match {
+      case Some(existingConfig) if existingConfig.options.designName == blockType.toFullString =>
+        Some(existingConfig)
+      case _ => None
+    }
+    existingConfig.getOrElse {  // if no existing config of the type, create a new one
+      val runManager = RunManager.getInstance(project)
+      val newRunnerConfig = runManager.createConfiguration(
+        blockType.toFullString, new DseConfigurationFactory(new DseRunConfigurationType))
+      runManager.addConfiguration(newRunnerConfig)
+      runManager.setSelectedConfiguration(newRunnerConfig)
+
+      val newConfig = newRunnerConfig.getConfiguration.asInstanceOf[DseRunConfiguration]
+      newConfig.options.designName = blockType.toFullString
+      newConfig
+    }
+  }
+
   def setDseResults(results: Seq[DseResult], inProgress: Boolean): Unit = {
     dsePanelOption.foreach(_.setResults(results, inProgress))
   }
 
+  // State management
   override def getState: BlockVisualizerServiceState = {
     val state = new BlockVisualizerServiceState
     visualizerPanel.foreach { _.saveState(state) }

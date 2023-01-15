@@ -71,7 +71,7 @@ object DseConfigTreeNode {
     override val path = config.configToString
     override val value = config.getValues.length.toString
     override lazy val children = config.getValues.map { case (value, refinement) =>
-      new LeafNode("", value.toString)
+      new LeafNode("", config.valueToString(value))
     }
   }
 

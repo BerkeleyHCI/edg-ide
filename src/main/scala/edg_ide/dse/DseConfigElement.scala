@@ -48,6 +48,10 @@ sealed trait DseStaticConfig extends DseConfigElement { self: Serializable =>
 sealed trait DseRefinementElement[+ValueType] extends DseStaticConfig { self: Serializable =>
   // Returns a list of possibilities, as both a raw value and a refinement
   def getValues: Seq[(ValueType, Refinements)]
+
+  // Given a value form getValues, returns a human readable representation
+  // TODO: this should be properly typed, but then ValueType needs to be invariant
+  def valueToString(value: Any): String
 }
 
 
@@ -130,6 +134,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
     extends DseInstanceRefinementElement[ExprValue] with Serializable {
   override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(",")})"
   override def configToString: String = f"Param($path)"
+  def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path))
@@ -203,6 +208,7 @@ case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
     extends DseInstanceRefinementElement[ref.LibraryPath] with Serializable {
   override def toString = f"${this.getClass.getSimpleName}($path, ${subclasses.map(_.toSimpleString).mkString(", ")})"
   override def configToString: String = f"Subclass($path)"
+  def valueToString(value: Any): String = value.asInstanceOf[ref.LibraryPath].toSimpleString
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(blocks = Seq(path))

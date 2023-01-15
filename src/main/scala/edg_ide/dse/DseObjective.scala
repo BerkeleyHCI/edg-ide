@@ -1,5 +1,5 @@
 package edg_ide.dse
-import edg.compiler.{ArrayValue, BooleanValue, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.compiler.{Compiler, ArrayValue, BooleanValue, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.ui.{EdgSettingsState, KicadParser}
@@ -19,17 +19,17 @@ sealed trait DseObjective[+T] { self: Serializable =>
   // TODO: also needs libraries and external sources?
   def objectiveToString: String  // short human-friendly string describing this configuration
 
-  def calculate(design: schema.Design, values: Map[IndirectDesignPath, ExprValue]): T
+  def calculate(design: schema.Design, compiler: Compiler): T
 }
 
 
 // Extracts the value of a single parameter
-case class DseObjectiveParameter(path: DesignPath)
+case class DseObjectiveParameter(path: IndirectDesignPath)
     extends DseObjective[Option[Any]] with Serializable {
   override def objectiveToString = f"Parameter($path)"
 
-  override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Option[Any] = {
-    values.get(path.asIndirect) match {
+  override def calculate(design: Design, compiler: Compiler): Option[Any] = {
+    compiler.getParamValue(path) match {
       case Some(FloatValue(value)) => Some(value)
       case Some(IntValue(value)) => Some(value)
       case Some(RangeValue(lower, upper)) => Some((lower, upper))
@@ -69,11 +69,11 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
     extends DseObjective[Float] with Serializable {
   override def objectiveToString = f"FootprintArea($rootPath)"
 
-  override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Float = {
+  override def calculate(design: Design, compiler: Compiler): Float = {
     new DesignBlockMap[Float] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float]): Float = {
         val thisArea = if (path.startsWith(rootPath)) {
-          values.get((path + "fp_footprint").asIndirect) match {
+          compiler.getParamValue((path + "fp_footprint").asIndirect) match {
             case Some(TextValue(footprintName)) => DseObjectiveFootprintArea.getFootprintArea(footprintName)
             case _ => 0
           }
@@ -92,7 +92,7 @@ case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
     extends DseObjective[Int] with Serializable {
   override def objectiveToString = f"FootprintCount($rootPath)"
 
-  override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Int = {
+  override def calculate(design: Design, compiler: Compiler): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
         val thisValue = if (path.startsWith(rootPath) && block.params.toSeqMap.contains("fp_footprint")) 1 else 0

@@ -35,7 +35,7 @@ object ElementDetailNode {
 }
 
 
-class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements) {
+class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val refinements: edgrpc.Refinements) {
   sealed trait BasePortNode extends ElementDetailNode {
     val path: DesignPath
     val fromLink: Boolean
@@ -259,7 +259,9 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
   }
 
 
-  class ParamNode(path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
+  class ParamNode(val path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
+    def outer: ElementDetailNodes = ElementDetailNodes.this  // TODO: should all ElementDetailNode have outer ref?
+
     override lazy val children: Seq[ElementDetailNode] = compiler.getParamValue(path) match {
       case Some(ArrayValue(values)) => values.zipWithIndex.map { case (value, index) =>
         new ParamEltNode(index, value)

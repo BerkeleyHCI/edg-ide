@@ -202,9 +202,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
                   new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
-              val solvedValues = compiler.getAllSolved
               val objectiveValues = options.objectives.map { case (name, objective) =>
-                name -> objective.calculate(compiled, solvedValues)
+                name -> objective.calculate(compiled, compiler)
               }
 
               val result = DseResult(results.length, pointValues,
