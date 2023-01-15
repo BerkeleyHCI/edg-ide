@@ -85,7 +85,7 @@ class BlockVisualizerService(project: Project) extends
     val existingConfig = Option(RunManager.getInstance(project).getSelectedConfiguration)
         .map(_.getConfiguration)
         .collect { case config: DseRunConfiguration => config } match {
-      case Some(existingConfig) if existingConfig.kFieldDesignName == blockType.toFullString =>
+      case Some(existingConfig) if existingConfig.options.designName == blockType.toFullString =>
         Some(existingConfig)
       case _ => None
     }

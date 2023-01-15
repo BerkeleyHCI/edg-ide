@@ -85,10 +85,10 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     }
   }
 
-  val kFieldDesignName = "DESIGN_NAME"
-  val kFieldResultCsvFile = "RESULT_CSV_FILE"
-  val kFieldSearchConfigs = "SEARCH_CONFIGS"
-  val kFieldObjectives = "OBJECTIVES"
+  private val kFieldDesignName = "DESIGN_NAME"
+  private val kFieldResultCsvFile = "RESULT_CSV_FILE"
+  private val kFieldSearchConfigs = "SEARCH_CONFIGS"
+  private val kFieldObjectives = "OBJECTIVES"
   override def readExternal(element: Element): Unit = {
     super.readExternal(element)
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
