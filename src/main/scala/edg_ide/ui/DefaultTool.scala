@@ -118,7 +118,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       () => {
         PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
           val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-          config.options.objectives += ("test", DseObjectiveFootprintArea(path))
+          config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintArea(path)))
           BlockVisualizerService(project).onDseConfigChanged(config)
         } }
       }
@@ -128,7 +128,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       () => {
         PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
           val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-          config.options.objectives += (text, DseObjectiveFootprintCount(path))
+          config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintCount(path)))
           BlockVisualizerService(project).onDseConfigChanged(config)
         } }
       }
