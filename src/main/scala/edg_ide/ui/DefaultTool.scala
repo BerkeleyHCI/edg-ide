@@ -11,7 +11,7 @@ import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
-import edg_ide.dse.DseFeature
+import edg_ide.dse.{DseDerivedPartSearch, DseFeature, DseObjectiveFootprintArea, DseObjectiveFootprintCount}
 
 import java.awt.event.MouseEvent
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
@@ -93,11 +93,48 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     addSeparator()
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       val rootClass = interface.getDesign.getContents.getSelfClass
+      () => {
+        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+        // eg
+        // DseSubclassSearch(DesignPath() + "reg_5v",
+        //      Seq(
+        //        "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
+        //        "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
+        //      ).map(value => ElemBuilder.LibraryPath(value))
+        //    ),
+        )
+      }
+    }, "Search refinements"))
+    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+      val rootClass = interface.getDesign.getContents.getSelfClass
       requireExcept(block.get.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
       () => {
-        BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+        config.options.searchConfigs = config.options.searchConfigs ++ Seq(DseDerivedPartSearch(path))
     }}, "Search matching parts"))
+
+    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+      val rootClass = interface.getDesign.getContents.getSelfClass
+      () => {
+        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+        config.options.objectives += ("test", DseObjectiveFootprintArea(DesignPath() + "reg_5v"))
+      }
+    }, "Add objective contained footprint area"))
+    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+      val rootClass = interface.getDesign.getContents.getSelfClass
+      () => {
+        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+        config.options.objectives += ("test", DseObjectiveFootprintCount(DesignPath() + "reg_5v"),)
+      }
+    }, "Add objective contained footprint count"))
   }
+  // TODO eg
+  // parameters search
+  //DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
+  //      Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
+  //    ),
+  // objective parametrs
+  // "inductance" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
 }
 
 

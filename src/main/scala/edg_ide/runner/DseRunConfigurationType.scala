@@ -56,26 +56,8 @@ class DseRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var resultCsvFile: String = ""
 
-  // TODO this should be the more generic DseConfigElement, but for now it's refinement types only
-  var searchConfigs: Seq[DseConfigElement] = Seq(
-    DseSubclassSearch(DesignPath() + "reg_5v",
-      Seq(
-        "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
-        "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
-      ).map(value => ElemBuilder.LibraryPath(value))
-    ),
-    DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
-      Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
-    ),
-    DseDerivedPartSearch(DesignPath() + "reg_5v" + "power_path" + "inductor"),
-  )
-  var objectives: SeqMap[String, DseObjective[Any]] = SeqMap(
-    "inductor" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_part"),
-    "inductor_val" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "fp_value"),
-    "inductance" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
-    "5v_area" -> DseObjectiveFootprintArea(DesignPath() + "reg_5v"),
-    "5v_count" -> DseObjectiveFootprintCount(DesignPath() + "reg_5v"),
-  )
+  var searchConfigs: Seq[DseConfigElement] = Seq()
+  var objectives: SeqMap[String, DseObjective[Any]] = SeqMap()
 }
 
 
