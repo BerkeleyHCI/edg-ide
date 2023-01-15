@@ -10,6 +10,8 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg.EdgirUtils.SimpleLibraryPath
+import edg.wir.ProtoUtil.ParamProtoToSeqMap
+import edg_ide.dse.DseFeature
 
 import java.awt.event.MouseEvent
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
@@ -54,6 +56,7 @@ trait NavigationPopupMenu extends JPopupMenu {
 
 class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
+  private val project = interface.getProject
   private val block = Errorable(EdgirUtils.resolveExactBlock(path, interface.getDesign), "no block at path")
   private val blockClass = block.map(_.getSelfClass)
 
@@ -83,8 +86,18 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   add(setFocusItem)
   addSeparator()
 
-  addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
-  addGotoDefinitionItem(blockClass, interface.getProject)
+  addGotoInstantiationItems(path, interface.getDesign, project)
+  addGotoDefinitionItem(blockClass, project)
+
+  if (DseFeature.kEnabled) {
+    addSeparator()
+    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+      val rootClass = interface.getDesign.getContents.getSelfClass
+      requireExcept(block.get.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
+      () => {
+        BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+    }}, "Search matching parts"))
+  }
 }
 
 
