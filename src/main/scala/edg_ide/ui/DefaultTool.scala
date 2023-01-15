@@ -110,7 +110,10 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         ReadAction.nonBlocking((() => {
           val subClasses = PyClassInheritorsSearch.search(blockPyClass, true).findAll().asScala
           subClasses.filter { subclass =>  // filter out abstract blocks
-            !subclass.getDecoratorList.getDecorators.exists(_.getName == "abstract_block")
+            val maybeIsAbstract = Option(subclass.getDecoratorList).map { decoratorList =>
+              decoratorList.getDecorators.exists(_.getName == "abstract_block")
+            }
+            !maybeIsAbstract.getOrElse(false)
           } .map { subclass =>
             DesignAnalysisUtils.typeOf(subclass)
           }
