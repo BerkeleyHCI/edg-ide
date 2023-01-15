@@ -3,19 +3,18 @@ package edg_ide.ui
 import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.AppExecutorUtil
-import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
-import edgir.elem.elem
-import edgir.ref.ref
-import edgir.schema.schema
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.util.Errorable
 import edg.wir.DesignPath
+import edg.wir.ProtoUtil.ParamProtoToSeqMap
+import edg_ide.dse._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
-import edg.EdgirUtils.SimpleLibraryPath
-import edg.wir.ProtoUtil.ParamProtoToSeqMap
-import edg_ide.dse.{DseDerivedPartSearch, DseFeature, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseSubclassSearch}
+import edgir.elem.elem
+import edgir.ref.ref
+import edgir.schema.schema
 
 import java.awt.event.MouseEvent
 import java.util.concurrent.Callable
@@ -101,23 +100,31 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     addSeparator()
 
     val (refinementClass, refinementLabel) = block.get.prerefineClass match {
-      case Some(prerefineClass) => (prerefineClass, f"Search refinements of base ${prerefineClass.toSimpleString}")
-      case None => (block.get.getSelfClass, f"Search refinements of ${block.get.getSelfClass.toSimpleString}")
+      case Some(prerefineClass) if prerefineClass != block.get.getSelfClass =>
+        (prerefineClass, f"Search refinements of base ${prerefineClass.toSimpleString}")
+      case _ => (block.get.getSelfClass, f"Search refinements of ${block.get.getSelfClass.toSimpleString}")
     }
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).get
       () => {
         ReadAction.nonBlocking((() => {
           val subClasses = PyClassInheritorsSearch.search(blockPyClass, true).findAll().asScala
-          subClasses.map { subclass =>
+          subClasses.filter { subclass =>  // filter out abstract blocks
+            !subclass.getDecoratorList.getDecorators.exists(_.getName == "abstract_block")
+          } .map { subclass =>
             DesignAnalysisUtils.typeOf(subclass)
           }
         }): Callable[Iterable[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), subclasses => {
-          val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-          config.options.searchConfigs = config.options.searchConfigs ++ Seq(
-            DseSubclassSearch(path, subclasses.toSeq)
-          )
-          BlockVisualizerService(project).onDseConfigChanged(config)
+          exceptionNotify
+          if (subclasses.isEmpty) {
+            ExceptionNotifyException
+          } else {
+            val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+            config.options.searchConfigs = config.options.searchConfigs ++ Seq(
+              DseSubclassSearch(path, subclasses.toSeq)
+            )
+            BlockVisualizerService(project).onDseConfigChanged(config)
+          }
         }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       }
     }, refinementLabel))
