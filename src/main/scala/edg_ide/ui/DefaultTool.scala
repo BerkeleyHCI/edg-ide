@@ -48,8 +48,6 @@ trait NavigationPopupMenu extends JPopupMenu {
 
   def addGotoDefinitionItem(superclass: ref.LibraryPath,
                             project: Project): Unit = {
-
-
     val pyClass = exceptable {
       val pyClass = DesignAnalysisUtils.pyClassOf(superclass, project).exceptError
       requireExcept(pyClass.canNavigateToSource, "class not navigatable")
@@ -181,6 +179,30 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
 
 class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     extends JPopupMenu with NavigationPopupMenu {
+  def addGotoConnectItems(path: DesignPath, design: schema.Design, project: Project): Unit = {
+    val placeholder = ContextMenuUtils.MenuItem(() => {}, "Goto Connect (searching...)")
+    placeholder.setEnabled(false)
+    add(placeholder)
+
+    ReadAction.nonBlocking((() => {
+      exceptable {
+        val assigns = DesignAnalysisUtils.allConnectsTo(path, design, project).exceptError
+
+        assigns.map { assign =>
+          val fileLine = PsiUtils.fileLineOf(assign, project)
+              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+          (s"Goto Connect$fileLine", () => assign.navigate(true))
+        }
+      }
+    }): Callable[Errorable[Seq[(String, () => Unit)]]]).finishOnUiThread(ModalityState.defaultModalityState(), result => {
+      val insertionIndex = this.getComponentIndex(placeholder)
+      ContextMenuUtils.MenuItemsFromErrorableSeq(result, s"Goto Connect")
+          .reverse.foreach(insert(_, insertionIndex))
+      this.remove(placeholder)
+    }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
+  }
+
+  private val project = interface.getProject
   private val port = EdgirUtils.resolveExact(path, interface.getDesign).getOrElse {
     PopupUtils.createErrorPopupAtMouse(f"internal error: no port at $path", this)
     throw new Exception()
@@ -203,21 +225,11 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   add(startConnectItem)
   addSeparator()
 
-  addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
-  addGotoDefinitionItem(portClass, interface.getProject)
+  addGotoInstantiationItems(path, interface.getDesign, project)
+  addGotoDefinitionItem(portClass, project)
+  addGotoConnectItems(path, interface.getDesign, project)
 
-  val gotoConnectPairs = exceptable {
-    val assigns = DesignAnalysisUtils.allConnectsTo(path, interface.getDesign, interface.getProject).exceptError
 
-    assigns.map { assign =>
-      val fileLine = PsiUtils.fileLineOf(assign, interface.getProject)
-          .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-      (s"Goto Connect$fileLine", () => assign.navigate(true))
-    }
-  }
-
-  ContextMenuUtils.MenuItemsFromErrorableSeq(gotoConnectPairs, s"Goto Connect")
-      .foreach(add)
 }
 
 
