@@ -23,24 +23,10 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 trait NavigationPopupMenu extends JPopupMenu {
-  def addGotoInstantiationItems(path: DesignPath,
-                                design: schema.Design, project: Project): Unit = {
-    val actionPairs = exceptable {
-      val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project).exceptError
-
-      assigns.map { assign =>
-        val fileLine = PsiUtils.fileLineOf(assign, project)
-            .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-        (s"Goto Instantiation$fileLine", () => assign.navigate(true))
-      }
-    }
-
-    ContextMenuUtils.MenuItemsFromErrorableSeq(actionPairs, s"Goto Instantiation")
-        .foreach(add)
-  }
-
   def addGotoDefinitionItem(superclass: ref.LibraryPath,
                             project: Project): Unit = {
+
+
     val pyClass = exceptable {
       val pyClass = DesignAnalysisUtils.pyClassOf(superclass, project).exceptError
       requireExcept(pyClass.canNavigateToSource, "class not navigatable")
@@ -55,6 +41,29 @@ trait NavigationPopupMenu extends JPopupMenu {
 
     val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(action, actionName)
     add(gotoDefinitionItem)
+  }
+
+  def addGotoInstantiationItems(path: DesignPath,
+                                design: schema.Design, project: Project): Unit = {
+    val placeholder = ContextMenuUtils.MenuItem(() => {}, "Goto Instantiation (searching...)")
+    placeholder.setEnabled(false)
+    add(placeholder)
+
+    ReadAction.nonBlocking((() => {
+      exceptable {
+        val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project).exceptError
+        assigns.map { assign =>
+          val fileLine = PsiUtils.fileLineOf(assign, project)
+              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+          (s"Goto Instantiation$fileLine", () => assign.navigate(true))
+        }
+      }
+    }): Callable[Errorable[Seq[(String, () => Unit)]]]).finishOnUiThread(ModalityState.defaultModalityState(), result => {
+      val insertionIndex = this.getComponentIndex(placeholder)
+      ContextMenuUtils.MenuItemsFromErrorableSeq(result, s"Goto Instantiation")
+          .reverse.foreach(insert(_, insertionIndex))
+      this.remove(placeholder)
+    }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
   }
 }
 
