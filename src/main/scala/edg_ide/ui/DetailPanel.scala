@@ -42,9 +42,9 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
 }
 
 
-class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements: edgrpc.Refinements,
-                  initCompiler: Compiler, project: Project) extends JPanel {
-  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, initRoot, initRefinements, initCompiler))
+// TODO: remove initCompiler, it's counterintuitive
+class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project) extends JPanel {
+  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, schema.Design(), edgrpc.Refinements(), initCompiler))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
 
@@ -62,7 +62,8 @@ class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements
         case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click context menu
             if (DseFeature.kEnabled) {
-              new DetailParamPopupMenu(selected.path, initRoot, initCompiler, project).show(e.getComponent, e.getX, e.getY)
+              new DetailParamPopupMenu(selected.path, selected.outer.root, selected.outer.compiler, project)
+                  .show(e.getComponent, e.getX, e.getY)
             }
           }
 

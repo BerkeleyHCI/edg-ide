@@ -226,20 +226,20 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   private val libraryPanel = new LibraryPanel(project)
   tabbedPane.addTab("Library", libraryPanel)
-  val TAB_INDEX_LIBRARY = 0
+  private val TAB_INDEX_LIBRARY = 0
 
-  private val detailPanel = new DetailPanel(DesignPath(), design, refinements, compiler, project)
+  private val detailPanel = new DetailPanel(DesignPath(), compiler, project)
   tabbedPane.addTab("Detail", detailPanel)
-  val TAB_INDEX_DETAIL = 1
+  private val TAB_INDEX_DETAIL = 1
 
   private val errorPanel = new ErrorPanel()
   tabbedPane.addTab("Errors", errorPanel)
-  val TAB_INDEX_ERRORS = 2
+  private val TAB_INDEX_ERRORS = 2
 
   // add a tab for kicad visualization
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
-  val TAB_KICAD_VIZ = 3
+  private val TAB_KICAD_VIZ = 3
 
 
   // GUI: Design Space Exploration (bottom tab)
