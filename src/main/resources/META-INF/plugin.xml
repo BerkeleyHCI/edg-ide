@@ -26,9 +26,7 @@
     <configurationType implementation="edg_ide.runner.DesignTopRunConfigurationType"/>
     <runConfigurationProducer implementation="edg_ide.runner.DesignTopRunConfigurationProducer"/>
 
-    <!-- the DSE run config uses the DesignTop run marker contributor, which seems to find all producers -->
     <configurationType implementation="edg_ide.runner.DseRunConfigurationType"/>
-    <runConfigurationProducer implementation="edg_ide.runner.DseRunConfigurationProducer"/>
   </extensions>
 
   <actions>
