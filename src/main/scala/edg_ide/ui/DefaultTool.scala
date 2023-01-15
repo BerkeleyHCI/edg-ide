@@ -103,8 +103,8 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   add(setFocusItem)
   addSeparator()
 
-  addGotoInstantiationItems(path, interface.getDesign, project)
   addGotoDefinitionItem(blockClass, project)
+  addGotoInstantiationItems(path, interface.getDesign, project)
 
   if (DseFeature.kEnabled) {
     val rootClass = interface.getDesign.getContents.getSelfClass
@@ -203,8 +203,8 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   add(startConnectItem)
   addSeparator()
 
-  addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
   addGotoDefinitionItem(portClass, interface.getProject)
+  addGotoInstantiationItems(path, interface.getDesign, interface.getProject)
 
   val gotoConnectPairs = exceptable {
     val assigns = DesignAnalysisUtils.allConnectsTo(path, interface.getDesign, interface.getProject).exceptError
