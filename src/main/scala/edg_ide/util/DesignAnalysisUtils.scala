@@ -49,6 +49,13 @@ object DesignAnalysisUtils {
     LibraryPath(pyClass.getQualifiedName)
   }
 
+  def isPyClassAbstract(pyClass: PyClass): Boolean = {
+    val hasAbstractDecorator = Option(pyClass.getDecoratorList).map { decoratorList =>
+      decoratorList.getDecorators.exists(_.getName == "abstract_block")
+    }
+    hasAbstractDecorator.getOrElse(false)
+  }
+
   // For a statement list, eg in a function, returns the super().__init__ call if it exists and is the first statement
   def firstInitOption(stmts: Seq[PyStatement]): Option[PyCallExpression] = stmts match {
     case Seq() => None

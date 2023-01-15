@@ -105,10 +105,9 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   addGotoDefinitionItem(blockClass, project)
 
   if (DseFeature.kEnabled) {
-    val rootClass = interface.getDesign.getContents.getSelfClass
-
     addSeparator()
 
+    val rootClass = interface.getDesign.getContents.getSelfClass
     val (refinementClass, refinementLabel) = block.prerefineClass match {
       case Some(prerefineClass) if prerefineClass != block.getSelfClass =>
         (prerefineClass, f"Search refinements of base ${prerefineClass.toSimpleString}")
@@ -120,10 +119,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         ReadAction.nonBlocking((() => {
           val subClasses = PyClassInheritorsSearch.search(blockPyClass, true).findAll().asScala
           subClasses.filter { subclass =>  // filter out abstract blocks
-            val maybeIsAbstract = Option(subclass.getDecoratorList).map { decoratorList =>
-              decoratorList.getDecorators.exists(_.getName == "abstract_block")
-            }
-            !maybeIsAbstract.getOrElse(false)
+            !DesignAnalysisUtils.isPyClassAbstract(subclass)
           } .map { subclass =>
             DesignAnalysisUtils.typeOf(subclass)
           }
