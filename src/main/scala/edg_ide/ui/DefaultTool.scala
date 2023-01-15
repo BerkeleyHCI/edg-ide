@@ -1,6 +1,10 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
+import com.intellij.util.concurrency.AppExecutorUtil
+import com.jetbrains.python.psi.PyClass
+import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -11,10 +15,12 @@ import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
-import edg_ide.dse.{DseDerivedPartSearch, DseFeature, DseObjectiveFootprintArea, DseObjectiveFootprintCount}
+import edg_ide.dse.{DseDerivedPartSearch, DseFeature, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseSubclassSearch}
 
 import java.awt.event.MouseEvent
+import java.util.concurrent.Callable
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 trait NavigationPopupMenu extends JPopupMenu {
@@ -90,22 +96,32 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   addGotoDefinitionItem(blockClass, project)
 
   if (DseFeature.kEnabled) {
+    val rootClass = interface.getDesign.getContents.getSelfClass
+
     addSeparator()
+
+    val (refinementClass, refinementLabel) = block.get.prerefineClass match {
+      case Some(prerefineClass) => (prerefineClass, f"Search refinements of base ${prerefineClass.toSimpleString}")
+      case None => (block.get.getSelfClass, f"Search refinements of ${block.get.getSelfClass.toSimpleString}")
+    }
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      val rootClass = interface.getDesign.getContents.getSelfClass
+      val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).get
       () => {
-        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-        // eg
-        // DseSubclassSearch(DesignPath() + "reg_5v",
-        //      Seq(
-        //        "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
-        //        "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
-        //      ).map(value => ElemBuilder.LibraryPath(value))
-        //    ),
+        ReadAction.nonBlocking((() => {
+          val subClasses = PyClassInheritorsSearch.search(blockPyClass, true).findAll().asScala
+          subClasses.map { subclass =>
+            DesignAnalysisUtils.typeOf(subclass)
+          }
+        }): Callable[Iterable[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), subclasses => {
+          val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+          config.options.searchConfigs = config.options.searchConfigs ++ Seq(
+            DseSubclassSearch(path, subclasses.toSeq)
+          )
+          BlockVisualizerService(project).onDseConfigChanged(config)
+        }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       }
-    }, "Search refinements"))
+    }, refinementLabel))
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      val rootClass = interface.getDesign.getContents.getSelfClass
       requireExcept(block.get.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
       () => {
         val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
@@ -114,7 +130,6 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     }}, "Search matching parts"))
 
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      val rootClass = interface.getDesign.getContents.getSelfClass
       () => {
         PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
           val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
@@ -124,7 +139,6 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       }
     }, "Add objective contained footprint area"))
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      val rootClass = interface.getDesign.getContents.getSelfClass
       () => {
         PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
           val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
