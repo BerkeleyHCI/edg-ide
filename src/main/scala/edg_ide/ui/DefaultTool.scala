@@ -29,20 +29,20 @@ trait NavigationPopupMenu extends JPopupMenu {
     placeholder.setEnabled(false)
     add(placeholder)
 
-    ReadAction.nonBlocking((() => {
-      exceptable {
-        val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project).exceptError
-        assigns.map { assign =>
-          val fileLine = PsiUtils.fileLineOf(assign, project)
-              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-          (s"Goto Instantiation$fileLine", () => assign.navigate(true))
-        }
+    ReadAction.nonBlocking((() => exceptable {
+      val assigns = DesignAnalysisUtils.allAssignsTo(path, design, project).exceptError
+      assigns.map { assign =>
+        val fileLine = PsiUtils.fileLineOf(assign, project)
+            .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+        (s"Goto Instantiation$fileLine", () => assign.navigate(true))
       }
     }): Callable[Errorable[Seq[(String, () => Unit)]]]).finishOnUiThread(ModalityState.defaultModalityState(), result => {
       val insertionIndex = this.getComponentIndex(placeholder)
       ContextMenuUtils.MenuItemsFromErrorableSeq(result, s"Goto Instantiation")
           .reverse.foreach(insert(_, insertionIndex))
       this.remove(placeholder)
+      this.revalidate()
+      this.repaint()
     }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
   }
 
@@ -184,21 +184,20 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     placeholder.setEnabled(false)
     add(placeholder)
 
-    ReadAction.nonBlocking((() => {
-      exceptable {
-        val assigns = DesignAnalysisUtils.allConnectsTo(path, design, project).exceptError
-
-        assigns.map { assign =>
-          val fileLine = PsiUtils.fileLineOf(assign, project)
-              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-          (s"Goto Connect$fileLine", () => assign.navigate(true))
-        }
+    ReadAction.nonBlocking((() => exceptable {
+      val assigns = DesignAnalysisUtils.allConnectsTo(path, design, project).exceptError
+      assigns.map { assign =>
+        val fileLine = PsiUtils.fileLineOf(assign, project)
+            .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+        (s"Goto Connect$fileLine", () => assign.navigate(true))
       }
     }): Callable[Errorable[Seq[(String, () => Unit)]]]).finishOnUiThread(ModalityState.defaultModalityState(), result => {
       val insertionIndex = this.getComponentIndex(placeholder)
       ContextMenuUtils.MenuItemsFromErrorableSeq(result, s"Goto Connect")
           .reverse.foreach(insert(_, insertionIndex))
       this.remove(placeholder)
+      this.revalidate()
+      this.repaint()
     }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
   }
 
