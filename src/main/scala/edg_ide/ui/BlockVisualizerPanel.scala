@@ -580,6 +580,7 @@ class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements
   }
 }
 
+
 class ErrorPanel extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
   tree.setShowColumns(true)
