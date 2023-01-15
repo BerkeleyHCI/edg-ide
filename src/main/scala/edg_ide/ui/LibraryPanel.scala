@@ -486,6 +486,7 @@ class LibraryPanel(project: Project) extends JPanel {
     }
   }
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
       val selectedTreePath = libraryTree.getTree.getPathForLocation(e.getX, e.getY)
@@ -524,8 +525,6 @@ class LibraryPanel(project: Project) extends JPanel {
 
         case _ => return  // any other type ignored
       }
-
-
     }
   }
   libraryTree.addMouseListener(libraryMouseListener)

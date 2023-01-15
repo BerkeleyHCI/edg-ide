@@ -259,7 +259,7 @@ class ElementDetailNodes(root: schema.Design, compiler: Compiler, refinements: e
   }
 
 
-  class ParamNode(path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
+  class ParamNode(val path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = compiler.getParamValue(path) match {
       case Some(ArrayValue(values)) => values.zipWithIndex.map { case (value, index) =>
         new ParamEltNode(index, value)

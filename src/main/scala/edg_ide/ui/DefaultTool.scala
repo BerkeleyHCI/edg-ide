@@ -148,32 +148,21 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         BlockVisualizerService(project).onDseConfigChanged(config)
     }}, "Search matching parts"))
 
-    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      () => {
-        PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
-          val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-          config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintArea(path)))
-          BlockVisualizerService(project).onDseConfigChanged(config)
-        } }
-      }
+    add(ContextMenuUtils.MenuItem(() => {
+      PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
+      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+      config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintArea(path)))
+      BlockVisualizerService(project).onDseConfigChanged(config)
+    } }
     }, "Add objective contained footprint area"))
-    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      () => {
-        PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
-          val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-          config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintCount(path)))
-          BlockVisualizerService(project).onDseConfigChanged(config)
-        } }
-      }
+    add(ContextMenuUtils.MenuItem(() => {
+      PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
+        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+        config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintCount(path)))
+        BlockVisualizerService(project).onDseConfigChanged(config)
+      } }
     }, "Add objective contained footprint count"))
   }
-  // TODO eg
-  // parameters search
-  //DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
-  //      Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
-  //    ),
-  // objective parametrs
-  // "inductance" -> DseObjectiveParameter(DesignPath() + "reg_5v" + "power_path" + "inductor" + "actual_inductance"),
 }
 
 

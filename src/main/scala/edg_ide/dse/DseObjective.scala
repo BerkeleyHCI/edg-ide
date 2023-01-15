@@ -24,12 +24,12 @@ sealed trait DseObjective[+T] { self: Serializable =>
 
 
 // Extracts the value of a single parameter
-case class DseObjectiveParameter(path: DesignPath)
+case class DseObjectiveParameter(path: IndirectDesignPath)
     extends DseObjective[Option[Any]] with Serializable {
   override def objectiveToString = f"Parameter($path)"
 
   override def calculate(design: Design, values: Map[IndirectDesignPath, ExprValue]): Option[Any] = {
-    values.get(path.asIndirect) match {
+    values.get(path) match {
       case Some(FloatValue(value)) => Some(value)
       case Some(IntValue(value)) => Some(value)
       case Some(RangeValue(lower, upper)) => Some((lower, upper))
