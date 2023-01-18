@@ -8,7 +8,7 @@ import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.ui.scale.JBUIScale
 import edg.util.Errorable
 
-import java.awt.Point
+import java.awt.{MouseInfo, Point}
 import java.awt.event.MouseEvent
 import javax.swing.JEditorPane
 import scala.jdk.CollectionConverters.SeqHasAsJava
@@ -46,9 +46,11 @@ object PopupUtils {
     popup.showInScreenCoordinates(e.getComponent, new Point(e.getXOnScreen, e.getYOnScreen))
   }
 
-  def createStringEntryPopup(title: String, project: Project)(accept: String => Errorable[Unit]): Unit = {
+  def createStringEntryPopup(title: String, project: Project, initialValue: String = "")
+                            (accept: String => Errorable[Unit]): Unit = {
     val contentPanel = new NewItemSimplePopupPanel
     val nameField = contentPanel.getTextField
+    nameField.setText(initialValue)
     val popup = NewItemPopupUtil.createNewItemPopup(title, contentPanel, nameField)
     contentPanel.setApplyAction { event =>
       val input = nameField.getText()
@@ -60,7 +62,8 @@ object PopupUtils {
     popup.showCenteredInCurrentWindow(project)
   }
 
-  def createErrorPopup(message: String): (JBPopup, Int) = {
+  // creates an error popup without showing it
+  private def createErrorPopupRaw(message: String): (JBPopup, Int) = {
     var hintHeight: Int = 0
     val popupBuilder = ComponentValidator.createPopupBuilder(
       new ValidationInfo(message, null),  // TODO support component?
@@ -74,14 +77,23 @@ object PopupUtils {
     (popupBuilder.createPopup, hintHeight)
   }
 
+  // creates and shows an error popup at some point in screen coordinates
+  // point will be the top left of the popup
+  def createErrorPopupAtMouse(message: String, owner: java.awt.Component): Unit = {
+    val (popup, height) = createErrorPopupRaw(message)
+    val clickLocation = MouseInfo.getPointerInfo.getLocation
+    val adjustedLocation = new Point(clickLocation.x, clickLocation.y - JBUIScale.scale(6) + height)
+    popup.showInScreenCoordinates(owner, adjustedLocation)
+  }
+
   def createErrorPopup(message: String, e: MouseEvent): Unit = {
-    val (popup, height) = createErrorPopup(message)
+    val (popup, height) = createErrorPopupRaw(message)
     popup.showInScreenCoordinates(e.getComponent,
       new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - height))
   }
 
   def createErrorPopup(message: String, editor: Editor): Unit = {
-    val (popup, height) = createErrorPopup(message)
+    val (popup, height) = createErrorPopupRaw(message)
     popup.showInBestPositionFor(editor)
   }
 }

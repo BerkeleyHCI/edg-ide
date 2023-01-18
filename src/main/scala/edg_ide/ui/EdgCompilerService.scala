@@ -142,15 +142,20 @@ class EdgCompilerService(project: Project) extends
   }
 
   override def getState: EdgCompilerServiceState = {
-    // TODO discard stale cache?
     val state = new EdgCompilerServiceState
-    state.serializedBlocks = pyLib.toLibraryPb.toProtoString
+    val settings = EdgSettingsState.getInstance()
+    if (settings.persistBlockCache) {
+      state.serializedBlocks = pyLib.toLibraryPb.toProtoString
+    }
     state
   }
 
   override def loadState(state: EdgCompilerServiceState): Unit = {
-    val library = schema.Library.fromAscii(state.serializedBlocks)
-    pyLib.loadFromLibraryPb(library)
+    val settings = EdgSettingsState.getInstance()
+    if (settings.persistBlockCache) {
+      val library = schema.Library.fromAscii(state.serializedBlocks)
+      pyLib.loadFromLibraryPb(library)
+    }
   }
 
   override def dispose(): Unit = { }

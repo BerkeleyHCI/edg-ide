@@ -16,7 +16,7 @@ trait DseResultNodeBase {
   override def toString = config
 }
 
-class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[DseResult]) extends DseResultNodeBase {
+class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[DseResult], inProgress: Boolean) extends DseResultNodeBase {
   // Aggregates similar results together, somewhat preserving order of the input
   private def combineSimilarResults(results: Seq[DseResult]): Seq[Seq[DseResult]] = {
     // Stores results, combining by unique combination of design, error, and objective results
@@ -25,8 +25,15 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
     results.groupBy(result => (result.compiled, result.errors, result.objectives))
         .values.toSeq
   }
+
+  private val informationalHeader = if (inProgress) {
+    Seq(new InformationalNode("... search in progress ..."))
+  } else {
+    Seq()
+  }
+
   // Defines the root node
-  override lazy val children = combineSimilarResults(results).map { resultsSet =>
+  override lazy val children = informationalHeader ++ combineSimilarResults(results).map { resultsSet =>
     new ResultSetNode(resultsSet)
   }
   override val config = "" // empty, since the root node is hidden
@@ -41,7 +48,7 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
     } else {
       ""
     }
-    override val config = f"Set of ${setMembers.length}" + errString
+    override val config = f"${setMembers.length} points" + errString
     override lazy val children = setMembers.map(result => new ResultNode(result))
     override def getColumns(index: Int): String = columnToObjectiveName.get(index) match {
       case Some(objectiveName) => exampleResult.objectives.get(objectiveName) match {
@@ -57,16 +64,22 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
     override def getColumns(index: Int): String = ""
     override val children: Seq[DseResultNodeBase] = Seq()
   }
+
+  class InformationalNode(text: String) extends DseResultNodeBase {
+    override val config = text
+    override def getColumns(index: Int): String = ""
+    override val children: Seq[DseResultNodeBase] = Seq()
+  }
 }
 
 
-class DseResultTreeTableModel(results: Seq[DseResult])
+class DseResultTreeTableModel(results: Seq[DseResult], inProgress: Boolean)
     extends SeqTreeTableModel[DseResultNodeBase] {
   val objectiveNames = results.headOption.map(_.objectives.keys).getOrElse(Seq()).toSeq
   val COLUMNS = Seq("Config") ++ objectiveNames
 
   val columnToObjectiveNames = objectiveNames.zipWithIndex.map(elt => elt._2 + 1 -> elt._1).toMap
-  val rootNode: DseResultNodeBase = new DseResultTreeNode(columnToObjectiveNames, results)
+  val rootNode: DseResultNodeBase = new DseResultTreeNode(columnToObjectiveNames, results, inProgress)
 
   // TreeView abstract methods
   //

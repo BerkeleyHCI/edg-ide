@@ -1,8 +1,9 @@
 package edg_ide.edgir_graph
 
 import edg.EdgirUtils.SimpleLibraryPath
+import edg.compiler.{Compiler, TextValue}
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
-import edg_ide.EdgirUtils
+import edg_ide.util.EdgirAnalysisUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import scala.jdk.CollectionConverters._
@@ -10,6 +11,9 @@ import scala.jdk.CollectionConverters._
 
 object ElkEdgirGraphUtils {
   import org.eclipse.elk.graph.properties.IProperty
+
+  // Adds the DesignPathProperty, containing the node's DesignPath, to nodes.
+  // Useful, for example, to resolve the ElkNode by walking from the root inwards given a path.
   object DesignPathMapper
       extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
     type PropertyType = DesignPath
@@ -26,6 +30,41 @@ object ElkEdgirGraphUtils {
     override def nodeConv(node: NodeDataWrapper): Option[DesignPath] = Some(node.path)
     override def portConv(port: PortWrapper): Option[DesignPath] = Some(port.path)
     override def edgeConv(edge: EdgeWrapper): Option[DesignPath] = Some(edge.path)
+  }
+
+  object TitleProperty extends IProperty[String] {
+    override def getDefault: String = null
+    override def getId: String = "Title"
+    override def getLowerBound: Comparable[_ >: String] = null
+    override def getUpperBound: Comparable[_ >: String] = null
+  }
+
+  // Adds an optional title to nodes, here defaulting to the refdes (if applicable) and node name.
+  class TitleMapper(compiler: Compiler)
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    type PropertyType = String
+    override val property: IProperty[String] = TitleProperty
+
+    override def nodeConv(node: NodeDataWrapper): Option[String] = node match {
+      case BlockWrapper(path, block) =>
+        val refdesStringMaybe = block.`type`.hierarchy.flatMap { block =>
+          EdgirAnalysisUtils.getInnermostSubblock(node.path, block)
+        }.flatMap { case (innerPath, innerBlock) =>
+          compiler.getParamValue((innerPath + "fp_refdes").asIndirect)
+        } match {
+          case Some(TextValue(refdes)) => Some(f"${node.path.lastString}, $refdes")
+          case _ => None
+        }
+        Some(refdesStringMaybe.getOrElse(node.path.lastString))
+      case _ => None  // use default for non-blocks
+    }
+
+    // port name not supported, since ports are not hierarchical (can't just use the last path component)
+    // and we don't have a link to the block (so can't do a path subtraction to get the port subpath)
+    override def portConv(port: PortWrapper): Option[String] = None
+
+    // edge labels don't currently exist
+    override def edgeConv(edge: EdgeWrapper): Option[String] = None
   }
 
   import org.eclipse.elk.core.options.PortSide
