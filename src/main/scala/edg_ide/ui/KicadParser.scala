@@ -1,5 +1,6 @@
 package edg_ide.ui
 import edg_ide.util.AreaUtils
+import edg_ide.util.external.{Atom, Element, ExpressionParser, SList}
 
 import java.io.{File, FileNotFoundException}
 import java.nio.charset.MalformedInputException
