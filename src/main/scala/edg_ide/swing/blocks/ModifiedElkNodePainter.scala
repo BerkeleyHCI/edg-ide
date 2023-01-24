@@ -1,11 +1,12 @@
-package edg_ide.swing
+package edg_ide.swing.blocks
 
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
+import edg_ide.swing.DrawAnchored
 import org.eclipse.elk.graph._
 
 import java.awt._
-import java.awt.geom.{AffineTransform, Rectangle2D}
+import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
 import scala.jdk.CollectionConverters.ListHasAsScala
 

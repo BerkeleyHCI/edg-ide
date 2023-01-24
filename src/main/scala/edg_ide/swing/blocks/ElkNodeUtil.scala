@@ -1,7 +1,8 @@
-package edg_ide.swing
+package edg_ide.swing.blocks
 
 import org.eclipse.elk.graph.ElkEdgeSection
-import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
+
+import scala.jdk.CollectionConverters.ListHasAsScala
 
 object ElkNodeUtil {
   // Utility functions

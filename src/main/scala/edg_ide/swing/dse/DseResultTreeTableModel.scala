@@ -1,7 +1,8 @@
-package edg_ide.swing
+package edg_ide.swing.dse
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg_ide.dse.{DseConfigElement, DseResult}
+import edg_ide.swing.SeqTreeTableModel
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
