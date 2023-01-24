@@ -17,6 +17,7 @@ import edg_ide.dse.DseFeature
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
+import edg_ide.ui.dse.DseConfigPanel
 import edg_ide.ui.tools.{BaseTool, DefaultTool, ToolInterface}
 import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import edgir.elem.elem

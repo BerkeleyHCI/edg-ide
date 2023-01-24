@@ -13,6 +13,7 @@ import edgir.ref.ref
 import edg.wir.DesignPath
 import edg_ide.dse.DseResult
 import edg_ide.runner.{DseConfigurationFactory, DseRunConfiguration, DseRunConfigurationType}
+import edg_ide.ui.dse.DseConfigPanel
 import edgrpc.hdl.{hdl => edgrpc}
 
 
