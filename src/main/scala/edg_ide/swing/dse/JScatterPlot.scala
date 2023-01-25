@@ -20,10 +20,10 @@ class JScatterPlot[DataType] extends JComponent with Scrollable{
 
   private def paintAxes(paintGraphics: Graphics): Unit = {
     // bottom horizontal axis
-    paintGraphics.drawLine(0, getHeight, getWidth, getHeight)
+    paintGraphics.drawLine(0, getHeight-1, getWidth-1, getHeight-1)
 
     // left vertical axis
-    paintGraphics.drawLine(0, 0, 0, getHeight)
+    paintGraphics.drawLine(0, 0, 0, getHeight-1)
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {

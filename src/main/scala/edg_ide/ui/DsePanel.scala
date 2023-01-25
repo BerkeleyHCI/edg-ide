@@ -1,6 +1,7 @@
 package edg_ide.ui
 
 import com.intellij.openapi.project.Project
+import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -8,7 +9,7 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.dse.{DseConfigElement, DseObjective, DseParameterSearch, DseResult}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
-import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel}
+import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{exceptable, requireExcept}
 
@@ -62,7 +63,7 @@ class DseObjectivePopupMenu(objective: DseObjective[Any], project: Project) exte
 }
 
 
-class DseConfigPanel(project: Project) extends JPanel {
+class DsePanel(project: Project) extends JPanel {
   // currently displayed config
   private var displayedConfig: Option[DseRunConfiguration] = None
 
@@ -104,10 +105,19 @@ class DseConfigPanel(project: Project) extends JPanel {
   private val separator = new CollapsibleTitledSeparator("Design Space Exploration")
   add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
-  private val tabbedPane = new JBTabbedPane()
-  add(tabbedPane, Gbc(0, 1, GridBagConstraints.BOTH))
+  private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
+  add(mainSplitter, Gbc(0, 1, GridBagConstraints.BOTH))
 
-  // GUI: Config Tab
+  // GUI: Top plot
+  private val plot = new JScatterPlot[String]()
+  mainSplitter.setFirstComponent(plot)
+
+  // GUI: Bottom tabs
+
+  private val tabbedPane = new JBTabbedPane()
+  mainSplitter.setSecondComponent(tabbedPane)
+
+  // GUI: Bottom Tabs: Config
   //
   private val configTree = new TreeTable(new DseConfigTreeTableModel(Seq(), SeqMap()))
   configTree.setShowColumns(true)
@@ -134,7 +144,7 @@ class DseConfigPanel(project: Project) extends JPanel {
   })
   tabbedPane.addTab("Config", new JBScrollPane(configTree))
 
-  // GUI: Results Tab
+  // GUI: Bottom Tabs: Results
   //
   private val resultsTree = new TreeTable(new DseResultTreeTableModel(Seq(), false))
   resultsTree.setShowColumns(true)

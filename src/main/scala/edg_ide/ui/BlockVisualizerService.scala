@@ -31,7 +31,7 @@ class BlockVisualizerService(project: Project) extends
 
   def visualizerPanelOption: Option[BlockVisualizerPanel] = visualizerPanel
 
-  def dsePanelOption: Option[DseConfigPanel] = visualizerPanelOption.map(_.getDsePanel)
+  def dsePanelOption: Option[DsePanel] = visualizerPanelOption.map(_.getDsePanel)
 
   def createBlockVisualizerPanel(toolWindow: ToolWindow): BlockVisualizerPanel = {
     require(visualizerPanel.isEmpty)

@@ -246,7 +246,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI: Design Space Exploration (bottom tab)
   //
-  private val dsePanel = new DseConfigPanel(project)
+  private val dsePanel = new DsePanel(project)
   dseSplitter.setSecondComponent(dsePanel)
 
   setLayout(new BorderLayout())
@@ -254,7 +254,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // Actions
   //
-  def getDsePanel: DseConfigPanel = dsePanel
+  def getDsePanel: DsePanel = dsePanel
 
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
     EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))
