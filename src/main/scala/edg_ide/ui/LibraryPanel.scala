@@ -19,6 +19,7 @@ import edg.wir.ProtoUtil._
 import edg_ide.edgir_graph._
 import edg_ide.psi_edits._
 import edg_ide.swing._
+import edg_ide.swing.blocks.JBlockDiagramVisualizer
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}

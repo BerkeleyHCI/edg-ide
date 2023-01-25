@@ -3,12 +3,12 @@ package edg_ide.runner
 import com.lowagie.text.{Document, Element, HeaderFooter, Rectangle}
 import com.lowagie.text.pdf.PdfWriter
 import edg.wir.ProtoUtil.BlockProtoToSeqMap
-import edg_ide.swing.ElkNodePainter
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import org.eclipse.elk.graph.ElkNode
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.HierarchyGraphElk.PropertyMapper
 import edg_ide.edgir_graph.{EdgeWrapper, HierarchyGraphElk, NodeDataWrapper, PortWrapper}
+import edg_ide.swing.blocks.ElkNodePainter
 
 import java.awt.Color
 import java.io.{FileNotFoundException, FileOutputStream, IOException}
