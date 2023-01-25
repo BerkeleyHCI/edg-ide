@@ -12,8 +12,23 @@ import javax.swing.{JComponent, Scrollable}
 class JScatterPlot[DataType] extends JComponent with Scrollable{
   private var data: Seq[(Float, Float, DataType)] = Seq()
 
+  private var xCenter = 0f  // center in data coordinates
+  private var xScale = 1.0f  // multiply data coord by this to get screen pos
+  private var yCenter = 0f
+  private var yScale = 1.0f
+
   def setData(xys: Seq[(Float, Float, DataType)]): Unit = {
     data = xys
+
+    val xs = xys.map(_._1)
+    val xMin = math.max(0, xs.min)
+    val xMax = math.min(0, xs.max)
+    xScale = (xMax - xMin)/getWidth
+    val ys = xys.map(_._2)
+    val yMin = math.max(0, ys.min)
+    val yMax = math.min(0, ys.max)
+    yScale = (yMax - yMin)/getHeight
+
     validate()
     repaint()
   }
