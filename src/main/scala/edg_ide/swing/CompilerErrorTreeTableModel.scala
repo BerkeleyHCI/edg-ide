@@ -2,8 +2,8 @@ package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{CompilerError, ElaborateRecord, ExprToString}
-import edg.wir.DesignPath
+import edg.compiler.{Compiler, CompilerError, ElaborateRecord, ExprToString, ExprVarToValue}
+import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.EdgirUtils
 
 import javax.swing.JTree
@@ -17,13 +17,11 @@ trait CompilerErrorNodeBase {
 }
 
 object CompilerErrorNodeBase {
-  class CompilerErrorTopNode(errs: Seq[CompilerError]) extends CompilerErrorNodeBase {
+  class CompilerErrorTopNode(errs: Seq[CompilerError], compiler: Compiler) extends CompilerErrorNodeBase {
     override lazy val children: Seq[CompilerErrorNodeBase] = errs.map {
-      new CompilerErrorNode(_)
+      new CompilerErrorNode(_, compiler)
     }
-
     override def getColumns(index: Int): String = ""
-
     override def toString: String = "All Errors"
   }
 
@@ -35,7 +33,7 @@ object CompilerErrorNodeBase {
   }
 
   // Error node defining text, path, and children for a compiler error
-  class CompilerErrorNode(err: CompilerError) extends CompilerErrorNodeBase {
+  class CompilerErrorNode(err: CompilerError, compiler: Compiler) extends CompilerErrorNodeBase {
     def elaborateRecordToDetailNode(rec: ElaborateRecord): CompilerErrorDetailNode = rec match {
       case rec: ElaborateRecord.ElaborateTask =>
         new CompilerErrorDetailNode(s"Unexpected Missing ElaborateTask Record $rec", "")
@@ -86,13 +84,14 @@ object CompilerErrorNodeBase {
               case CompilerError.OverAssignCause.Equal(target, source) =>
                 new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
             })
-
       case CompilerError.AbstractBlock(path, blockType) =>
         (s"Abstract block, ${blockType.toSimpleString}", path.toString, Seq())
-      case CompilerError.FailedAssertion(root, constrName, value, result) =>
+      case CompilerError.FailedAssertion(root, constrName, value, result, compiler) => {
+        // TODO: do more than just printing it out
         (s"Failed assertion", s"$root:$constrName", Seq(
-          new CompilerErrorDetailNode(ExprToString(value),result.toStringValue)
+          new CompilerErrorDetailNode(ExprVarToValue(value, compiler, root), result.toStringValue)
         ))
+      }
       case CompilerError.MissingAssertion(root, constrName, value, missing) =>
         (s"Missing assertion", s"$root:$constrName", missing.toSeq.map { param =>
           new CompilerErrorDetailNode("Missing param", param.toString)
@@ -118,8 +117,8 @@ object CompilerErrorNodeBase {
 }
 
 
-class CompilerErrorTreeTableModel(errs: Seq[CompilerError]) extends SeqTreeTableModel[CompilerErrorNodeBase] {
-  val rootNode: CompilerErrorNodeBase = new CompilerErrorNodeBase.CompilerErrorTopNode(errs)
+class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) extends SeqTreeTableModel[CompilerErrorNodeBase] {
+  val rootNode: CompilerErrorNodeBase = new CompilerErrorNodeBase.CompilerErrorTopNode(errs, compiler)
   val COLUMNS = Seq("Error", "Path")
 
   // TreeView abstract methods

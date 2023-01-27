@@ -232,7 +232,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   tabbedPane.addTab("Detail", detailPanel)
   val TAB_INDEX_DETAIL = 1
 
-  private val errorPanel = new ErrorPanel()
+  private val errorPanel = new ErrorPanel(compiler)
   tabbedPane.addTab("Errors", errorPanel)
   val TAB_INDEX_ERRORS = 2
 
@@ -307,7 +307,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.refinements = refinements  // must be updated before updateDisplay called in setDesign
     setDesign(design, compiler)
     tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
-    errorPanel.setErrors(errors)
+    errorPanel.setErrors(errors, compiler)
 
     ApplicationManager.getApplication.invokeLater(() => {
       toolWindow.setTitle(namePrefix.getOrElse("") + design.getContents.getSelfClass.toSimpleString)
@@ -573,8 +573,8 @@ class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements
   }
 }
 
-class ErrorPanel extends JPanel {
-  private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
+class ErrorPanel(compiler: Compiler) extends JPanel {
+  private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
@@ -584,8 +584,8 @@ class ErrorPanel extends JPanel {
 
   // Actions
   //
-  def setErrors(errs: Seq[CompilerError]): Unit = {
-    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs))
+  def setErrors(errs: Seq[CompilerError], compiler: Compiler): Unit = {
+    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
   }
 
   // Configuration State
