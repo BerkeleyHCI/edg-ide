@@ -9,25 +9,19 @@ import javax.swing.{JComponent, Scrollable}
   *
   * TODO: support other ordinal axes?
   */
-class JScatterPlot[DataType] extends JComponent with Scrollable{
-  private var data: Seq[(Float, Float, DataType)] = Seq()
+class JScatterPlot[ValueType] extends JComponent with Scrollable{
+  private var data: Seq[(Float, Float, ValueType)] = Seq()
 
-  private var xCenter = 0f  // center in data coordinates
+  private var xOrigin = 0  // zero data is here in screen coordinates
   private var xScale = 1.0f  // multiply data coord by this to get screen pos
-  private var yCenter = 0f
-  private var yScale = 1.0f
+  private var yOrigin = 0
+  private var yScale = -1.0f  // screen coordinates are +Y = down
 
-  def setData(xys: Seq[(Float, Float, DataType)]): Unit = {
+  private val kPointSizePx = 4
+  private val kPlotMarginPx = 4  // px margin on every side of the plot
+
+  def setData(xys: Seq[(Float, Float, ValueType)]): Unit = {
     data = xys
-
-    val xs = xys.map(_._1)
-    val xMin = math.max(0, xs.min)
-    val xMax = math.min(0, xs.max)
-    xScale = (xMax - xMin)/getWidth
-    val ys = xys.map(_._2)
-    val yMin = math.max(0, ys.min)
-    val yMax = math.min(0, ys.max)
-    yScale = (yMax - yMin)/getHeight
 
     validate()
     repaint()
@@ -42,10 +36,27 @@ class JScatterPlot[DataType] extends JComponent with Scrollable{
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
-    // paintGraphics.drawOval()
+    data.foreach { case (rawX, rawY, value) =>
+      val screenX = (rawX * xScale).toInt + xOrigin
+      val screenY = (rawY * yScale).toInt + yOrigin
+      paintGraphics.fillOval(screenX - kPointSizePx/2, screenY - kPointSizePx/2, kPointSizePx, kPointSizePx)
+    }
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
+    val xs = data.map(_._1)
+    val xMin = math.min(0, xs.min)
+    val xMax = math.max(0, xs.max)
+    val xSpan = xMax - xMin
+    xScale = if (xSpan != 0) (getWidth - 2 * kPlotMarginPx) / (xMax - xMin) else 1
+    xOrigin = if (xSpan != 0) (-xMin * xScale).toInt + kPlotMarginPx else getWidth / 2
+    val ys = data.map(_._2)
+    val yMin = math.min(0, ys.min)
+    val yMax = math.max(0, ys.max)
+    val ySpan = yMax - yMin
+    yScale = if (ySpan != 0) -(getHeight - 2 * kPlotMarginPx) / (yMax - yMin) else -1
+    yOrigin = if (ySpan != 0) getHeight - (yMin * yScale).toInt - kPlotMarginPx else getHeight / 2
+
     paintAxes(paintGraphics)
     paintData(paintGraphics)
   }
