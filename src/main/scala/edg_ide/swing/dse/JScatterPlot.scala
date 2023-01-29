@@ -1,5 +1,6 @@
 package edg_ide.swing.dse
 
+import java.awt.event.{MouseEvent, MouseMotionAdapter}
 import java.awt.{Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
 
@@ -12,16 +13,22 @@ import javax.swing.{JComponent, Scrollable}
 class JScatterPlot[ValueType] extends JComponent with Scrollable{
   private var data: Seq[(Float, Float, ValueType)] = Seq()
 
+  private val kPointSizePx = 4 // diameter in px
+  private val kSnapDistancePx = 4 // distance (box) to snap for a click
+
+  private val kPlotMarginPx = 4 // px margin on every side of the plot
+
   private var xOrigin = 0  // zero data is here in screen coordinates
   private var xScale = 1.0f  // multiply data coord by this to get screen pos
   private var yOrigin = 0
   private var yScale = -1.0f  // screen coordinates are +Y = down
 
-  private val kPointSizePx = 4
-  private val kPlotMarginPx = 4  // px margin on every side of the plot
+  // index into data
+  private var mouseOverData: Set[Int] = Set()
 
   def setData(xys: Seq[(Float, Float, ValueType)]): Unit = {
     data = xys
+    mouseOverData = Set()  // clear
 
     validate()
     repaint()
@@ -36,10 +43,13 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
-    data.foreach { case (rawX, rawY, value) =>
+    data.zipWithIndex.foreach { case ((rawX, rawY, value), index) =>
       val screenX = (rawX * xScale).toInt + xOrigin
       val screenY = (rawY * yScale).toInt + yOrigin
-      paintGraphics.fillOval(screenX - kPointSizePx/2, screenY - kPointSizePx/2, kPointSizePx, kPointSizePx)
+      paintGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
+      if (mouseOverData.contains(index)) {  // makes it thicker
+        paintGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
+      }
     }
   }
 
@@ -60,6 +70,31 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
     paintAxes(paintGraphics)
     paintData(paintGraphics)
   }
+
+  // Returns the points with some specified distance (in screen coordinates, px) of the point.
+  def getPointsForLocation(x: Int, y: Int, distance: Int): Seq[Int] = {
+    data.zipWithIndex.flatMap { case ((rawX, rawY, value), index) =>
+      val screenX = (rawX * xScale).toInt + xOrigin
+      val screenY = (rawY * yScale).toInt + yOrigin
+      if (math.abs(screenX - x) <= distance && math.abs(screenY - y) <= distance) {
+        Some(index)
+      } else {
+        None
+      }
+    }
+  }
+
+  addMouseMotionListener(new MouseMotionAdapter {
+    override def mouseMoved(e: MouseEvent): Unit = {
+      super.mouseMoved(e)
+      val newPoints = getPointsForLocation(e.getX, e.getY, kSnapDistancePx).toSet
+      if (mouseOverData != newPoints) {
+        mouseOverData = newPoints
+        validate()
+        repaint()
+      }
+    }
+  })
 
 
   override def getPreferredScrollableViewportSize: Dimension = getPreferredSize
