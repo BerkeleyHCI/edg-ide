@@ -16,7 +16,7 @@ import scala.collection.mutable
 class JScatterPlot[ValueType] extends JComponent with Scrollable{
   private var data: Seq[(Float, Float, ValueType)] = Seq()
 
-  private val kPlotMarginPx = 4 // px margin on every side of the plot
+  private val kDefaultRangeMarginFactor = 1.1f  // factor to extend the default range by
 
   private val kPointSizePx = 4 // diameter in px
   private val kSnapDistancePx = 4 // distance (box) to snap for a click
@@ -26,38 +26,53 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   private val kMinTickSpacingPx = 64  // min spacing between axis ticks, used to determine tick resolution
   private val kTickSizePx = 4
 
-  private var xOrigin = 0  // zero data is here in screen coordinates
-  private var xScale = 1.0f  // in px/data; multiply data coord by this to get screen pos
-  private var yOrigin = 0
-  private var yScale = -1.0f  // screen coordinates are +Y = down
+  private var xRange = (0f, 0f)
+  private var yRange = (0f, 0f)
 
   // index into data
   private var mouseOverData: Set[Int] = Set()
 
+  // multiply data by this to get screen coordinates
+  private def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
+    if (dataRange._1 != dataRange._2) {
+      screenSize / (dataRange._2 - dataRange._1)
+    } else {
+      1
+    }
+  }
+
+  private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * dataScale(xRange, getWidth)).toInt
+  private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * dataScale(yRange, getHeight)).toInt
+
   def setData(xys: Seq[(Float, Float, ValueType)]): Unit = {
     data = xys
     mouseOverData = Set()  // clear
-    xScale = 0
-    yScale = 0
+
+    def expandedRange(range: (Float, Float), factor: Float): (Float, Float) = {
+      val span = range._2 - range._1
+      val expansion = span * (factor - 1) / 2  // range units to expand on each side
+      (range._1 - expansion, range._2 + expansion)
+    }
+    val xs = data.map(_._1)
+    xRange = expandedRange((math.min(0, xs.min), math.max(0, xs.max)), kDefaultRangeMarginFactor)
+    val ys = data.map(_._2)
+    yRange = expandedRange((math.min(0, ys.min), math.max(0, ys.max)), kDefaultRangeMarginFactor)
 
     validate()
     repaint()
   }
 
   // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
-  private def getAxisTicks(scale: Float, screenOrigin: Int, screenSize: Int, minScreenSpacing: Int): Seq[Float] = {
-    val minDataSpacing = math.abs(minScreenSpacing / scale)  // min tick spacing in data units
+  private def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int): Seq[Float] = {
+    val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize))  // min tick spacing in data units
     val tickSpacings = kTickSpacingIntervals.map { factor =>  // try all the spacings and take the minimum
       math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
     }
     val tickSpacing = tickSpacings.min
-    val tickBound1 = -screenOrigin / scale  // because scale could be negative this could be the high end
-    val tickBound2 = (screenSize - screenOrigin) / scale
 
-    var tickPos = (math.floor(math.min(tickBound1, tickBound2) / tickSpacing) * tickSpacing).toFloat
-    val tickEnd = math.max(tickBound1, tickBound2)
+    var tickPos = (math.floor(range._1 / tickSpacing) * tickSpacing).toFloat
     val ticksBuilder = mutable.ArrayBuffer[Float]()
-    while (tickPos <= tickEnd) {
+    while (tickPos <= range._2) {
       ticksBuilder.append(tickPos)
       tickPos = (tickPos + tickSpacing).toFloat
     }
@@ -67,8 +82,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   private def paintAxes(paintGraphics: Graphics): Unit = {
     // bottom horizontal axis
     paintGraphics.drawLine(0, getHeight-1, getWidth-1, getHeight-1)
-    getAxisTicks(xScale, xOrigin, getWidth, kMinTickSpacingPx).foreach { tickPos =>
-      val screenX = (tickPos * xScale).toInt + xOrigin
+    getAxisTicks(xRange, getWidth, kMinTickSpacingPx).foreach { tickPos =>
+      val screenX = dataToScreenX(tickPos)
       paintGraphics.drawLine(screenX, getHeight - 1, screenX, getHeight - 1 - kTickSizePx)
       DrawAnchored.drawLabel(paintGraphics, f"$tickPos%.02g",
         (screenX, getHeight - 1 - kTickSizePx), DrawAnchored.Bottom)
@@ -76,8 +91,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
 
     // left vertical axis
     paintGraphics.drawLine(0, 0, 0, getHeight-1)
-    getAxisTicks(yScale, yOrigin, getHeight, kMinTickSpacingPx).foreach { tickPos =>
-      val screenY = (tickPos * yScale).toInt + yOrigin
+    getAxisTicks(yRange, getHeight, kMinTickSpacingPx).foreach { tickPos =>
+      val screenY = dataToScreenY(tickPos)
       paintGraphics.drawLine(0, screenY, kTickSizePx, screenY)
       DrawAnchored.drawLabel(paintGraphics, f"$tickPos%.02g",
         (kTickSizePx, screenY), DrawAnchored.Left)
@@ -85,9 +100,9 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
-    data.zipWithIndex.foreach { case ((rawX, rawY, value), index) =>
-      val screenX = (rawX * xScale).toInt + xOrigin
-      val screenY = (rawY * yScale).toInt + yOrigin
+    data.zipWithIndex.foreach { case ((dataX, dataY, value), index) =>
+      val screenX = dataToScreenX(dataX)
+      val screenY = dataToScreenY(dataY)
       paintGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
       if (mouseOverData.contains(index)) {  // makes it thicker
         paintGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
@@ -96,21 +111,6 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    if (xScale == 0 || yScale == 0) {  // update scale only if not set
-      val xs = data.map(_._1)
-      val xMin = math.min(0, xs.min)
-      val xMax = math.max(0, xs.max)
-      val xSpan = xMax - xMin
-      xScale = if (xSpan != 0) (getWidth - 2 * kPlotMarginPx) / (xMax - xMin) else 1
-      xOrigin = if (xSpan != 0) (-xMin * xScale).toInt + kPlotMarginPx else getWidth / 2
-      val ys = data.map(_._2)
-      val yMin = math.min(0, ys.min)
-      val yMax = math.max(0, ys.max)
-      val ySpan = yMax - yMin
-      yScale = if (ySpan != 0) -(getHeight - 2 * kPlotMarginPx) / (yMax - yMin) else -1
-      yOrigin = if (ySpan != 0) getHeight - (yMin * yScale).toInt - kPlotMarginPx else getHeight / 2
-    }
-
     val axesGraphics = paintGraphics.create()
     axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, kTickBrightness))
     paintAxes(axesGraphics)
@@ -121,9 +121,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   // Returns the points with some specified distance (in screen coordinates, px) of the point.
   def getPointsForLocation(x: Int, y: Int, distance: Int): Seq[Int] = {
     data.zipWithIndex.flatMap { case ((rawX, rawY, value), index) =>
-      val screenX = (rawX * xScale).toInt + xOrigin
-      val screenY = (rawY * yScale).toInt + yOrigin
-      if (math.abs(screenX - x) <= distance && math.abs(screenY - y) <= distance) {
+      if (math.abs(dataToScreenX(rawX) - x) <= distance && math.abs(dataToScreenY(rawY) - y) <= distance) {
         Some(index)
       } else {
         None
@@ -145,11 +143,19 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
 
   addMouseWheelListener(new MouseWheelListener {
     override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
-      val zoomFactor = Math.pow(1.1, -1 * e.getPreciseWheelRotation)
-      xScale = (xScale * zoomFactor).toFloat
-      yScale = (yScale * zoomFactor).toFloat
-      xOrigin = ((xOrigin - e.getPoint.x) * (zoomFactor - 1) + xOrigin).toInt
-      yOrigin = ((yOrigin - e.getPoint.y) * (zoomFactor - 1) + yOrigin).toInt
+      // calculates a new range after applying some scaling factor, but keeping some fractional point of
+      // the old and new range static (eg, the point the mouse is over)
+      def calculateNewRange(oldRange: (Float, Float), scaleFactor: Float, staticFrac: Float): (Float, Float) = {
+        val span = oldRange._2 - oldRange._1
+        val mouseValue = oldRange._1 + (span * staticFrac)
+        val newSpan = span * scaleFactor
+        (mouseValue - (newSpan * staticFrac), mouseValue + (newSpan * (1 - staticFrac)))
+      }
+
+      val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
+      xRange = calculateNewRange(xRange, zoomFactor, e.getX.toFloat / getWidth)
+      yRange = calculateNewRange(yRange, zoomFactor, 1 - (e.getY.toFloat / getHeight))
+
       validate()
       repaint()
     }
