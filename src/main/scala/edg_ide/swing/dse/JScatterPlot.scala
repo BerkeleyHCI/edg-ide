@@ -1,8 +1,8 @@
 package edg_ide.swing.dse
 
-import edg_ide.swing.DrawAnchored
+import edg_ide.swing.{ColorUtil, DrawAnchored}
 
-import java.awt.event.{MouseEvent, MouseMotionAdapter}
+import java.awt.event.{MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
 import java.awt.{Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
@@ -21,6 +21,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   private val kPointSizePx = 4 // diameter in px
   private val kSnapDistancePx = 4 // distance (box) to snap for a click
 
+  private val kTickBrightness = 0.25
   private val kTickSpacingIntervals = Seq(1, 2, 5)
   private val kMinTickSpacingPx = 64  // min spacing between axis ticks, used to determine tick resolution
   private val kTickSizePx = 4
@@ -36,6 +37,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   def setData(xys: Seq[(Float, Float, ValueType)]): Unit = {
     data = xys
     mouseOverData = Set()  // clear
+    xScale = 0
+    yScale = 0
 
     validate()
     repaint()
@@ -93,20 +96,25 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val xs = data.map(_._1)
-    val xMin = math.min(0, xs.min)
-    val xMax = math.max(0, xs.max)
-    val xSpan = xMax - xMin
-    xScale = if (xSpan != 0) (getWidth - 2 * kPlotMarginPx) / (xMax - xMin) else 1
-    xOrigin = if (xSpan != 0) (-xMin * xScale).toInt + kPlotMarginPx else getWidth / 2
-    val ys = data.map(_._2)
-    val yMin = math.min(0, ys.min)
-    val yMax = math.max(0, ys.max)
-    val ySpan = yMax - yMin
-    yScale = if (ySpan != 0) -(getHeight - 2 * kPlotMarginPx) / (yMax - yMin) else -1
-    yOrigin = if (ySpan != 0) getHeight - (yMin * yScale).toInt - kPlotMarginPx else getHeight / 2
+    if (xScale == 0 || yScale == 0) {  // update scale only if not set
+      val xs = data.map(_._1)
+      val xMin = math.min(0, xs.min)
+      val xMax = math.max(0, xs.max)
+      val xSpan = xMax - xMin
+      xScale = if (xSpan != 0) (getWidth - 2 * kPlotMarginPx) / (xMax - xMin) else 1
+      xOrigin = if (xSpan != 0) (-xMin * xScale).toInt + kPlotMarginPx else getWidth / 2
+      val ys = data.map(_._2)
+      val yMin = math.min(0, ys.min)
+      val yMax = math.max(0, ys.max)
+      val ySpan = yMax - yMin
+      yScale = if (ySpan != 0) -(getHeight - 2 * kPlotMarginPx) / (yMax - yMin) else -1
+      yOrigin = if (ySpan != 0) getHeight - (yMin * yScale).toInt - kPlotMarginPx else getHeight / 2
+    }
 
-    paintAxes(paintGraphics)
+    val axesGraphics = paintGraphics.create()
+    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, kTickBrightness))
+    paintAxes(axesGraphics)
+
     paintData(paintGraphics)
   }
 
@@ -132,6 +140,18 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
         validate()
         repaint()
       }
+    }
+  })
+
+  addMouseWheelListener(new MouseWheelListener {
+    override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
+      val zoomFactor = Math.pow(1.1, -1 * e.getPreciseWheelRotation)
+      xScale = (xScale * zoomFactor).toFloat
+      yScale = (yScale * zoomFactor).toFloat
+      xOrigin = (e.getPoint.x * (zoomFactor - 1) + zoomFactor * xOrigin).toInt
+      yOrigin = (e.getPoint.y * (zoomFactor - 1) + zoomFactor * yOrigin).toInt
+      validate()
+      repaint()
     }
   })
 

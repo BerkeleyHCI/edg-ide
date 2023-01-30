@@ -2,7 +2,7 @@ package edg_ide.swing.blocks
 
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
-import edg_ide.swing.DrawAnchored
+import edg_ide.swing.{ColorUtil, DrawAnchored}
 import org.eclipse.elk.graph._
 
 import java.awt._
@@ -43,7 +43,7 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
     } else if (!selected.contains(element) &&
       highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(blendColor(background, newGraphics.getColor, 0.25))
+      newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))
       newGraphics
     } else {
       base
@@ -54,14 +54,14 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
   override def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     if (errorElts.contains(element)) {
       val newBase = base.create().asInstanceOf[Graphics2D]
-      newBase.setColor(blendColor(background, Color.RED, 0.25))
+      newBase.setColor(ColorUtil.blendColor(background, Color.RED, 0.25))
       newBase // explicitly ignores showTop invisibility if it's an error
     } else if (staleElts.contains(element)) {
       val newBase = base.create().asInstanceOf[Graphics2D]
       if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-        newBase.setPaint(makeHatchTexture(background, blendColor(background, base.getColor, 0.0375)))
+        newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.0375)))
       } else {
-        newBase.setPaint(makeHatchTexture(background, blendColor(background, base.getColor, 0.15)))
+        newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.15)))
       }
       newBase
     } else {
@@ -89,7 +89,7 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
       newGraphics
     } else if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(blendColor(background, newGraphics.getColor, 0.25))
+      newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))
       newGraphics
     } else {
       base
@@ -144,9 +144,9 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
 
   override def getNodeBackground(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Color = {
     val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
-      blendColor(containingBackground, containingG.getColor, 0.375)
+      ColorUtil.blendColor(containingBackground, containingG.getColor, 0.375)
     } else {
-      blendColor(containingBackground, containingG.getColor, 0.15)
+      ColorUtil.blendColor(containingBackground, containingG.getColor, 0.15)
     }
 
     nodeBackground
