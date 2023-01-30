@@ -13,9 +13,8 @@ import scala.collection.mutable
   *
   * TODO: support other ordinal axes?
   */
-class JScatterPlot[ValueType] extends JComponent with Scrollable{
-  private var data: Seq[(Float, Float, ValueType)] = Seq()
-
+class JScatterPlot[ValueType] extends JComponent with Scrollable {
+  // GUI constants
   private val kDefaultRangeMarginFactor = 1.1f  // factor to extend the default range by
 
   private val kPointSizePx = 4 // diameter in px
@@ -26,11 +25,13 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   private val kMinTickSpacingPx = 64  // min spacing between axis ticks, used to determine tick resolution
   private val kTickSizePx = 4
 
+  // data state
+  private var data: Seq[(Float, Float, ValueType)] = Seq()
+  private var mouseOverData: Set[Int] = Set()  // index into data
+
+  // UI state
   private var xRange = (0f, 0f)
   private var yRange = (0f, 0f)
-
-  // index into data
-  private var mouseOverData: Set[Int] = Set()
 
   // multiply data by this to get screen coordinates
   private def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
