@@ -148,8 +148,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
       val zoomFactor = Math.pow(1.1, -1 * e.getPreciseWheelRotation)
       xScale = (xScale * zoomFactor).toFloat
       yScale = (yScale * zoomFactor).toFloat
-      xOrigin = (e.getPoint.x * (zoomFactor - 1) + zoomFactor * xOrigin).toInt
-      yOrigin = (e.getPoint.y * (zoomFactor - 1) + zoomFactor * yOrigin).toInt
+      xOrigin = ((xOrigin - e.getPoint.x) * (zoomFactor - 1) + xOrigin).toInt
+      yOrigin = ((yOrigin - e.getPoint.y) * (zoomFactor - 1) + yOrigin).toInt
       validate()
       repaint()
     }
