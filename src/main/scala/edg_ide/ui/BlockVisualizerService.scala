@@ -102,8 +102,8 @@ class BlockVisualizerService(project: Project) extends
     }
   }
 
-  def setDseResults(results: Seq[DseResult], inProgress: Boolean): Unit = {
-    dsePanelOption.foreach(_.setResults(results, inProgress))
+  def setDseResults(results: Seq[DseResult], objectiveNames: Seq[String], inProgress: Boolean): Unit = {
+    dsePanelOption.foreach(_.setResults(results, objectiveNames, inProgress))
   }
 
   // State management
