@@ -21,7 +21,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   private val kPointSizePx = 4 // diameter in px
   private val kSnapDistancePx = 4 // distance (box) to snap for a click
 
-  private val kMinTickSpacingPx = 32  // min spacing between axis ticks, used to determine tick resolution
+  private val kTickSpacingIntervals = Seq(1, 2, 5)
+  private val kMinTickSpacingPx = 64  // min spacing between axis ticks, used to determine tick resolution
   private val kTickSizePx = 4
 
   private var xOrigin = 0  // zero data is here in screen coordinates
@@ -43,7 +44,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable{
   // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
   private def getAxisTicks(scale: Float, screenOrigin: Int, screenSize: Int, minScreenSpacing: Int): Seq[Float] = {
     val minDataSpacing = math.abs(minScreenSpacing / scale)  // min tick spacing in data units
-    val tickSpacing = math.pow(10, math.log10(minDataSpacing).ceil)  // actual spacing in data units
+    val tickSpacings = kTickSpacingIntervals.map { factor =>  // try all the spacings and take the minimum
+      math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
+    }
+    val tickSpacing = tickSpacings.min
     val tickBound1 = -screenOrigin / scale  // because scale could be negative this could be the high end
     val tickBound2 = (screenSize - screenOrigin) / scale
 
