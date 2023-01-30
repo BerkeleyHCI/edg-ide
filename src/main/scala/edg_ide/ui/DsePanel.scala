@@ -1,6 +1,7 @@
 package edg_ide.ui
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
@@ -16,7 +17,7 @@ import edg_ide.util.{exceptable, requireExcept}
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
-import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
+import javax.swing.{JComboBox, JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
 
 
@@ -60,6 +61,27 @@ class DseObjectivePopupMenu(objective: DseObjective[Any], project: Project) exte
       BlockVisualizerService(project).onDseConfigChanged(dseConfig)
     }
   }, s"Delete"))
+}
+
+
+class DsePlotPanel() extends JPanel {
+  setLayout(new GridBagLayout)
+
+  private val plot = new JScatterPlot[String]()
+  add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
+
+  class AxisItem(val name: String) {
+    override def toString = name
+  }
+
+  private val xSelector = new ComboBox[AxisItem]()
+  xSelector.addItem(new AxisItem("X Axis"))
+  add(xSelector, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
+  private val ySelector = new ComboBox[AxisItem]()
+  ySelector.addItem(new AxisItem("Y Axis"))
+  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+
+  plot.setData(Seq((0, 0, ""), (0, 0.5f, ""), (0, 1, ""), (-1, 0, ""), (1, 0, "")))
 }
 
 
@@ -109,7 +131,7 @@ class DsePanel(project: Project) extends JPanel {
   add(mainSplitter, Gbc(0, 1, GridBagConstraints.BOTH))
 
   // GUI: Top plot
-  private val plot = new JScatterPlot[String]()
+  private val plot = new DsePlotPanel()
   mainSplitter.setFirstComponent(plot)
 
   // GUI: Bottom tabs
