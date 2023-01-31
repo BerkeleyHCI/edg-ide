@@ -70,18 +70,26 @@ class DsePlotPanel() extends JPanel {
   private val plot = new JScatterPlot[String]()
   add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
 
-  class AxisItem(val name: String) {
+  trait AxisItem {
+    def resultToValue(result: DseResult): Option[Float]
+  }
+
+  class DummyAxisItem(val name: String) extends AxisItem {
+    override def resultToValue(result: DseResult): Option[Float] = None
+
     override def toString = name
   }
 
   private val xSelector = new ComboBox[AxisItem]()
-  xSelector.addItem(new AxisItem("X Axis"))
+  xSelector.addItem(new DummyAxisItem("X Axis"))
   add(xSelector, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
   private val ySelector = new ComboBox[AxisItem]()
-  ySelector.addItem(new AxisItem("Y Axis"))
+  ySelector.addItem(new DummyAxisItem("Y Axis"))
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
-  plot.setData(Seq((0, 0, ""), (0, 0.5f, ""), (0, 1, ""), (-1, 0, ""), (1, 0, "")))
+  def setResults(combinedResults: CombinedDseResultSet, objectiveNames: Seq[String]): Unit = {
+
+  }
 }
 
 
@@ -113,17 +121,6 @@ class DsePanel(project: Project) extends JPanel {
         TreeTableUtils.updateModel(resultsTree,
           new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
     }
-  }
-
-  def onConfigChange(config: DseRunConfiguration): Unit = {
-    if (displayedConfig.contains(config)) {
-      onConfigUpdate()
-    }
-  }
-
-  def setResults(results: Seq[DseResult], objectiveNames: Seq[String], inProgress: Boolean): Unit = {
-    val combinedResults = new CombinedDseResultSet(results)
-    TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(combinedResults, objectiveNames, inProgress))
   }
 
   setLayout(new GridBagLayout())
@@ -197,6 +194,19 @@ class DsePanel(project: Project) extends JPanel {
   tabbedPane.addTab("Results", new JBScrollPane(resultsTree))
 
   onConfigUpdate()  // set initial state
+
+  // Data state update
+  def onConfigChange(config: DseRunConfiguration): Unit = {
+    if (displayedConfig.contains(config)) {
+      onConfigUpdate()
+    }
+  }
+
+  def setResults(results: Seq[DseResult], objectiveNames: Seq[String], inProgress: Boolean): Unit = {
+    val combinedResults = new CombinedDseResultSet(results)
+    TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(combinedResults, objectiveNames, inProgress))
+    plot.setResults(combinedResults, objectiveNames)
+  }
 
   // Configuration State
   //
