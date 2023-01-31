@@ -55,9 +55,9 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       (range._1 - expansion, range._2 + expansion)
     }
     val xs = data.map(_._1)
-    xRange = expandedRange((math.min(0, xs.min), math.max(0, xs.max)), kDefaultRangeMarginFactor)
+    xRange = expandedRange(((xs :+ 0f).min, (xs :+ 0f).max), kDefaultRangeMarginFactor)
     val ys = data.map(_._2)
-    yRange = expandedRange((math.min(0, ys.min), math.max(0, ys.max)), kDefaultRangeMarginFactor)
+    yRange = expandedRange(((ys :+ 0f).min, (ys :+ 0f).max), kDefaultRangeMarginFactor)
 
     validate()
     repaint()
