@@ -25,11 +25,10 @@ object KicadFootprintUtil {
 
   // returns the footprint file for a given footprint name (structured as eg, Device_R:R_0603) if it can be found
   def getFootprintFile(footprintName: String): Errorable[File] = exceptable {
-    val Seq(library, footprint) = footprintName.split(':') match {
-      case x@Array(library, footprint) => x.toSeq
+    val footprintPath = footprintName match {
+      case s"$libraryName:$footprintName" => Seq(f"$libraryName.pretty", f"$footprintName.kicad_mod")
       case _ => throw ExceptionNotifyException(s"malformed footprint path $footprintName")
     }
-    val footprintPath = Seq(library + ".pretty", footprint + ".kicad_mod")
 
     // use a for loop to return the first match, instead of mapping over everything else
     var footprintFile: Option[File] = None

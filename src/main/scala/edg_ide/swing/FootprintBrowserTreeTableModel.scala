@@ -8,7 +8,7 @@ import java.io.File
 import java.nio.file.{Files, NotDirectoryException, Paths}
 
 
-class FootprintBrowserNode(fArg: File) {
+class FootprintBrowserNode(directories: Seq[File]) {
 
   val file: File = fArg
 
@@ -39,8 +39,8 @@ class FootprintBrowserNode(fArg: File) {
 
 }
 
-class FootprintBrowserTreeTableModel(file: File) extends SeqTreeTableModel[FootprintBrowserNode] {
-  val rootNode: FootprintBrowserNode = new FootprintBrowserNode(file)
+class FootprintBrowserTreeTableModel(directories: Seq[File]) extends SeqTreeTableModel[FootprintBrowserNode] {
+  val rootNode: FootprintBrowserNode = new FootprintBrowserNode(directories)
   val COLUMNS = Seq("Path")
 
   override def getNodeChildren(node: FootprintBrowserNode): Seq[FootprintBrowserNode] = node.children
