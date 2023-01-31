@@ -17,16 +17,13 @@ import scala.collection.{SeqMap, mutable}
 //
 // Must be serializable so configs can be saved and persist across IDE restarts
 sealed trait DseObjective { self: Serializable =>
-  // TODO: also needs libraries and external sources?
   def objectiveToString: String  // short human-friendly string describing this configuration
 
   def calculate(design: schema.Design, compiler: Compiler): Any
 }
 
 
-sealed trait DseTypedObjective[+T] extends DseObjective { self: Serializable =>
-//  implicit val classTagB: TypeTag[T] = typeTag[T]
-
+abstract class DseTypedObjective[T](implicit val tag: TypeTag[T]) extends DseObjective { self: Serializable =>
   def calculate(design: schema.Design, compiler: Compiler): T
 }
 

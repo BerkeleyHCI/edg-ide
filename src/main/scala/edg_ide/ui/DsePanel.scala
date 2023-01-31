@@ -19,6 +19,7 @@ import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.{JComboBox, JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
+import scala.reflect.runtime.universe.typeOf
 
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
@@ -104,10 +105,14 @@ class DsePlotPanel() extends JPanel {
     val selectedY = ySelector.getItem
     // TODO restore prior selection
 
-    val items = objectives flatMap { case (name, objective) => objective match {
-      case objective: DseTypedObjective[Float] => Seq(new DseObjectiveItem(objective, name))
-      case objective: DseTypedObjective[Double] => Seq(new DseObjectiveItem(objective, name))
-      case objective: DseTypedObjective[Int] => Seq(new DseObjectiveItem(objective, name))
+    val items = objectives flatMap { case (name, objective) =>
+      objective match {
+      case objective: DseTypedObjective[Float] if objective.tag.tpe =:= typeOf[Float] =>
+        Seq(new DseObjectiveItem(objective, name))
+      case objective: DseTypedObjective[Double] if objective.tag.tpe =:= typeOf[Double] =>
+        Seq(new DseObjectiveItem(objective, name))
+      case objective: DseTypedObjective[Int] if objective.tag.tpe =:= typeOf[Int] =>
+        Seq(new DseObjectiveItem(objective, name))
       case _ => Seq(new DummyAxisItem(f"unknown $name"))
     } }
 
