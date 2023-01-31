@@ -1,6 +1,6 @@
 package edg_ide.dse
 import scala.reflect.runtime.universe._
-import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.ui.{EdgSettingsState, KicadParser}
