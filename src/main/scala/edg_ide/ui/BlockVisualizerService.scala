@@ -104,7 +104,7 @@ class BlockVisualizerService(project: Project) extends
     }
   }
 
-  def setDseResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective[Any]],
+  def setDseResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective],
                     inProgress: Boolean): Unit = {
     dsePanelOption.foreach(_.setResults(results, objectives, inProgress))
   }

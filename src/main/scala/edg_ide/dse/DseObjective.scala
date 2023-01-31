@@ -1,5 +1,6 @@
 package edg_ide.dse
-import edg.compiler.{Compiler, ArrayValue, BooleanValue, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import scala.reflect.runtime.universe._
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.ui.{EdgSettingsState, KicadParser}
@@ -15,9 +16,16 @@ import scala.collection.{SeqMap, mutable}
 // that produces a metric that is useful to the user, eg cost or some design parameter
 //
 // Must be serializable so configs can be saved and persist across IDE restarts
-sealed trait DseObjective[+T] { self: Serializable =>
+sealed trait DseObjective { self: Serializable =>
   // TODO: also needs libraries and external sources?
   def objectiveToString: String  // short human-friendly string describing this configuration
+
+  def calculate(design: schema.Design, compiler: Compiler): Any
+}
+
+
+sealed trait DseTypedObjective[+T] extends DseObjective { self: Serializable =>
+//  implicit val classTagB: TypeTag[T] = typeTag[T]
 
   def calculate(design: schema.Design, compiler: Compiler): T
 }
@@ -25,7 +33,7 @@ sealed trait DseObjective[+T] { self: Serializable =>
 
 // Extracts the value of a single parameter
 case class DseObjectiveParameter(path: IndirectDesignPath)
-    extends DseObjective[Option[Any]] with Serializable {
+    extends DseTypedObjective[Option[Any]] with Serializable {
   override def objectiveToString = f"Parameter($path)"
 
   override def calculate(design: Design, compiler: Compiler): Option[Any] = {
@@ -66,7 +74,7 @@ object DseObjectiveFootprintArea {
 
 
 case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
-    extends DseObjective[Float] with Serializable {
+    extends DseTypedObjective[Float] with Serializable {
   override def objectiveToString = f"FootprintArea($rootPath)"
 
   override def calculate(design: Design, compiler: Compiler): Float = {
@@ -89,7 +97,7 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
 
 // Counts the total number of footprints
 case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
-    extends DseObjective[Int] with Serializable {
+    extends DseTypedObjective[Int] with Serializable {
   override def objectiveToString = f"FootprintCount($rootPath)"
 
   override def calculate(design: Design, compiler: Compiler): Int = {

@@ -50,7 +50,7 @@ class SingleThreadRunner() {
   */
 object DseCsvWriter {
   def apply(writer: java.io.Writer, elts: Seq[DseConfigElement],
-            objectives: SeqMap[String, DseObjective[Any]]): Option[DseCsvWriter] = {
+            objectives: SeqMap[String, DseObjective]): Option[DseCsvWriter] = {
     Option(CsvWriter.builder().build(writer)).map { csv =>
       new DseCsvWriter(writer, csv, elts, objectives)
     }
@@ -59,7 +59,7 @@ object DseCsvWriter {
 
 
 class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[DseConfigElement],
-                   objectives: SeqMap[String, DseObjective[Any]]) {
+                   objectives: SeqMap[String, DseObjective]) {
   private val objectiveNames = objectives.keys.toSeq
   private val searchNames = searchConfigs.map(_.configToString)
 

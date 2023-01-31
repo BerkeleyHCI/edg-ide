@@ -7,7 +7,7 @@ import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseParameterSearch, DseResult}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseParameterSearch, DseResult, DseTypedObjective}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
@@ -51,7 +51,7 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
 }
 
 
-class DseObjectivePopupMenu(objective: DseObjective[Any], project: Project) extends JPopupMenu {
+class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
@@ -75,21 +75,51 @@ class DsePlotPanel() extends JPanel {
   }
 
   class DummyAxisItem(val name: String) extends AxisItem {
-    override def resultToValue(result: DseResult): Option[Float] = None
-
     override def toString = name
+
+    override def resultToValue(result: DseResult): Option[Float] = None
+  }
+
+  class DseObjectiveItem(objective: DseObjective, name: String) extends AxisItem {
+    override def toString = name
+
+    override def resultToValue(result: DseResult): Option[Float] = objective.calculate(result.compiled, result.compiler) match {
+      case x: Double => Some(x.toFloat)
+      case x: Float => Some(x)
+      case x: Int => Some(x.toFloat)
+    }
   }
 
   private val xSelector = new ComboBox[AxisItem]()
-  xSelector.addItem(new DummyAxisItem("X Axis"))
+  private val xAxisHeader = new DummyAxisItem("X Axis")
+  xSelector.addItem(xAxisHeader)
   add(xSelector, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
   private val ySelector = new ComboBox[AxisItem]()
-  ySelector.addItem(new DummyAxisItem("Y Axis"))
+  private val yAxisHeader = new DummyAxisItem("Y Axis")
+  ySelector.addItem(yAxisHeader)
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
-  def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective[Any]]): Unit = {
+  def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective]): Unit = {
     val selectedX = xSelector.getItem
     val selectedY = ySelector.getItem
+    // TODO restore prior selection
+
+    val items = objectives flatMap { case (name, objective) => objective match {
+      case objective: DseTypedObjective[Float] => Seq(new DseObjectiveItem(objective, name))
+      case objective: DseTypedObjective[Double] => Seq(new DseObjectiveItem(objective, name))
+      case objective: DseTypedObjective[Int] => Seq(new DseObjectiveItem(objective, name))
+      case _ => Seq(new DummyAxisItem(f"unknown $name"))
+    } }
+
+    xSelector.removeAllItems()
+    ySelector.removeAllItems()
+
+    xSelector.addItem(xAxisHeader)
+    ySelector.addItem(yAxisHeader)
+    items.foreach { item =>
+      xSelector.addItem(item)
+      ySelector.addItem(item)
+    }
   }
 }
 
@@ -203,7 +233,7 @@ class DsePanel(project: Project) extends JPanel {
     }
   }
 
-  def setResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective[Any]], inProgress: Boolean): Unit = {
+  def setResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective], inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
     TreeTableUtils.updateModel(resultsTree,
       new DseResultTreeTableModel(combinedResults, objectives.keys.toSeq, inProgress))
