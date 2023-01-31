@@ -1,15 +1,16 @@
 package edg_ide.dse
-import scala.reflect.runtime.universe._
 import edg.compiler.{ArrayValue, BooleanValue, Compiler, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.util.Errorable
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
-import edg_ide.ui.{EdgSettingsState, KicadParser}
+import edg_ide.ui.KicadParser
+import edg_ide.util.KicadFootprintUtil
 import edgir.elem.elem.HierarchyBlock
 import edgir.schema.schema
 import edgir.schema.schema.Design
 
-import java.io.File
 import scala.collection.{SeqMap, mutable}
+import scala.reflect.runtime.universe._
 
 
 // Abstract base class for all design space objectives - some function of the design
@@ -54,17 +55,12 @@ object DseObjectiveFootprintArea {
 
   def getFootprintArea(footprintName: String): Float = {
     footprintAreaCache.getOrElseUpdate(footprintName, {
-      var kicadDirectory = new File(EdgSettingsState.getInstance().kicadDirectory)
-      val footprintSplit = footprintName.split(':')
-      for (libraryName <- footprintSplit.init) {
-        kicadDirectory = new File(kicadDirectory, libraryName + ".pretty")
+      KicadFootprintUtil.getFootprintFile(footprintName) match {
+        case Errorable.Success(footprintFile) =>
+          val footprint = KicadParser.parseKicadFile(footprintFile)
+          footprint.courtyardArea.getOrElse(0)
+        case Errorable.Error(msg) => println(msg); 0  // TODO unified error logging
       }
-      val footprintFile = new File(kicadDirectory, footprintSplit.last + ".kicad_mod")
-      val footprint = KicadParser.parseKicadFile(footprintFile)
-      if (footprint.elts.isEmpty) {
-        println(s"bad footprint $footprintName") // TODO unified error logging
-      }
-      footprint.courtyardArea.getOrElse(0)
     })
   }
 }

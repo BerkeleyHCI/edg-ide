@@ -43,19 +43,19 @@ class EdgSettingsConfigurable extends Configurable {
 
   override def isModified: Boolean = {
     val settings = EdgSettingsState.getInstance()
-    settings.kicadDirectory != component.kicadDirectoryText.getText
+    settings.kicadDirectories.sameElements(component.kicadDirectoryText.getText.split(";"))
     settings.persistBlockCache != component.persistBlockCache.isSelected
   }
 
   override def apply(): Unit = {
     val settings = EdgSettingsState.getInstance()
-    settings.kicadDirectory = component.kicadDirectoryText.getText
+    settings.kicadDirectories = component.kicadDirectoryText.getText.split(";")
     settings.persistBlockCache = component.persistBlockCache.isSelected
   }
 
   override def reset(): Unit = {
     val settings = EdgSettingsState.getInstance()
-    component.kicadDirectoryText.setText(settings.kicadDirectory)
+    component.kicadDirectoryText.setText(settings.kicadDirectories.mkString(";"))
     component.persistBlockCache.setSelected(settings.persistBlockCache)
   }
 }

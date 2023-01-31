@@ -52,9 +52,9 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     private val treeScrollPane = new JScrollPane(tree)
 
     // initialize the contents on startup
-    setLibraryDirectory(EdgSettingsState.getInstance().kicadDirectory)
+    setLibraryDirectories(EdgSettingsState.getInstance().kicadDirectories)
 
-    def setLibraryDirectory(directory: String): Unit = {
+    def setLibraryDirectories(directories: Seq[String]): Unit = {
       // TODO use File instead of String
       val directoryFile = new File(directory)
       if (directoryFile.exists()) {
