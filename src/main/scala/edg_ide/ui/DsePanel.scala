@@ -14,7 +14,7 @@ import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultT
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{exceptable, requireExcept}
 
-import java.awt.event.{MouseAdapter, MouseEvent}
+import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.{JComboBox, JPanel, JPopupMenu, SwingUtilities}
@@ -66,9 +66,12 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
 
 
 class DsePlotPanel() extends JPanel {
+  // Data State
+  private var combinedResults = new CombinedDseResultSet(Seq())
+
   setLayout(new GridBagLayout)
 
-  private val plot = new JScatterPlot[String]()
+  private val plot = new JScatterPlot[Seq[DseResult]]()
   add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
 
   trait AxisItem {
@@ -88,6 +91,7 @@ class DsePlotPanel() extends JPanel {
       case x: Double => Some(x.toFloat)
       case x: Float => Some(x)
       case x: Int => Some(x.toFloat)
+      case _ => None
     }
   }
 
@@ -100,10 +104,32 @@ class DsePlotPanel() extends JPanel {
   ySelector.addItem(yAxisHeader)
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
+  private def updatePlot(): Unit = {
+    println("changed redraw")
+    val points = combinedResults.groupedResults.flatMap { resultSet =>
+      val exampleResult = resultSet.head
+      (xSelector.getItem.resultToValue(exampleResult), ySelector.getItem.resultToValue(exampleResult)) match {
+        case (Some(xVal), Some(yVal)) => Some((xVal, yVal, resultSet))
+        case _ => None
+      }
+    }
+    plot.setData(points)
+  }
+
+  private val selectorListener = new ItemListener() {
+    override def itemStateChanged(e: ItemEvent): Unit = {
+      if (e.getStateChange == ItemEvent.SELECTED) {
+        updatePlot()
+      }
+    }
+  }
+
+  xSelector.addItemListener(selectorListener)
+  ySelector.addItemListener(selectorListener)
+
   def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective]): Unit = {
     val selectedX = xSelector.getItem
     val selectedY = ySelector.getItem
-    // TODO restore prior selection
 
     val items = objectives flatMap { case (name, objective) =>
       objective match {
@@ -113,8 +139,14 @@ class DsePlotPanel() extends JPanel {
         Seq(new DseObjectiveItem(objective, name))
       case objective: DseTypedObjective[Int] if objective.tag.tpe =:= typeOf[Int] =>
         Seq(new DseObjectiveItem(objective, name))
+      // TODO parse parameter vals
       case _ => Seq(new DummyAxisItem(f"unknown $name"))
     } }
+
+    this.combinedResults = combinedResults
+
+    xSelector.removeItemListener(selectorListener)
+    ySelector.removeItemListener(selectorListener)
 
     xSelector.removeAllItems()
     ySelector.removeAllItems()
@@ -125,6 +157,13 @@ class DsePlotPanel() extends JPanel {
       xSelector.addItem(item)
       ySelector.addItem(item)
     }
+
+    // TODO restore prior selection
+
+    xSelector.addItemListener(selectorListener)
+    ySelector.addItemListener(selectorListener)
+
+    updatePlot()
   }
 }
 
