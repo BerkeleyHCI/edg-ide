@@ -87,8 +87,9 @@ class DsePlotPanel() extends JPanel {
   ySelector.addItem(new DummyAxisItem("Y Axis"))
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
-  def setResults(combinedResults: CombinedDseResultSet, objectiveNames: Seq[String]): Unit = {
-
+  def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective[Any]]): Unit = {
+    val selectedX = xSelector.getItem
+    val selectedY = ySelector.getItem
   }
 }
 
@@ -202,10 +203,11 @@ class DsePanel(project: Project) extends JPanel {
     }
   }
 
-  def setResults(results: Seq[DseResult], objectiveNames: Seq[String], inProgress: Boolean): Unit = {
+  def setResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective[Any]], inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
-    TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(combinedResults, objectiveNames, inProgress))
-    plot.setResults(combinedResults, objectiveNames)
+    TreeTableUtils.updateModel(resultsTree,
+      new DseResultTreeTableModel(combinedResults, objectives.keys.toSeq, inProgress))
+    plot.setResults(combinedResults, objectives)
   }
 
   // Configuration State
