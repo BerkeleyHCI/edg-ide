@@ -71,7 +71,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
     tree.addMouseListener(new MouseListener {
       override def mouseClicked(mouseEvent: MouseEvent): Unit = {
-        val node:FootprintBrowserNode = tree.getTree.getSelectionPath.getLastPathComponent.asInstanceOf[FootprintBrowserNode]
+//        val node:FootprintBrowserNode = tree.getTree.getSelectionPath.getLastPathComponent.asInstanceOf[FootprintBrowserNode]
         if (mouseEvent.getClickCount == 1) {
           // single click opens the footprint for preview
           footprintSynced = false
