@@ -105,7 +105,6 @@ class DsePlotPanel() extends JPanel {
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private def updatePlot(): Unit = {
-    println("changed redraw")
     val points = combinedResults.groupedResults.flatMap { resultSet =>
       val exampleResult = resultSet.head
       (xSelector.getItem.resultToValue(exampleResult), ySelector.getItem.resultToValue(exampleResult)) match {

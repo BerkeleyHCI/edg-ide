@@ -1,6 +1,7 @@
 package edg_ide.swing
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
@@ -8,17 +9,25 @@ import java.io.File
 import java.nio.file.{Files, NotDirectoryException, Paths}
 
 
-class FootprintBrowserNode(directories: Seq[File]) {
+sealed trait FootprintBrowserBaseNode {
+  def children: Seq[FootprintBrowserBaseNode]
+}
 
-  val file: File = fArg
+class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserBaseNode {
+  override lazy val children: Seq[FootprintBrowserNode] = directories.map { directory =>
+    new FootprintBrowserNode(directory)
+  }
+}
 
+
+class FootprintBrowserNode(val file: File) extends FootprintBrowserBaseNode {
   def isValidFile(filename: String): Boolean = {
     if (filename == "." || filename == "..") return false  // ignore self and up pointers
     val currFile = new File(filename)
     currFile.exists() && (filename.endsWith(".mod") || filename.endsWith(".kicad_mod") || currFile.isDirectory)
   }
 
-  lazy val children: Seq[FootprintBrowserNode] = {
+  override lazy val children: Seq[FootprintBrowserNode] = {
     Option(file.list()) match {
       case Some(filenames) => filenames.toSeq
         .map(filename => file.getCanonicalPath + "/" + filename)
@@ -39,15 +48,15 @@ class FootprintBrowserNode(directories: Seq[File]) {
 
 }
 
-class FootprintBrowserTreeTableModel(directories: Seq[File]) extends SeqTreeTableModel[FootprintBrowserNode] {
-  val rootNode: FootprintBrowserNode = new FootprintBrowserNode(directories)
-  val COLUMNS = Seq("Path")
+class FootprintBrowserTreeTableModel(directories: Seq[File]) extends SeqTreeTableModel[FootprintBrowserBaseNode] {
+  private val rootNode: FootprintBrowserRootNode = new FootprintBrowserRootNode(directories)
+  private val COLUMNS = Seq("Path")
 
-  override def getNodeChildren(node: FootprintBrowserNode): Seq[FootprintBrowserNode] = node.children
+  override def getNodeChildren(node: FootprintBrowserBaseNode): Seq[FootprintBrowserBaseNode] = node.children
 
-  override def getRootNode: FootprintBrowserNode = rootNode
+  override def getRootNode: FootprintBrowserBaseNode = rootNode
 
-  override def getNodeValueAt(node: FootprintBrowserNode, column: Int): AnyRef = node.file
+  override def getNodeValueAt(node: FootprintBrowserBaseNode, column: Int): FootprintBrowserBaseNode = node
 
   override def getColumnCount: Int = COLUMNS.length
 
