@@ -6,16 +6,19 @@ import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 import java.io.File
-import java.nio.file.{Files, NotDirectoryException, Paths}
 
 
 sealed trait FootprintBrowserBaseNode {
   def children: Seq[FootprintBrowserBaseNode]
 }
 
+
 class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserBaseNode {
-  override lazy val children: Seq[FootprintBrowserNode] = directories.map { directory =>
-    new FootprintBrowserNode(directory)
+  override lazy val children: Seq[FootprintBrowserNode] = directories.flatMap { directory =>
+    directory.list().flatMap {  // flatten the libraries regardless of their containing directory
+      case elt if elt.endsWith(".pretty") => Some(new FootprintBrowserNode(new File(directory, elt)))
+      case _ => None
+    }
   }
 }
 
