@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
@@ -14,7 +14,7 @@ import edg_ide.EdgirUtils
 import edg_ide.psi_edits.{InsertAction, InsertFootprintAction, InsertPinningAction}
 import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, KicadFootprintUtil, exceptable, exceptionPopup, requireExcept}
+import edg_ide.util._
 import edgir.common.common
 import edgir.elem.elem
 import edgir.expr.expr
@@ -71,9 +71,12 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
     tree.addMouseListener(new MouseListener {
       override def mouseClicked(mouseEvent: MouseEvent): Unit = {
-//        val node:FootprintBrowserNode = tree.getTree.getSelectionPath.getLastPathComponent.asInstanceOf[FootprintBrowserNode]
-        if (mouseEvent.getClickCount == 1) {
-          // single click opens the footprint for preview
+        val node = tree.getTree.getSelectionPath.getLastPathComponent match {
+          case node: FootprintBrowserNode => node
+          case _ => return
+        }
+
+        if (mouseEvent.getClickCount == 1) {  // single click opens the footprint for preview
           footprintSynced = false
           visualizer.pinmap = Map()
 
@@ -89,8 +92,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
               status.setText(SwingHtmlUtil.wrapInHtml(s"Invalid file: ${node.file.getName}",
                 KicadVizPanel.this.getFont))
           }
-        } else if (mouseEvent.getClickCount == 2) {
-          // double click assigns the footprint to the opened block
+        } else if (mouseEvent.getClickCount == 2) {  // double click assigns the footprint to the opened block
           exceptionPopup(mouseEvent) {
             val footprint = pathToFootprintName(node.file).exceptNone(s"invalid file ${node.file.getName}")
             (insertBlockFootprint(footprint).exceptError)()
