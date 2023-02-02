@@ -3,7 +3,7 @@ package edg_ide.ui
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.{BooleanValue, Compiler, FloatValue, IntValue, RangeValue, TextValue}
+import edg.compiler.{BooleanValue, Compiler, FloatValue, IntValue, RangeType, RangeValue, TextValue}
 import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.dse.{DseBooleanParameter, DseFeature, DseFloatParameter, DseIntParameter, DseObjectiveParameter, DseParameterSearch, DseRangeParameter, DseStringParameter}
 import edg_ide.swing
@@ -36,7 +36,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     val objective = compiler.getParamType(path) match {
       case Some(q) if q == classOf[FloatValue]  => DseFloatParameter(path)
       case Some(q) if q == classOf[IntValue]  => DseIntParameter(path)
-      case Some(q) if q == classOf[RangeValue]  => DseRangeParameter(path)
+      case Some(q) if q == classOf[RangeType]  => DseRangeParameter(path)  // RangeType includes EmptyRange as well
       case Some(q) if q == classOf[BooleanValue]  => DseBooleanParameter(path)
       case Some(q) if q == classOf[TextValue]  => DseStringParameter(path)
       case Some(q) => exceptable.fail(f"unknown parameter type ${q.getSimpleName} at $path")
