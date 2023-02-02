@@ -91,7 +91,7 @@ object InsertFootprintAction {
       case (Errorable.Success(modifyAction), _) => modifyAction
       case (Errorable.Error(_), Errorable.Success(insertAction)) => insertAction
       case (Errorable.Error(modifyErr), Errorable.Error(insertErr)) =>
-        throw ExceptionNotifyException(s"$modifyErr and $insertErr")
+        exceptable.fail(s"$modifyErr and $insertErr")
     }
   }
 }

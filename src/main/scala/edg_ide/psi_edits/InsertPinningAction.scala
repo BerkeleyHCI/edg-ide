@@ -2,19 +2,19 @@ package edg_ide.psi_edits
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
-import com.intellij.psi.{PsiElement, PsiParserFacade}
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{LanguageLevel, PyCallExpression, PyClass, PyDictLiteralExpression, PyElementGenerator, PyExpression, PyFunction, PyKeyValueExpression, PyStatementList, PyStringLiteralExpression}
+import com.intellij.psi.{PsiElement, PsiParserFacade}
 import com.jetbrains.python.psi.types.TypeEvalContext
-import edgir.elem.elem
-import edgir.ref.ref
-import edg.{ElemBuilder, ExprBuilder}
+import com.jetbrains.python.psi._
 import edg.compiler.ExprToString
 import edg.util.Errorable
 import edg.wir.ProtoUtil.PortProtoToSeqMap
+import edg.{ElemBuilder, ExprBuilder}
 import edg_ide.ui.PopupUtils
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, ExceptionNotifyException, exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+import edgir.elem.elem
+import edgir.ref.ref
 
 import java.awt.event.MouseEvent
 
@@ -87,7 +87,7 @@ object InsertPinningAction {
     }.toSeq match {
       case Seq(kv) => Some(kv)
       case Seq() => None
-      case _ => throw ExceptionNotifyException(s"more than one pinning entry for $pin")
+      case _ => exceptable.fail(s"more than one pinning entry for $pin")
     }
 
     val priorPinned = pinning.values.toSet

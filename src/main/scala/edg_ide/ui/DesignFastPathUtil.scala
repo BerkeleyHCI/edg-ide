@@ -32,7 +32,7 @@ class DesignFastPathUtil(library: wir.Library) {
     portLike.is match {
       case elem.PortLike.Is.LibElem(portType) => instantiatePortLike(portType).exceptError
       case elem.PortLike.Is.Array(array) => portLike  // for now, don't elaborate arrays
-      case other => throw ExceptionNotifyException(s"unexpected ${other.getClass} in expand port")
+      case other => exceptable.fail(s"unexpected ${other.getClass} in expand port")
     }
 
   }
@@ -124,7 +124,7 @@ class DesignFastPathUtil(library: wir.Library) {
                 (i.toString, instantiatePortLike(connectType).exceptError).toPb
           )
           key -> ExprBuilder.Ref(topPortName, i.toString)
-        case other => throw ExceptionNotifyException(s"unexpected ${other.getClass} in link connect mapping")
+        case other => exceptable.fail(s"unexpected ${other.getClass} in link connect mapping")
       }
     }
 

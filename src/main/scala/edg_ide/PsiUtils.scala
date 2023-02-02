@@ -3,13 +3,10 @@ package edg_ide
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
-import com.jetbrains.python.psi.types.TypeEvalContext
-import com.jetbrains.python.psi.{LanguageLevel, PyAssignmentStatement, PyClass, PyElementGenerator, PyFunction, PyRecursiveElementVisitor, PyReferenceExpression, PyTargetExpression}
+import com.jetbrains.python.psi.{PyFunction, PyReferenceExpression, PyTargetExpression}
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
-import edg_ide.util.{ExceptionNotifyException, exceptable}
-
-import scala.collection.mutable
+import edg_ide.util.exceptable
 
 object PsiUtils {
   def fileLineOf(element: PsiElement, project: Project): Errorable[String] = {
@@ -48,7 +45,7 @@ object PsiUtils {
         ref.getName
       case (None, Some(target)) if target.getQualifier != null &&  target.getQualifier.textMatches(selfName) =>
         target.getName
-      case _ => throw ExceptionNotifyException("not in a reference expression")
+      case _ => exceptable.fail("not in a reference expression")
     }
   }
 }
