@@ -39,7 +39,8 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       case Some(q) if q == classOf[RangeValue]  => DseRangeParameter(path)
       case Some(q) if q == classOf[BooleanValue]  => DseBooleanParameter(path)
       case Some(q) if q == classOf[TextValue]  => DseStringParameter(path)
-      case _ => exceptable.fail(f"unknown parameter type at $path")
+      case Some(q) => exceptable.fail(f"unknown parameter type ${q.getSimpleName} at $path")
+      case _ => exceptable.fail(f"no parameter type at $path")
     }
 
     () => PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
