@@ -24,6 +24,10 @@ object exceptable {
       case ExceptionNotifyException(errMsg) => Errorable.Error(errMsg)
     }
   }
+
+  def fail(errMsg: String): Nothing = {
+    throw ExceptionNotifyException(errMsg)
+  }
 }
 
 

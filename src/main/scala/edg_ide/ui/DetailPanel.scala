@@ -3,9 +3,9 @@ package edg_ide.ui
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.Compiler
+import edg.compiler.{BooleanValue, Compiler, FloatValue, IntValue, RangeValue, TextValue}
 import edg.wir.{DesignPath, IndirectDesignPath}
-import edg_ide.dse.{DseFeature, DseObjectiveParameter, DseParameterSearch}
+import edg_ide.dse.{DseBooleanParameter, DseFeature, DseFloatParameter, DseIntParameter, DseObjectiveParameter, DseParameterSearch, DseRangeParameter, DseStringParameter}
 import edg_ide.swing
 import edg_ide.swing.{ElementDetailTreeModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
@@ -32,10 +32,19 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     }
   }, s"Search values"))
 
-  add(ContextMenuUtils.MenuItem(() => {
-    PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
+  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+    val objective = compiler.getParamType(path) match {
+      case Some(q) if q == classOf[FloatValue]  => DseFloatParameter(path)
+      case Some(q) if q == classOf[IntValue]  => DseIntParameter(path)
+      case Some(q) if q == classOf[RangeValue]  => DseRangeParameter(path)
+      case Some(q) if q == classOf[BooleanValue]  => DseBooleanParameter(path)
+      case Some(q) if q == classOf[TextValue]  => DseStringParameter(path)
+      case _ => exceptable.fail(f"unknown parameter type at $path")
+    }
+
+    () => PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
       val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveParameter(path)))
+      config.options.objectives = config.options.objectives ++ Seq((text, objective))
       BlockVisualizerService(project).onDseConfigChanged(config)
     } }
   }, "Add objective"))

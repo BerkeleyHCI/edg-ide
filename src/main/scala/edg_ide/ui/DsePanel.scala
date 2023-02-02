@@ -7,7 +7,7 @@ import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseParameterSearch, DseResult, DseTypedObjective}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseFloatParameter, DseIntParameter, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseParameterSearch, DseRangeParameter, DseResult, DseTypedObjective}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
@@ -74,7 +74,7 @@ class DsePlotPanel() extends JPanel {
   private val plot = new JScatterPlot[Seq[DseResult]]()
   add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
 
-  trait AxisItem {
+  sealed trait AxisItem {
     def resultToValue(result: DseResult): Option[Float]
   }
 
@@ -88,9 +88,27 @@ class DsePlotPanel() extends JPanel {
     override def toString = name
 
     override def resultToValue(result: DseResult): Option[Float] = objective.calculate(result.compiled, result.compiler) match {
-      case x: Double => Some(x.toFloat)
       case x: Float => Some(x)
       case x: Int => Some(x.toFloat)
+      case _ => None
+    }
+  }
+
+  class DseObjectiveOptionItem(objective: DseObjective, name: String) extends AxisItem {
+    override def toString = name
+
+    override def resultToValue(result: DseResult): Option[Float] = objective.calculate(result.compiled, result.compiler) match {
+      case Some(x: Float) => Some(x)
+      case Some(x: Int) => Some(x.toFloat)
+      case _ => None
+    }
+  }
+
+  class DseObjectiveRangeOptionItem(objective: DseObjective, isMax: Boolean, name: String) extends AxisItem {
+    override def toString = name
+
+    override def resultToValue(result: DseResult): Option[Float] = objective.calculate(result.compiled, result.compiler) match {
+      case Some((minVal: Float, maxVal: Float)) => if (isMax) Some(maxVal) else Some(minVal)
       case _ => None
     }
   }
@@ -130,14 +148,15 @@ class DsePlotPanel() extends JPanel {
     val selectedX = xSelector.getItem
     val selectedY = ySelector.getItem
 
-    val items = objectives flatMap { case (name, objective) =>
-      objective match {
-      case objective: DseTypedObjective[Float] if objective.tag.tpe =:= typeOf[Float] =>
-        Seq(new DseObjectiveItem(objective, name))
-      case objective: DseTypedObjective[Double] if objective.tag.tpe =:= typeOf[Double] =>
-        Seq(new DseObjectiveItem(objective, name))
-      case objective: DseTypedObjective[Int] if objective.tag.tpe =:= typeOf[Int] =>
-        Seq(new DseObjectiveItem(objective, name))
+    val items = objectives flatMap { case (name, objective) => objective match {
+      case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveItem(objective, name))
+      case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveItem(objective, name))
+      case objective: DseFloatParameter => Seq(new DseObjectiveOptionItem(objective, name))
+      case objective: DseIntParameter => Seq(new DseObjectiveOptionItem(objective, name))
+      case objective: DseRangeParameter => Seq(
+        new DseObjectiveRangeOptionItem(objective, false, name + " (min)"),
+        new DseObjectiveRangeOptionItem(objective, true, name + " (max)")
+      )
       // TODO parse parameter vals
       case _ => Seq(new DummyAxisItem(f"unknown $name"))
     } }

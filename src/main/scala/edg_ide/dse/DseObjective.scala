@@ -25,7 +25,7 @@ sealed trait DseObjective { self: Serializable =>
 
 
 // Abstract base class that defines the calculation type
-sealed abstract class DseTypedObjective[T](implicit val tag: TypeTag[T]) extends DseObjective { self: Serializable =>
+sealed abstract class DseTypedObjective[T] extends DseObjective { self: Serializable =>
   def calculate(design: schema.Design, compiler: Compiler): T
 }
 
@@ -40,7 +40,7 @@ case class DseFloatParameter(path: IndirectDesignPath) extends DseObjectiveParam
   override def calculate(design: Design, compiler: Compiler): Option[Float] = {
     compiler.getParamValue(path) match {
       case Some(FloatValue(value)) => Some(value)
-      case None => None
+      case _ => None
     }
   }
 }
@@ -52,7 +52,7 @@ case class DseIntParameter(path: IndirectDesignPath) extends DseObjectiveParamet
   override def calculate(design: Design, compiler: Compiler): Option[BigInt] = {
     compiler.getParamValue(path) match {
       case Some(IntValue(value)) => Some(value)
-      case None => None
+      case _ => None
     }
   }
 }
@@ -65,7 +65,7 @@ case class DseRangeParameter(path: IndirectDesignPath) extends DseObjectiveParam
   override def calculate(design: Design, compiler: Compiler): Option[(Float, Float)] = {
     compiler.getParamValue(path) match {
       case Some(RangeValue(minValue, maxValue)) => Some((minValue, maxValue))
-      case None => None
+      case _ => None
     }
   }
 }
@@ -77,7 +77,7 @@ case class DseBooleanParameter(path: IndirectDesignPath) extends DseObjectivePar
   override def calculate(design: Design, compiler: Compiler): Option[Boolean] = {
     compiler.getParamValue(path) match {
       case Some(BooleanValue(value)) => Some(value)
-      case None => None
+      case _ => None
     }
   }
 }
@@ -89,7 +89,7 @@ case class DseStringParameter(path: IndirectDesignPath) extends DseObjectivePara
   override def calculate(design: Design, compiler: Compiler): Option[String] = {
     compiler.getParamValue(path) match {
       case Some(TextValue(value)) => Some(value)
-      case None => None
+      case _ => None
     }
   }
 }
