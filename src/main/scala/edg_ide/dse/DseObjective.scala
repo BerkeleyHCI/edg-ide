@@ -30,23 +30,50 @@ abstract class DseTypedObjective[T](implicit val tag: TypeTag[T]) extends DseObj
 
 
 // Extracts the value of a single parameter
-case class DseObjectiveParameter(path: IndirectDesignPath)
-    extends DseTypedObjective[Option[Any]] with Serializable {
-  override def objectiveToString = f"Parameter($path)"
+//case class DseObjectiveParameter(path: IndirectDesignPath)
+//    extends DseTypedObjective[Option[Any]] with Serializable {
+//  override def objectiveToString = f"Parameter($path)"
+//
+//  override def calculate(design: Design, compiler: Compiler): Option[Any] = {
+//    compiler.getParamValue(path) match {
+//      case Some(FloatValue(value)) => Some(value)
+//      case Some(IntValue(value)) => Some(value)
+//      case Some(RangeValue(lower, upper)) => Some((lower, upper))
+//      case Some(BooleanValue(value)) => Some(value)
+//      case Some(TextValue(value)) => Some(value)
+//      case Some(RangeEmpty) => Some((None, None))
+//      case Some(ArrayValue(values)) => Some(values)  // TODO recursively unpack
+//      case None => None
+//    }
+//  }
+//}
 
-  override def calculate(design: Design, compiler: Compiler): Option[Any] = {
-    compiler.getParamValue(path) match {
-      case Some(FloatValue(value)) => Some(value)
-      case Some(IntValue(value)) => Some(value)
-      case Some(RangeValue(lower, upper)) => Some((lower, upper))
-      case Some(BooleanValue(value)) => Some(value)
-      case Some(TextValue(value)) => Some(value)
-      case Some(RangeEmpty) => Some((None, None))
-      case Some(ArrayValue(values)) => Some(values)  // TODO recursively unpack
-      case None => None
-    }
-  }
+abstract class DseObjectiveParameter[T] extends DseTypedObjective[Option[T]] with Serializable {
+
 }
+
+case class DseFloatParameter(path: IndirectDesignPath) extends DseObjectiveParameter[Float] {
+  override def objectiveToString = f"FloatParameter($path)"
+}
+
+case class DseIntParameter(path: IndirectDesignPath) extends DseObjectiveParameter[Int] {
+  override def objectiveToString = f"IntParameter($path)"
+}
+
+case class DseRangeParameter(path: IndirectDesignPath) extends DseObjectiveParameter[(Float, Float)] {
+  // TODO support empty range case
+  override def objectiveToString = f"RangeParameter($path)"
+}
+
+case class DseBooleanParameter(path: IndirectDesignPath) extends DseObjectiveParameter[Boolean] {
+  override def objectiveToString = f"BooleanParameter($path)"
+}
+
+case class DseStringParameter(path: IndirectDesignPath) extends DseObjectiveParameter[String] {
+  override def objectiveToString = f"StringParameter($path)"
+}
+
+// Arrays not supported, unclear what to do with them
 
 
 // Stores footprint area so the data is not serialized and cached across multiple compilation runs
