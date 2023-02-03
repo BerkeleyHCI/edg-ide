@@ -87,7 +87,6 @@ object CompilerErrorNodeBase {
       case CompilerError.AbstractBlock(path, blockType) =>
         (s"Abstract block, ${blockType.toSimpleString}", path.toString, Seq())
       case CompilerError.FailedAssertion(root, constrName, value, result, compiler) => {
-        // TODO: do more than just printing it out
         (s"Failed assertion", s"$root:$constrName", Seq(
           new CompilerErrorDetailNode(ExprVarToValue(value, compiler, root), result.toStringValue)
         ))
