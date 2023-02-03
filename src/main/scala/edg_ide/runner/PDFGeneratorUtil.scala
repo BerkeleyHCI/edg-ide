@@ -3,11 +3,12 @@ package edg_ide.runner
 import com.lowagie.text.{Document, Element, HeaderFooter, Rectangle}
 import com.lowagie.text.pdf.PdfWriter
 import edg.wir.ProtoUtil.BlockProtoToSeqMap
-import edg_ide.swing.ElkNodePainter
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import org.eclipse.elk.graph.ElkNode
-import edg.wir.{DesignPath}
-import edg_ide.edgir_graph.HierarchyGraphElk
+import edg.wir.DesignPath
+import edg_ide.edgir_graph.HierarchyGraphElk.PropertyMapper
+import edg_ide.edgir_graph.{EdgeWrapper, HierarchyGraphElk, NodeDataWrapper, PortWrapper}
+import edg_ide.swing.blocks.ElkNodePainter
 
 import java.awt.Color
 import java.io.{FileNotFoundException, FileOutputStream, IOException}
@@ -21,7 +22,9 @@ object PDFGeneratorUtil{
     (width, height)
   }
 
-  def generate(content: HierarchyBlock, fileName: String): Unit = {
+  def generate(content: HierarchyBlock,
+               mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
+               fileName: String): Unit = {
     try {
       val document = new Document()
       val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
@@ -52,7 +55,7 @@ object PDFGeneratorUtil{
       }
 
       def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
-        val node = HierarchyGraphElk.HBlockToElkNode(block, path)
+        val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers=mappers)
         printNode(node)
 
         block.blocks.asPairs.map {

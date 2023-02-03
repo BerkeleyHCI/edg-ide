@@ -26,14 +26,12 @@
     <configurationType implementation="edg_ide.runner.DesignTopRunConfigurationType"/>
     <runConfigurationProducer implementation="edg_ide.runner.DesignTopRunConfigurationProducer"/>
 
-    <!-- the DSE run config uses the DesignTop run marker contributor, which seems to find all producers -->
     <configurationType implementation="edg_ide.runner.DseRunConfigurationType"/>
-    <runConfigurationProducer implementation="edg_ide.runner.DseRunConfigurationProducer"/>
   </extensions>
 
   <actions>
-    <action id="edg_ide.actions.EmptyCacheAction" class="edg_ide.actions.EmptyCacheAction"
-            text="Empty IDE Cache" description="Empty the IDE cache">
+    <action id="edg_ide.actions.EmptyBlockCacheAction" class="edg_ide.actions.EmptyBlockCacheAction"
+            text="Empty Block Cache" description="Empty the cache of compiled Blocks">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
     </action>
 

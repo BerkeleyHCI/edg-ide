@@ -4,25 +4,15 @@ import com.intellij.ui.scale.JBUIScale
 import edg.util.Errorable
 
 import java.awt.MouseInfo
-import java.awt.event.ActionEvent
+import java.awt.event.{ActionEvent, MouseEvent}
 import javax.swing.JMenuItem
 
 
 object ContextMenuUtils {
-  // Creates a menu item where the action is an Errorable and may fail.
-  // On a failure, the error message is displayed as a popup at the mouse location clicking the menu item.
-  def ErrorableMenuItem(action: () => Errorable[Unit], label: String): JMenuItem = {
+  def MenuItem(action: () => Unit, label: String): JMenuItem = {
     val item = new JMenuItem(label)
     item.addActionListener((e: ActionEvent) => {
-      // store the location before the action, as close to the click location as possible
-      val clickLocation = MouseInfo.getPointerInfo.getLocation
-      action() match {
-        case Errorable.Error(msg) =>
-          val (popup, height) = PopupUtils.createErrorPopup(msg)
-          clickLocation.y -= JBUIScale.scale(6) + height
-          popup.showInScreenCoordinates(item, clickLocation)
-        case Errorable.Success(_) => // ignored
-      }
+      action()
     })
     item
   }

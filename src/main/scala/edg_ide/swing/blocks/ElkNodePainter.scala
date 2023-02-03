@@ -1,8 +1,9 @@
-package edg_ide.swing
+package edg_ide.swing.blocks
 
+import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.graph._
-import edg_ide.swing.ElkNodeUtil.edgeSectionPairs
+
 import java.awt._
 import java.awt.geom.AffineTransform
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}

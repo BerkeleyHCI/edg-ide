@@ -19,6 +19,7 @@ import edg.wir.ProtoUtil._
 import edg_ide.edgir_graph._
 import edg_ide.psi_edits._
 import edg_ide.swing._
+import edg_ide.swing.blocks.JBlockDiagramVisualizer
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
@@ -486,6 +487,7 @@ class LibraryPanel(project: Project) extends JPanel {
     }
   }
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
       val selectedTreePath = libraryTree.getTree.getPathForLocation(e.getX, e.getY)
@@ -524,8 +526,6 @@ class LibraryPanel(project: Project) extends JPanel {
 
         case _ => return  // any other type ignored
       }
-
-
     }
   }
   libraryTree.addMouseListener(libraryMouseListener)

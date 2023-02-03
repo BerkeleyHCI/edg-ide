@@ -1,4 +1,4 @@
-package edg_ide.ui
+package edg_ide.util.external
 
 import scala.collection.mutable.ListBuffer
 

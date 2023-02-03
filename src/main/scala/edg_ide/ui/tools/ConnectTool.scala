@@ -1,12 +1,13 @@
-package edg_ide.ui
+package edg_ide.ui.tools
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{PyFunction, PyStatementList}
-import edg.wir.ProtoUtil._
 import edg.util.{Errorable, NameCreator}
+import edg.wir.ProtoUtil._
 import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.psi_edits.{InsertAction, InsertBlockAction, InsertConnectAction}
+import edg_ide.ui._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup}
 import edg_ide.{EdgirUtils, PsiUtils}

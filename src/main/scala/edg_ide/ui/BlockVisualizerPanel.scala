@@ -16,6 +16,8 @@ import edg_ide.build.BuildInfo
 import edg_ide.dse.DseFeature
 import edg_ide.edgir_graph._
 import edg_ide.swing._
+import edg_ide.swing.blocks.JBlockDiagramVisualizer
+import edg_ide.ui.tools.{BaseTool, DefaultTool, ToolInterface}
 import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import edgir.elem.elem
 import edgir.ref.ref
@@ -29,7 +31,7 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{ButtonGroup, JLabel, JPanel}
+import javax.swing.{JLabel, JPanel}
 import scala.collection.{SeqMap, mutable}
 
 
@@ -226,20 +228,20 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   private val libraryPanel = new LibraryPanel(project)
   tabbedPane.addTab("Library", libraryPanel)
-  val TAB_INDEX_LIBRARY = 0
+  private val TAB_INDEX_LIBRARY = 0
 
-  private val detailPanel = new DetailPanel(DesignPath(), design, refinements, compiler)
+  private val detailPanel = new DetailPanel(DesignPath(), compiler, project)
   tabbedPane.addTab("Detail", detailPanel)
-  val TAB_INDEX_DETAIL = 1
+  private val TAB_INDEX_DETAIL = 1
 
   private val errorPanel = new ErrorPanel(compiler)
   tabbedPane.addTab("Errors", errorPanel)
-  val TAB_INDEX_ERRORS = 2
+  private val TAB_INDEX_ERRORS = 2
 
   // add a tab for kicad visualization
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
-  val TAB_KICAD_VIZ = 3
+  private val TAB_KICAD_VIZ = 3
 
 
   // GUI: Design Space Exploration (bottom tab)
@@ -341,13 +343,20 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
+    val currentFocusPath = focusPath
     val currentDesign = design
+    val currentCompiler = compiler
 
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
-      val (blockPath, block) = EdgirUtils.resolveDeepestBlock(focusPath, currentDesign)
-      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(block, blockPath, depthSpinner.getNumber)
-      val tooltipTextMap = new DesignToolTipTextMap(compiler, project)
-      tooltipTextMap.map(design)
+      val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
+      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(
+        block, blockPath, depthSpinner.getNumber,
+        // note, adding port side constraints with hierarchy seems to break ELK
+        Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
+          ElkEdgirGraphUtils.DesignPathMapper)
+      )
+      val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
+      tooltipTextMap.map(currentDesign)
 
       (layoutGraphRoot, tooltipTextMap.getTextMap)
     }): Callable[(ElkNode, Map[DesignPath, String])])
@@ -447,7 +456,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 }
 
 
-class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignMap[Unit, Unit, Unit] {
+class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
   // TODO this really doesn't belong in the IDE
   // Instead there should be a way to specify short descriptions in the HDL
   // Perhaps also short names
@@ -543,33 +552,6 @@ class DesignToolTipTextMap(compiler: Compiler, project: Project) extends DesignM
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
     val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
-  }
-}
-
-
-class DetailPanel(initPath: DesignPath, initRoot: schema.Design, initRefinements: edgrpc.Refinements,
-                  initCompiler: Compiler) extends JPanel {
-  import edg_ide.swing.ElementDetailTreeModel
-
-  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, initRoot, initRefinements, initCompiler))
-  tree.setShowColumns(true)
-  private val treeScrollPane = new JBScrollPane(tree)
-
-  setLayout(new BorderLayout())
-  add(treeScrollPane)
-
-  // Actions
-  //
-  def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
-    TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
-  }
-
-  // Configuration State
-  //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-  }
-
-  def loadState(state: BlockVisualizerServiceState): Unit = {
   }
 }
 
