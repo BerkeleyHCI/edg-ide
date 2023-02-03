@@ -50,7 +50,7 @@ object CompilerErrorNodeBase {
         ("Unelaborated Link", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.ParamValue(path), deps) =>
         ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
-      case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath), deps) =>
+      case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath, designPath: DesignPath), deps) =>
         (s"Unelaborated Connect", "", Seq(
           new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
           new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString),

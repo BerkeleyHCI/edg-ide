@@ -13,6 +13,6 @@ class ExprVarToValue(compiler: Compiler, designPath: DesignPath) extends ExprToS
       case Some(value) => value.toStringValue
       case None => "Unsolved"
     }
-    s"Value of ${(designPath ++ path).asIndirect} ${value}"
+    s"${(designPath ++ path).asIndirect} = ${value}"
   }
 }
