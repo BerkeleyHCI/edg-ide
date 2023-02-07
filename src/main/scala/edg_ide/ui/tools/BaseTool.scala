@@ -1,8 +1,8 @@
-package edg_ide.ui
+package edg_ide.ui.tools
 
 import com.intellij.openapi.project.Project
-import edgir.schema.schema
 import edg.wir.{DesignPath, Library}
+import edgir.schema.schema
 
 import java.awt.event.MouseEvent
 

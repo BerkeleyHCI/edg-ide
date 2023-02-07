@@ -1,8 +1,7 @@
 package edg_ide.actions
 
 import com.intellij.notification.{NotificationGroup, NotificationType}
-import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent, CommonDataKeys}
-import edg_ide.EdgirUtils
+import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent}
 import edg_ide.ui.EdgCompilerService
 
 

@@ -16,6 +16,8 @@ import edg_ide.build.BuildInfo
 import edg_ide.dse.DseFeature
 import edg_ide.edgir_graph._
 import edg_ide.swing._
+import edg_ide.swing.blocks.JBlockDiagramVisualizer
+import edg_ide.ui.tools.{BaseTool, DefaultTool, ToolInterface}
 import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
 import edgir.elem.elem
 import edgir.ref.ref
@@ -232,7 +234,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   tabbedPane.addTab("Detail", detailPanel)
   private val TAB_INDEX_DETAIL = 1
 
-  private val errorPanel = new ErrorPanel()
+  private val errorPanel = new ErrorPanel(compiler)
   tabbedPane.addTab("Errors", errorPanel)
   private val TAB_INDEX_ERRORS = 2
 
@@ -307,7 +309,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.refinements = refinements  // must be updated before updateDisplay called in setDesign
     setDesign(design, compiler)
     tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
-    errorPanel.setErrors(errors)
+    errorPanel.setErrors(errors, compiler)
 
     ApplicationManager.getApplication.invokeLater(() => {
       toolWindow.setTitle(namePrefix.getOrElse("") + design.getContents.getSelfClass.toSimpleString)
@@ -553,9 +555,8 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   }
 }
 
-
-class ErrorPanel extends JPanel {
-  private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq()))
+class ErrorPanel(compiler: Compiler) extends JPanel {
+  private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
@@ -565,8 +566,8 @@ class ErrorPanel extends JPanel {
 
   // Actions
   //
-  def setErrors(errs: Seq[CompilerError]): Unit = {
-    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs))
+  def setErrors(errs: Seq[CompilerError], compiler: Compiler): Unit = {
+    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
   }
 
   // Configuration State

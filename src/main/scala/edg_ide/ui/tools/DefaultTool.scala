@@ -1,4 +1,4 @@
-package edg_ide.ui
+package edg_ide.ui.tools
 
 import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
@@ -9,6 +9,7 @@ import edg.util.Errorable
 import edg.wir.DesignPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg_ide.dse._
+import edg_ide.ui.{BlockVisualizerService, ContextMenuUtils, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}

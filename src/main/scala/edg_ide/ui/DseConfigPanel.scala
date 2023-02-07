@@ -8,6 +8,7 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import edg_ide.dse.{DseConfigElement, DseObjective, DseParameterSearch, DseResult}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
+import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{exceptable, requireExcept}
 

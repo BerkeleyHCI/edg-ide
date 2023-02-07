@@ -1,13 +1,14 @@
-package edg_ide.swing
+package edg_ide.swing.blocks
 
-import edg_ide.swing.ElkNodeUtil.edgeSectionPairs
+import edg_ide.swing.Zoomable
+import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
-import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
+import scala.jdk.CollectionConverters.ListHasAsScala
 
 /** Block diagram visualizer that customizes the rendering with options specific to
  * design block diagrams:
