@@ -32,6 +32,8 @@ class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[Des
           configuration.options.netlistFile = netlistFile.getAbsolutePath
           val pdfFile = new File(containingDirectory, psiPyClass.getName + ".pdf")
           configuration.options.pdfFile = pdfFile.getAbsolutePath
+          val bomFile = new File(containingDirectory, psiPyClass.getName + ".csv")
+          configuration.options.bomFile = bomFile.getAbsolutePath
           true
         } else {
           false

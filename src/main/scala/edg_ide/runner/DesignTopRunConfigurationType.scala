@@ -63,6 +63,7 @@ class DesignTopRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var netlistFile: String = ""
   var pdfFile: String = ""
+  var bomFile: String = ""
   var toggle: RefdesMode.selections = RefdesMode.refdes
 }
 
@@ -94,6 +95,7 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
   val kFieldDesignName = "DESIGN_NAME"
   val kFieldNetlistName = "NETLIST_NAME"
   val kPdfFileName = "PDF_NAME"
+  val kBomFileName = "BOM_NAME"
   val kFieldRefdesMode = "REFDESMODE_NAME"
 
   // Allows persistence of run configuration
@@ -102,6 +104,7 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
     options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName, "")
     options.pdfFile = JDOMExternalizerUtil.readField(element, kPdfFileName, "")
+    options.bomFile = JDOMExternalizerUtil.readField(element, kBomFileName, "")
     RefdesMode.toEnum(JDOMExternalizerUtil.readField(element, kFieldRefdesMode)).foreach(options.toggle = _)
   }
 
@@ -110,6 +113,7 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldNetlistName, options.netlistFile)
     JDOMExternalizerUtil.writeField(element, kPdfFileName, options.pdfFile)
+    JDOMExternalizerUtil.writeField(element, kBomFileName, options.bomFile)
     JDOMExternalizerUtil.writeField(element, kFieldRefdesMode, options.toggle.toString)
   }
 }
@@ -118,6 +122,7 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
   protected val designName = new JTextField()
   protected val netlistFile = new JTextField()  // no browse button b/c FileChooser can't create new files
   protected val pdfFile = new JTextField()
+  protected val bomFile = new JTextField()
   protected val toggleRefdes = new JBRadioButton()
   protected val togglePathname = new JBRadioButton()
   protected val toggleButtons = new ButtonGroup()
@@ -130,6 +135,7 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
       .addLabeledComponent(new JBLabel("Select Netlist Path Name"), togglePathname)
       .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
       .addLabeledComponent(new JBLabel("PDF output file"), pdfFile, false)
+      .addLabeledComponent(new JBLabel("BOM output file"), bomFile, false)
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
 
@@ -137,6 +143,7 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
     designName.setText(s.options.designName)
     netlistFile.setText(s.options.netlistFile)
     pdfFile.setText(s.options.pdfFile)
+    bomFile.setText(s.options.bomFile)
 
     s.options.toggle match {
       case RefdesMode.refdes =>
@@ -152,6 +159,7 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
     s.options.designName = designName.getText
     s.options.netlistFile = netlistFile.getText
     s.options.pdfFile = pdfFile.getText
+    s.options.bomFile = bomFile.getText
     if (toggleRefdes.isSelected){
       s.options.toggle = RefdesMode.refdes
     } else if (togglePathname.isSelected) {
