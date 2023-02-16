@@ -71,7 +71,15 @@ class DsePlotPanel() extends JPanel {
 
   setLayout(new GridBagLayout)
 
-  private val plot = new JScatterPlot[Seq[DseResult]]()
+  private val plot = new JScatterPlot[Seq[DseResult]]() {
+    override def onClick(data: Seq[Data]): Unit = {
+      println(f"click: $data")
+    }
+
+    override def onHoverChange(data: Seq[Data]): Unit = {
+      println(f"hover: $data")
+    }
+  }
   add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
 
   sealed trait AxisItem {
@@ -123,7 +131,7 @@ class DsePlotPanel() extends JPanel {
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private def updatePlot(): Unit = {
-    val points = combinedResults.groupedResults.flatMap { resultSet =>
+    val points = combinedResults.groupedResults.toIndexedSeq.flatMap { resultSet =>
       val exampleResult = resultSet.head
       (xSelector.getItem.resultToValue(exampleResult), ySelector.getItem.resultToValue(exampleResult)) match {
         case (Some(xVal), Some(yVal)) =>
@@ -161,8 +169,8 @@ class DsePlotPanel() extends JPanel {
     }
     }
 
-    xSelector.removeItemListener(selectorListener)
-    ySelector.removeItemListener(selectorListener)
+    xSelector.removeItemListener(axisSelectorListener)
+    ySelector.removeItemListener(axisSelectorListener)
 
     xSelector.removeAllItems()
     ySelector.removeAllItems()
@@ -174,8 +182,8 @@ class DsePlotPanel() extends JPanel {
       ySelector.addItem(item)
     }
 
-    xSelector.addItemListener(selectorListener)
-    ySelector.addItemListener(selectorListener)
+    xSelector.addItemListener(axisSelectorListener)
+    ySelector.addItemListener(axisSelectorListener)
     displayAxisSelectorObjectives = objectives
 
     // restore prior selection by name matching
@@ -183,7 +191,7 @@ class DsePlotPanel() extends JPanel {
     items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
   }
 
-  private val selectorListener = new ItemListener() {
+  private val axisSelectorListener = new ItemListener() {
     override def itemStateChanged(e: ItemEvent): Unit = {
       if (e.getStateChange == ItemEvent.SELECTED) {
         updatePlot()

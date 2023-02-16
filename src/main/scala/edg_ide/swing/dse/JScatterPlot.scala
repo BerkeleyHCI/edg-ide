@@ -34,8 +34,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kTickSizePx = 4
 
   // data state
-  private var data: Seq[Data] = Seq()
-  private var mouseOverData: Set[Int] = Set()  // index into data
+  private var data: IndexedSeq[Data] = IndexedSeq()
+  private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
 
   // UI state
   private var xRange = (0f, 0f)
@@ -53,9 +53,9 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * dataScale(xRange, getWidth)).toInt
   private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * dataScale(yRange, getHeight)).toInt
 
-  def setData(xys: Seq[Data]): Unit = {
+  def setData(xys: IndexedSeq[Data]): Unit = {
     data = xys
-    mouseOverData = Set()  // clear
+    mouseOverIndices = Seq()  // clear
 
     def expandedRange(range: (Float, Float), factor: Float): (Float, Float) = {
       val span = range._2 - range._1
@@ -117,7 +117,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       val screenX = dataToScreenX(data.x)
       val screenY = dataToScreenY(data.y)
       dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
-      if (mouseOverData.contains(index)) {  // makes it thicker
+      if (mouseOverIndices.contains(index)) {  // makes it thicker
         dataGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
       }
     }
@@ -132,10 +132,14 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   }
 
   // Returns the points with some specified distance (in screen coordinates, px) of the point.
-  def getPointsForLocation(x: Int, y: Int, distance: Int): Seq[Int] = {
+  // Returns as (index of point, distance)
+  def getPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
     data.zipWithIndex.flatMap { case (data, index) =>
-      if (math.abs(dataToScreenX(data.x) - x) <= distance && math.abs(dataToScreenY(data.y) - y) <= distance) {
-        Some(index)
+      val xDist = dataToScreenX(data.x) - x
+      val yDist = dataToScreenY(data.y) - y
+      val distance = math.sqrt(xDist * xDist + yDist * yDist).toFloat
+      if (distance <= maxDistance) {
+        Some(index, distance)
       } else {
         None
       }
@@ -145,11 +149,15 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val newPoints = getPointsForLocation(e.getX, e.getY, kSnapDistancePx).toSet
-      if (mouseOverData != newPoints) {
-        mouseOverData = newPoints
+      val newPoints = getPointsForLocation(e.getX, e.getY, kSnapDistancePx)
+      val newIndices = newPoints.map(_._1)
+      if (mouseOverIndices != newIndices) {
+        mouseOverIndices = newIndices
         validate()
         repaint()
+
+        // sort by distance and call hover
+        onHoverChange(newPoints.sortBy(_._2).map(pair => data(pair._1)))
       }
     }
   })
@@ -173,6 +181,16 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       repaint()
     }
   })
+
+  // User hooks - can be overridden
+  //
+  // called when this widget clicked, for all points within some hover radius of the cursor
+  // sorted by distance from cursor (earlier = closer), and may be empty
+  def onClick(data: Seq[Data]): Unit = { }
+
+  // called when the hovered-over data changes, for all points within some hover radius of the cursor
+  // may be empty (when hovering over nothing)
+  def onHoverChange(data: Seq[Data]): Unit = { }
 
 
   override def getPreferredScrollableViewportSize: Dimension = getPreferredSize
