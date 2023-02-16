@@ -15,7 +15,7 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, Exc
 import edg_ide.util.{exceptable, requireExcept}
 
 import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
-import java.awt.{Color, GridBagConstraints, GridBagLayout}
+import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
@@ -66,7 +66,8 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
 
 class DsePlotPanel() extends JPanel {
   // Data State
-  private var combinedResults = new CombinedDseResultSet(Seq())
+  private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
+  private var displayAxisSelectorObjectives: SeqMap[String, DseObjective] = SeqMap()  // reflects the widget display
 
   setLayout(new GridBagLayout)
 
@@ -138,18 +139,11 @@ class DsePlotPanel() extends JPanel {
     plot.setData(points)
   }
 
-  private val selectorListener = new ItemListener() {
-    override def itemStateChanged(e: ItemEvent): Unit = {
-      if (e.getStateChange == ItemEvent.SELECTED) {
-        updatePlot()
-      }
+  private def updateAxisSelectors(objectives: SeqMap[String, DseObjective]): Unit = {
+    if (objectives == displayAxisSelectorObjectives) {
+      return  // nothing needs to be done
     }
-  }
 
-  xSelector.addItemListener(selectorListener)
-  ySelector.addItemListener(selectorListener)
-
-  def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective]): Unit = {
     val selectedX = xSelector.getItem
     val selectedY = ySelector.getItem
 
@@ -164,9 +158,8 @@ class DsePlotPanel() extends JPanel {
       )
       // TODO parse parameter vals
       case _ => Seq(new DummyAxisItem(f"unknown $name"))
-    } }
-
-    this.combinedResults = combinedResults
+    }
+    }
 
     xSelector.removeItemListener(selectorListener)
     ySelector.removeItemListener(selectorListener)
@@ -181,11 +174,27 @@ class DsePlotPanel() extends JPanel {
       ySelector.addItem(item)
     }
 
-    // TODO restore prior selection
-
     xSelector.addItemListener(selectorListener)
     ySelector.addItemListener(selectorListener)
+    displayAxisSelectorObjectives = objectives
 
+    // restore prior selection by name matching
+    items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
+    items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
+  }
+
+  private val selectorListener = new ItemListener() {
+    override def itemStateChanged(e: ItemEvent): Unit = {
+      if (e.getStateChange == ItemEvent.SELECTED) {
+        updatePlot()
+      }
+    }
+  }
+
+  def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective]): Unit = {
+    updateAxisSelectors(objectives)
+
+    this.combinedResults = combinedResults
     updatePlot()
   }
 }
