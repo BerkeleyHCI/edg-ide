@@ -110,11 +110,15 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
   private def paintData(paintGraphics: Graphics): Unit = {
     data.zipWithIndex.foreach { case (data, index) =>
+      val dataGraphics = paintGraphics.create()
+      data.color.foreach { color =>  // if color is specified, set the color
+        dataGraphics.setColor(color)
+      }
       val screenX = dataToScreenX(data.x)
       val screenY = dataToScreenY(data.y)
-      paintGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
+      dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
       if (mouseOverData.contains(index)) {  // makes it thicker
-        paintGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
+        dataGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
       }
     }
   }

@@ -15,7 +15,7 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, Exc
 import edg_ide.util.{exceptable, requireExcept}
 
 import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
-import java.awt.{GridBagConstraints, GridBagLayout}
+import java.awt.{Color, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
@@ -125,7 +125,13 @@ class DsePlotPanel() extends JPanel {
     val points = combinedResults.groupedResults.flatMap { resultSet =>
       val exampleResult = resultSet.head
       (xSelector.getItem.resultToValue(exampleResult), ySelector.getItem.resultToValue(exampleResult)) match {
-        case (Some(xVal), Some(yVal)) => Some(new plot.Data(resultSet, xVal, yVal))
+        case (Some(xVal), Some(yVal)) =>
+          val color = if (exampleResult.errors.nonEmpty) {
+            Some(com.intellij.ui.JBColor.RED)
+          } else {
+            None
+          }
+          Some(new plot.Data(resultSet, xVal, yVal, color))
         case _ => None
       }
     }
