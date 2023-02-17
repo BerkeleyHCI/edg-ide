@@ -41,7 +41,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
     // TODO use GridBagLayout?
 
-    private var libraryDirectories: Seq[File] = Seq()  // TODO should be private / protected, but is in an object :s
+    private var libraryDirectories: Seq[File] = Seq()
 
     // use something invalid so it doesn't try to index a real directory
     val invalidModel = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(Seq()))
