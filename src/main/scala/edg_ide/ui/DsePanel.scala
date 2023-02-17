@@ -73,11 +73,11 @@ class DsePlotPanel() extends JPanel {
 
   private val plot = new JScatterPlot[Seq[DseResult]]() {
     override def onClick(data: Seq[Data]): Unit = {
-      println(f"click: $data")
+      DsePlotPanel.this.onClick(data.map(_.value))
     }
 
     override def onHoverChange(data: Seq[Data]): Unit = {
-      println(f"hover: $data")
+      DsePlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
   add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
@@ -205,6 +205,17 @@ class DsePlotPanel() extends JPanel {
     this.combinedResults = combinedResults
     updatePlot()
   }
+
+  // User hooks - can be overridden
+  //
+  // called when this widget clicked, for all points within some hover radius of the cursor
+  // sorted by distance from cursor (earlier = closer), and may be empty
+  def onClick(data: Seq[Seq[DseResult]]): Unit = {}
+
+  // called when the hovered-over data changes, for all points within some hover radius of the cursor
+  // may be empty (when hovering over nothing)
+  def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {}
+
 }
 
 
@@ -248,7 +259,14 @@ class DsePanel(project: Project) extends JPanel {
   add(mainSplitter, Gbc(0, 1, GridBagConstraints.BOTH))
 
   // GUI: Top plot
-  private val plot = new DsePlotPanel()
+  private val plot = new DsePlotPanel() {
+    override def onClick(data: Seq[Seq[DseResult]]): Unit = {
+      // TODO set results tree selection
+    }
+    override def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {
+      // TODO something w/ results tree selection?
+    }
+  }
   mainSplitter.setFirstComponent(plot)
 
   // GUI: Bottom tabs
