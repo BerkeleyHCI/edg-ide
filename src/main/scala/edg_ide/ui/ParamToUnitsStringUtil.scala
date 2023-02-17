@@ -1,12 +1,11 @@
 package edg_ide.ui
-
 import edg.compiler.{Compiler, FloatValue, IntValue, RangeValue}
 import edg.wir.IndirectDesignPath
 import edg_ide.util.SiPrefixUtil
 
 object ParamToUnitsStringUtil {
-
   private val TOLERANCE_THRESHOLD = 0.25
+
   def paramToUnitsString(path: IndirectDesignPath, units: String, compiler: Compiler): String = {
     compiler.getParamValue(path) match {
       case Some(FloatValue(value)) => SiPrefixUtil.unitsToString(value, units)
@@ -27,5 +26,4 @@ object ParamToUnitsStringUtil {
       case None => "unknown"
     }
   }
-
 }
