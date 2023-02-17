@@ -63,11 +63,7 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
 
   private val treeMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
-      val selectedTreePath = tree.getTree.getPathForLocation(e.getX, e.getY)
-      if (selectedTreePath == null) {
-        return
-      }
-
+      val selectedTreePath = TreeTableUtils.getPathForRowLocation(tree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
         case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click context menu

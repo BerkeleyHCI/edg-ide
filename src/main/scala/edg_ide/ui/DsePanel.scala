@@ -294,11 +294,7 @@ class DsePanel(project: Project) extends JPanel {
   configTree.setRootVisible(false)
   configTree.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val selectedTreePath = configTree.getTree.getPathForLocation(e.getX, e.getY)
-      if (selectedTreePath == null) {
-        return
-      }
-
+      val selectedTreePath = TreeTableUtils.getPathForRowLocation(configTree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
         case node: DseConfigTreeNode.DseSearchConfigNode =>
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
@@ -321,11 +317,7 @@ class DsePanel(project: Project) extends JPanel {
   resultsTree.setRootVisible(false)
   resultsTree.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val selectedTreePath = resultsTree.getTree.getPathForLocation(e.getX, e.getY)
-      if (selectedTreePath == null) {
-        return
-      }
-
+      val selectedTreePath = TreeTableUtils.getPathForRowLocation(resultsTree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
         case node: DseResultTreeNode#ResultSetNode =>
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in chart

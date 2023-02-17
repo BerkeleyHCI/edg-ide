@@ -64,4 +64,15 @@ object TreeTableUtils {
     }
     traverse(new TreePath(model.getRoot), expanded)
   }
+
+  // Returns the TreePath for a location where the entire row is valid, instead of the getPathForLocation behavior
+  // which must hit on the text.
+  def getPathForRowLocation(treeTable: TreeTable, x: Int, y: Int): Option[TreePath] = {
+    val nearestRow = treeTable.getTree.getClosestRowForLocation(x, y)
+    if (nearestRow < 0) {
+      return None
+    }
+    val nearestRowBounds = treeTable.getTree.getRowBounds(nearestRow)
+    Option(treeTable.getTree.getPathForLocation(nearestRowBounds.x, y))
+  }
 }

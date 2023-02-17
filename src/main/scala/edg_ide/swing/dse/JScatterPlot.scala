@@ -75,13 +75,12 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
   // Sets the selected data, which is rendered with a highlight.
   // Unlike the other functions, this just takes values for simplicity and does not require X/Y/etc data.
+  // Values not in rendered data are ignored.
   def setSelected(values: Seq[ValueType]): Unit = {
-    selectedIndices = values map { value =>
+    selectedIndices = values flatMap { value =>
       data.indexWhere(_.value == value) match {
-        case index if (index >= 0) =>
-        println(s"SetSelected($index)")
-          index
-        case _ => throw new IllegalArgumentException(f"no value $value")
+        case index if (index >= 0) => Some(index)
+        case _ => None  // ignored
       }
     }
 

@@ -490,11 +490,7 @@ class LibraryPanel(project: Project) extends JPanel {
 
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
-      val selectedTreePath = libraryTree.getTree.getPathForLocation(e.getX, e.getY)
-      if (selectedTreePath == null) {
-        return
-      }
-
+      val selectedTreePath = TreeTableUtils.getPathForRowLocation(libraryTree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
         case selected: EdgirLibraryTreeNode.BlockNode => // insert actions / menu for blocks
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
