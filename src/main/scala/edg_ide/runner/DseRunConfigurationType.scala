@@ -57,7 +57,7 @@ class DseRunConfigurationOptions extends RunConfigurationOptions {
   var resultCsvFile: String = ""
 
   var searchConfigs: Seq[DseConfigElement] = Seq()
-  var objectives: SeqMap[String, DseObjective[Any]] = SeqMap()
+  var objectives: SeqMap[String, DseObjective] = SeqMap()
 }
 
 
@@ -99,9 +99,9 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
         .foreach(options.searchConfigs = _)  // only set if valid, otherwise leave as default
     Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
         .flatMap(ObjectSerializer.deserialize)
-        .flatMap(ObjectSerializer.optionInstanceOfSeq[(String, DseObjective[Any])](
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[(String, DseObjective)](
           _,
-          { elt: (String, DseObjective[Any]) => elt._1.isInstanceOf[String] && elt._2.isInstanceOf[DseObjective[Any]] }))
+          { elt: (String, DseObjective) => elt._1.isInstanceOf[String] && elt._2.isInstanceOf[DseObjective] }))
         .map(SeqMap.from)
         .foreach(options.objectives = _)
   }

@@ -1,13 +1,13 @@
 package edg_ide.dse
 
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, BooleanValue, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue, ArrayValue}
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable
-import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptBoolean, ExceptErrorable, ExceptOption, ExceptSeq}
 import edg_ide.util.IterableExtensions.IterableExtension
-import edg_ide.util.{ExceptionNotifyException, exceptable, requireExcept}
+import edg_ide.util.{exceptable, requireExcept}
+import edgir.ref.ref
 
 import scala.collection.{SeqMap, mutable}
 
@@ -195,7 +195,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
           RangeValue(min, max)
         }
       case v =>
-        throw ExceptionNotifyException(f"unknown type of value $v")
+        exceptable.fail(f"unknown type of value $v")
     }
     requireExcept(newValues.nonEmpty, "no values specified")
     DseParameterSearch(path, newValues)

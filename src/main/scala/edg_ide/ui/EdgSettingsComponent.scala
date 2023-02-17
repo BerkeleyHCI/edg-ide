@@ -15,7 +15,8 @@ class EdgSettingsComponent {
     "Choose KiCad Footprint Directory", "", null,
     FileChooserDescriptorFactory.createSingleFolderDescriptor()
   )
-  val kicadDirectoryHelp = new JBLabel("IDE restart may be required to take effect.")
+  val kicadDirectoryHelp = new JBLabel("Multiple footprint directories can be separated by semicolons (;). " +
+      "IDE restart may be required to take effect.")
   kicadDirectoryHelp.setEnabled(false)
   val persistBlockCache = new JCheckBox()
   val persistBlockCacheHelp = new JBLabel("Not recommended. "
@@ -43,19 +44,19 @@ class EdgSettingsConfigurable extends Configurable {
 
   override def isModified: Boolean = {
     val settings = EdgSettingsState.getInstance()
-    settings.kicadDirectory != component.kicadDirectoryText.getText
-    settings.persistBlockCache != component.persistBlockCache.isSelected
+    !settings.kicadDirectories.sameElements(component.kicadDirectoryText.getText.split(";")) ||
+        settings.persistBlockCache != component.persistBlockCache.isSelected
   }
 
   override def apply(): Unit = {
     val settings = EdgSettingsState.getInstance()
-    settings.kicadDirectory = component.kicadDirectoryText.getText
+    settings.kicadDirectories = component.kicadDirectoryText.getText.split(";")
     settings.persistBlockCache = component.persistBlockCache.isSelected
   }
 
   override def reset(): Unit = {
     val settings = EdgSettingsState.getInstance()
-    component.kicadDirectoryText.setText(settings.kicadDirectory)
+    component.kicadDirectoryText.setText(settings.kicadDirectories.mkString(";"))
     component.persistBlockCache.setSelected(settings.persistBlockCache)
   }
 }

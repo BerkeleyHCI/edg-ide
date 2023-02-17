@@ -1,5 +1,6 @@
 package edg_ide.swing.blocks
 
+import edg_ide.swing.ColorUtil
 import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.graph._
@@ -13,16 +14,7 @@ object ElkNodePainter{
 }
 
 
-class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Float = 1.0f){
-
-  def blendColor(baseColor: Color, topColor: Color, factor: Double): Color = {
-    new Color(
-      (baseColor.getRed * (1 - factor) + topColor.getRed * factor).toInt,
-      (baseColor.getGreen * (1 - factor) + topColor.getGreen * factor).toInt,
-      (baseColor.getBlue * (1 - factor) + topColor.getBlue * factor).toInt,
-    )
-  }
-
+class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Float = 1.0f) {
   // Modify the base graphics for filling some element, eg by highlighted status
   protected def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     if (element == rootNode && !showTop) { // completely transparent for root if not showing top
@@ -164,7 +156,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
 
 
   protected def getNodeBackground(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Color = {
-    val nodeBackground = blendColor(containingBackground, containingG.getColor, 0.15)
+    val nodeBackground = ColorUtil.blendColor(containingBackground, containingG.getColor, 0.15)
     nodeBackground
   }
 

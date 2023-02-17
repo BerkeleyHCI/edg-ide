@@ -1,13 +1,14 @@
 package edg_ide.dse
-import edg.compiler.{Compiler, ArrayValue, BooleanValue, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.util.Errorable
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
-import edg_ide.ui.{EdgSettingsState, KicadParser}
+import edg_ide.ui.KicadParser
+import edg_ide.util.KicadFootprintUtil
 import edgir.elem.elem.HierarchyBlock
 import edgir.schema.schema
 import edgir.schema.schema.Design
 
-import java.io.File
 import scala.collection.{SeqMap, mutable}
 
 
@@ -15,29 +16,79 @@ import scala.collection.{SeqMap, mutable}
 // that produces a metric that is useful to the user, eg cost or some design parameter
 //
 // Must be serializable so configs can be saved and persist across IDE restarts
-sealed trait DseObjective[+T] { self: Serializable =>
-  // TODO: also needs libraries and external sources?
+sealed trait DseObjective { self: Serializable =>
   def objectiveToString: String  // short human-friendly string describing this configuration
 
+  def calculate(design: schema.Design, compiler: Compiler): Any
+}
+
+
+// Abstract base class that defines the calculation type
+sealed abstract class DseTypedObjective[T] extends DseObjective { self: Serializable =>
   def calculate(design: schema.Design, compiler: Compiler): T
 }
 
 
-// Extracts the value of a single parameter
-case class DseObjectiveParameter(path: IndirectDesignPath)
-    extends DseObjective[Option[Any]] with Serializable {
-  override def objectiveToString = f"Parameter($path)"
+// Abstract base class for parameter values
+sealed abstract class DseObjectiveParameter[T] extends DseTypedObjective[Option[T]] with Serializable
 
-  override def calculate(design: Design, compiler: Compiler): Option[Any] = {
+
+case class DseFloatParameter(path: IndirectDesignPath) extends DseObjectiveParameter[Float] {
+  override def objectiveToString = f"FloatParameter($path)"
+
+  override def calculate(design: Design, compiler: Compiler): Option[Float] = {
     compiler.getParamValue(path) match {
       case Some(FloatValue(value)) => Some(value)
+      case _ => None
+    }
+  }
+}
+
+
+case class DseIntParameter(path: IndirectDesignPath) extends DseObjectiveParameter[BigInt] {
+  override def objectiveToString = f"IntParameter($path)"
+
+  override def calculate(design: Design, compiler: Compiler): Option[BigInt] = {
+    compiler.getParamValue(path) match {
       case Some(IntValue(value)) => Some(value)
-      case Some(RangeValue(lower, upper)) => Some((lower, upper))
+      case _ => None
+    }
+  }
+}
+
+
+case class DseRangeParameter(path: IndirectDesignPath) extends DseObjectiveParameter[(Float, Float)] {
+  // TODO support empty range case
+  override def objectiveToString = f"RangeParameter($path)"
+
+  override def calculate(design: Design, compiler: Compiler): Option[(Float, Float)] = {
+    compiler.getParamValue(path) match {
+      case Some(RangeValue(minValue, maxValue)) => Some((minValue, maxValue))
+      case _ => None
+    }
+  }
+}
+
+
+case class DseBooleanParameter(path: IndirectDesignPath) extends DseObjectiveParameter[Boolean] {
+  override def objectiveToString = f"BooleanParameter($path)"
+
+  override def calculate(design: Design, compiler: Compiler): Option[Boolean] = {
+    compiler.getParamValue(path) match {
       case Some(BooleanValue(value)) => Some(value)
+      case _ => None
+    }
+  }
+}
+
+
+case class DseStringParameter(path: IndirectDesignPath) extends DseObjectiveParameter[String] {
+  override def objectiveToString = f"StringParameter($path)"
+
+  override def calculate(design: Design, compiler: Compiler): Option[String] = {
+    compiler.getParamValue(path) match {
       case Some(TextValue(value)) => Some(value)
-      case Some(RangeEmpty) => Some((None, None))
-      case Some(ArrayValue(values)) => Some(values)  // TODO recursively unpack
-      case None => None
+      case _ => None
     }
   }
 }
@@ -49,24 +100,19 @@ object DseObjectiveFootprintArea {
 
   def getFootprintArea(footprintName: String): Float = {
     footprintAreaCache.getOrElseUpdate(footprintName, {
-      var kicadDirectory = new File(EdgSettingsState.getInstance().kicadDirectory)
-      val footprintSplit = footprintName.split(':')
-      for (libraryName <- footprintSplit.init) {
-        kicadDirectory = new File(kicadDirectory, libraryName + ".pretty")
+      KicadFootprintUtil.getFootprintFile(footprintName) match {
+        case Errorable.Success(footprintFile) =>
+          val footprint = KicadParser.parseKicadFile(footprintFile)
+          footprint.courtyardArea.getOrElse(0)
+        case Errorable.Error(msg) => println(msg); 0  // TODO unified error logging
       }
-      val footprintFile = new File(kicadDirectory, footprintSplit.last + ".kicad_mod")
-      val footprint = KicadParser.parseKicadFile(footprintFile)
-      if (footprint.elts.isEmpty) {
-        println(s"bad footprint $footprintName") // TODO unified error logging
-      }
-      footprint.courtyardArea.getOrElse(0)
     })
   }
 }
 
 
 case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
-    extends DseObjective[Float] with Serializable {
+    extends DseTypedObjective[Float] with Serializable {
   override def objectiveToString = f"FootprintArea($rootPath)"
 
   override def calculate(design: Design, compiler: Compiler): Float = {
@@ -89,7 +135,7 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
 
 // Counts the total number of footprints
 case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
-    extends DseObjective[Int] with Serializable {
+    extends DseTypedObjective[Int] with Serializable {
   override def objectiveToString = f"FootprintCount($rootPath)"
 
   override def calculate(design: Design, compiler: Compiler): Int = {

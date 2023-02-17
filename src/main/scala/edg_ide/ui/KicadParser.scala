@@ -85,17 +85,32 @@ object KicadParser {
 
   // Given a position-identifying list of the form (name:String, a:Float, b:Float),
   // return (a, b) or throw an Exception
-  protected def extractPosition(list:SList): (Float, Float) = {
+  protected def extractPosition(list:SList): (Float, Float, Float) = {
     list.values match {
       case (_:Atom) :: Atom(xPos) :: Atom(yPos) :: Nil =>
         (xPos.toFloatOption, yPos.toFloatOption) match {
-          case (Some(xPos), Some(yPos)) => (xPos, yPos)
+          case (Some(xPos), Some(yPos)) => (xPos, yPos, 0)
           case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
         }
-
+      case (_: Atom) :: Atom(xPos) :: Atom(yPos) :: Atom(rot) :: Nil =>
+        (xPos.toFloatOption, yPos.toFloatOption, rot.toFloatOption) match {
+          case (Some(xPos), Some(yPos), Some(rot)) => (xPos, yPos, rot)
+          case _ => throw new IllegalArgumentException("Expected (float, float, float), but got non-numerical value: " + xPos + yPos + rot)
+        }
       case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
     }
+  }
 
+  // Extracts a (width, height) given a sexpr of the form (at, w, h)
+  protected def extractSize(list: SList): (Float, Float) = {
+    list.values match {
+      case (_: Atom) :: Atom(width) :: Atom(height) :: Nil =>
+        (width.toFloatOption, height.toFloatOption) match {
+          case (Some(width), Some(height)) => (width, height)
+          case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + width + height)
+        }
+      case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
+    }
   }
 
   // Given a SList with direct child Atoms containing strings that may start and end with quote marks,
@@ -120,20 +135,31 @@ object KicadParser {
 
       val kicadComponents = parsed.values.flatMap {
         case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "rect" || geom == "roundrect" =>
-          val (x, y) = extractPosition(getOnlySublistByName(tail, "at"))
-          val (w, h) = extractPosition(getOnlySublistByName(tail, "size"))
-          Some(Rectangle(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
+          val (x, y, r) = extractPosition(getOnlySublistByName(tail, "at"))
+          val (w, h) = extractSize(getOnlySublistByName(tail, "size"))
+          if (r == 0 || r == 180) {
+            Some(Rectangle(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
+          } else if (r == 90 || r == 270) {
+            Some(Rectangle(x, y, h, w, name.stripPrefix("\"").stripSuffix("\"")))
+          } else {
+            throw new IllegalArgumentException(f"rotation not supported $r")
+          }
         case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "oval" || geom == "circle" =>
-          val (x, y) = extractPosition(getOnlySublistByName(tail, "at"))
-          val (w, h) = extractPosition(getOnlySublistByName(tail, "size"))
-          Some(Oval(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
-
+          val (x, y, r) = extractPosition(getOnlySublistByName(tail, "at"))
+          val (w, h) = extractSize(getOnlySublistByName(tail, "size"))
+          if (r == 0 || r == 180) {
+            Some(Oval(x, y, w, h, name.stripPrefix("\"").stripSuffix("\"")))
+          } else if (r == 90 || r == 270) {
+            Some(Oval(x, y, h, w, name.stripPrefix("\"").stripSuffix("\"")))
+          } else {
+            throw new IllegalArgumentException(f"rotation not supported $r")
+          }
         case SList(Atom("fp_line") :: tail) =>
           val layerList = stripChildAtom(getOnlySublistByName(tail, "layer")).values.collect {
             case Atom(layer) => layer
           }.toSet
-          val (startX, startY) = extractPosition(getOnlySublistByName(tail, "start"))
-          val (endX, endY) = extractPosition(getOnlySublistByName(tail, "end"))
+          val (startX, startY) = extractSize(getOnlySublistByName(tail, "start"))
+          val (endX, endY) = extractSize(getOnlySublistByName(tail, "end"))
           Some(Line(startX, startY, endX, endY, layerList))
 
         case _ => None

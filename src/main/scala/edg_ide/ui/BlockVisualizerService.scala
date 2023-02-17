@@ -11,9 +11,11 @@ import edgir.schema.schema
 import edgir.elem.elem
 import edgir.ref.ref
 import edg.wir.DesignPath
-import edg_ide.dse.DseResult
+import edg_ide.dse.{DseObjective, DseResult}
 import edg_ide.runner.{DseConfigurationFactory, DseRunConfiguration, DseRunConfigurationType}
 import edgrpc.hdl.{hdl => edgrpc}
+
+import scala.collection.SeqMap
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -31,7 +33,7 @@ class BlockVisualizerService(project: Project) extends
 
   def visualizerPanelOption: Option[BlockVisualizerPanel] = visualizerPanel
 
-  def dsePanelOption: Option[DseConfigPanel] = visualizerPanelOption.map(_.getDsePanel)
+  def dsePanelOption: Option[DsePanel] = visualizerPanelOption.map(_.getDsePanel)
 
   def createBlockVisualizerPanel(toolWindow: ToolWindow): BlockVisualizerPanel = {
     require(visualizerPanel.isEmpty)
@@ -102,8 +104,9 @@ class BlockVisualizerService(project: Project) extends
     }
   }
 
-  def setDseResults(results: Seq[DseResult], inProgress: Boolean): Unit = {
-    dsePanelOption.foreach(_.setResults(results, inProgress))
+  def setDseResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective],
+                    inProgress: Boolean): Unit = {
+    dsePanelOption.foreach(_.setResults(results, objectives, inProgress))
   }
 
   // State management

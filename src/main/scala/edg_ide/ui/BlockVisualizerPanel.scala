@@ -211,10 +211,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   designTree.getTree.addTreeSelectionListener(designTreeListener)
   designTree.addMouseListener(new MouseAdapter {  // right click context menu
     override def mousePressed(e: MouseEvent): Unit = {
-      Option(designTree.getTree.getPathForLocation(e.getX, e.getY)).foreach { _.getLastPathComponent match {
+      val selectedTreePath = TreeTableUtils.getPathForRowLocation(designTree, e.getX, e.getY).getOrElse(return)
+      selectedTreePath.getLastPathComponent match {
         case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
         case _ =>  // any other type ignored
-      } }
+      }
     }
   })
   designTree.setShowColumns(true)
@@ -246,7 +247,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI: Design Space Exploration (bottom tab)
   //
-  private val dsePanel = new DseConfigPanel(project)
+  private val dsePanel = new DsePanel(project)
   dseSplitter.setSecondComponent(dsePanel)
 
   setLayout(new BorderLayout())
@@ -254,7 +255,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // Actions
   //
-  def getDsePanel: DseConfigPanel = dsePanel
+  def getDsePanel: DsePanel = dsePanel
 
   def getContextBlock: Option[(DesignPath, elem.HierarchyBlock)] = {
     EdgirUtils.resolveExactBlock(focusPath, design).map((focusPath, _))

@@ -10,7 +10,7 @@ import java.awt.event.MouseEvent
 import scala.reflect.ClassTag
 
 
-case class ExceptionNotifyException(errMsg: String) extends Exception(errMsg)
+class ExceptionNotifyException(val errMsg: String) extends Exception(errMsg)
 
 
 object exceptable {
@@ -21,8 +21,12 @@ object exceptable {
     try {
       Errorable.Success(fn)
     } catch {
-      case ExceptionNotifyException(errMsg) => Errorable.Error(errMsg)
+      case e: ExceptionNotifyException => Errorable.Error(e.errMsg)
     }
+  }
+
+  def fail(errMsg: String): Nothing = {
+    throw new ExceptionNotifyException(errMsg)
   }
 }
 
@@ -73,7 +77,7 @@ object exceptionPopup {
 object requireExcept {
   def apply(cond: Boolean, errMsg: => String): Unit = {
     if (!cond) {
-      throw ExceptionNotifyException(errMsg)
+      exceptable.fail(errMsg)
     }
   }
 }
@@ -87,51 +91,51 @@ object ExceptionNotifyImplicits {
       if (obj != null) {
         obj
       } else {
-        throw ExceptionNotifyException(errMsg)
+        exceptable.fail(errMsg)
       }
     }
 
     def instanceOfExcept[V](errMsg: => String)(implicit tag: ClassTag[V]): V = obj match {
         // Need the implicit tag so this generates a proper runtime check
       case obj: V => obj
-      case _ => throw ExceptionNotifyException(errMsg)
+      case _ => exceptable.fail(errMsg)
     }
   }
 
   implicit class ExceptOption[T](obj: Option[T]) {
     def exceptNone(errMsg: => String): T = obj match {
       case Some(obj) => obj
-      case None => throw ExceptionNotifyException(errMsg)
+      case None => exceptable.fail(errMsg)
     }
   }
 
   implicit class ExceptSeq[T](obj: Seq[T]) {
     def exceptEmpty(errMsg: => String): Seq[T] = obj match {
-      case Seq() => throw ExceptionNotifyException(errMsg)
+      case Seq() => exceptable.fail(errMsg)
       case _ => obj
     }
     def onlyExcept(errMsg: => String): T = obj match {
       case Seq(obj) => obj
-      case _ => throw ExceptionNotifyException(errMsg)
+      case _ => exceptable.fail(errMsg)
     }
   }
 
   implicit class ExceptErrorable[T](obj: Errorable[T]) {
     def exceptError: T = obj match {
       case Errorable.Success(obj) => obj
-      case Errorable.Error(msg) => throw ExceptionNotifyException(msg)
+      case Errorable.Error(msg) => exceptable.fail(msg)
     }
   }
 
   implicit class ExceptBoolean(obj: Boolean) {
     def exceptTrue(errMsg: => String): Boolean = obj match {
-      case true => throw ExceptionNotifyException(errMsg)
+      case true => exceptable.fail(errMsg)
       case false => obj
     }
 
     def exceptFalse(errMsg: => String): Boolean = obj match {
       case true => obj
-      case false => throw ExceptionNotifyException(errMsg)
+      case false => exceptable.fail(errMsg)
     }
   }
 }

@@ -3,9 +3,9 @@ package edg_ide.ui
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import edg.compiler.Compiler
+import edg.compiler.{BooleanValue, Compiler, FloatValue, IntValue, RangeType, RangeValue, TextValue}
 import edg.wir.{DesignPath, IndirectDesignPath}
-import edg_ide.dse.{DseFeature, DseObjectiveParameter, DseParameterSearch}
+import edg_ide.dse.{DseBooleanParameter, DseFeature, DseFloatParameter, DseIntParameter, DseObjectiveParameter, DseParameterSearch, DseRangeParameter, DseStringParameter}
 import edg_ide.swing
 import edg_ide.swing.{ElementDetailTreeModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
@@ -32,10 +32,20 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     }
   }, s"Search values"))
 
-  add(ContextMenuUtils.MenuItem(() => {
-    PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
+  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+    val objective = compiler.getParamType(path) match {
+      case Some(q) if q == classOf[FloatValue]  => DseFloatParameter(path)
+      case Some(q) if q == classOf[IntValue]  => DseIntParameter(path)
+      case Some(q) if q == classOf[RangeType]  => DseRangeParameter(path)  // RangeType includes EmptyRange as well
+      case Some(q) if q == classOf[BooleanValue]  => DseBooleanParameter(path)
+      case Some(q) if q == classOf[TextValue]  => DseStringParameter(path)
+      case Some(q) => exceptable.fail(f"unknown parameter type ${q.getSimpleName} at $path")
+      case _ => exceptable.fail(f"no parameter type at $path")
+    }
+
+    () => PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
       val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveParameter(path)))
+      config.options.objectives = config.options.objectives ++ Seq((text, objective))
       BlockVisualizerService(project).onDseConfigChanged(config)
     } }
   }, "Add objective"))
@@ -53,11 +63,7 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
 
   private val treeMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
-      val selectedTreePath = tree.getTree.getPathForLocation(e.getX, e.getY)
-      if (selectedTreePath == null) {
-        return
-      }
-
+      val selectedTreePath = TreeTableUtils.getPathForRowLocation(tree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
         case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click context menu

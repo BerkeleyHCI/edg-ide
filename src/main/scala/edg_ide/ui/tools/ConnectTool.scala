@@ -9,7 +9,7 @@ import edg.wir.{BlockConnectivityAnalysis, Connection, DesignPath, LibraryConnec
 import edg_ide.psi_edits.{InsertAction, InsertBlockAction, InsertConnectAction}
 import edg_ide.ui._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{ExceptionNotifyException, exceptable, exceptionNotify, exceptionPopup}
+import edg_ide.util.{exceptable, exceptionNotify, exceptionPopup}
 import edg_ide.{EdgirUtils, PsiUtils}
 import edgir.elem.elem
 import edgir.expr.expr
@@ -28,7 +28,7 @@ object ConnectTool {
     case port: elem.Port => port.getSelfClass
     case port: elem.Bundle => port.getSelfClass
     case array: elem.PortArray => array.getSelfClass
-    case isOther => throw ExceptionNotifyException(s"unexpected port ${isOther.getClass}")
+    case isOther => exceptable.fail(s"unexpected port ${isOther.getClass}")
   }}
 
   /** External interface for creating a ConnectTool, which does the needed analysis work and can return an error
@@ -117,7 +117,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
     } else if (postfix.steps.size == 1) {
       ("", postfix.steps.last.getName)
     } else {
-      throw ExceptionNotifyException(s"invalid postfix to $path")
+      exceptable.fail(s"invalid postfix to $path")
     }
   }
 

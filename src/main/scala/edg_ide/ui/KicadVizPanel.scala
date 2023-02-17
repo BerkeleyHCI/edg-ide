@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.{NotificationGroup, NotificationType}
+import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
@@ -14,7 +14,7 @@ import edg_ide.EdgirUtils
 import edg_ide.psi_edits.{InsertAction, InsertFootprintAction, InsertPinningAction}
 import edg_ide.swing._
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
+import edg_ide.util._
 import edgir.common.common
 import edgir.elem.elem
 import edgir.expr.expr
@@ -41,10 +41,10 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
     // TODO use GridBagLayout?
 
-    var libraryDirectory: Option[File] = None  // TODO should be private / protected, but is in an object :s
+    private var libraryDirectories: Seq[File] = Seq()
 
     // use something invalid so it doesn't try to index a real directory
-    val invalidModel = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(new File("doesnt_exist")))
+    val invalidModel = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(Seq()))
     private var model = invalidModel
     private val tree = new TreeTable(model)
     tree.setShowColumns(true)
@@ -52,23 +52,11 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     private val treeScrollPane = new JScrollPane(tree)
 
     // initialize the contents on startup
-    setLibraryDirectory(EdgSettingsState.getInstance().kicadDirectory)
+    setLibraryDirectories(EdgSettingsState.getInstance().kicadDirectories.toSeq)
 
-    def setLibraryDirectory(directory: String): Unit = {
-      // TODO use File instead of String
-      val directoryFile = new File(directory)
-      if (directoryFile.exists()) {
-        libraryDirectory = Some(directoryFile)
-        model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(directoryFile))
-      } else {
-        libraryDirectory = None
-        model = invalidModel
-        notificationGroup.createNotification(
-          s"Invalid KiCad Directory",
-          s"$directory is not a directory",
-          NotificationType.ERROR
-        ).notify(project)
-      }
+    def setLibraryDirectories(directories: Seq[String]): Unit = {
+      libraryDirectories = directories.map(new File(_))
+      model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(libraryDirectories))
       TreeTableUtils.updateModel(tree, model)
     }
 
@@ -81,25 +69,14 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       }
     }
 
-    def footprintToFile(footprint: String): Option[File] = {
-      footprint match {
-        case s"$libraryName:$footprintName" =>
-          val footprintFile = libraryDirectory.map(new File(_, libraryName + ".pretty"))
-              .map(new File(_, footprintName + ".kicad_mod"))
-          footprintFile match {
-            case Some(footprintFile) if footprintFile.exists() =>
-              Some(footprintFile)
-            case _ => None
-          }
-        case _ => None
-      }
-    }
-
     tree.addMouseListener(new MouseListener {
       override def mouseClicked(mouseEvent: MouseEvent): Unit = {
-        val node:FootprintBrowserNode = tree.getTree.getSelectionPath.getLastPathComponent.asInstanceOf[FootprintBrowserNode]
-        if (mouseEvent.getClickCount == 1) {
-          // single click opens the footprint for preview
+        val node = tree.getTree.getSelectionPath.getLastPathComponent match {
+          case node: FootprintBrowserNode => node
+          case _ => return
+        }
+
+        if (mouseEvent.getClickCount == 1) {  // single click opens the footprint for preview
           footprintSynced = false
           visualizer.pinmap = Map()
 
@@ -115,8 +92,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
               status.setText(SwingHtmlUtil.wrapInHtml(s"Invalid file: ${node.file.getName}",
                 KicadVizPanel.this.getFont))
           }
-        } else if (mouseEvent.getClickCount == 2) {
-          // double click assigns the footprint to the opened block
+        } else if (mouseEvent.getClickCount == 2) {  // double click assigns the footprint to the opened block
           exceptionPopup(mouseEvent) {
             val footprint = pathToFootprintName(node.file).exceptNone(s"invalid file ${node.file.getName}")
             (insertBlockFootprint(footprint).exceptError)()
@@ -266,8 +242,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
         currentBlockPathTypePin = Some((blockPath, block.getSelfClass, block, pinning))
         footprintSynced = true
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
-        FootprintBrowser.footprintToFile(footprint) match {
-          case Some(footprintFile) =>
+        KicadFootprintUtil.getFootprintFile(footprint) match {
+          case Errorable.Success(footprintFile) =>
             visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
             visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
@@ -300,8 +276,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
     val blockPyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
 
-    val footprintFile = FootprintBrowser.footprintToFile(footprintName)
-        .exceptNone(s"unknown footprint $footprintName")
+    val footprintFile = KicadFootprintUtil.getFootprintFile(footprintName).exceptError
     val footprintBlockType = ElemBuilder.LibraryPath("electronics_model.CircuitBlock.FootprintBlock")  // TODO belongs in shared place?
     val footprintBlockClass = DesignAnalysisUtils.pyClassOf(footprintBlockType, project).get
     requireExcept(blockPyClass.isSubclass(footprintBlockClass, TypeEvalContext.codeAnalysis(project, null)),

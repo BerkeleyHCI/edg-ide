@@ -1,7 +1,7 @@
 package edg_ide.swing.dse
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg_ide.dse.{DseConfigElement, DseResult}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseResult}
 import edg_ide.swing.SeqTreeTableModel
 
 import javax.swing.JTree
@@ -17,24 +17,19 @@ trait DseResultNodeBase {
   override def toString = config
 }
 
-class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[DseResult], inProgress: Boolean) extends DseResultNodeBase {
-  // Aggregates similar results together, somewhat preserving order of the input
-  private def combineSimilarResults(results: Seq[DseResult]): Seq[Seq[DseResult]] = {
-    // Stores results, combining by unique combination of design, error, and objective results
-    // Specifically avoids the actual refinements, which may produce a false positive match
-    // (different configurations that produce the same design in the end)
-    results.groupBy(result => (result.compiled, result.errors, result.objectives))
-        .values.toSeq
-  }
-
+class DseResultTreeNode(results: CombinedDseResultSet, objectiveNames: Seq[String], inProgress: Boolean) extends DseResultNodeBase {
   private val informationalHeader = if (inProgress) {
     Seq(new InformationalNode("... search in progress ..."))
   } else {
     Seq()
   }
+  private val objectiveNameByColumn = objectiveNames.zipWithIndex.map { case (objective, index) =>
+    index + 1 -> objective
+  }.toMap
+
 
   // Defines the root node
-  override lazy val children = informationalHeader ++ combineSimilarResults(results).map { resultsSet =>
+  override lazy val children = informationalHeader ++ results.groupedResults.map { resultsSet =>
     new ResultSetNode(resultsSet)
   }
   override val config = "" // empty, since the root node is hidden
@@ -42,7 +37,7 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
 
 
   // Displays a set of equivalent results, useful for deduplicating similar results
-  class ResultSetNode(setMembers: Seq[DseResult]) extends DseResultNodeBase {
+  class ResultSetNode(val setMembers: Seq[DseResult]) extends DseResultNodeBase {
     private val exampleResult = setMembers.head
     private val errString = if (exampleResult.errors.nonEmpty) {
       f", ${exampleResult.errors.length} errors"
@@ -51,10 +46,10 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
     }
     override val config = f"${setMembers.length} points" + errString
     override lazy val children = setMembers.map(result => new ResultNode(result))
-    override def getColumns(index: Int): String = columnToObjectiveName.get(index) match {
+    override def getColumns(index: Int): String = objectiveNameByColumn.get(index) match {
       case Some(objectiveName) => exampleResult.objectives.get(objectiveName) match {
         case Some(value) => DseConfigElement.valueToString(value)
-        case _ => "???"
+        case _ => "(unknown)"
       }
       case _ => "???"
     }
@@ -74,13 +69,11 @@ class DseResultTreeNode(columnToObjectiveName: Map[Int, String], results: Seq[Ds
 }
 
 
-class DseResultTreeTableModel(results: Seq[DseResult], inProgress: Boolean)
+class DseResultTreeTableModel(results: CombinedDseResultSet, objectiveNames: Seq[String], inProgress: Boolean)
     extends SeqTreeTableModel[DseResultNodeBase] {
-  val objectiveNames = results.headOption.map(_.objectives.keys).getOrElse(Seq()).toSeq
   val COLUMNS = Seq("Config") ++ objectiveNames
 
-  val columnToObjectiveNames = objectiveNames.zipWithIndex.map(elt => elt._2 + 1 -> elt._1).toMap
-  val rootNode: DseResultNodeBase = new DseResultTreeNode(columnToObjectiveNames, results, inProgress)
+  val rootNode: DseResultTreeNode = new DseResultTreeNode(results, objectiveNames, inProgress)
 
   // TreeView abstract methods
   //

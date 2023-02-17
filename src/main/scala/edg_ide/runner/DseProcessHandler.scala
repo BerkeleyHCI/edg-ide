@@ -50,7 +50,7 @@ class SingleThreadRunner() {
   */
 object DseCsvWriter {
   def apply(writer: java.io.Writer, elts: Seq[DseConfigElement],
-            objectives: SeqMap[String, DseObjective[Any]]): Option[DseCsvWriter] = {
+            objectives: SeqMap[String, DseObjective]): Option[DseCsvWriter] = {
     Option(CsvWriter.builder().build(writer)).map { csv =>
       new DseCsvWriter(writer, csv, elts, objectives)
     }
@@ -59,7 +59,7 @@ object DseCsvWriter {
 
 
 class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[DseConfigElement],
-                   objectives: SeqMap[String, DseObjective[Any]]) {
+                   objectives: SeqMap[String, DseObjective]) {
   private val objectiveNames = objectives.keys.toSeq
   private val searchNames = searchConfigs.map(_.configToString)
 
@@ -114,7 +114,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
     uiUpdater.runIfIdle {
-      BlockVisualizerService(project).setDseResults(Seq(), true)  // show searching in UI
+      BlockVisualizerService(project).setDseResults(Seq(), options.objectives, true)  // show searching in UI
     }
 
     // Open a CSV file (if desired) and write result rows as they are computed.
@@ -224,7 +224,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
               uiUpdater.runIfIdle { // only have one UI update in progress at any time
                 System.gc() // clean up after this compile run
-                BlockVisualizerService(project).setDseResults(results.toSeq, true) // show searching in UI
+                BlockVisualizerService(project).setDseResults(results.toSeq, options.objectives, true) // show searching in UI
               }
             } else {
               console.print(s"Intermediate point ($compileTime ms)\n",
@@ -239,7 +239,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
-          BlockVisualizerService(project).setDseResults(results.toSeq, false)  // plumb results to UI
+          BlockVisualizerService(project).setDseResults(results.toSeq, options.objectives, false)  // plumb results to UI
           ""
         }
       }
