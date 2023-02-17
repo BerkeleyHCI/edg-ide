@@ -207,6 +207,10 @@ class DsePlotPanel() extends JPanel {
     updatePlot()
   }
 
+  def setSelection(resultSets: Seq[Seq[DseResult]]): Unit = {
+    plot.setSelected(resultSets)
+  }
+
   // User hooks - can be overridden
   //
   // called when this widget clicked, for all points within some hover radius of the cursor
@@ -323,6 +327,10 @@ class DsePanel(project: Project) extends JPanel {
       }
 
       selectedTreePath.getLastPathComponent match {
+        case node: DseResultTreeNode#ResultSetNode =>
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in chart
+            plot.setSelection(Seq(node.setMembers))
+          }
         case node: DseResultTreeNode#ResultNode =>
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
             val result = node.result

@@ -36,6 +36,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   // data state
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
+  private var selectedIndices: Seq[Int] = Seq()  // unsorted
 
   // UI state
   private var xRange = (0f, 0f)
@@ -56,6 +57,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   def setData(xys: IndexedSeq[Data]): Unit = {
     data = xys
     mouseOverIndices = Seq()  // clear
+    selectedIndices = Seq()  // clear
 
     def expandedRange(range: (Float, Float), factor: Float): (Float, Float) = {
       val span = range._2 - range._1
@@ -66,6 +68,22 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     xRange = expandedRange(((xs :+ 0f).min, (xs :+ 0f).max), kDefaultRangeMarginFactor)
     val ys = data.map(_.y)
     yRange = expandedRange(((ys :+ 0f).min, (ys :+ 0f).max), kDefaultRangeMarginFactor)
+
+    validate()
+    repaint()
+  }
+
+  // Sets the selected data, which is rendered with a highlight.
+  // Unlike the other functions, this just takes values for simplicity and does not require X/Y/etc data.
+  def setSelected(values: Seq[ValueType]): Unit = {
+    selectedIndices = values map { value =>
+      data.indexWhere(_.value == value) match {
+        case index if (index >= 0) =>
+        println(s"SetSelected($index)")
+          index
+        case _ => throw new IllegalArgumentException(f"no value $value")
+      }
+    }
 
     validate()
     repaint()
@@ -117,7 +135,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       val screenX = dataToScreenX(data.x)
       val screenY = dataToScreenY(data.y)
       dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
-      if (mouseOverIndices.contains(index)) {  // makes it thicker
+      if (mouseOverIndices.contains(index) || selectedIndices.contains(index)) {  // makes it thicker
         dataGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
       }
     }
