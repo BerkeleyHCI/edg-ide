@@ -10,7 +10,6 @@ import edgir.schema.schema
 import edgir.schema.schema.Design
 
 import scala.collection.{SeqMap, mutable}
-import scala.reflect.runtime.universe._
 
 
 // Abstract base class for all design space objectives - some function of the design

@@ -24,7 +24,6 @@ lazy val root = (project in file("."))
       version := "0.1-SNAPSHOT",
 
       libraryDependencies ++= Seq(
-        "org.scala-lang" % "scala-reflect" % "2.13.8",
         "org.scalatest" %% "scalatest" % "3.2.0" % "test",
         "org.eclipse.elk" % "org.eclipse.elk.alg.layered" % "0.7.0",
         "com.github.librepdf" % "openpdf" % "1.3.30",
