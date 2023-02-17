@@ -331,6 +331,25 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           console.print(s"Skip generating netlist, no netlist file specified in run options\n",
             ConsoleViewContentType.ERROR_OUTPUT)
         }
+
+        if (options.bomFile.nonEmpty) {
+          runFailableStage("generate BOM", indicator) {
+            val bom = pythonInterface.get.runBackend(
+              ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
+              compiled, compiler.getAllSolved,
+              Map()
+            ).mapErr(msg => s"while generating bom: $msg").get
+            require(bom.size == 1)
+
+            val writer = new FileWriter(options.bomFile)
+            writer.write(bom.head._2)
+            writer.close()
+            f"wrote ${options.bomFile}"
+          }
+        } else {
+          console.print(s"Skip generating BOM, no BOM file specified in run options\n",
+            ConsoleViewContentType.ERROR_OUTPUT)
+        }
       }
       exitCode = pythonInterface.get.shutdown()
       pythonInterface.get.forwardProcessOutput() // dump remaining process output (shouldn't happen)
