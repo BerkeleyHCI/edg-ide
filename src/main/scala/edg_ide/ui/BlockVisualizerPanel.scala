@@ -9,8 +9,8 @@ import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemModifier
-import edg.compiler.{Compiler, CompilerError, DesignMap, FloatValue, IntValue, PythonInterfaceLibrary, RangeValue}
-import edg.wir.{DesignPath, IndirectDesignPath, Library}
+import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
+import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
 import edg_ide.dse.DseFeature
@@ -18,7 +18,7 @@ import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
 import edg_ide.ui.tools.{BaseTool, DefaultTool, ToolInterface}
-import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected, SiPrefixUtil}
+import edg_ide.util.{DesignFindBlockOfTypes, DesignFindDisconnected}
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -465,36 +465,6 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
 
   def getTextMap: Map[DesignPath, String] = textMap.toMap
 
-  // TODO should this be in shared utils or something?
-  private def paramToString(path: DesignPath): String = {
-    compiler.getParamValue(path.asIndirect) match {
-      case Some(value) => value.toStringValue
-      case None => "unknown"
-    }
-  }
-
-  private val TOLERANCE_THRESHOLD = 0.25
-  private def paramToUnitsString(path: IndirectDesignPath, units: String): String = {
-    compiler.getParamValue(path) match {
-      case Some(FloatValue(value)) => SiPrefixUtil.unitsToString(value, units)
-      case Some(IntValue(value)) => SiPrefixUtil.unitsToString(value.toDouble, units)
-      case Some(RangeValue(minValue, maxValue)) =>
-        val centerValue = (minValue + maxValue) / 2
-        if (centerValue != 0) {
-          val tolerance = (centerValue - minValue) / centerValue
-          if (math.abs(tolerance) <= TOLERANCE_THRESHOLD) {  // within tolerance, display as center + tol
-            f"${SiPrefixUtil.unitsToString(centerValue, units)} ± ${(tolerance*100)}%.02f%%"
-          } else {  // out of tolerance, display as ranges
-            s"(${SiPrefixUtil.unitsToString(minValue, units)}, ${SiPrefixUtil.unitsToString(maxValue, units)})"
-          }
-        } else {
-          s"±${SiPrefixUtil.unitsToString(maxValue, units)}"
-        }
-      case Some(value) => s"unexpected ${value.getClass}(${value.toStringValue})"
-      case None => "unknown"
-    }
-  }
-
   override def mapPort(path: DesignPath, port: elem.Port): Unit = {
     val classString = port.getSelfClass.toSimpleString
     textMap.put(path, s"<b>$classString</b> at $path")
@@ -518,7 +488,7 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
     description.map {
       _.elementType match {
         case elem.StringDescriptionElement.ElementType.Param(value) =>
-          paramToUnitsString(path.asIndirect ++ value.path.get, value.unit)
+          ParamToUnitsStringUtil.paramToUnitsString(path.asIndirect ++ value.path.get, value.unit, compiler)
         case elem.StringDescriptionElement.ElementType.Text(value) =>
           value
         case elem.StringDescriptionElement.ElementType.Empty =>
