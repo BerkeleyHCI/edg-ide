@@ -140,7 +140,7 @@ class DsePlotPanel() extends JPanel {
           } else {
             None
           }
-          Some(new plot.Data(resultSet, xVal, yVal, color))
+          Some(new plot.Data(resultSet, xVal, yVal, color, Some(f"${resultSet.size} results")))
         case _ => None
       }
     }

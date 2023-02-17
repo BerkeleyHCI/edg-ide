@@ -19,7 +19,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     * This allows future extensibility with additional parameters, eg size or marks.
     */
   class Data(val value: ValueType, val x: Float, val y: Float,
-             val color: Option[Color] = None) {
+             val color: Option[Color] = None, val tooltipText: Option[String] = None) {
   }
 
   // GUI constants
@@ -181,6 +181,13 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       repaint()
     }
   })
+
+  override def getToolTipText(e: MouseEvent): String = {
+    getPointsForLocation(e.getX, e.getY, kSnapDistancePx).headOption match {
+      case Some((index, distance)) => data(index).tooltipText.orNull
+      case None => null
+    }
+  }
 
   // User hooks - can be overridden
   //
