@@ -73,6 +73,11 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     repaint()
   }
 
+  //
+  def setXAxis(axis: Option[]): Unit = {
+
+  }
+
   // Sets the selected data, which is rendered with a highlight.
   // Unlike the other functions, this just takes values for simplicity and does not require X/Y/etc data.
   // Values not in rendered data are ignored.
