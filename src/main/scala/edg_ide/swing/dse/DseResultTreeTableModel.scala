@@ -37,7 +37,7 @@ class DseResultTreeNode(results: CombinedDseResultSet, objectiveNames: Seq[Strin
 
 
   // Displays a set of equivalent results, useful for deduplicating similar results
-  class ResultSetNode(setMembers: Seq[DseResult]) extends DseResultNodeBase {
+  class ResultSetNode(val setMembers: Seq[DseResult]) extends DseResultNodeBase {
     private val exampleResult = setMembers.head
     private val errString = if (exampleResult.errors.nonEmpty) {
       f", ${exampleResult.errors.length} errors"
@@ -73,7 +73,7 @@ class DseResultTreeTableModel(results: CombinedDseResultSet, objectiveNames: Seq
     extends SeqTreeTableModel[DseResultNodeBase] {
   val COLUMNS = Seq("Config") ++ objectiveNames
 
-  val rootNode: DseResultNodeBase = new DseResultTreeNode(results, objectiveNames, inProgress)
+  val rootNode: DseResultTreeNode = new DseResultTreeNode(results, objectiveNames, inProgress)
 
   // TreeView abstract methods
   //

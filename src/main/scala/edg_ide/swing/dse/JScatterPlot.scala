@@ -2,7 +2,7 @@ package edg_ide.swing.dse
 
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
-import java.awt.event.{MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
+import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
 import java.awt.{Color, Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
@@ -145,6 +145,13 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       }
     }
   }
+
+  addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      val clickedPoints = getPointsForLocation(e.getX, e.getY, kSnapDistancePx)
+      onClick(clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
+    }
+  })
 
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {

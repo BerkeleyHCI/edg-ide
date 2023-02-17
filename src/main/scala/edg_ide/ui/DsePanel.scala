@@ -17,6 +17,7 @@ import edg_ide.util.{exceptable, requireExcept}
 import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
+import javax.swing.tree.TreePath
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
 
@@ -261,8 +262,16 @@ class DsePanel(project: Project) extends JPanel {
   // GUI: Top plot
   private val plot = new DsePlotPanel() {
     override def onClick(data: Seq[Seq[DseResult]]): Unit = {
-      // TODO set results tree selection
+      resultsTree.clearSelection()
+      val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
+      val treeRootPath = new TreePath(treeRoot)
+      treeRoot.children foreach {
+        case node: treeRoot.ResultSetNode if data.contains(node.setMembers) =>
+          resultsTree.addSelectedPath(treeRootPath.pathByAddingChild(node))
+        case node =>  // ignored
+      }
     }
+
     override def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {
       // TODO something w/ results tree selection?
     }
