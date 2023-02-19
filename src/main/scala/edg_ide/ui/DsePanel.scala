@@ -141,7 +141,17 @@ class DsePlotPanel() extends JPanel {
           } else {
             None
           }
-          Some(new plot.Data(resultSet, xVal, yVal, color, Some(f"${resultSet.size} results")))
+
+          val objectivesStr = exampleResult.objectives.map { case (objective, value) =>
+            f"$objective=${DseConfigElement.valueToString(value)}"
+          }.mkString("\n")
+          val resultsStr = resultSet.map { result =>
+              DseConfigElement.configMapToString(result.config)
+          }.mkString("\n")
+          val tooltipText = objectivesStr + f"\n\n${resultSet.size} results:\n" + resultsStr
+
+          Some(new plot.Data(resultSet, xVal, yVal, color,
+            Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
         case _ => None
       }
     }
