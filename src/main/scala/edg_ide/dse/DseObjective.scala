@@ -1,5 +1,5 @@
 package edg_ide.dse
-import edg.compiler.{ArrayValue, BooleanValue, Compiler, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
 import edg.util.Errorable
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
@@ -30,66 +30,12 @@ sealed abstract class DseTypedObjective[T] extends DseObjective { self: Serializ
 
 
 // Abstract base class for parameter values
-sealed abstract class DseObjectiveParameter[T] extends DseTypedObjective[Option[T]] with Serializable
+case class DseObjectiveParameter(path: IndirectDesignPath, val exprType: Class[_ <: ExprValue])
+    extends DseTypedObjective[Option[ExprValue]] { self: Serializable =>
+  override def objectiveToString = f"Parameter($path)"
 
-
-case class DseFloatParameter(path: IndirectDesignPath) extends DseObjectiveParameter[Float] {
-  override def objectiveToString = f"FloatParameter($path)"
-
-  override def calculate(design: Design, compiler: Compiler): Option[Float] = {
-    compiler.getParamValue(path) match {
-      case Some(FloatValue(value)) => Some(value)
-      case _ => None
-    }
-  }
-}
-
-
-case class DseIntParameter(path: IndirectDesignPath) extends DseObjectiveParameter[BigInt] {
-  override def objectiveToString = f"IntParameter($path)"
-
-  override def calculate(design: Design, compiler: Compiler): Option[BigInt] = {
-    compiler.getParamValue(path) match {
-      case Some(IntValue(value)) => Some(value)
-      case _ => None
-    }
-  }
-}
-
-
-case class DseRangeParameter(path: IndirectDesignPath) extends DseObjectiveParameter[(Float, Float)] {
-  // TODO support empty range case
-  override def objectiveToString = f"RangeParameter($path)"
-
-  override def calculate(design: Design, compiler: Compiler): Option[(Float, Float)] = {
-    compiler.getParamValue(path) match {
-      case Some(RangeValue(minValue, maxValue)) => Some((minValue, maxValue))
-      case _ => None
-    }
-  }
-}
-
-
-case class DseBooleanParameter(path: IndirectDesignPath) extends DseObjectiveParameter[Boolean] {
-  override def objectiveToString = f"BooleanParameter($path)"
-
-  override def calculate(design: Design, compiler: Compiler): Option[Boolean] = {
-    compiler.getParamValue(path) match {
-      case Some(BooleanValue(value)) => Some(value)
-      case _ => None
-    }
-  }
-}
-
-
-case class DseStringParameter(path: IndirectDesignPath) extends DseObjectiveParameter[String] {
-  override def objectiveToString = f"StringParameter($path)"
-
-  override def calculate(design: Design, compiler: Compiler): Option[String] = {
-    compiler.getParamValue(path) match {
-      case Some(TextValue(value)) => Some(value)
-      case _ => None
-    }
+  override def calculate(design: Design, compiler: Compiler): Option[ExprValue] = {
+    compiler.getParamValue(path)
   }
 }
 

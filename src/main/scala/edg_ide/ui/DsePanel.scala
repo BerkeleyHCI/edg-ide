@@ -7,7 +7,7 @@ import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseFloatParameter, DseIntParameter, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseParameterSearch, DseRangeParameter, DseResult, DseTypedObjective}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseParameterSearch, DseResult}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
