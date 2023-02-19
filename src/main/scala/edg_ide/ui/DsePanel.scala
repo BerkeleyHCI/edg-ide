@@ -284,9 +284,11 @@ class DsePanel(project: Project) extends JPanel {
         case node: treeRoot.ResultSetNode if data.contains(node.setMembers) =>
           val nodeTreePath = treeRootPath.pathByAddingChild(node)
           resultsTree.addSelectedPath(nodeTreePath)
+          resultsTree.getTree.expandPath(nodeTreePath)
           resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(nodeTreePath))
         case node =>  // ignored
       }
+      setSelection(data)
     }
 
     override def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {
