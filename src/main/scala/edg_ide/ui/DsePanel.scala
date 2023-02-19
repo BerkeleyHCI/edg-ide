@@ -282,7 +282,9 @@ class DsePanel(project: Project) extends JPanel {
       val treeRootPath = new TreePath(treeRoot)
       treeRoot.children foreach {
         case node: treeRoot.ResultSetNode if data.contains(node.setMembers) =>
-          resultsTree.addSelectedPath(treeRootPath.pathByAddingChild(node))
+          val nodeTreePath = treeRootPath.pathByAddingChild(node)
+          resultsTree.addSelectedPath(nodeTreePath)
+          resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(nodeTreePath))
         case node =>  // ignored
       }
     }
