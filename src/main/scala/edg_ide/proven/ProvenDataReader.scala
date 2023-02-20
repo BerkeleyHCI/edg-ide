@@ -5,7 +5,7 @@ import edg.wir.DesignPath
 import edgir.ref.ref
 
 import java.io.{File, FileReader}
-import scala.collection.SeqMap
+import scala.collection.{SeqMap, mutable}
 
 
 object ProvenStatus extends Enumeration {
@@ -23,11 +23,13 @@ object ProvenStatus extends Enumeration {
 
 
 object ProvenDataReader {
-  def read(file: File): Map[ref.LibraryPath, SeqMap[(String, String, ProvenStatus.Status), Seq[DesignPath]]] = {
+  def read(file: File): ProvenDatabase = {
     CsvReader.builder().build(new FileReader(file))
   }
 
 }
-class ProvenDataReader {
+class ProvenDatabase {
+  private val data: mutable.Map[ref.LibraryPath, mutable.SeqMap[(String, String, ProvenStatus.Status),
+      mutable.ArrayBuffer[DesignPath]]] = mutable.Map()
 
 }
