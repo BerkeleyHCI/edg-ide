@@ -5,7 +5,13 @@ import edg_ide.swing.{ColorUtil, DrawAnchored}
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
 import java.awt.{Color, Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
-import scala.collection.{SeqMap, mutable}
+import scala.collection.mutable
+
+
+object JScatterPlot {
+  type AxisType = Option[Seq[(Float, String)]]
+
+}
 
 
 /** Scatterplot widget with two numerical axes, with labels inside the plot.
@@ -34,8 +40,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kTickSizePx = 4
 
   // data state
-  private var xAxis: Option[Seq[(Float, String)]] = None  // if text labels are specified, instead of dynamic numbers
-  private var yAxis: Option[Seq[(Float, String)]] = None
+  private var xAxis: JScatterPlot.AxisType = None  // if text labels are specified, instead of dynamic numbers
+  private var yAxis: JScatterPlot.AxisType = None
 
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
@@ -57,7 +63,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * dataScale(xRange, getWidth)).toInt
   private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * dataScale(yRange, getHeight)).toInt
 
-  def setData(xys: IndexedSeq[Data]): Unit = {
+  def setData(xys: IndexedSeq[Data], xAxis: JScatterPlot.AxisType = None, yAxis: JScatterPlot.AxisType = None): Unit = {
     data = xys
     mouseOverIndices = Seq()  // clear
     selectedIndices = Seq()  // clear
@@ -76,17 +82,11 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     val ys = data.map(_.y)
     yRange = expandedRange(((ys :+ 0f).min, (ys :+ 0f).max), kDefaultRangeMarginFactor)
 
+    this.xAxis = xAxis
+    this.yAxis = yAxis
+
     validate()
     repaint()
-  }
-
-  // Sets a custom axis label as a map of location to string values, or use None to use numerical axes
-  def setXAxis(axis: Option[Seq[(Float, String)]]): Unit = {
-    xAxis = axis
-  }
-
-  def setYAxis(axis: Option[Seq[(Float, String)]]): Unit = {
-    yAxis = axis
   }
 
   // Sets the selected data, which is rendered with a highlight.
