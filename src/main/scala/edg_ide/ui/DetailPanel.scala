@@ -5,7 +5,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.compiler.{BooleanValue, Compiler, FloatValue, IntValue, RangeType, RangeValue, TextValue}
 import edg.wir.{DesignPath, IndirectDesignPath}
-import edg_ide.dse.{DseBooleanParameter, DseFeature, DseFloatParameter, DseIntParameter, DseObjectiveParameter, DseParameterSearch, DseRangeParameter, DseStringParameter}
+import edg_ide.dse.{DseFeature, DseObjectiveParameter, DseParameterSearch}
 import edg_ide.swing
 import edg_ide.swing.{ElementDetailTreeModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
@@ -34,12 +34,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
 
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val objective = compiler.getParamType(path) match {
-      case Some(q) if q == classOf[FloatValue]  => DseFloatParameter(path)
-      case Some(q) if q == classOf[IntValue]  => DseIntParameter(path)
-      case Some(q) if q == classOf[RangeType]  => DseRangeParameter(path)  // RangeType includes EmptyRange as well
-      case Some(q) if q == classOf[BooleanValue]  => DseBooleanParameter(path)
-      case Some(q) if q == classOf[TextValue]  => DseStringParameter(path)
-      case Some(q) => exceptable.fail(f"unknown parameter type ${q.getSimpleName} at $path")
+      case Some(paramType) => DseObjectiveParameter(path, paramType)
       case _ => exceptable.fail(f"no parameter type at $path")
     }
 

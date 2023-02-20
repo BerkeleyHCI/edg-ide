@@ -4,6 +4,7 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable
 import edg.wir.{DesignPath, Refinements}
+import edg_ide.ui.ParamToUnitsStringUtil
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptBoolean, ExceptErrorable, ExceptOption, ExceptSeq}
 import edg_ide.util.IterableExtensions.IterableExtension
 import edg_ide.util.{exceptable, requireExcept}
@@ -15,7 +16,7 @@ import scala.collection.{SeqMap, mutable}
 object DseConfigElement {
   def valueToString(value: Any): String = value match {
     case value: ref.LibraryPath => value.toSimpleString
-    case value: ExprValue => value.toStringValue
+    case value: ExprValue => ParamToUnitsStringUtil.toString(value)
     case Some(value) => valueToString(value) // drop the "Some" for simplicity
     case value => value.toString
   }
