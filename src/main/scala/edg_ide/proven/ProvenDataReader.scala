@@ -38,7 +38,12 @@ class UntestedRecord() extends ProvenRecord
 
 object ProvenDataReader {
   def read(file: File): ProvenDatabase = {
-    CsvReader.builder().build(new FileReader(file))
+    val containingDir = file.getParentFile
+    val reader = CsvReader.builder().build(new FileReader(file))
+    reader.stream().forEach { row =>
+      println(row)
+    }
+    ???
   }
 
 }
