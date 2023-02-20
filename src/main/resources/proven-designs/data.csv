@@ -1,4 +1,9 @@
 file,version,path,goodness
+RobotDriver3.edg,ce7255a,,
 FcmlTest.edg,bb5326f,,
 UsbFpgaProgrammerTest.edg,bb5326f,,
 UsbUartTest.edg,bb5326f,,
+BldcDriverTest.edg,de2f269,,
+LedMatrixTest.edg,96b5a5d,,
+TofArrayTest.edg,c5a2630,,
+MultimeterTest.edg,e31da98,,
