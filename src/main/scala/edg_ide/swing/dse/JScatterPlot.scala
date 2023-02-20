@@ -137,7 +137,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
     // left vertical axis
     paintGraphics.drawLine(0, 0, 0, getHeight-1)
-    val yTicks = xAxis match {
+    val yTicks = yAxis match {
       case Some(yAxis) => yAxis
       case _ => getAxisTicks(yRange, getHeight, kMinTickSpacingPx)
     }

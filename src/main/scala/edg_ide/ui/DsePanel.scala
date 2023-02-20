@@ -123,6 +123,24 @@ class DsePlotPanel() extends JPanel {
     }
   }
 
+  class DseObjectiveParameterStringItem(objective: DseObjectiveParameter, name: String) extends AxisItem {
+    override def toString = name
+
+    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+      val values = results.map { result =>
+        objective.calculate(result.compiled, result.compiler).map(_.toStringValue)
+      }
+      val stringToPos = values.flatten.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+      val axis = stringToPos.map { case (str, index) => (index, str) }
+
+      val stringToPosMap = stringToPos.toMap
+      val positionalValues = values.map { value => value.flatMap { value =>
+        stringToPosMap.get(value)
+      } }
+      (positionalValues, Some(axis))
+    }
+  }
+
 
   private val xSelector = new ComboBox[AxisItem]()
   private val xAxisHeader = new DummyAxisItem("X Axis")
@@ -189,7 +207,7 @@ class DsePlotPanel() extends JPanel {
         })
       )
       case objective: DseObjectiveParameter =>
-        Seq(new DummyAxisItem(f"unsupported parameter type ${objective.exprType.getSimpleName} $name"))
+        Seq(new DseObjectiveParameterStringItem(objective, name))
       case _ => Seq(new DummyAxisItem(f"unknown $name"))
     }
     }
