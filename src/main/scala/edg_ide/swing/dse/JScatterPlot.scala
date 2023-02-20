@@ -10,7 +10,6 @@ import scala.collection.mutable
 
 object JScatterPlot {
   type AxisType = Option[Seq[(Float, String)]]
-
 }
 
 
