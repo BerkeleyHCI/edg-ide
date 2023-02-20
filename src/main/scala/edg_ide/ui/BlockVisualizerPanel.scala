@@ -485,11 +485,13 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
     textMap.put(path, s"<b>$classString</b> at $path")
   }
 
-  def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]) = {
+  private def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]) = {
     description.map {
       _.elementType match {
         case elem.StringDescriptionElement.ElementType.Param(value) =>
-          ParamToUnitsStringUtil.paramToUnitsString(path.asIndirect ++ value.path.get, value.unit, compiler)
+          compiler.getParamValue(path.asIndirect ++ value.path.get)
+              .map(ParamToUnitsStringUtil.paramToUnitsString(_, value.unit))
+              .getOrElse("unknown")
         case elem.StringDescriptionElement.ElementType.Text(value) =>
           value
         case elem.StringDescriptionElement.ElementType.Empty =>

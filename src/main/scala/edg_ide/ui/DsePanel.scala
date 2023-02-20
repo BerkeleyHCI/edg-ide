@@ -7,7 +7,8 @@ import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseFloatParameter, DseIntParameter, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseParameterSearch, DseRangeParameter, DseResult, DseTypedObjective}
+import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
@@ -103,24 +104,15 @@ class DsePlotPanel() extends JPanel {
     }
   }
 
-  class DseObjectiveOptionItem(objective: DseObjective, name: String) extends AxisItem {
+  class DseObjectiveParameterItem(objective: DseObjectiveParameter, name: String,
+                                  map: ExprValue => Option[Float]) extends AxisItem {
     override def toString = name
 
-    override def resultToValue(result: DseResult): Option[Float] = objective.calculate(result.compiled, result.compiler) match {
-      case Some(x: Float) => Some(x)
-      case Some(x: Int) => Some(x.toFloat)
-      case _ => None
+    override def resultToValue(result: DseResult): Option[Float] = {
+      objective.calculate(result.compiled, result.compiler).flatMap(map)
     }
   }
 
-  class DseObjectiveRangeOptionItem(objective: DseObjective, isMax: Boolean, name: String) extends AxisItem {
-    override def toString = name
-
-    override def resultToValue(result: DseResult): Option[Float] = objective.calculate(result.compiled, result.compiler) match {
-      case Some((minVal: Float, maxVal: Float)) => if (isMax) Some(maxVal) else Some(minVal)
-      case _ => None
-    }
-  }
 
   private val xSelector = new ComboBox[AxisItem]()
   private val xAxisHeader = new DummyAxisItem("X Axis")
@@ -141,7 +133,17 @@ class DsePlotPanel() extends JPanel {
           } else {
             None
           }
-          Some(new plot.Data(resultSet, xVal, yVal, color, Some(f"${resultSet.size} results")))
+
+          val objectivesStr = exampleResult.objectives.map { case (objective, value) =>
+            f"$objective=${DseConfigElement.valueToString(value)}"
+          }.mkString("\n")
+          val resultsStr = resultSet.map { result =>
+              DseConfigElement.configMapToString(result.config)
+          }.mkString("\n")
+          val tooltipText = objectivesStr + f"\n\n${resultSet.size} results:\n" + resultsStr
+
+          Some(new plot.Data(resultSet, xVal, yVal, color,
+            Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
         case _ => None
       }
     }
@@ -159,13 +161,22 @@ class DsePlotPanel() extends JPanel {
     val items = objectives flatMap { case (name, objective) => objective match {
       case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveItem(objective, name))
       case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveItem(objective, name))
-      case objective: DseFloatParameter => Seq(new DseObjectiveOptionItem(objective, name))
-      case objective: DseIntParameter => Seq(new DseObjectiveOptionItem(objective, name))
-      case objective: DseRangeParameter => Seq(
-        new DseObjectiveRangeOptionItem(objective, false, name + " (min)"),
-        new DseObjectiveRangeOptionItem(objective, true, name + " (max)")
+      case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
+        Seq(new DseObjectiveParameterItem(objective, name, param => Some(param.asInstanceOf[FloatValue].value)))
+      case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
+        Seq(new DseObjectiveParameterItem(objective, name, param => Some(param.asInstanceOf[IntValue].toFloat)))
+      case objective: DseObjectiveParameter if objective.exprType == classOf[RangeType] => Seq(
+        new DseObjectiveParameterItem(objective, s"$name (min)", {
+          case RangeValue(lower, upper) => Some(lower)
+          case _ => None
+        }),
+        new DseObjectiveParameterItem(objective, s"$name (max)", {
+          case RangeValue(lower, upper) => Some(upper)
+          case _ => None
+        })
       )
-      // TODO parse parameter vals
+      case objective: DseObjectiveParameter =>
+        Seq(new DummyAxisItem(f"unsupported parameter type ${objective.exprType.getSimpleName} $name"))
       case _ => Seq(new DummyAxisItem(f"unknown $name"))
     }
     }
@@ -271,9 +282,13 @@ class DsePanel(project: Project) extends JPanel {
       val treeRootPath = new TreePath(treeRoot)
       treeRoot.children foreach {
         case node: treeRoot.ResultSetNode if data.contains(node.setMembers) =>
-          resultsTree.addSelectedPath(treeRootPath.pathByAddingChild(node))
+          val nodeTreePath = treeRootPath.pathByAddingChild(node)
+          resultsTree.addSelectedPath(nodeTreePath)
+          resultsTree.getTree.expandPath(nodeTreePath)
+          resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(nodeTreePath))
         case node =>  // ignored
       }
+      setSelection(data)
     }
 
     override def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {

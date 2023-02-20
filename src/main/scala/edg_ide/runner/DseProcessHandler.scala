@@ -68,11 +68,11 @@ class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[Ds
 
   def writeRow(result: DseResult): Unit = {
     val headerCols = Seq(result.index.toString, result.errors.length.toString)
-    val searchValueCols = searchConfigs.map {
-      config => DseConfigElement.valueToString(result.config(config))
+    val searchValueCols = searchConfigs.map { config =>
+      result.config.get(config).map(DseConfigElement.valueToString).getOrElse("")
     }
     val objectiveValueCols = objectiveNames.map { name =>
-      DseConfigElement.valueToString(result.objectives(name))
+      result.objectives.get(name).map(DseConfigElement.valueToString).getOrElse("")
     }
 
     csv.writeRow((headerCols ++ searchValueCols ++ objectiveValueCols).asJava)

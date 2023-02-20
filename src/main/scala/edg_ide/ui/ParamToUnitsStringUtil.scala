@@ -1,16 +1,15 @@
 package edg_ide.ui
-import edg.compiler.{Compiler, FloatValue, IntValue, RangeValue}
-import edg.wir.IndirectDesignPath
+import edg.compiler.{ExprValue, FloatValue, IntValue, RangeValue}
 import edg_ide.util.SiPrefixUtil
 
 object ParamToUnitsStringUtil {
   private val TOLERANCE_THRESHOLD = 0.25
 
-  def paramToUnitsString(path: IndirectDesignPath, units: String, compiler: Compiler): String = {
-    compiler.getParamValue(path) match {
-      case Some(FloatValue(value)) => SiPrefixUtil.unitsToString(value, units)
-      case Some(IntValue(value)) => SiPrefixUtil.unitsToString(value.toDouble, units)
-      case Some(RangeValue(minValue, maxValue)) =>
+  def paramToUnitsString(value: ExprValue, units: String): String = {
+    value match {
+      case FloatValue(value) => SiPrefixUtil.unitsToString(value, units)
+      case IntValue(value) => SiPrefixUtil.unitsToString(value.toDouble, units)
+      case RangeValue(minValue, maxValue) =>
         val centerValue = (minValue + maxValue) / 2
         if (centerValue != 0) {
           val tolerance = (centerValue - minValue) / centerValue
@@ -22,8 +21,16 @@ object ParamToUnitsStringUtil {
         } else {
           s"±${SiPrefixUtil.unitsToString(maxValue, units)}"
         }
-      case Some(value) => s"unexpected ${value.getClass}(${value.toStringValue})"
-      case None => "unknown"
+      case value => s"unexpected ${value.getClass}(${value.toStringValue})"
+    }
+  }
+
+  def toString(value: ExprValue): String = {
+    value match {
+      case FloatValue(_) => paramToUnitsString(value, "")
+      case IntValue(_) => paramToUnitsString(value, "")
+      case RangeValue(_, _) => paramToUnitsString(value, "")
+      case _ => value.toStringValue
     }
   }
 }
