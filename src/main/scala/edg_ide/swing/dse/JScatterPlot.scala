@@ -5,7 +5,7 @@ import edg_ide.swing.{ColorUtil, DrawAnchored}
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
 import java.awt.{Color, Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
-import scala.collection.mutable
+import scala.collection.{SeqMap, mutable}
 
 
 /** Scatterplot widget with two numerical axes, with labels inside the plot.
@@ -26,7 +26,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kDefaultRangeMarginFactor = 1.1f  // factor to extend the default range by
 
   private val kPointSizePx = 4 // diameter in px
-  private val kSnapDistancePx = 4 // distance (box) to snap for a click
+  private val kSnapDistancePx = 4 // distance to snap for a click
 
   private val kTickBrightness = 0.25
   private val kTickSpacingIntervals = Seq(1, 2, 5)
@@ -34,6 +34,9 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kTickSizePx = 4
 
   // data state
+  private var xAxis: Option[Seq[(Float, String)]] = None  // if text labels are specified, instead of dynamic numbers
+  private var yAxis: Option[Seq[(Float, String)]] = None
+
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq()  // unsorted
@@ -61,7 +64,11 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
     def expandedRange(range: (Float, Float), factor: Float): (Float, Float) = {
       val span = range._2 - range._1
-      val expansion = span * (factor - 1) / 2  // range units to expand on each side
+      val expansion = if (span > 0) {  // range units to expand on each side
+        span * (factor - 1) / 2
+      } else {  // if span is empty, arbitrarily expand by 1 on each side and center the data
+        1
+      }
       (range._1 - expansion, range._2 + expansion)
     }
     val xs = data.map(_.x)
@@ -73,9 +80,13 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     repaint()
   }
 
-  //
-  def setXAxis(axis: Option[]): Unit = {
+  // Sets a custom axis label as a map of location to string values, or use None to use numerical axes
+  def setXAxis(axis: Option[Seq[(Float, String)]]): Unit = {
+    xAxis = axis
+  }
 
+  def setYAxis(axis: Option[Seq[(Float, String)]]): Unit = {
+    yAxis = axis
   }
 
   // Sets the selected data, which is rendered with a highlight.
@@ -94,7 +105,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   }
 
   // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
-  private def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int): Seq[Float] = {
+  private def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int): Seq[(Float, String)] = {
     val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize))  // min tick spacing in data units
     val tickSpacings = kTickSpacingIntervals.map { factor =>  // try all the spacings and take the minimum
       math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
@@ -102,9 +113,9 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     val tickSpacing = tickSpacings.min
 
     var tickPos = (math.floor(range._1 / tickSpacing) * tickSpacing).toFloat
-    val ticksBuilder = mutable.ArrayBuffer[Float]()
+    val ticksBuilder = mutable.ArrayBuffer[(Float, String)]()
     while (tickPos <= range._2) {
-      ticksBuilder.append(tickPos)
+      ticksBuilder.append((tickPos, f"$tickPos%.02g"))
       tickPos = (tickPos + tickSpacing).toFloat
     }
     ticksBuilder.toSeq
@@ -113,21 +124,30 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private def paintAxes(paintGraphics: Graphics): Unit = {
     // bottom horizontal axis
     paintGraphics.drawLine(0, getHeight-1, getWidth-1, getHeight-1)
-    getAxisTicks(xRange, getWidth, kMinTickSpacingPx).foreach { tickPos =>
+    val xTicks = xAxis match {
+      case Some(xAxis) => xAxis
+      case _ => getAxisTicks(xRange, getWidth, kMinTickSpacingPx)
+    }
+    xTicks.foreach { case (tickPos, tickVal) =>
       val screenX = dataToScreenX(tickPos)
       paintGraphics.drawLine(screenX, getHeight - 1, screenX, getHeight - 1 - kTickSizePx)
-      DrawAnchored.drawLabel(paintGraphics, f"$tickPos%.02g",
+      DrawAnchored.drawLabel(paintGraphics, tickVal,
         (screenX, getHeight - 1 - kTickSizePx), DrawAnchored.Bottom)
     }
 
     // left vertical axis
     paintGraphics.drawLine(0, 0, 0, getHeight-1)
-    getAxisTicks(yRange, getHeight, kMinTickSpacingPx).foreach { tickPos =>
+    val yTicks = xAxis match {
+      case Some(yAxis) => yAxis
+      case _ => getAxisTicks(yRange, getHeight, kMinTickSpacingPx)
+    }
+    yTicks.foreach { case (tickPos, tickVal) =>
       val screenY = dataToScreenY(tickPos)
       paintGraphics.drawLine(0, screenY, kTickSizePx, screenY)
-      DrawAnchored.drawLabel(paintGraphics, f"$tickPos%.02g",
+      DrawAnchored.drawLabel(paintGraphics, tickVal,
         (kTickSizePx, screenY), DrawAnchored.Left)
     }
+
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
