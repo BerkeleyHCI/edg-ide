@@ -85,22 +85,29 @@ class DsePlotPanel() extends JPanel {
   add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
 
   sealed trait AxisItem {
-    def resultToValue(result: DseResult): Option[Float]
+    def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType)
   }
 
   class DummyAxisItem(val name: String) extends AxisItem {
     override def toString = name
 
-    override def resultToValue(result: DseResult): Option[Float] = None
+    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+      (results.map(_ => Some(0)), Some(Seq()))
+    }
   }
 
   class DseObjectiveItem(objective: DseObjective, name: String) extends AxisItem {
     override def toString = name
 
-    override def resultToValue(result: DseResult): Option[Float] = objective.calculate(result.compiled, result.compiler) match {
-      case x: Float => Some(x)
-      case x: Int => Some(x.toFloat)
-      case _ => None
+    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+      val values = results.map { result =>
+        objective.calculate(result.compiled, result.compiler) match {
+          case x: Float => Some(x)
+          case x: Int => Some(x.toFloat)
+          case _ => None
+        }
+      }
+      (values, None)
     }
   }
 
@@ -108,8 +115,29 @@ class DsePlotPanel() extends JPanel {
                                   map: ExprValue => Option[Float]) extends AxisItem {
     override def toString = name
 
-    override def resultToValue(result: DseResult): Option[Float] = {
-      objective.calculate(result.compiled, result.compiler).flatMap(map)
+    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+      val values = results.map { result =>
+        objective.calculate(result.compiled, result.compiler).flatMap(map)
+      }
+      (values, None)
+    }
+  }
+
+  class DseObjectiveParameterStringItem(objective: DseObjectiveParameter, name: String) extends AxisItem {
+    override def toString = name
+
+    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+      val values = results.map { result =>
+        objective.calculate(result.compiled, result.compiler).map(_.toStringValue)
+      }
+      val stringToPos = values.flatten.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+      val axis = stringToPos.map { case (str, index) => (index, str) }
+
+      val stringToPosMap = stringToPos.toMap
+      val positionalValues = values.map { value => value.flatMap { value =>
+        stringToPosMap.get(value)
+      } }
+      (positionalValues, Some(axis))
     }
   }
 
@@ -124,30 +152,33 @@ class DsePlotPanel() extends JPanel {
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private def updatePlot(): Unit = {
-    val points = combinedResults.groupedResults.toIndexedSeq.flatMap { resultSet =>
-      val exampleResult = resultSet.head
-      (xSelector.getItem.resultToValue(exampleResult), ySelector.getItem.resultToValue(exampleResult)) match {
-        case (Some(xVal), Some(yVal)) =>
-          val color = if (exampleResult.errors.nonEmpty) {
-            Some(com.intellij.ui.JBColor.RED)
-          } else {
-            None
-          }
+    val examples = combinedResults.groupedResults.map(_.head)
+    val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(examples)
+    val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(examples)
 
-          val objectivesStr = exampleResult.objectives.map { case (objective, value) =>
-            f"$objective=${DseConfigElement.valueToString(value)}"
-          }.mkString("\n")
-          val resultsStr = resultSet.map { result =>
-              DseConfigElement.configMapToString(result.config)
-          }.mkString("\n")
-          val tooltipText = objectivesStr + f"\n\n${resultSet.size} results:\n" + resultsStr
+    val points = combinedResults.groupedResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
+      case (resultSet, (Some(xVal), Some(yVal))) =>
+        val example = resultSet.head
+        val color = if (example.errors.nonEmpty) {
+          Some(com.intellij.ui.JBColor.RED)
+        } else {
+          None
+        }
 
-          Some(new plot.Data(resultSet, xVal, yVal, color,
-            Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-        case _ => None
-      }
+        val objectivesStr = example.objectives.map { case (objective, value) =>
+          f"$objective=${DseConfigElement.valueToString(value)}"
+        }.mkString("\n")
+        val resultsStr = resultSet.map { result =>
+          DseConfigElement.configMapToString(result.config)
+        }.mkString("\n")
+        val tooltipText = objectivesStr + f"\n\n${resultSet.size} results:\n" + resultsStr
+
+        Some(new plot.Data(resultSet, xVal, yVal, color,
+          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
+      case _ => None
     }
-    plot.setData(points)
+
+    plot.setData(points, xAxis, yAxis)
   }
 
   private def updateAxisSelectors(objectives: SeqMap[String, DseObjective]): Unit = {
@@ -176,7 +207,7 @@ class DsePlotPanel() extends JPanel {
         })
       )
       case objective: DseObjectiveParameter =>
-        Seq(new DummyAxisItem(f"unsupported parameter type ${objective.exprType.getSimpleName} $name"))
+        Seq(new DseObjectiveParameterStringItem(objective, name))
       case _ => Seq(new DummyAxisItem(f"unknown $name"))
     }
     }

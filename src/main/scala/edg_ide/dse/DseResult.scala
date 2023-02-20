@@ -28,10 +28,10 @@ case class DseResult(
 class CombinedDseResultSet(results: Seq[DseResult]) {
   // groups similar results while preserving the order of groups (based on first-seen order of results)
   private def combineSimilarResults(results: Seq[DseResult]): Seq[Seq[DseResult]] = {
-    type GroupingKey = (Design, Int, SeqMap[String, Any])  // only use error count for simplicity
+    type GroupingKey = (Boolean, SeqMap[String, Any])  // group only by objective values and if there were errors
     val groupedMap = mutable.SeqMap[GroupingKey, mutable.ArrayBuffer[DseResult]]()
     results.foreach { result =>
-      val key = (result.compiled, result.errors.length, result.objectives)
+      val key = (result.errors.nonEmpty, result.objectives)
       groupedMap.getOrElseUpdate(key, mutable.ArrayBuffer[DseResult]()).append(result)
     }
     groupedMap.map { case (key, vals) =>
