@@ -22,6 +22,20 @@ object ProvenStatus extends Enumeration {
 }
 
 
+sealed trait ProvenRecord
+
+
+class UserProvenRecord(status: ProvenStatus.Status, note: Option[String]) extends ProvenRecord {
+
+}
+
+
+class InnerProvenRecord(parent: ProvenRecord) extends ProvenRecord
+
+
+class UntestedRecord() extends ProvenRecord
+
+
 object ProvenDataReader {
   def read(file: File): ProvenDatabase = {
     CsvReader.builder().build(new FileReader(file))
@@ -29,7 +43,7 @@ object ProvenDataReader {
 
 }
 class ProvenDatabase {
-  private val data: mutable.Map[ref.LibraryPath, mutable.SeqMap[(String, String, ProvenStatus.Status),
+  private val data: mutable.Map[ref.LibraryPath, mutable.SeqMap[(String, String, ProvenRecord),
       mutable.ArrayBuffer[DesignPath]]] = mutable.Map()
 
 }
