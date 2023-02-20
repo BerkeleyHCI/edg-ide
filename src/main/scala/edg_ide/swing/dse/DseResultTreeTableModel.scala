@@ -40,7 +40,7 @@ class DseResultTreeNode(results: CombinedDseResultSet, objectiveNames: Seq[Strin
   class ResultSetNode(val setMembers: Seq[DseResult]) extends DseResultNodeBase {
     private val exampleResult = setMembers.head
     private val errString = if (exampleResult.errors.nonEmpty) {
-      f", ${exampleResult.errors.length} errors"
+      " (with errors)"
     } else {
       ""
     }
