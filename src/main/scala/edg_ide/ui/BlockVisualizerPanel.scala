@@ -26,12 +26,15 @@ import edgir.schema.schema.Design
 import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
+import java.awt.datatransfer.DataFlavor
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.io.File
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel}
+import javax.swing.{JLabel, JPanel, TransferHandler}
+import scala.collection.convert.ImplicitConversions.`iterable AsScalaIterable`
 import scala.collection.{SeqMap, mutable}
 
 
@@ -132,6 +135,24 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val defaultTool: DefaultTool = new DefaultTool(toolInterface)
   private var activeTool: BaseTool = defaultTool
 
+  // Internal development features
+  //
+  // DnD 
+  this.setTransferHandler(new TransferHandler() {
+    override def canImport(info: TransferHandler.TransferSupport): Boolean = {
+      info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
+    }
+
+    override def importData(info: TransferHandler.TransferSupport): Boolean = {
+      if (!info.isDrop || !info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+        return false
+      }
+      val data = info.getTransferable.getTransferData(DataFlavor.javaFileListFlavor)
+          .asInstanceOf[java.util.List[File]].toSeq
+      println(data)
+      true
+    }
+  })
 
   // GUI Components
   //
