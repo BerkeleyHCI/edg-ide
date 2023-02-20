@@ -92,7 +92,7 @@ class DsePlotPanel() extends JPanel {
     override def toString = name
 
     override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-      (results.map(_ => None), None)
+      (results.map(_ => Some(0)), Some(Seq()))
     }
   }
 
