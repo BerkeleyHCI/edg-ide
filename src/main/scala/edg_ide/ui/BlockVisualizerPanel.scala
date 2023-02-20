@@ -136,9 +136,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val defaultTool: DefaultTool = new DefaultTool(toolInterface)
   private var activeTool: BaseTool = defaultTool
 
-  // Internal development features
+  // Internal development features / tools
   //
   // DnD to allow loading and visualizing a .edg file (Design protobuf)
+  // this isn't (yet?) meant to be a proper user-facing feature so this isn't really discoverable
   this.setTransferHandler(new TransferHandler() {
     override def canImport(info: TransferHandler.TransferSupport): Boolean = {
       info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
@@ -167,7 +168,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         return false
       }
 
-      // TODO actually solve for values and refinements
+      // TODO show solved values and refinements
       val dummyCompiler = new Compiler(schema.Design(), EdgCompilerService(project).pyLib)
       setDesignTop(design, dummyCompiler, edgrpc.Refinements(), Seq(), Some(f"${file.getName}: "))
 
