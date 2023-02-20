@@ -29,13 +29,14 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
-import java.io.File
+import java.io.{File, FileInputStream}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JLabel, JPanel, TransferHandler}
-import scala.collection.convert.ImplicitConversions.`iterable AsScalaIterable`
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.collection.{SeqMap, mutable}
+import scala.util.Using
 
 
 object Gbc {
@@ -137,7 +138,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // Internal development features
   //
-  // DnD 
+  // DnD to allow loading and visualizing a .edg file (Design protobuf)
   this.setTransferHandler(new TransferHandler() {
     override def canImport(info: TransferHandler.TransferSupport): Boolean = {
       info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
@@ -148,8 +149,28 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         return false
       }
       val data = info.getTransferable.getTransferData(DataFlavor.javaFileListFlavor)
-          .asInstanceOf[java.util.List[File]].toSeq
-      println(data)
+          .asInstanceOf[java.util.List[File]].asScala.toSeq
+      val file = data match {
+        case Seq(file) => file
+        case _ =>
+          PopupUtils.createErrorPopupAtMouse("can open only one file", BlockVisualizerPanel.this)
+          return false
+      }
+      val design = Using(new FileInputStream(file)) { fileInputStream =>
+        schema.Design.parseFrom(fileInputStream)
+      }.recover { exc =>
+        PopupUtils.createErrorPopupAtMouse(s"failed opening file: $exc", BlockVisualizerPanel.this)
+        return false
+      }.get
+      if (design.contents.isEmpty) {
+        PopupUtils.createErrorPopupAtMouse(s"file does not contain a design", BlockVisualizerPanel.this)
+        return false
+      }
+
+      // TODO actually solve for values and refinements
+      val dummyCompiler = new Compiler(schema.Design(), EdgCompilerService(project).pyLib)
+      setDesignTop(design, dummyCompiler, edgrpc.Refinements(), Seq(), Some(f"${file.getName}: "))
+
       true
     }
   })
