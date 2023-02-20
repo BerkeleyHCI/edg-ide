@@ -146,7 +146,6 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       DrawAnchored.drawLabel(paintGraphics, tickVal,
         (kTickSizePx, screenY), DrawAnchored.Left)
     }
-
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
