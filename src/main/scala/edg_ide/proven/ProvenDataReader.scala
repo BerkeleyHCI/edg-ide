@@ -1,14 +1,16 @@
 package edg_ide.proven
 
-import de.siegmar.fastcsv.reader.{CsvReader, NamedCsvReader}
+import de.siegmar.fastcsv.reader.NamedCsvReader
 import edg.wir.DesignPath
 import edgir.ref.ref
 import edgir.schema.schema
 import edgir.elem.elem
+import org.eclipse.emf.ecore.xmi.IllegalValueException
 
 import java.io.{File, FileInputStream, FileReader}
 import scala.collection.{SeqMap, mutable}
 import scala.util.Using
+import scala.util.matching.Regex
 
 
 object ProvenStatus extends Enumeration {
@@ -28,10 +30,11 @@ object ProvenStatus extends Enumeration {
 sealed trait ProvenRecord {
   def in: File
   def version: String
+  def status: ProvenStatus.Status
 }
 
 
-class UserProvenRecord(status: ProvenStatus.Status, val in: File, val version: String,
+class UserProvenRecord(val status: ProvenStatus.Status, val in: File, val version: String,
                        val comments: Option[String]) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}($status, $comments)"
 }
@@ -42,11 +45,13 @@ class InnerProvenRecord(parent: ProvenRecord) extends ProvenRecord {
 
   override def in = parent.in
   override def version = parent.version
+  override def status = parent.status
 }
 
 
 class UntestedRecord(val in: File, val version: String) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}"
+  override def status = ProvenStatus.untested
 }
 
 
@@ -61,9 +66,9 @@ object ProvenDataReader {
   def read(file: File): ProvenDatabase = {
     val containingDir = file.getParentFile
 
-    // value is (design path, git version, proven record)
+    // map is (file, version) -> (design path, proven record)
     // design path can include * wildcard
-    val designToRecord = mutable.Map[File, mutable.ArrayBuffer[(String, String, ProvenRecord)]]()
+    val designToRecord = mutable.SeqMap[(File, String), mutable.ArrayBuffer[(Seq[Regex], ProvenRecord)]]()
 
     val reader = NamedCsvReader.builder().build(new FileReader(file))
     var lastFileVersion: Option[(File, String)] = None
@@ -80,13 +85,18 @@ object ProvenDataReader {
         case comments => Some(comments)
       }
       val status = row.getField(kFieldStatus) match {
-        case "working" => new UserProvenRecord(ProvenStatus.working, comments)
-        case "broken" if row.getField(kFixedVersion).nonEmpty => new UserProvenRecord(ProvenStatus.fixed, comments)
-        case "broken" => new UserProvenRecord(ProvenStatus.broken, comments)
-
+        case "working" =>
+          new UserProvenRecord(ProvenStatus.working, file, version, comments)
+        case "broken" if row.getField(kFixedVersion).nonEmpty =>
+          new UserProvenRecord(ProvenStatus.fixed, file, version, comments)
+        case "broken" =>
+          new UserProvenRecord(ProvenStatus.broken, file, version, comments)
       }
-      designToRecord.getOrElseUpdate(file, mutable.ArrayBuffer()).append(
-        (row.getField(kFieldPath), row.getField(kFieldVersion), status))
+      val pathPattern = row.getField(kFieldPath).split('.').map { pathComponent =>
+        pathComponent.replace("*", ".*").r
+      }
+      designToRecord.getOrElseUpdate((file, version), mutable.ArrayBuffer()).append(
+        (pathPattern, status))
     }
 
     // processes a block, with the potentially matching records from a higher level
@@ -94,19 +104,38 @@ object ProvenDataReader {
     // proven propagation rules (eg, working applies to all children, but broken doesn't) are applied here
     // untested is applied by default if no record matches
     // multiple record matches are an error
-    def processBlock(block: elem.HierarchyBlock, records: Map[Seq[String], ProvenRecord]): Unit = {
+    def processBlock(file: File, version: String, path: DesignPath, block: elem.HierarchyBlock,
+                     records: SeqMap[Seq[Regex], ProvenRecord]): Unit = {
+      val thisRecords = records.filter { case (recordPath, _) => recordPath.isEmpty }
+      if (thisRecords.nonEmpty) {
+        require(thisRecords.size == 1)
+        val thisRecordProven = thisRecords.head._2
+        println(f"apply $thisRecordProven to $file $path")
+      } else {
+        println(f"untested $file $path")
+      }
 
+      block.blocks.foreach { case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
+        val subBlockMap = records.flatMap { case (recordPath, proven) => recordPath match {
+          case Seq() if proven.status == ProvenStatus.working => Some(Seq(), proven)  // propagate working
+          case Seq() => None
+          case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) =>
+            println(f"$pathHead  mathed  ${subBlockPair.name}")
+            Some(pathTail -> proven)
+          case Seq(pathHead, pathTail @ _*) => None  // non matching
+        } }
+        processBlock(file, version, path + subBlockPair.name, subBlockPair.getValue.getHierarchy, subBlockMap)
+      }
     }
 
-    designToRecord.foreach { case (file, records) =>
+    designToRecord.foreach { case ((file, version), records) =>
       val design = Using(new FileInputStream(file)) { fileInputStream =>
         schema.Design.parseFrom(fileInputStream)
       }.get
-      processBlock(design.getContents, records.map { case (path, version, record) =>
-
-      })
+      processBlock(file, version, DesignPath(), design.getContents, SeqMap.from(records.map { case (path, record) =>
+        path -> record
+      }))
     }
-    println(designToRecord)
     ???
   }
 
