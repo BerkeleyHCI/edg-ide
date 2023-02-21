@@ -12,6 +12,7 @@ class ProvenDataReaderTest extends AnyFlatSpec with Matchers {
 
   it should "read in data" in {
     val data = ProvenDataReader.read(new File("src/main/resources/proven-designs/data.csv"))
+    print(data.data)
   }
 
 

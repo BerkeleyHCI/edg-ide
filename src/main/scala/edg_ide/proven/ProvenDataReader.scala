@@ -1,6 +1,7 @@
 package edg_ide.proven
 
 import de.siegmar.fastcsv.reader.NamedCsvReader
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.DesignPath
 import edgir.ref.ref
 import edgir.schema.schema
@@ -28,29 +29,29 @@ object ProvenStatus extends Enumeration {
 
 
 sealed trait ProvenRecord {
-  def in: File
+  def file: File
   def version: String
   def status: ProvenStatus.Status
 }
 
 
-class UserProvenRecord(val status: ProvenStatus.Status, val in: File, val version: String,
+class UserProvenRecord(val status: ProvenStatus.Status, val file: File, val version: String, pattern: Seq[String],
                        val comments: Option[String]) extends ProvenRecord {
-  override def toString = f"${this.getClass.getSimpleName}($status, $comments)"
+  override def toString = f"${this.getClass.getSimpleName}($status, $comments from $file:${pattern.mkString(".")})"
 }
 
 
 class InnerProvenRecord(parent: ProvenRecord) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}($parent)"
 
-  override def in = parent.in
+  override def file = parent.file
   override def version = parent.version
   override def status = parent.status
 }
 
 
-class UntestedRecord(val in: File, val version: String) extends ProvenRecord {
-  override def toString = f"${this.getClass.getSimpleName}"
+class UntestedRecord(val file: File, val version: String) extends ProvenRecord {
+  override def toString = f"${this.getClass.getSimpleName}(from $file)"
   override def status = ProvenStatus.untested
 }
 
@@ -79,25 +80,28 @@ object ProvenDataReader {
         lastFileVersion = Some((new File(containingDir, row.getField(kFieldFile)), row.getField(kFieldVersion)))
       }
       val (file, version) = lastFileVersion.get
-
+      val path = row.getField(kFieldPath).split('.')
+      val pathRegex = path.map { pathComponent =>
+        pathComponent.replace("*", ".*").r
+      }
       val comments = row.getField(kFieldComments) match {
         case "" => None
         case comments => Some(comments)
       }
+
       val status = row.getField(kFieldStatus) match {
         case "working" =>
-          new UserProvenRecord(ProvenStatus.working, file, version, comments)
+          new UserProvenRecord(ProvenStatus.working, file, version, path, comments)
         case "broken" if row.getField(kFixedVersion).nonEmpty =>
-          new UserProvenRecord(ProvenStatus.fixed, file, version, comments)
+          new UserProvenRecord(ProvenStatus.fixed, file, version, path, comments)
         case "broken" =>
-          new UserProvenRecord(ProvenStatus.broken, file, version, comments)
-      }
-      val pathPattern = row.getField(kFieldPath).split('.').map { pathComponent =>
-        pathComponent.replace("*", ".*").r
+          new UserProvenRecord(ProvenStatus.broken, file, version, path, comments)
       }
       designToRecord.getOrElseUpdate((file, version), mutable.ArrayBuffer()).append(
-        (pathPattern, status))
+        (pathRegex, status))
     }
+
+    val dataBuilder = mutable.Map[ref.LibraryPath, mutable.ArrayBuffer[ProvenRecord]]()
 
     // processes a block, with the potentially matching records from a higher level
     // for record keys: an empty list means apply this record, a nonempty list means apply it to a child
@@ -108,21 +112,20 @@ object ProvenDataReader {
                      records: SeqMap[Seq[Regex], ProvenRecord]): Unit = {
       val thisRecords = records.filter { case (recordPath, _) => recordPath.isEmpty }
       if (thisRecords.nonEmpty) {
-        require(thisRecords.size == 1)
+        require(thisRecords.size == 1, f"multiple proven records at $file $path")
         val thisRecordProven = thisRecords.head._2
-        println(f"apply $thisRecordProven to $file $path")
+        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append(thisRecordProven)
       } else {
-        println(f"untested $file $path")
+        val thisUntestedRecord = new UntestedRecord(file, version)
+        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append(thisUntestedRecord)
       }
 
       block.blocks.foreach { case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
         val subBlockMap = records.flatMap { case (recordPath, proven) => recordPath match {
           case Seq() if proven.status == ProvenStatus.working => Some(Seq(), proven)  // propagate working
-          case Seq() => None
-          case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) =>
-            println(f"$pathHead  mathed  ${subBlockPair.name}")
-            Some(pathTail -> proven)
-          case Seq(pathHead, pathTail @ _*) => None  // non matching
+          case Seq() => None  // don't propagate other records
+          case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) => Some(pathTail -> proven)
+          case Seq(pathHead, pathTail @ _*) => None  // non-matching, discard
         } }
         processBlock(file, version, path + subBlockPair.name, subBlockPair.getValue.getHierarchy, subBlockMap)
       }
@@ -136,12 +139,11 @@ object ProvenDataReader {
         path -> record
       }))
     }
-    ???
+
+    new ProvenDatabase(dataBuilder.map { case (libraryPath, records) => libraryPath -> records.toSeq}.toMap)
   }
 
 }
-class ProvenDatabase {
-  private val data: mutable.Map[ref.LibraryPath, mutable.SeqMap[(String, String, ProvenRecord),
-      mutable.ArrayBuffer[DesignPath]]] = mutable.Map()
+class ProvenDatabase(val data: Map[ref.LibraryPath, Seq[ProvenRecord]]) {
 
 }
