@@ -1,4 +1,4 @@
-file,version,path,goodness,comments,fixed-version
+file,version,path,status,comments,fixed-version
 MultimeterTest.edg,e31da98693148ae589ac55d75e21f4d87b7f9ab0,bat,working,,
 ,,data_usb,working,,
 ,,gate,working,,
