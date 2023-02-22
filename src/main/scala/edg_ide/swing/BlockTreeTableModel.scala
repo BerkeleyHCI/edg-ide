@@ -5,8 +5,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil._
 import edg.wir.DesignPath
-import edg_ide.proven.ProvenFeature
-import edg_ide.ui.BlockVisualizerService
+import edg_ide.ui.{BlockVisualizerService, EdgSettingsState}
 import edgir.elem.elem
 
 import javax.swing.JTree
@@ -62,7 +61,7 @@ object BlockTreeTableModel {
 
 class BlockTreeTableModel(project: Project, root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
   val rootNode: HierarchyBlockNode = new HierarchyBlockNode(project, DesignPath(), root)
-  val COLUMNS = if (ProvenFeature.kEnabled) {
+  val COLUMNS = if (EdgSettingsState.getInstance().showProvenStatus) {
     Seq("Path", "Class", "Proven")
   } else {
     Seq("Path", "Class")

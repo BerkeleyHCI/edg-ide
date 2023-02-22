@@ -4,8 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
 import edg_ide.EdgirUtils
-import edg_ide.proven.ProvenFeature
-import edg_ide.ui.BlockVisualizerService
+import edg_ide.ui.{BlockVisualizerService, EdgSettingsState}
 import edgir.elem.elem
 import edgir.ref.ref
 
@@ -163,7 +162,7 @@ class EdgirLibraryTreeTableModel(project: Project, library: edg.wir.Library)
   // Actual tree model implementation
   //
   val rootNode: EdgirLibraryNodeBase = new EdgirLibraryNode(project, library)
-  val COLUMNS = if (ProvenFeature.kEnabled) {
+  val COLUMNS = if (EdgSettingsState.getInstance().showProvenStatus) {
     Seq("Path", "Proven")
   } else {
     Seq("Path")

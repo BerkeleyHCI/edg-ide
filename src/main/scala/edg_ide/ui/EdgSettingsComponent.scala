@@ -18,10 +18,18 @@ class EdgSettingsComponent {
   val kicadDirectoryHelp = new JBLabel("Multiple footprint directories can be separated by semicolons (;). " +
       "IDE restart may be required to take effect.")
   kicadDirectoryHelp.setEnabled(false)
+
   val persistBlockCache = new JCheckBox()
-  val persistBlockCacheHelp = new JBLabel("Not recommended. "
-    + "Persists compiled blocks across IDE restarts for a faster first compile. "
-    + "May not detect HDL changes when the IDE is not running.")
+  val persistBlockCacheHelp = new JBLabel("Not recommended. " +
+    "Persists compiled blocks across IDE restarts for a faster first compile. " +
+    "May not detect HDL changes when the IDE is not running.")
+  persistBlockCacheHelp.setEnabled(false)
+
+  val showProvenStatus = new JCheckBox()
+  val showProvenStatusHelp = new JBLabel("Experimental feature. " +
+    "In the design tree and library browser, shows which blocks have been made and tested in actual hardware " +
+    "by the project maintainers, from an internal database included locally with the IDE. " +
+    "IDE restart may be required to take effect.")
   persistBlockCacheHelp.setEnabled(false)
 
   val mainPanel = FormBuilder.createFormBuilder()
@@ -29,6 +37,8 @@ class EdgSettingsComponent {
       .addComponent(kicadDirectoryHelp)
       .addLabeledComponent(new JBLabel("Persist Block Cache"), persistBlockCache, false)
       .addComponent(persistBlockCacheHelp)
+      .addLabeledComponent(new JBLabel("Show Proven Status"), showProvenStatus, false)
+      .addComponent(showProvenStatusHelp)
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
 }
@@ -45,18 +55,21 @@ class EdgSettingsConfigurable extends Configurable {
   override def isModified: Boolean = {
     val settings = EdgSettingsState.getInstance()
     !settings.kicadDirectories.sameElements(component.kicadDirectoryText.getText.split(";")) ||
-        settings.persistBlockCache != component.persistBlockCache.isSelected
+        settings.persistBlockCache != component.persistBlockCache.isSelected ||
+        settings.showProvenStatus != component.showProvenStatus.isSelected
   }
 
   override def apply(): Unit = {
     val settings = EdgSettingsState.getInstance()
     settings.kicadDirectories = component.kicadDirectoryText.getText.split(";")
     settings.persistBlockCache = component.persistBlockCache.isSelected
+    settings.showProvenStatus = component.showProvenStatus.isSelected
   }
 
   override def reset(): Unit = {
     val settings = EdgSettingsState.getInstance()
     component.kicadDirectoryText.setText(settings.kicadDirectories.mkString(";"))
     component.persistBlockCache.setSelected(settings.persistBlockCache)
+    component.showProvenStatus.setSelected(settings.showProvenStatus)
   }
 }
