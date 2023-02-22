@@ -30,7 +30,7 @@ class EdgSettingsComponent {
     "In the design tree and library browser, shows which blocks have been made and tested in actual hardware " +
     "by the project maintainers, from an internal database included locally with the IDE. " +
     "IDE restart may be required to take effect.")
-  persistBlockCacheHelp.setEnabled(false)
+  showProvenStatusHelp.setEnabled(false)
 
   val mainPanel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
