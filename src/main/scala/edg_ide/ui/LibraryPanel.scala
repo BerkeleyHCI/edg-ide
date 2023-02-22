@@ -477,7 +477,7 @@ class LibraryPanel(project: Project) extends JPanel {
       if (columnAtPoint(e.getPoint) == 1) {
         getValueAt(rowAtPoint(e.getPoint), columnAtPoint(e.getPoint)) match {
           case cell: EdgirLibraryNode#BlockProven =>
-            return cell.description
+            return SwingHtmlUtil.wrapInHtml(cell.htmlDescription, getFont)
           case _ =>
         }
 
