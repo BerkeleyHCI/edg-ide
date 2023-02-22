@@ -5,7 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.treeStructure.treetable.TreeTable
+import com.intellij.ui.treeStructure.treetable.{TreeTable, TreeTableCellRenderer, TreeTableModel}
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -529,6 +529,8 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.setShowColumns(true)
   private val libraryTreeRenderer = new EdgirLibraryTreeRenderer()
   libraryTree.setTreeCellRenderer(libraryTreeRenderer)
+  private val libraryTableRenderer = new EdgirLibraryTableRenderer()
+  libraryTree.setDefaultRenderer(classOf[String], libraryTableRenderer)
 
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize = 2))
