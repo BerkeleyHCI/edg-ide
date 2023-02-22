@@ -1,5 +1,6 @@
 package edg_ide.swing
 
+import com.intellij.openapi.project.Project
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edgir.ref.ref
 import edgir.elem.elem
@@ -7,6 +8,7 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.IrPort
 import edg_ide.EdgirUtils
 import edg_ide.proven.ProvenFeature
+import edg_ide.ui.BlockVisualizerService
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -22,22 +24,34 @@ object EdgirLibraryNodeTraits {
 }
 
 
-trait EdgirLibraryTreeNode {  // abstract base class for tree node model
-  val children: Seq[EdgirLibraryTreeNode]
+trait EdgirLibraryNodeBase {  // abstract base class for tree node model
+  val children: Seq[EdgirLibraryNodeBase]
   val traits: Set[EdgirLibraryNodeTraits] = Set()
+  def proven: String = ""
 }
 
-object EdgirLibraryTreeNode {
+class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends EdgirLibraryNodeBase {
+  // This node properties
+  //
+  override def toString: String = "(root)"
 
-  abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryTreeNode {
+  lazy val children: Seq[EdgirLibraryNodeBase] = Seq(
+    new BlockRootNode(library.allBlocks),
+    new PortRootNode(library.allPorts),
+    new LinkRootNode(library.allLinks),
+  )
+
+  // Child notes
+  //
+  abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryNodeBase {
     override def toString: String = path.toSimpleString
   }
 
 
-  class BlockUnreachableRootNode(paths: Seq[ref.LibraryPath], root: BlockRootNode) extends EdgirLibraryTreeNode {
+  class BlockUnreachableRootNode(paths: Seq[ref.LibraryPath], root: BlockRootNode) extends EdgirLibraryNodeBase {
     override def toString: String = "(unreachable from root)"
 
-    override lazy val children: Seq[EdgirLibraryTreeNode] = {
+    override lazy val children: Seq[EdgirLibraryNodeBase] = {
       paths.map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
           .sortBy(_.toString)
     }
@@ -54,14 +68,18 @@ object EdgirLibraryTreeNode {
       ).flatten
     }
 
-    override lazy val children: Seq[EdgirLibraryTreeNode] = {
+    override lazy val children: Seq[EdgirLibraryNodeBase] = {
       root.childMap.getOrElse(path, Seq())
           .map { childPath => new BlockNode(childPath, root.blocks(childPath), root) }
           .sortBy(_.toString)
     }
+
+    override lazy val proven = {
+      BlockVisualizerService(project).getProvenDatabase.getByDesign(path).size.toString
+    }
   }
 
-  class BlockRootNode(val blocks: Map[ref.LibraryPath, elem.HierarchyBlock]) extends EdgirLibraryTreeNode {
+  class BlockRootNode(val blocks: Map[ref.LibraryPath, elem.HierarchyBlock]) extends EdgirLibraryNodeBase {
     override def toString: String = "All Blocks"
 
     def allSuperclassesOf(blockType: ref.LibraryPath): Seq[ref.LibraryPath] = {
@@ -100,7 +118,7 @@ object EdgirLibraryTreeNode {
     private val allSubclasses = childMap.values.flatten
     private val unreachableSuperclasses = (unreachableBlocks -- allSubclasses).toSeq
 
-    override lazy val children: Seq[EdgirLibraryTreeNode] = {
+    override lazy val children: Seq[EdgirLibraryNodeBase] = {
       val rootChildren = childMap.getOrElse(rootPath, Set())
           .map { childPath => new BlockNode(childPath, blocks(childPath), this) }
           .toSeq
@@ -114,49 +132,37 @@ object EdgirLibraryTreeNode {
 
 
   class PortNode(val path: ref.LibraryPath, val port: IrPort) extends LibraryElementNode(path) {
-    override val children: Seq[EdgirLibraryTreeNode] = Seq()
+    override val children: Seq[EdgirLibraryNodeBase] = Seq()
   }
 
-  class PortRootNode(ports: Map[ref.LibraryPath, IrPort]) extends EdgirLibraryTreeNode {
+  class PortRootNode(ports: Map[ref.LibraryPath, IrPort]) extends EdgirLibraryNodeBase {
     override def toString: String = "All Ports"
 
-    override lazy val children: Seq[EdgirLibraryTreeNode] = {
+    override lazy val children: Seq[EdgirLibraryNodeBase] = {
       ports.map { case (path, port) => new PortNode(path, port) }
     }.toSeq.sortBy { _.toString }
   }
 
 
   class LinkNode(val path: ref.LibraryPath, val link: elem.Link) extends LibraryElementNode(path) {
-    override val children: Seq[EdgirLibraryTreeNode] = Seq()
+    override val children: Seq[EdgirLibraryNodeBase] = Seq()
   }
 
-  class LinkRootNode(links: Map[ref.LibraryPath, elem.Link]) extends EdgirLibraryTreeNode {
+  class LinkRootNode(links: Map[ref.LibraryPath, elem.Link]) extends EdgirLibraryNodeBase {
     override def toString: String = "All Links"
 
-    lazy val children: Seq[EdgirLibraryTreeNode] = {
+    lazy val children: Seq[EdgirLibraryNodeBase] = {
       links.map { case (path, link) => new LinkNode(path, link) }
     }.toSeq.sortBy { _.toString }
   }
 }
 
 
-class EdgirLibraryTreeTableModel(library: edg.wir.Library) extends SeqTreeTableModel[EdgirLibraryTreeNode] {
-  // Inner classes for node structure
-  //
-  class EdgirLibraryRootNode extends EdgirLibraryTreeNode {
-    override def toString: String = "(root)"
-
-    lazy val children: Seq[EdgirLibraryTreeNode] = Seq(
-      new EdgirLibraryTreeNode.BlockRootNode(library.allBlocks),
-      new EdgirLibraryTreeNode.PortRootNode(library.allPorts),
-      new EdgirLibraryTreeNode.LinkRootNode(library.allLinks),
-    )
-  }
-
-
+class EdgirLibraryTreeTableModel(project: Project, library: edg.wir.Library)
+    extends SeqTreeTableModel[EdgirLibraryNodeBase] {
   // Actual tree model implementation
   //
-  val rootNode: EdgirLibraryTreeNode = new EdgirLibraryRootNode()
+  val rootNode: EdgirLibraryNodeBase = new EdgirLibraryNode(project, library)
   val COLUMNS = if (ProvenFeature.kEnabled) {
     Seq("Path", "Proven")
   } else {
@@ -165,9 +171,9 @@ class EdgirLibraryTreeTableModel(library: edg.wir.Library) extends SeqTreeTableM
 
   // TreeView abstract methods
   //
-  override def getRootNode: EdgirLibraryTreeNode = rootNode
+  override def getRootNode: EdgirLibraryNodeBase = rootNode
 
-  override def getNodeChildren(node: EdgirLibraryTreeNode): Seq[EdgirLibraryTreeNode] = node.children
+  override def getNodeChildren(node: EdgirLibraryNodeBase): Seq[EdgirLibraryNodeBase] = node.children
 
   // These aren't relevant for trees that can't be edited
   override def valueForPathChanged(path: TreePath, newValue: Any): Unit = {}
@@ -185,11 +191,14 @@ class EdgirLibraryTreeTableModel(library: edg.wir.Library) extends SeqTreeTableM
     case _ => classOf[String]
   }
 
-  override def getNodeValueAt(node: EdgirLibraryTreeNode, column: Int): Object = None
+  override def getNodeValueAt(node: EdgirLibraryNodeBase, column: Int): Object = column match {
+    case 1 => node.proven
+    case _ => None
+  }
 
   // These aren't relevant for trees that can't be edited
-  override def isNodeCellEditable(node: EdgirLibraryTreeNode, column: Int): Boolean = false
-  override def setNodeValueAt(aValue: Any, node: EdgirLibraryTreeNode, column: Int): Unit = {}
+  override def isNodeCellEditable(node: EdgirLibraryNodeBase, column: Int): Boolean = false
+  override def setNodeValueAt(aValue: Any, node: EdgirLibraryNodeBase, column: Int): Unit = {}
 
   def setTree(tree: JTree): Unit = { }  // tree updates ignored
 }

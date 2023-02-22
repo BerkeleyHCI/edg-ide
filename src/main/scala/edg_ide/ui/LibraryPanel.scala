@@ -471,15 +471,15 @@ class LibraryPanel(project: Project) extends JPanel {
   private val libraryTreeSearch = new JTextField()
   libraryTreePanel.add(libraryTreeSearch, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
 
-  private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(library))
+  private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, library))
   private val libraryTree = new TreeTable(libraryTreeModel)
   new TreeTableSpeedSearch(libraryTree)
   private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
       e.getPath.getLastPathComponent match {
-        case node: EdgirLibraryTreeNode.BlockNode =>
+        case node: EdgirLibraryNode#BlockNode =>
           preview.setBlock(library, node.path)
-        case node: EdgirLibraryTreeNode.PortNode =>
+        case node: EdgirLibraryNode#PortNode =>
           preview.setPort(library, node.path)
         case node =>
           preview.clear()
@@ -492,7 +492,7 @@ class LibraryPanel(project: Project) extends JPanel {
     override def mousePressed(e: MouseEvent): Unit = {
       val selectedTreePath = TreeTableUtils.getPathForRowLocation(libraryTree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
-        case selected: EdgirLibraryTreeNode.BlockNode => // insert actions / menu for blocks
+        case selected: EdgirLibraryNode#BlockNode => // insert actions / menu for blocks
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
@@ -503,7 +503,7 @@ class LibraryPanel(project: Project) extends JPanel {
             new LibraryBlockPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
           }
 
-        case selected: EdgirLibraryTreeNode.PortNode => // insert actions / menu for ports
+        case selected: EdgirLibraryNode#PortNode => // insert actions / menu for ports
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
@@ -514,7 +514,7 @@ class LibraryPanel(project: Project) extends JPanel {
             new LibraryPortPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
           }
 
-        case selected: EdgirLibraryTreeNode.BlockRootNode => // action for root block
+        case selected: EdgirLibraryNode#BlockRootNode => // action for root block
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
             new BlockRootPopupMenu(project).show(e.getComponent, e.getX, e.getY)
@@ -550,9 +550,9 @@ class LibraryPanel(project: Project) extends JPanel {
       libraryTreeModel.setFilter(_ => true)
     } else {
       val filteredPaths = libraryTreeModel.setFilter {
-        case node: EdgirLibraryTreeNode.BlockNode =>
+        case node: EdgirLibraryNode#BlockNode =>
           searchTerms.forall(searchTerm => node.path.toSimpleString.toLowerCase().contains(searchTerm))
-        case node: EdgirLibraryTreeNode.PortNode =>
+        case node: EdgirLibraryNode#PortNode =>
           searchTerms.forall(searchTerm => node.path.toSimpleString.toLowerCase().contains(searchTerm))
         case other => false
       }
@@ -579,7 +579,7 @@ class LibraryPanel(project: Project) extends JPanel {
   //
   def setLibrary(library: wir.Library): Unit = {
     this.library = library
-    this.libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(this.library))
+    this.libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, this.library))
     TreeTableUtils.updateModel(libraryTree, this.libraryTreeModel)
     updateFilter()
     libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)

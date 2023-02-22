@@ -12,7 +12,7 @@ class EdgirLibraryTreeRenderer extends DefaultTreeCellRenderer {
                                             row: Int, hasFocus: Boolean): Component = {
     val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
     value match {
-      case node: EdgirLibraryTreeNode =>
+      case node: EdgirLibraryNodeBase =>
         if (node.traits.contains(EdgirLibraryNodeTraits.Category)) {
           setIcon(AllIcons.Nodes.Folder)
         } else if (node.traits.contains(EdgirLibraryNodeTraits.Abstract)) {

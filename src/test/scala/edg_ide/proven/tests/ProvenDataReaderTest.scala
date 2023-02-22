@@ -1,6 +1,5 @@
 package edg_ide.proven.tests
 
-import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemBuilder
 import edg_ide.proven.ProvenDataReader
 import org.scalatest.flatspec.AnyFlatSpec

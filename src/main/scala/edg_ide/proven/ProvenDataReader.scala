@@ -81,7 +81,7 @@ object ProvenDataReader {
         lastFileVersion = Some((new File(containingDir, row.getField(kFieldFile)), row.getField(kFieldVersion)))
       }
       val (file, version) = lastFileVersion.get
-      val path = row.getField(kFieldPath).split('.')
+      val path = row.getField(kFieldPath).split('.').toSeq
       val pathRegex = path.map { pathComponent =>
         pathComponent.replace("*", ".*").r
       }
@@ -121,7 +121,7 @@ object ProvenDataReader {
         dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append((thisUntestedRecord, path))
       }
 
-      block.blocks.foreach { case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
+      block.blocks.collect { case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
         val subBlockMap = records.flatMap { case (recordPath, proven) => recordPath match {
           case Seq() if proven.status == ProvenStatus.working =>  // propagate working
             if (proven.isInstanceOf[UserProvenRecord]) {

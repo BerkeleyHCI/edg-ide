@@ -12,9 +12,11 @@ import edgir.elem.elem
 import edgir.ref.ref
 import edg.wir.DesignPath
 import edg_ide.dse.{DseObjective, DseResult}
+import edg_ide.proven.{ProvenDataReader, ProvenDatabase}
 import edg_ide.runner.{DseConfigurationFactory, DseRunConfiguration, DseRunConfigurationType}
 import edgrpc.hdl.{hdl => edgrpc}
 
+import java.io.File
 import scala.collection.SeqMap
 
 
@@ -68,6 +70,8 @@ class BlockVisualizerService(project: Project) extends
     visualizerPanelOption.map(_.getDesign)
   }
 
+  // DSE Feature
+  //
   // TODO maybe separate DSE functionality into its own class / service?
   // but this is mixed into the block diagram visualizer panel and the two are quite linked
 
@@ -109,7 +113,14 @@ class BlockVisualizerService(project: Project) extends
     dsePanelOption.foreach(_.setResults(results, objectives, inProgress))
   }
 
+  // Proven feature
+  //
+  lazy val getProvenDatabase: ProvenDatabase = {
+    ProvenDataReader.read(new File("src/main/resources/proven-designs/data.csv"))
+  }
+
   // State management
+  //
   override def getState: BlockVisualizerServiceState = {
     val state = new BlockVisualizerServiceState
     visualizerPanel.foreach { _.saveState(state) }
