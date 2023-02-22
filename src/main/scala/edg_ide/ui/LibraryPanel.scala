@@ -472,7 +472,19 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTreePanel.add(libraryTreeSearch, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
 
   private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, library))
-  private val libraryTree = new TreeTable(libraryTreeModel)
+  private val libraryTree = new TreeTable(libraryTreeModel) {
+    override def getToolTipText(e: MouseEvent): String = {
+      if (columnAtPoint(e.getPoint) == 1) {
+        getValueAt(rowAtPoint(e.getPoint), columnAtPoint(e.getPoint)) match {
+          case cell: EdgirLibraryNode#BlockProven =>
+            return cell.description
+          case _ =>
+        }
+
+      }
+      super.getToolTipText(e)
+    }
+  }
   new TreeTableSpeedSearch(libraryTree)
   private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
