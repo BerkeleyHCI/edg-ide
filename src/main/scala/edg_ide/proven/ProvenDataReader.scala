@@ -148,18 +148,22 @@ object ProvenDataReader {
 
     new ProvenDatabase(dataBuilder.map { case (libraryPath, records) => libraryPath -> records.toSeq })
   }
-
 }
-class ProvenDatabase(val data: SeqMap[ref.LibraryPath, Seq[(ProvenRecord, DesignPath)]]) {
-  // returns all the records for a library
-  def getRecords(elt: ref.LibraryPath): Seq[(ProvenRecord, DesignPath)] = data.get(elt).toSeq.flatten
 
+
+class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]]) {
+  def isEmpty = data.isEmpty
+  def size = data.size
+}
+
+
+class ProvenDatabase(val data: SeqMap[ref.LibraryPath, Seq[(ProvenRecord, DesignPath)]]) {
   // returns records for a library, grouped by (design, version)
-  def getByDesign(elt: ref.LibraryPath): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = {
+  def getRecords(elt: ref.LibraryPath): BlockProvenRecords = {
     val resultBuilder = mutable.SeqMap[(File, String), mutable.ArrayBuffer[(ProvenRecord, DesignPath)]]()
     data.get(elt).toSeq.flatten.foreach { case (record, path) =>
       resultBuilder.getOrElseUpdate((record.file, record.version), new ArrayBuffer()).append((record, path))
     }
-    SeqMap.from(resultBuilder.map{case (key, value) => key -> value.toSeq})
+    new BlockProvenRecords(SeqMap.from(resultBuilder.map{case (key, value) => key -> value.toSeq}))
   }
 }

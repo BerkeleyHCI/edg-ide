@@ -530,7 +530,7 @@ class LibraryPanel(project: Project) extends JPanel {
   private val libraryTreeRenderer = new EdgirLibraryTreeRenderer()
   libraryTree.setTreeCellRenderer(libraryTreeRenderer)
   private val libraryTableRenderer = new EdgirLibraryTableRenderer()
-  libraryTree.setDefaultRenderer(classOf[String], libraryTableRenderer)
+  libraryTree.setDefaultRenderer(classOf[ProvenNodeBase], libraryTableRenderer)
 
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize = 2))

@@ -36,8 +36,11 @@ class EdgirLibraryTableRenderer extends DefaultTableCellRenderer {
   override def getTableCellRendererComponent(table: JTable, value: Any, isSelected: Boolean, hasFocus: Boolean,
                                              row: Int, column: Int): Component = {
     val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
-    println(value)
-    component.setForeground(JBColor.GREEN)
+    value match {
+      case node: EdgirLibraryNode#BlockProven =>
+        component.setForeground(JBColor.GREEN)
+      case _ =>
+    }
     component
   }
 }

@@ -5,13 +5,16 @@ import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edgir.ref.ref
 import edgir.elem.elem
 import edg.EdgirUtils.SimpleLibraryPath
+import edg.wir.DesignPath
 import edg_ide.EdgirUtils
-import edg_ide.proven.ProvenFeature
+import edg_ide.proven.{BlockProvenRecords, ProvenFeature, ProvenRecord}
 import edg_ide.ui.BlockVisualizerService
 
+import java.io.File
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree._
+import scala.collection.SeqMap
 
 
 sealed trait EdgirLibraryNodeTraits  // categories to pass to the tree renderer icon
@@ -26,11 +29,20 @@ object EdgirLibraryNodeTraits {
 trait EdgirLibraryNodeBase {  // abstract base class for tree node model
   val children: Seq[EdgirLibraryNodeBase]
   val traits: Set[EdgirLibraryNodeTraits] = Set()
-  def proven: String = ""
+  def proven: ProvenNodeBase = EmptyProven
 }
 
+
+// Data holder for a Block's proven status
+sealed trait ProvenNodeBase
+
+object EmptyProven extends ProvenNodeBase {
+  override def toString = ""
+}
+
+
 class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends EdgirLibraryNodeBase {
-  // This node properties
+  // This (root) node properties
   //
   override def toString: String = "(root)"
 
@@ -40,12 +52,11 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
     new LinkRootNode(),
   )
 
-  // Child notes
+  // Child nodes
   //
   abstract class LibraryElementNode(path: ref.LibraryPath) extends EdgirLibraryNodeBase {
     override def toString: String = path.toSimpleString
   }
-
 
   class BlockUnreachableRootNode(paths: Seq[ref.LibraryPath], root: BlockRootNode) extends EdgirLibraryNodeBase {
     override def toString: String = "(unreachable from root)"
@@ -54,6 +65,11 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
       paths.map { childPath => new BlockNode(childPath, library.allBlocks(childPath), root) }
           .sortBy(_.toString)
     }
+  }
+
+  class BlockProven(path: ref.LibraryPath,
+                    records: BlockProvenRecords) extends ProvenNodeBase {
+    override def toString = if (records.isEmpty) "" else records.size.toString
   }
 
   class BlockNode(val path: ref.LibraryPath, val block: elem.HierarchyBlock, root: BlockRootNode)
@@ -74,12 +90,7 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
     }
 
     override lazy val proven = {
-      val provenByDesign = BlockVisualizerService(project).getProvenDatabase.getByDesign(path)
-      if (provenByDesign.nonEmpty) {
-        provenByDesign.size.toString
-      } else {
-        ""
-      }
+      new BlockProven(path, BlockVisualizerService(project).getProvenDatabase.getRecords(path))
     }
   }
 
@@ -193,12 +204,13 @@ class EdgirLibraryTreeTableModel(project: Project, library: edg.wir.Library)
 
   override def getColumnClass(column: Int): Class[_] = column match {
     case 0 => classOf[TreeTableModel]
-    case _ => classOf[String]
+    case 1 => classOf[ProvenNodeBase]
+    case _ => null
   }
 
   override def getNodeValueAt(node: EdgirLibraryNodeBase, column: Int): Object = column match {
     case 1 => node.proven
-    case _ => None
+    case _ => null
   }
 
   // These aren't relevant for trees that can't be edited
