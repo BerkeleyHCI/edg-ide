@@ -31,7 +31,7 @@ class BlockProven(path: ref.LibraryPath,
         val commentsString = if (comments.nonEmpty) s"<br/>$comments" else ""
         s"""<font style="color:$statusColor;"><b>$status</b>: ${file.getName}@${version.substring(0, 7)} (${records.size})</font>$commentsString"""
       }
-    }
+    }.toSeq.reverse  // most recent first
 
     f"""<b>${path.toSimpleString}</b><hr>
         ${dataFormatted.mkString("<br/>")}

@@ -158,7 +158,7 @@ object ProvenDataReader {
   }
 }
 
-
+// Proven records for a particular block, sorted in order of input CSV (typically chronologically, oldest first)
 class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]]) {
   def isEmpty = data.isEmpty
   def size = data.size
@@ -172,15 +172,20 @@ class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, Des
 
   lazy val getLatestStatus = testedData.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.Untested)
 
-  def getDataOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = data
+  def getDataOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = {
+    val dataSeq = data
+      .toSeq.reverse
       .dropWhile(_._2.forall(_._1.status != status))  // drop all of not-containing the status
       .takeWhile(_._2.exists(_._1.status == status))  // and take all which has the status
-    .map { case (design, records) =>
-      design -> records.filter(_._1.status == status)
-    }
+      .map { case (design, records) =>
+        design -> records.filter(_._1.status == status)
+      }.reverse
+    SeqMap.from(dataSeq)
+  }
 }
 
-
+// A set of proven records, for many block; records sorted in order of input CSV
+// (typically chronologically, oldest first)
 class ProvenDatabase(val data: SeqMap[ref.LibraryPath, Seq[(ProvenRecord, DesignPath)]]) {
   // returns records for a library, grouped by (design, version)
   def getRecords(elt: ref.LibraryPath): BlockProvenRecords = {

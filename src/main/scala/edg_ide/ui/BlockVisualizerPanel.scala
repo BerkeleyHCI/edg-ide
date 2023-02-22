@@ -239,8 +239,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     mainSplitter.setSecondComponent(bottomSplitter)
   }
 
-  private var designTreeModel = new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock())
-  private val designTree = new TreeTable(designTreeModel)
+  private var designTreeModel = new BlockTreeTableModel(project, edgir.elem.elem.HierarchyBlock())
+  private val designTree = new TreeTable(designTreeModel) with ProvenTreeTableMixin
   new TreeTableSpeedSearch(designTree)
   private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
@@ -262,6 +262,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   })
   designTree.setShowColumns(true)
+
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
 
@@ -373,7 +374,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.compiler = compiler
 
     // Update the design tree first, in case graph layout fails
-    designTreeModel = new BlockTreeTableModel(design.contents.getOrElse(elem.HierarchyBlock()))
+    designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
     TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 

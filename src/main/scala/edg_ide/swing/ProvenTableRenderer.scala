@@ -1,10 +1,25 @@
 package edg_ide.swing
 
+import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg_ide.proven.ProvenStatus
 
 import java.awt.Component
+import java.awt.event.MouseEvent
 import javax.swing.JTable
 import javax.swing.table.DefaultTableCellRenderer
+
+// Mixin that adds hover tooltip and cell coloring for TreeTable cells with a Proven column
+trait ProvenTreeTableMixin extends TreeTable {
+  val tableRenderer = new ProvenTableRenderer
+  setDefaultRenderer(classOf[ProvenNodeBase], tableRenderer)
+
+  override def getToolTipText(e: MouseEvent): String = {
+    getValueAt(rowAtPoint(e.getPoint), columnAtPoint(e.getPoint)) match {
+      case cell: BlockProven => SwingHtmlUtil.wrapInHtml(cell.htmlDescription, getFont)
+      case _ => super.getToolTipText(e)
+    }
+  }
+}
 
 class ProvenTableRenderer extends DefaultTableCellRenderer {
   override def getTableCellRendererComponent(table: JTable, value: Any, isSelected: Boolean, hasFocus: Boolean,

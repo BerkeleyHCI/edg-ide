@@ -472,19 +472,7 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTreePanel.add(libraryTreeSearch, Gbc(1, 0, GridBagConstraints.HORIZONTAL))
 
   private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, library))
-  private val libraryTree = new TreeTable(libraryTreeModel) {
-    override def getToolTipText(e: MouseEvent): String = {
-      if (columnAtPoint(e.getPoint) == 1) {
-        getValueAt(rowAtPoint(e.getPoint), columnAtPoint(e.getPoint)) match {
-          case cell: BlockProven =>
-            return SwingHtmlUtil.wrapInHtml(cell.htmlDescription, getFont)
-          case _ =>
-        }
-
-      }
-      super.getToolTipText(e)
-    }
-  }
+  private val libraryTree = new TreeTable(libraryTreeModel) with ProvenTreeTableMixin
   new TreeTableSpeedSearch(libraryTree)
   private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
@@ -541,8 +529,6 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.setShowColumns(true)
   private val libraryTreeRenderer = new EdgirLibraryTreeRenderer()
   libraryTree.setTreeCellRenderer(libraryTreeRenderer)
-  private val libraryTableRenderer = new ProvenTableRenderer()
-  libraryTree.setDefaultRenderer(classOf[ProvenNodeBase], libraryTableRenderer)
 
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize = 2))

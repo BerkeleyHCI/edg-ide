@@ -2,20 +2,16 @@ package edg_ide.swing
 
 import com.intellij.openapi.project.Project
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edgir.ref.ref
-import edgir.elem.elem
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.wir.DesignPath
 import edg_ide.EdgirUtils
-import edg_ide.proven.{BlockProvenRecords, ProvenFeature, ProvenRecord, ProvenStatus}
+import edg_ide.proven.ProvenFeature
 import edg_ide.ui.BlockVisualizerService
+import edgir.elem.elem
+import edgir.ref.ref
 
-import java.awt.Color
-import java.io.File
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree._
-import scala.collection.SeqMap
 
 
 sealed trait EdgirLibraryNodeTraits  // categories to pass to the tree renderer icon
