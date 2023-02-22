@@ -68,7 +68,7 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
   }
 
   class BlockProven(path: ref.LibraryPath,
-                    records: BlockProvenRecords) extends ProvenNodeBase {
+                    val records: BlockProvenRecords) extends ProvenNodeBase {
     override def toString = if (records.isEmpty) "" else records.size.toString
   }
 

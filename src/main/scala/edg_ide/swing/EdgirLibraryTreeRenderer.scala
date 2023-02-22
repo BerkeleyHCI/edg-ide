@@ -3,6 +3,7 @@ package edg_ide.swing
 import com.intellij.icons.AllIcons
 import com.intellij.ui.JBColor
 import com.intellij.ui.treeStructure.treetable.{TreeTable, TreeTableCellRenderer, TreeTableTree}
+import edg_ide.proven.ProvenStatus
 import icons.PlatformDebuggerImplIcons
 
 import java.awt.Component
@@ -38,7 +39,12 @@ class EdgirLibraryTableRenderer extends DefaultTableCellRenderer {
     val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
     value match {
       case node: EdgirLibraryNode#BlockProven =>
-        component.setForeground(JBColor.GREEN)
+        node.records.getLatestStatus match {
+          case ProvenStatus.working => component.setForeground(JBColor.GREEN)
+          case ProvenStatus.fixed => component.setForeground(JBColor.ORANGE)
+          case ProvenStatus.broken => component.setForeground(JBColor.RED)
+          case _ =>  // ignored
+        }
       case _ =>
     }
     component
