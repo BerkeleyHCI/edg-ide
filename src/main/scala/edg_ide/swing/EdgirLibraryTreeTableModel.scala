@@ -5,7 +5,6 @@ import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edgir.ref.ref
 import edgir.elem.elem
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.IrPort
 import edg_ide.EdgirUtils
 import edg_ide.proven.ProvenFeature
 import edg_ide.ui.BlockVisualizerService
