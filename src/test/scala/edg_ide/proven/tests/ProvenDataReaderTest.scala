@@ -26,6 +26,10 @@ class ProvenDataReaderTest extends AnyFlatSpec with Matchers {
     esp32c.isEmpty shouldEqual false
     esp32c.getLatestStatus shouldEqual ProvenStatus.fixed
 
+    val caps = data.getRecords(ElemBuilder.LibraryPath("electronics_lib.JlcCapacitor.JlcCapacitor"))
+    caps.isEmpty shouldEqual false
+    caps.getLatestStatus shouldEqual ProvenStatus.working
+
     val nonexistent = data.getRecords(ElemBuilder.LibraryPath("nonexistent"))
     nonexistent.isEmpty shouldEqual true
     nonexistent.getLatestStatus shouldEqual ProvenStatus.untested
