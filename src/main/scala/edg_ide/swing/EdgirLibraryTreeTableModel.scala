@@ -6,6 +6,7 @@ import edgir.elem.elem
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.IrPort
 import edg_ide.EdgirUtils
+import edg_ide.proven.ProvenFeature
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -156,7 +157,11 @@ class EdgirLibraryTreeTableModel(library: edg.wir.Library) extends SeqTreeTableM
   // Actual tree model implementation
   //
   val rootNode: EdgirLibraryTreeNode = new EdgirLibraryRootNode()
-  val COLUMNS = Seq("Path")
+  val COLUMNS = if (ProvenFeature.kEnabled) {
+    Seq("Path", "Proven")
+  } else {
+    Seq("Path")
+  }
 
   // TreeView abstract methods
   //
