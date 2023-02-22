@@ -20,6 +20,7 @@ object ProvenStatus extends Enumeration {
   val Untested = Value(0, "untested")
   val Broken = Value(1, "broken")
   val Fixed = Value(2, "fixed")  // fixed in code but not end-to-end (HDL to PCB) tested
+  val Working = Value(3, "working")
 
   def toEnum(s: String): Option[Status] = {
     values.find(_.toString == s)
