@@ -1,9 +1,11 @@
 package edg_ide.swing
 
+import com.intellij.openapi.project.Project
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil._
 import edg.wir.DesignPath
+import edg_ide.ui.{BlockVisualizerService, EdgSettingsState}
 import edgir.elem.elem
 
 import javax.swing.JTree
@@ -11,13 +13,13 @@ import javax.swing.event.TreeModelListener
 import javax.swing.tree._
 
 
-class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
+class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem.HierarchyBlock) {
   import edgir.elem.elem.BlockLike
 
   lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs.map { case (name, subblock) =>
     (name, subblock.`type`)
   }.collect {
-    case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(path + name, subblock)
+    case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(project, path + name, subblock)
   }.toSeq
 
   override def equals(other: Any): Boolean = other match {
@@ -27,7 +29,11 @@ class HierarchyBlockNode(val path: DesignPath, val block: elem.HierarchyBlock) {
 
   override def toString: String = path.lastString
 
-  def getColumns(index: Int): String = block.getSelfClass.toSimpleString
+  lazy val classString = block.getSelfClass.toSimpleString
+
+  lazy val proven = {
+    new BlockProven(block.getSelfClass, BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass))
+  }
 }
 
 
@@ -53,9 +59,13 @@ object BlockTreeTableModel {
 }
 
 
-class BlockTreeTableModel(root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
-  val rootNode: HierarchyBlockNode = new HierarchyBlockNode(DesignPath(), root)
-  val COLUMNS = Seq("Path", "Class")
+class BlockTreeTableModel(project: Project, root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
+  val rootNode: HierarchyBlockNode = new HierarchyBlockNode(project, DesignPath(), root)
+  val COLUMNS = if (EdgSettingsState.getInstance().showProvenStatus) {
+    Seq("Path", "Class", "Proven")
+  } else {
+    Seq("Path", "Class")
+  }
 
   // TreeView abstract methods
   //
@@ -76,10 +86,16 @@ class BlockTreeTableModel(root: elem.HierarchyBlock) extends SeqTreeTableModel[H
 
   override def getColumnClass(column: Int): Class[_] = column match {
     case 0 => classOf[TreeTableModel]
-    case _ => classOf[String]
+    case 1 => classOf[String]
+    case 2 => classOf[ProvenNodeBase]
+    case _ => null
   }
 
-  override def getNodeValueAt(node: HierarchyBlockNode, column: Int): Object = node.getColumns(column)
+  override def getNodeValueAt(node: HierarchyBlockNode, column: Int): Object = column match {
+    case 1 => node.classString
+    case 2 => node.proven
+    case _ => null
+  }
 
   // These aren't relevant for trees that can't be edited
   override def isNodeCellEditable(node: HierarchyBlockNode, column: Int): Boolean = false

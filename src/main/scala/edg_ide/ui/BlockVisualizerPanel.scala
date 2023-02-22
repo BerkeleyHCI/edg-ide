@@ -26,13 +26,17 @@ import edgir.schema.schema.Design
 import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
+import java.awt.datatransfer.DataFlavor
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.io.{File, FileInputStream}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel}
+import javax.swing.{JLabel, JPanel, TransferHandler}
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.collection.{SeqMap, mutable}
+import scala.util.Using
 
 
 object Gbc {
@@ -132,6 +136,45 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val defaultTool: DefaultTool = new DefaultTool(toolInterface)
   private var activeTool: BaseTool = defaultTool
 
+  // Internal development features / tools
+  //
+  // DnD to allow loading and visualizing a .edg file (Design protobuf)
+  // this isn't (yet?) meant to be a proper user-facing feature so this isn't really discoverable
+  this.setTransferHandler(new TransferHandler() {
+    override def canImport(info: TransferHandler.TransferSupport): Boolean = {
+      info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
+    }
+
+    override def importData(info: TransferHandler.TransferSupport): Boolean = {
+      if (!info.isDrop || !info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+        return false
+      }
+      val data = info.getTransferable.getTransferData(DataFlavor.javaFileListFlavor)
+          .asInstanceOf[java.util.List[File]].asScala.toSeq
+      val file = data match {
+        case Seq(file) => file
+        case _ =>
+          PopupUtils.createErrorPopupAtMouse("can open only one file", BlockVisualizerPanel.this)
+          return false
+      }
+      val design = Using(new FileInputStream(file)) { fileInputStream =>
+        schema.Design.parseFrom(fileInputStream)
+      }.recover { exc =>
+        PopupUtils.createErrorPopupAtMouse(s"failed opening file: $exc", BlockVisualizerPanel.this)
+        return false
+      }.get
+      if (design.contents.isEmpty) {
+        PopupUtils.createErrorPopupAtMouse(s"file does not contain a design", BlockVisualizerPanel.this)
+        return false
+      }
+
+      // TODO show solved values and refinements
+      val dummyCompiler = new Compiler(schema.Design(), EdgCompilerService(project).pyLib)
+      setDesignTop(design, dummyCompiler, edgrpc.Refinements(), Seq(), Some(f"${file.getName}: "))
+
+      true
+    }
+  })
 
   // GUI Components
   //
@@ -196,8 +239,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     mainSplitter.setSecondComponent(bottomSplitter)
   }
 
-  private var designTreeModel = new BlockTreeTableModel(edgir.elem.elem.HierarchyBlock())
-  private val designTree = new TreeTable(designTreeModel)
+  private var designTreeModel = new BlockTreeTableModel(project, edgir.elem.elem.HierarchyBlock())
+  private val designTree = new TreeTable(designTreeModel) with ProvenTreeTableMixin
   new TreeTableSpeedSearch(designTree)
   private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
     override def valueChanged(e: TreeSelectionEvent): Unit = {
@@ -219,6 +262,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   })
   designTree.setShowColumns(true)
+
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
 
@@ -330,7 +374,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.compiler = compiler
 
     // Update the design tree first, in case graph layout fails
-    designTreeModel = new BlockTreeTableModel(design.contents.getOrElse(elem.HierarchyBlock()))
+    designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
     TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
 
