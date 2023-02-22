@@ -476,7 +476,7 @@ class LibraryPanel(project: Project) extends JPanel {
     override def getToolTipText(e: MouseEvent): String = {
       if (columnAtPoint(e.getPoint) == 1) {
         getValueAt(rowAtPoint(e.getPoint), columnAtPoint(e.getPoint)) match {
-          case cell: EdgirLibraryNode#BlockProven =>
+          case cell: BlockProven =>
             return SwingHtmlUtil.wrapInHtml(cell.htmlDescription, getFont)
           case _ =>
         }
@@ -541,7 +541,7 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.setShowColumns(true)
   private val libraryTreeRenderer = new EdgirLibraryTreeRenderer()
   libraryTree.setTreeCellRenderer(libraryTreeRenderer)
-  private val libraryTableRenderer = new EdgirLibraryTableRenderer()
+  private val libraryTableRenderer = new ProvenTableRenderer()
   libraryTree.setDefaultRenderer(classOf[ProvenNodeBase], libraryTableRenderer)
 
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)

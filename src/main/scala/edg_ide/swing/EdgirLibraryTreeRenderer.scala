@@ -31,17 +31,3 @@ class EdgirLibraryTreeRenderer extends DefaultTreeCellRenderer {
     component
   }
 }
-
-
-class EdgirLibraryTableRenderer extends DefaultTableCellRenderer {
-  override def getTableCellRendererComponent(table: JTable, value: Any, isSelected: Boolean, hasFocus: Boolean,
-                                             row: Int, column: Int): Component = {
-    val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
-    value match {
-      case cell: EdgirLibraryNode#BlockProven =>
-        component.setForeground(ProvenStatus.colorOf(cell.records.getLatestStatus))
-      case _ =>
-    }
-    component
-  }
-}
