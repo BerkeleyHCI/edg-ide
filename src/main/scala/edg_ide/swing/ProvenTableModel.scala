@@ -20,17 +20,20 @@ class BlockProven(path: ref.LibraryPath,
   }
 
   lazy val htmlDescription = {
-    val dataFormatted = records.data.flatMap { case ((file, version), records) =>
-      records.groupBy(_._1.status).map { case (status, records) =>
+    val dataFormatted = records.data.map { case ((file, version), records) =>
+      val statusCountString = records.groupBy(_._1.status).map { case (status, records) =>
         val statusColor = SwingHtmlUtil.colorToHtml(ProvenStatus.colorOf(status))
-        val comments = records.map(_._1).collect {
-          case record: UserProvenRecord => record.comments
-        }.flatten.map { comment =>
-          s"- $comment"
-        }.mkString("<br/>")
-        val commentsString = if (comments.nonEmpty) s"<br/>$comments" else ""
-        s"""<font style="color:$statusColor;"><b>$status</b>: ${file.getName}@${version.substring(0, 7)} (${records.size})</font>$commentsString"""
-      }
+        s"""<font style="color:$statusColor;">$status (${records.size})</font>"""
+      }.mkString(", ")
+
+      val comments = records.map(_._1).collect {
+        case record: UserProvenRecord => record.comments
+      }.flatten.map { comment =>
+        s"- $comment"
+      }.mkString("<br/>")
+      val commentsString = if (comments.nonEmpty) s"<br/>$comments" else ""
+
+      s"""<b>${file.getName}</b>@${version.substring(0, 7)}: $statusCountString$commentsString"""
     }.toSeq.reverse  // most recent first
 
     f"""<b>${path.toSimpleString}</b><hr>
