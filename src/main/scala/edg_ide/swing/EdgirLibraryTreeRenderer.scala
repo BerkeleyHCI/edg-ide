@@ -39,12 +39,7 @@ class EdgirLibraryTableRenderer extends DefaultTableCellRenderer {
     val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
     value match {
       case cell: EdgirLibraryNode#BlockProven =>
-        cell.records.getLatestStatus match {
-          case ProvenStatus.working => component.setForeground(JBColor.GREEN)
-          case ProvenStatus.fixed => component.setForeground(JBColor.ORANGE)
-          case ProvenStatus.broken => component.setForeground(JBColor.RED)
-          case _ =>  // ignored
-        }
+        component.setForeground(ProvenStatus.colorOf(cell.records.getLatestStatus))
       case _ =>
     }
     component

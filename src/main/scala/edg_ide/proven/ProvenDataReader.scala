@@ -1,5 +1,6 @@
 package edg_ide.proven
 
+import com.intellij.ui.JBColor
 import de.siegmar.fastcsv.reader.NamedCsvReader
 import edg.wir.DesignPath
 import edgir.elem.elem
@@ -16,13 +17,19 @@ import scala.util.matching.Regex
 object ProvenStatus extends Enumeration {
   type Status = Value
 
-  val untested = Value(0, "untested")
-  val broken = Value(1, "broken")
-  val fixed = Value(2, "fixed")  // fixed in code but not end-to-end (HDL to PCB) tested
-  val working = Value(3, "working")
+  val Untested = Value(0, "untested")
+  val Broken = Value(1, "broken")
+  val Fixed = Value(2, "fixed")  // fixed in code but not end-to-end (HDL to PCB) tested
 
   def toEnum(s: String): Option[Status] = {
     values.find(_.toString == s)
+  }
+
+  def colorOf(status: Status): JBColor = status match {
+    case Untested => JBColor.GRAY
+    case Working => JBColor.GREEN
+    case Fixed => JBColor.ORANGE
+    case Broken => JBColor.RED
   }
 }
 
@@ -53,7 +60,7 @@ class InnerProvenRecord(parent: ProvenRecord) extends ProvenRecord {
 
 class UntestedRecord(val file: File, val version: String) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}(from $file)"
-  override def status = ProvenStatus.untested
+  override def status = ProvenStatus.Untested
 }
 
 
@@ -92,11 +99,11 @@ object ProvenDataReader {
 
       val status = row.getField(kFieldStatus) match {
         case "working" =>
-          new UserProvenRecord(ProvenStatus.working, file, version, path, comments)
+          new UserProvenRecord(ProvenStatus.Working, file, version, path, comments)
         case "broken" if row.getField(kFixedVersion).nonEmpty =>
-          new UserProvenRecord(ProvenStatus.fixed, file, version, path, comments)
+          new UserProvenRecord(ProvenStatus.Fixed, file, version, path, comments)
         case "broken" =>
-          new UserProvenRecord(ProvenStatus.broken, file, version, path, comments)
+          new UserProvenRecord(ProvenStatus.Broken, file, version, path, comments)
       }
       designToRecord.getOrElseUpdate((file, version), mutable.ArrayBuffer()).append(
         (pathRegex, status))
@@ -123,7 +130,7 @@ object ProvenDataReader {
 
       block.blocks.collect { case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
         val subBlockMap = records.flatMap { case (recordPath, proven) => recordPath match {
-          case Seq() if proven.status == ProvenStatus.working =>  // propagate working
+          case Seq() if proven.status == ProvenStatus.Working =>  // propagate working
             if (proven.isInstanceOf[UserProvenRecord]) {
               Some(Seq(), new InnerProvenRecord(proven))  // create a derived record
             } else {
@@ -155,7 +162,7 @@ class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, Des
   def isEmpty = data.isEmpty
   def size = data.size
 
-  def getLatestStatus = data.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.untested)
+  def getLatestStatus = data.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.Untested)
 
   def getLatestOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = data
       .takeWhile(_._2.forall(_._1.status == status))

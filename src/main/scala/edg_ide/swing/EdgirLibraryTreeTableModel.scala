@@ -7,9 +7,10 @@ import edgir.elem.elem
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
-import edg_ide.proven.{BlockProvenRecords, ProvenFeature, ProvenRecord}
+import edg_ide.proven.{BlockProvenRecords, ProvenFeature, ProvenRecord, ProvenStatus}
 import edg_ide.ui.BlockVisualizerService
 
+import java.awt.Color
 import java.io.File
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -70,9 +71,18 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
   class BlockProven(path: ref.LibraryPath,
                     val records: BlockProvenRecords) extends ProvenNodeBase {
     override def toString = if (records.isEmpty) "" else records.size.toString
-    def htmlDescription = f"""<b>${path.toSimpleString}</b>
-                             ${records.data.toString()}
-                             """
+    def htmlDescription = {
+      val dataFormatted = records.data.flatMap { case ((file, version), records) =>
+        records.groupBy(_._1.status).map { case (status, records) =>
+          val statusColor = SwingHtmlUtil.colorToHtml(ProvenStatus.colorOf(status))
+          s"""<font style="color:$statusColor;"><b>$status</b>: ${file.getName}@${version.substring(0, 7)} (${records.size})</font>"""
+        }
+      }
+
+      f"""<b>${path.toSimpleString}</b><hr>
+          ${dataFormatted.mkString("<br/>")}
+          """
+    }
   }
 
   class BlockNode(val path: ref.LibraryPath, val block: elem.HierarchyBlock, root: BlockRootNode)
