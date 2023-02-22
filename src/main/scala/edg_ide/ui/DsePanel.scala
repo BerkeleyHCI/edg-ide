@@ -130,7 +130,7 @@ class DsePlotPanel() extends JPanel {
       val values = results.map { result =>
         objective.calculate(result.compiled, result.compiler).map(_.toStringValue)
       }
-      val stringToPos = values.flatten.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+      val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
       val axis = stringToPos.map { case (str, index) => (index, str) }
 
       val stringToPosMap = stringToPos.toMap

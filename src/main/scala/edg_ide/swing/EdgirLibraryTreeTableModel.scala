@@ -75,7 +75,12 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
     }
 
     override lazy val proven = {
-      BlockVisualizerService(project).getProvenDatabase.getByDesign(path).size.toString
+      val provenByDesign = BlockVisualizerService(project).getProvenDatabase.getByDesign(path)
+      if (provenByDesign.nonEmpty) {
+        provenByDesign.size.toString
+      } else {
+        ""
+      }
     }
   }
 
