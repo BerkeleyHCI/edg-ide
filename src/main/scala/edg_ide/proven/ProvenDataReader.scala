@@ -1,14 +1,13 @@
 package edg_ide.proven
 
 import de.siegmar.fastcsv.reader.NamedCsvReader
-import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.DesignPath
+import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
-import edgir.elem.elem
-import org.eclipse.emf.ecore.xmi.IllegalValueException
 
 import java.io.{File, FileInputStream, FileReader}
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.{SeqMap, mutable}
 import scala.util.Using
 import scala.util.matching.Regex
@@ -29,18 +28,20 @@ object ProvenStatus extends Enumeration {
 
 
 sealed trait ProvenRecord {
-  def file: File
-  def version: String
+  def file: File  // compiled design / file that was tested
+  def version: String  // git version at which the design was tested
   def status: ProvenStatus.Status
 }
 
 
+// A proven record directly specified by the user (corresponds to a row in the CSV)
 class UserProvenRecord(val status: ProvenStatus.Status, val file: File, val version: String, pattern: Seq[String],
                        val comments: Option[String]) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}($status, $comments from $file:${pattern.mkString(".")})"
 }
 
 
+// A proven record that is the inner
 class InnerProvenRecord(parent: ProvenRecord) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}($parent)"
 
@@ -101,7 +102,7 @@ object ProvenDataReader {
         (pathRegex, status))
     }
 
-    val dataBuilder = mutable.Map[ref.LibraryPath, mutable.ArrayBuffer[ProvenRecord]]()
+    val dataBuilder = mutable.SeqMap[ref.LibraryPath, mutable.ArrayBuffer[(ProvenRecord, DesignPath)]]()
 
     // processes a block, with the potentially matching records from a higher level
     // for record keys: an empty list means apply this record, a nonempty list means apply it to a child
@@ -114,15 +115,20 @@ object ProvenDataReader {
       if (thisRecords.nonEmpty) {
         require(thisRecords.size == 1, f"multiple proven records at $file $path")
         val thisRecordProven = thisRecords.head._2
-        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append(thisRecordProven)
+        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append((thisRecordProven, path))
       } else {
         val thisUntestedRecord = new UntestedRecord(file, version)
-        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append(thisUntestedRecord)
+        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append((thisUntestedRecord, path))
       }
 
       block.blocks.foreach { case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
         val subBlockMap = records.flatMap { case (recordPath, proven) => recordPath match {
-          case Seq() if proven.status == ProvenStatus.working => Some(Seq(), proven)  // propagate working
+          case Seq() if proven.status == ProvenStatus.working =>  // propagate working
+            if (proven.isInstanceOf[UserProvenRecord]) {
+              Some(Seq(), new InnerProvenRecord(proven))  // create a derived record
+            } else {
+              Some(Seq(), proven)  // otherwise propagate as-is
+            }
           case Seq() => None  // don't propagate other records
           case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) => Some(pathTail -> proven)
           case Seq(pathHead, pathTail @ _*) => None  // non-matching, discard
@@ -140,10 +146,20 @@ object ProvenDataReader {
       }))
     }
 
-    new ProvenDatabase(dataBuilder.map { case (libraryPath, records) => libraryPath -> records.toSeq}.toMap)
+    new ProvenDatabase(dataBuilder.map { case (libraryPath, records) => libraryPath -> records.toSeq })
   }
 
 }
-class ProvenDatabase(val data: Map[ref.LibraryPath, Seq[ProvenRecord]]) {
+class ProvenDatabase(val data: SeqMap[ref.LibraryPath, Seq[(ProvenRecord, DesignPath)]]) {
+  // returns all the records for a library
+  def getRecords(elt: ref.LibraryPath): Seq[(ProvenRecord, DesignPath)] = data.get(elt).toSeq.flatten
 
+  // returns records for a library, grouped by (design, version)
+  def getByDesign(elt: ref.LibraryPath): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = {
+    val resultBuilder = mutable.SeqMap[(File, String), mutable.ArrayBuffer[(ProvenRecord, DesignPath)]]()
+    data.get(elt).toSeq.flatten.foreach { case (record, path) =>
+      resultBuilder.getOrElseUpdate((record.file, record.version), new ArrayBuffer()).append((record, path))
+    }
+    SeqMap.from(resultBuilder.map{case (key, value) => key -> value.toSeq})
+  }
 }
