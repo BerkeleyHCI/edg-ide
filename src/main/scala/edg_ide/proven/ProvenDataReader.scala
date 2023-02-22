@@ -154,6 +154,11 @@ object ProvenDataReader {
 class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]]) {
   def isEmpty = data.isEmpty
   def size = data.size
+
+  def getLatestStatus = data.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.untested)
+
+  def getLatestOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = data
+      .takeWhile(_._2.forall(_._1.status == status))
 }
 
 
