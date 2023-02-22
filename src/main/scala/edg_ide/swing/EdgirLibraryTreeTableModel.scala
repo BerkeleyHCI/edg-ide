@@ -70,8 +70,13 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
 
   class BlockProven(path: ref.LibraryPath,
                     val records: BlockProvenRecords) extends ProvenNodeBase {
-    override def toString = if (records.isEmpty) "" else records.size.toString
-    def htmlDescription = {
+    override lazy val toString: String = if (records.isEmpty) {
+      ""
+    } else {
+      records.getDataOfStatus(records.getLatestStatus).flatMap { case (design, records) => records }.size.toString
+    }
+
+    lazy val htmlDescription = {
       val dataFormatted = records.data.flatMap { case ((file, version), records) =>
         records.groupBy(_._1.status).map { case (status, records) =>
           val statusColor = SwingHtmlUtil.colorToHtml(ProvenStatus.colorOf(status))

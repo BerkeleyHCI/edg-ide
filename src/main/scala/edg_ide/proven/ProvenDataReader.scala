@@ -163,10 +163,21 @@ class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, Des
   def isEmpty = data.isEmpty
   def size = data.size
 
-  def getLatestStatus = data.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.Untested)
+  // data with untested status filtered out, which is more useful for some displays
+  private lazy val testedData = data.map { case (design, records) =>
+    design -> records.filter(_._1.status != ProvenStatus.Untested)
+  }.filter { case (design, records) =>
+    records.nonEmpty
+  }
 
-  def getLatestOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = data
-      .takeWhile(_._2.forall(_._1.status == status))
+  lazy val getLatestStatus = testedData.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.Untested)
+
+  def getDataOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = data
+      .dropWhile(_._2.forall(_._1.status != status))  // drop all of not-containing the status
+      .takeWhile(_._2.exists(_._1.status == status))  // and take all which has the status
+    .map { case (design, records) =>
+      design -> records.filter(_._1.status == status)
+    }
 }
 
 
