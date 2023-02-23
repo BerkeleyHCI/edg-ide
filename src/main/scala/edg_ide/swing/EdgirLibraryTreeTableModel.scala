@@ -18,7 +18,6 @@ sealed trait EdgirLibraryNodeTraits  // categories to pass to the tree renderer 
 object EdgirLibraryNodeTraits {
   object Abstract extends EdgirLibraryNodeTraits
   object Category extends EdgirLibraryNodeTraits
-  object Footprint extends EdgirLibraryNodeTraits
 }
 
 
@@ -61,8 +60,6 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
       Set(
         if (EdgirUtils.isCategory(path)) Some(EdgirLibraryNodeTraits.Category) else None,
         if (block.isAbstract) Some(EdgirLibraryNodeTraits.Abstract) else None,
-        if (allSuperclassesOf(path).contains(EdgirUtils.FootprintBlockType))
-          Some(EdgirLibraryNodeTraits.Footprint) else None,
       ).flatten
     }
 

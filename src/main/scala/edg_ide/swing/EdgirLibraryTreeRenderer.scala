@@ -21,8 +21,6 @@ class EdgirLibraryTreeRenderer extends DefaultTreeCellRenderer {
           setIcon(AllIcons.Nodes.Folder)
         } else if (node.traits.contains(EdgirLibraryNodeTraits.Abstract)) {
           setIcon(AllIcons.Hierarchy.Subtypes)
-        } else if (node.traits.contains(EdgirLibraryNodeTraits.Footprint)) {
-          setIcon(PlatformDebuggerImplIcons.MemoryView.Active)
         } else {
           setIcon(null)
         }
