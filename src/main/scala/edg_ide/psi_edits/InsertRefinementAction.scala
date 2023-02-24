@@ -182,6 +182,6 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   // Refinements are inserted as one action
   // Inserts surrounding infrastructure as needed, handling cases where no refinements block or kwarg is present
   def createInsertRefinements(refinements: SeqMap[String, Seq[(Seq[PyExpression], PyExpression)]]): Errorable[() => Seq[PyExpression]] = {
-
+    ???
   }
 }
