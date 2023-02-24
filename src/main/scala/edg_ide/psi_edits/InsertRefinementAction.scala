@@ -2,6 +2,7 @@ package edg_ide.psi_edits
 
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiParserFacade
 import com.jetbrains.python.psi._
 import edg.util.Errorable
@@ -175,13 +176,67 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   val psiElementGenerator = PyElementGenerator.getInstance(project)
   val languageLevel = LanguageLevel.forElement(insertIntoClass)
 
+  // Must be called within writeCommandAction
+  // Inserts the refinement kwarg and value into the target PyArgumentList
+  private def insertRefinementKwarg(into: PyArgumentList, kwarg: String,
+                                    refinements: Seq[(Seq[PyExpression], PyExpression)]): Seq[PyStatement] = {
+
+  }
+
+  // Creates a function that when called within a writeCommandAction,
+  // merges the target refinements into a PyArgumentList
+  private def createMergeRefinementKwarg(into: PyArgumentList, kwarg: String,
+                                         refinements: Seq[(Seq[PyExpression], PyExpression)]): Errorable[() => Seq[PyStatement]] = exceptable {
+
+  }
+
   // Refinements specified as map of kwarg -> [([refinement key expr components], refinement value)]
   // for example, "instance_refinements" -> [([Expr(AbstractResistor)], Expr(GenericResistor))]
   // or, "class_values" -> [([Expr(AbstractResistor), Expr(["resistance"])], Expr(1))]
   // Returns a function that when called, does the insertion and return the newly inserted expressions
   // Refinements are inserted as one action
   // Inserts surrounding infrastructure as needed, handling cases where no refinements block or kwarg is present
-  def createInsertRefinements(refinements: SeqMap[String, Seq[(Seq[PyExpression], PyExpression)]]): Errorable[() => Seq[PyExpression]] = {
-    ???
+  def createInsertRefinements(refinements: SeqMap[String, Seq[(Seq[PyExpression], PyExpression)]]):
+      Errorable[() => Seq[PyStatement]] = exceptable {
+    val refinementsMethod = insertIntoClass.getMethods.find { method =>
+      method.getName == InsertRefinementAction.kRefinementsFunctionName
+    }
+    val insertRefinementsAction: ThrowableComputable[Seq[PyFunction], Nothing] = refinementsMethod match {
+      case Some(refinementsMethod) =>  // append to existing refinements method
+        val argList = refinementsMethod.getStatementList.getStatements.toSeq
+          .onlyExcept("unexpected multiple statements in refinements()")
+          .instanceOfExcept[PyReturnStatement]("unexpected statement in refinements() body")
+          .getExpression.instanceOfExcept[PyBinaryExpression]("unexpected expr in refinements() return")
+          .getRightExpression.instanceOfExcept[PyCallExpression]("unexpected expr in refinements() return rhs")
+          .getArgumentList
+        val mergeRefinements = refinements.toSeq { case (kwarg, refinements) =>
+          createMergeRefinementKwarg(argList, kwarg, refinements).exceptError
+        }
+        () => {
+          mergeRefinements.flatMap { fn => fn }
+        }
+      case None =>  // insert new refinements method
+        () => {
+          val newFn = psiElementGenerator.createFromText(languageLevel,
+            classOf[PyFunction],
+            s"""def refinements(self) -> Refinements:
+               |  return super().refinements() + Refinements(
+               |    )
+               |""".stripMargin.replace("\r\n", "\n")) // avoid a "wrong line separator" assert
+          val refinementsFn = insertIntoClass.getStatementList.add(newFn).asInstanceOf[PyFunction]
+          val argList = refinementsFn.getStatementList.getStatements
+            .head.asInstanceOf[PyReturnStatement]
+            .getExpression.asInstanceOf[PyBinaryExpression]
+            .getRightExpression.asInstanceOf[PyCallExpression]
+            .getArgumentList
+          refinements.foreach { case (kwarg, refinements) =>
+            insertRefinementKwarg(argList, kwarg, refinements)
+          }
+          Seq(refinementsFn)
+        }
+    }
+    () => writeCommandAction(project)
+      .withName(s"Add refinements to ${insertIntoClass.getName}")
+      .compute(insertRefinementsAction)
   }
 }
