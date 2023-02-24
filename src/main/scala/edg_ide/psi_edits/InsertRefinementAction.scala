@@ -180,14 +180,14 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   // Inserts the refinement kwarg and value into the target PyArgumentList
   private def insertRefinementKwarg(into: PyArgumentList, kwarg: String,
                                     refinements: Seq[(Seq[PyExpression], PyExpression)]): Seq[PyStatement] = {
-
+    ???
   }
 
   // Creates a function that when called within a writeCommandAction,
   // merges the target refinements into a PyArgumentList
   private def createMergeRefinementKwarg(into: PyArgumentList, kwarg: String,
                                          refinements: Seq[(Seq[PyExpression], PyExpression)]): Errorable[() => Seq[PyStatement]] = exceptable {
-
+    ???
   }
 
   // Refinements specified as map of kwarg -> [([refinement key expr components], refinement value)]
@@ -201,7 +201,7 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
     val refinementsMethod = insertIntoClass.getMethods.find { method =>
       method.getName == InsertRefinementAction.kRefinementsFunctionName
     }
-    val insertRefinementsAction: ThrowableComputable[Seq[PyFunction], Nothing] = refinementsMethod match {
+    val insertRefinementsAction: ThrowableComputable[Seq[PyStatement], Nothing] = refinementsMethod match {
       case Some(refinementsMethod) =>  // append to existing refinements method
         val argList = refinementsMethod.getStatementList.getStatements.toSeq
           .onlyExcept("unexpected multiple statements in refinements()")
@@ -209,11 +209,11 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
           .getExpression.instanceOfExcept[PyBinaryExpression]("unexpected expr in refinements() return")
           .getRightExpression.instanceOfExcept[PyCallExpression]("unexpected expr in refinements() return rhs")
           .getArgumentList
-        val mergeRefinements = refinements.toSeq { case (kwarg, refinements) =>
+        val mergeRefinements = refinements.toSeq.map { case (kwarg, refinements) =>
           createMergeRefinementKwarg(argList, kwarg, refinements).exceptError
         }
         () => {
-          mergeRefinements.flatMap { fn => fn }
+          mergeRefinements.flatMap { fn => fn() }
         }
       case None =>  // insert new refinements method
         () => {
