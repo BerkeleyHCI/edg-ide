@@ -11,7 +11,11 @@ import edg_ide.util.exceptable
 
 
 object InsertRefinementAction {
-  val REFINEMENT_FN_NAME = "refinements"
+  val kRefinementsFunctionName = "refinements"
+  val kKwargInstanceRefinements = "instance_refinements"  // path-based subclass refinement
+  val kKwargInstanceValues = "instance_values"  // path-based value refinement
+  val kKwargClassRefinements = "class_refinements"  // class-based subclass refinement (refine all classes of X)
+  val kKwargClassValues = "class_values"  // class + subpath-based value refinement
 
   // Inserts the refinement method into the specified class.
   // Validation (that the function doesn't exist before, and the class has appropriate superclasses)
@@ -56,7 +60,7 @@ object InsertRefinementAction {
     val languageLevel = LanguageLevel.forElement(cls)
 
     val refinementsMethod = cls.getMethods.find { method =>
-      method.getName == REFINEMENT_FN_NAME
+      method.getName == kRefinementsFunctionName
     }
 
     // TODO: seriously dedup this across the create new / insert existing paths, perhaps breaking steps into functions
@@ -146,7 +150,7 @@ object InsertRefinementAction {
     val valueExpr = psiElementGenerator.createExpressionFromText(languageLevel,
       refinementClass.getName)
 
-    createInsertRefinement("instance_refinements", container, keyExpr, valueExpr,
+    createInsertRefinement(kKwargInstanceRefinements, container, keyExpr, valueExpr,
       s"Refine $path to ${refinementClass.getName}", project).exceptError
   }
 
@@ -159,7 +163,7 @@ object InsertRefinementAction {
     val valueExpr = psiElementGenerator.createExpressionFromText(languageLevel,
       refinementClass.getName)
 
-    createInsertRefinement("class_refinements", container, keyExpr, valueExpr,
+    createInsertRefinement(kKwargClassRefinements, container, keyExpr, valueExpr,
       s"Refine ${refinedClass.getName} to ${refinementClass.getName}", project).exceptError
   }
 }
