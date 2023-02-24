@@ -9,6 +9,8 @@ import edg.wir.DesignPath
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
 import edg_ide.util.exceptable
 
+import scala.collection.SeqMap
+
 
 object InsertRefinementAction {
   val kRefinementsFunctionName = "refinements"
@@ -165,5 +167,21 @@ object InsertRefinementAction {
 
     createInsertRefinement(kKwargClassRefinements, container, keyExpr, valueExpr,
       s"Refine ${refinedClass.getName} to ${refinementClass.getName}", project).exceptError
+  }
+}
+
+
+class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
+  val psiElementGenerator = PyElementGenerator.getInstance(project)
+  val languageLevel = LanguageLevel.forElement(insertIntoClass)
+
+  // Refinements specified as map of kwarg -> [([refinement key expr components], refinement value)]
+  // for example, "instance_refinements" -> [([Expr(AbstractResistor)], Expr(GenericResistor))]
+  // or, "class_values" -> [([Expr(AbstractResistor), Expr(["resistance"])], Expr(1))]
+  // Returns a function that when called, does the insertion and return the newly inserted expressions
+  // Refinements are inserted as one action
+  // Inserts surrounding infrastructure as needed, handling cases where no refinements block or kwarg is present
+  def createInsertRefinements(refinements: SeqMap[String, Seq[(Seq[PyExpression], PyExpression)]]): Errorable[() => Seq[PyExpression]] = {
+
   }
 }
