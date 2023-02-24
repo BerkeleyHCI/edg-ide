@@ -28,9 +28,9 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
             ))),
           ).toPb,
           blocks = SeqMap(
-            "inner_block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+            "inner_source_block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
               ports = SeqMap(
-                "inner_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+                "inner_source_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
                   selfClass=Some(EdgirTestUtils.Ports.PowerSource),
                 ))),
               ).toPb,
@@ -41,6 +41,15 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
           ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSink)
+            ))),
+          ).toPb,
+          blocks = SeqMap(
+            "inner_sink_block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+              ports = SeqMap(
+                "inner_sink_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+                  selfClass=Some(EdgirTestUtils.Ports.PowerSource),
+                ))),
+              ).toPb,
             ))),
           ).toPb,
         ))),
