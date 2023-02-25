@@ -10,7 +10,7 @@ import edg.compiler.{ArrayValue, BooleanValue, ExprToString, ExprValue, FloatVal
 import edg.util.Errorable
 import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
-import edg_ide.psi_edits.InsertRefinementAction.kKwargClassRefinements
+import edg_ide.psi_edits.InsertRefinementAction.{kKwargClassRefinements, kKwargClassValues, kKwargInstanceRefinements, kKwargInstanceValues}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
@@ -151,19 +151,24 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   def createInsertRefinements(refinements: Refinements): Errorable[() => Seq[PyElement]] = exceptable {
     val classRefinementsEntry = refinements.classRefinements.map { case (sourceClass, targetClass) =>
       Seq(refFromLibrary(sourceClass)) -> refFromLibrary(targetClass)
-    }
+    }.toSeq
     val instanceRefinementsEntry = refinements.instanceRefinements.map { case (sourcePath, targetClass) =>
       Seq(keyFromPath(sourcePath)) -> refFromLibrary(targetClass)
-    }
-    val classValues = refinements.classValues.flatMap { case (sourceClass, targetPathValue) =>
+    }.toSeq
+    val classValuesEntry = refinements.classValues.flatMap { case (sourceClass, targetPathValue) =>
       targetPathValue.map { case (targetPath, targetValue) =>
-        Seq(refFromLibrary(sourceClass), keyFromLocalPath(targetPath)) -> valueFromExpr(targetValue)
+        Seq(refFromLibrary(sourceClass), keyFromLocalPath(targetPath).exceptError) -> valueFromExpr(targetValue).exceptError
       }
-    }
-    val instanceValues = refinements.instanceValues.map { case (sourcePath, targetValue) =>
-      Seq(keyFromPath(sourcePath)) -> valueFromExpr(targetValue)
-    }
-    
+    }.toSeq
+    val instanceValuesEntry = refinements.instanceValues.map { case (sourcePath, targetValue) =>
+      Seq(keyFromPath(sourcePath)) -> valueFromExpr(targetValue).exceptError
+    }.toSeq
+    createInsertRefinements(SeqMap.from(Seq(
+      if (classRefinementsEntry.isEmpty) Seq() else Seq(kKwargClassRefinements -> classRefinementsEntry),
+      if (instanceRefinementsEntry.isEmpty) Seq() else Seq(kKwargInstanceRefinements -> instanceRefinementsEntry),
+      if (classValuesEntry.isEmpty) Seq() else Seq(kKwargClassValues -> classValuesEntry),
+      if (instanceValuesEntry.isEmpty) Seq() else Seq(kKwargInstanceValues -> instanceValuesEntry),
+    ).flatten)).exceptError
   }
 
   // Utility functions for generating refinement exprs
