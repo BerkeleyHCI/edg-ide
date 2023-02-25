@@ -165,7 +165,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     val insertRefinement = new InsertRefinementAction(project, topClass.exceptError)
     val insertAction = insertRefinement.createInsertRefinements(
       SeqMap(InsertRefinementAction.kKwargInstanceRefinements ->
-          Seq((Seq(insertRefinement.keyFromPath(selectedPath)), insertRefinement.valueFromClass(blockPyClass.exceptError)))))
+          Seq((Seq(insertRefinement.keyFromPath(selectedPath)), insertRefinement.refFromClass(blockPyClass.exceptError)))))
         .exceptError
     () => {  // TODO standardized continuation?
       val inserted = insertAction().head
@@ -178,11 +178,13 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   private val insertClassRefinementAction: Errorable[() => Unit] = exceptable {
     val (selectedPath, selectedClass) = selectedPathClass.exceptError
 
-    val insertAction = InsertRefinementAction.createClassRefinement(
-      topClass.exceptError, selectedClass, blockPyClass.exceptError, project)
+    val insertRefinement = new InsertRefinementAction(project, topClass.exceptError)
+    val insertAction = insertRefinement.createInsertRefinements(
+      SeqMap(InsertRefinementAction.kKwargClassRefinements ->
+          Seq((Seq(insertRefinement.refFromClass(selectedClass)), insertRefinement.refFromClass(blockPyClass.exceptError)))))
         .exceptError
     () => {  // TODO standardized continuation?
-      val inserted = insertAction()
+      val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
     }
   }
