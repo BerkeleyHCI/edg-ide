@@ -178,13 +178,13 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
 
   // Must be called within writeCommandAction
   // Inserts the refinement kwarg and value into the target PyArgumentList
-  private def insertRefinementKwarg(into: PyArgumentList, kwarg: String,
+  private def insertRefinementKwarg(into: PyArgumentList, kwargName: String,
                                     refinements: Seq[(Seq[PyExpression], PyExpression)]): Seq[PyElement] = {
     val refinementsText = refinements.map { case (keyElts, value) =>
       s"  (${keyElts.map(_.getText).mkString(", ")}, ${value.getText}),"
     }
     val kwargExpr = psiElementGenerator.createKeywordArgument(languageLevel,
-      kwarg,
+      kwargName,
       s"""[
          |${refinementsText.mkString("\n")}
          |]""".stripMargin.replace("\r\n", "\n")
@@ -193,11 +193,48 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
     Seq(into.getArguments.last)
   }
 
+  // Given an argument list to Refinements(), the refinement type, and key, returns the expression if it exists.
+  private def findRefinementsExprByKey(list: PyListLiteralExpression,
+                                       key: Seq[PyExpression]): Option[PyTupleExpression] = {
+    list.getElements.collect {
+      case elt: PyParenthesizedExpression => elt.getContainedExpression match {
+        case elt: PyTupleExpression if elt.getElements.length == key.length + 1 =>
+          val eltMatches = (elt.getElements.init zip key).forall { case (eltElt, keyElt) => eltElt.textMatches(keyElt) }
+          if (eltMatches) {
+            Some(elt)
+          } else {
+            None
+          }
+        case _ => None
+      }
+    }.flatten.lastOption
+  }
+
   // Creates a function that when called within a writeCommandAction,
   // merges the target refinements into a PyArgumentList
-  private def createMergeRefinementKwarg(into: PyArgumentList, kwarg: String,
+  private def createMergeRefinementKwarg(into: PyArgumentList, kwargName: String,
                                          refinements: Seq[(Seq[PyExpression], PyExpression)]): Errorable[() => Seq[PyElement]] = exceptable {
-    ???
+    Option(into.getKeywordArgument(kwargName)) match {
+      case Some(kwarg) =>  // merge into list
+        val valueList = kwarg.getValueExpression.instanceOfExcept[PyListLiteralExpression](s"Refinements kwarg $kwarg not a list")
+        val eltActions = refinements.map { case (keyElts, value) =>
+          findRefinementsExprByKey(valueList, keyElts) match {
+            case Some(existingRefinementTuple) => () => {
+              Seq(existingRefinementTuple.getElements.last.replace(value).asInstanceOf[PyExpression])
+            }
+            case None => () => {
+              insertRefinementKwarg(into, kwargName, refinements)
+            }
+          }
+        }
+        () => {
+          eltActions.flatMap(fn => fn())
+        }
+      case None =>  // kwarg doesn't exist, create a new one
+        () => {
+          insertRefinementKwarg(into, kwargName, refinements)
+        }
+    }
   }
 
   // Refinements specified as map of kwarg -> [([refinement key expr components], refinement value)]
@@ -219,8 +256,8 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
           .getExpression.instanceOfExcept[PyBinaryExpression]("unexpected expr in refinements() return")
           .getRightExpression.instanceOfExcept[PyCallExpression]("unexpected expr in refinements() return rhs")
           .getArgumentList
-        val mergeRefinements = refinements.toSeq.map { case (kwarg, refinements) =>
-          createMergeRefinementKwarg(argList, kwarg, refinements).exceptError
+        val mergeRefinements = refinements.toSeq.map { case (kwargName, refinements) =>
+          createMergeRefinementKwarg(argList, kwargName, refinements).exceptError
         }
         () => {
           mergeRefinements.flatMap { fn => fn() }
@@ -239,8 +276,8 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
             .getExpression.asInstanceOf[PyBinaryExpression]
             .getRightExpression.asInstanceOf[PyCallExpression]
             .getArgumentList
-          refinements.foreach { case (kwarg, refinements) =>
-            insertRefinementKwarg(argList, kwarg, refinements)
+          refinements.foreach { case (kwargName, refinements) =>
+            insertRefinementKwarg(argList, kwargName, refinements)
           }
           Seq(refinementsFn)
         }
