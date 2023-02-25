@@ -9,9 +9,8 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
-import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseObjective, DseRefinementElement, DseResult, DseSearchGenerator}
+import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
-import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
 
 import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
