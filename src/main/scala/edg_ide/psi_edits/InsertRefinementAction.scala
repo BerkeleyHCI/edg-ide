@@ -179,14 +179,24 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   // Must be called within writeCommandAction
   // Inserts the refinement kwarg and value into the target PyArgumentList
   private def insertRefinementKwarg(into: PyArgumentList, kwarg: String,
-                                    refinements: Seq[(Seq[PyExpression], PyExpression)]): Seq[PyStatement] = {
-    ???
+                                    refinements: Seq[(Seq[PyExpression], PyExpression)]): Seq[PyElement] = {
+    val refinementsText = refinements.map { case (keyElts, value) =>
+      s"  (${keyElts.map(_.getText).mkString(", ")}, ${value.getText}),"
+    }
+    val kwargExpr = psiElementGenerator.createKeywordArgument(languageLevel,
+      kwarg,
+      s"""[
+         |${refinementsText.mkString("\n")}
+         |]""".stripMargin.replace("\r\n", "\n")
+    )
+    into.addArgument(kwargExpr)
+    Seq(into.getArguments.last)
   }
 
   // Creates a function that when called within a writeCommandAction,
   // merges the target refinements into a PyArgumentList
   private def createMergeRefinementKwarg(into: PyArgumentList, kwarg: String,
-                                         refinements: Seq[(Seq[PyExpression], PyExpression)]): Errorable[() => Seq[PyStatement]] = exceptable {
+                                         refinements: Seq[(Seq[PyExpression], PyExpression)]): Errorable[() => Seq[PyElement]] = exceptable {
     ???
   }
 
@@ -197,11 +207,11 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   // Refinements are inserted as one action
   // Inserts surrounding infrastructure as needed, handling cases where no refinements block or kwarg is present
   def createInsertRefinements(refinements: SeqMap[String, Seq[(Seq[PyExpression], PyExpression)]]):
-      Errorable[() => Seq[PyStatement]] = exceptable {
+      Errorable[() => Seq[PyElement]] = exceptable {
     val refinementsMethod = insertIntoClass.getMethods.find { method =>
       method.getName == InsertRefinementAction.kRefinementsFunctionName
     }
-    val insertRefinementsAction: ThrowableComputable[Seq[PyStatement], Nothing] = refinementsMethod match {
+    val insertRefinementsAction: ThrowableComputable[Seq[PyElement], Nothing] = refinementsMethod match {
       case Some(refinementsMethod) =>  // append to existing refinements method
         val argList = refinementsMethod.getStatementList.getStatements.toSeq
           .onlyExcept("unexpected multiple statements in refinements()")
