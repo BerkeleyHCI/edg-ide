@@ -5,10 +5,14 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiParserFacade
 import com.jetbrains.python.psi._
+import edg.EdgirUtils.SimpleLibraryPath
+import edg.compiler.{ArrayValue, BooleanValue, ExprToString, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
 import edg.util.Errorable
-import edg.wir.DesignPath
+import edgir.ref.ref
+import edg.wir.{DesignPath, Refinements}
+import edg_ide.psi_edits.InsertRefinementAction.kKwargClassRefinements
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
-import edg_ide.util.exceptable
+import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
 import scala.collection.SeqMap
 
@@ -144,11 +148,60 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
       .compute(insertRefinementsAction)
   }
 
+  def createInsertRefinements(refinements: Refinements): Errorable[() => Seq[PyElement]] = exceptable {
+    val classRefinementsEntry = refinements.classRefinements.map { case (sourceClass, targetClass) =>
+      Seq(refFromLibrary(sourceClass)) -> refFromLibrary(targetClass)
+    }
+    val instanceRefinementsEntry = refinements.instanceRefinements.map { case (sourcePath, targetClass) =>
+      Seq(keyFromPath(sourcePath)) -> refFromLibrary(targetClass)
+    }
+    val classValues = refinements.classValues.flatMap { case (sourceClass, targetPathValue) =>
+      targetPathValue.map { case (targetPath, targetValue) =>
+        Seq(refFromLibrary(sourceClass), keyFromLocalPath(targetPath)) -> valueFromExpr(targetValue)
+      }
+    }
+    val instanceValues = refinements.instanceValues.map { case (sourcePath, targetValue) =>
+      Seq(keyFromPath(sourcePath)) -> valueFromExpr(targetValue)
+    }
+    
+  }
+
   // Utility functions for generating refinement exprs
   //
   def keyFromPath(path: DesignPath): PyExpression = psiElementGenerator.createExpressionFromText(languageLevel,
     s"""[${path.steps.map(step => s"'$step'").mkString(", ")}]""")
 
+  def keyFromLocalPath(path: ref.LocalPath): Errorable[PyExpression] = exceptable {
+    val listExpr = psiElementGenerator.createListLiteral()
+    path.steps.foreach { step => step.step match {
+      case ref.LocalStep.Step.Name(name) => listExpr.add(psiElementGenerator.createStringLiteralFromString(name))
+      case _ => exceptable.fail(f"path ${ExprToString(path)} not compatible with refinement")
+    } }
+    listExpr
+  }
+
+  def valueFromExpr(expr: ExprValue): Errorable[PyExpression] = exceptable { expr match {
+    case FloatValue(value) => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
+    case IntValue(value) => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
+    case RangeValue(lower, upper) => psiElementGenerator.createExpressionFromText(languageLevel,
+      f"Range($lower, $upper)")
+    case RangeEmpty => exceptable.fail("can't create empty range")
+    case BooleanValue(value) => psiElementGenerator.createExpressionFromText(languageLevel,
+      if (value) "True" else "False")
+    case TextValue(value) => psiElementGenerator.createStringLiteralFromString(value)
+    case ArrayValue(values) =>
+      val listExpr = psiElementGenerator.createListLiteral()
+      values.foreach { value =>
+        listExpr.add(valueFromExpr(value).exceptError)
+      }
+      listExpr
+  }}
+
   def refFromClass(cls: PyClass): PyExpression = psiElementGenerator.createExpressionFromText(languageLevel,
     cls.getName)
+
+  // TODO: instead resolve to PyClass and create a PyReferenceExpression from that
+  def refFromLibrary(cls: ref.LibraryPath): PyExpression = psiElementGenerator.createExpressionFromText(languageLevel,
+    cls.toSimpleString)
+
 }
