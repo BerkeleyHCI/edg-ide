@@ -11,6 +11,9 @@ import scala.collection.{SeqMap, mutable}
   * based on the value of evaluated points.
   *
   * This is its own class so the design space behavior is unit-testable.
+  *
+  * TODO: perhaps this should take in the root compiler and handle incremental compiler generation,
+  * instead of asking for the compiler back
   */
 class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   val (staticConfigs, derivedConfigs) = configs.partitionMap {
