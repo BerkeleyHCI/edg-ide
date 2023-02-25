@@ -5,7 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.treeStructure.treetable.{TreeTable, TreeTableCellRenderer, TreeTableModel}
+import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -14,8 +14,8 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.{Ref, ValueExpr}
 import edg.util.{Errorable, NameCreator}
 import edg.wir
-import edg.wir.{DesignPath, Refinements}
 import edg.wir.ProtoUtil._
+import edg.wir.{DesignPath, Refinements}
 import edg_ide.edgir_graph._
 import edg_ide.psi_edits._
 import edg_ide.swing._
@@ -33,7 +33,6 @@ import java.util.concurrent.Callable
 import javax.swing._
 import javax.swing.event._
 import javax.swing.tree.TreePath
-import scala.collection.SeqMap
 
 
 class BlockRootPopupMenu(project: Project) extends JPopupMenu {

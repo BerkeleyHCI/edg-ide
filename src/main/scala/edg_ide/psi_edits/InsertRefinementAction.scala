@@ -6,13 +6,13 @@ import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.PsiParserFacade
 import com.jetbrains.python.psi._
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{ArrayValue, BooleanValue, ExprToString, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.compiler._
 import edg.util.Errorable
-import edgir.ref.ref
 import edg.wir.{DesignPath, Refinements}
 import edg_ide.psi_edits.InsertRefinementAction.{kKwargClassRefinements, kKwargClassValues, kKwargInstanceRefinements, kKwargInstanceValues}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable}
+import edg_ide.util.exceptable
+import edgir.ref.ref
 
 import scala.collection.SeqMap
 
