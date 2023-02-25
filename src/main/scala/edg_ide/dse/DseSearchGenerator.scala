@@ -62,10 +62,12 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   }
 
   // Returns the next point to search in the design space. Returns new points as the prior one is evaluated.
+  // Points are returned as: prior compiler (empty on first one), partial compilation rule, search value map,
+  //   search refinements, incremental refinements (over prior compiler), fraction complete
   // If a design point has an empty PartialCompile, it can be used in the output.
   // This only changes after addEvaluatedPoint is called, when the point is marked as evaluated
   // and derived points are added.
-  def nextPoint(): Option[(Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements, Float)] = {
+  def nextPoint(): Option[(Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements, Refinements, Float)] = {
     // initial point: add partial compile root, with all config holdbacks
     // for each static config: do a partial compile while holding back the rest
     // when all static configs have an assignment:
@@ -94,6 +96,7 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         staticConfig -> thisValue
       }
       val combinedSearchValueMap = searchValues.to(SeqMap)
+      val searchRefinements = searchStack.map(_.head._2).foldLeft(Refinements())(_ ++ _)
       val incrRefinement = searchStack.lastOption.map(_.head._2).getOrElse(Refinements())
 
       val (staticSpaceRemain, staticSpaceTotal) = getRemainingSearchSpace(
@@ -108,7 +111,8 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       }
       val completedFraction = (staticSpaceTotal - (staticSpaceRemain.toFloat - derivedCompletedFraction)) / staticSpaceTotal
 
-      (baseCompiler, staticPartialCompile ++ derivedPartialCompile, combinedSearchValueMap, incrRefinement, completedFraction)
+      (baseCompiler, staticPartialCompile ++ derivedPartialCompile, combinedSearchValueMap, searchRefinements,
+          incrRefinement, completedFraction)
     }
   }
 

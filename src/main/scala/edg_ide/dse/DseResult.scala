@@ -1,6 +1,7 @@
 package edg_ide.dse
 
 import edg.compiler.{Compiler, CompilerError}
+import edg.wir.Refinements
 import edgir.schema.schema.Design
 
 import scala.collection.{SeqMap, mutable}
@@ -10,6 +11,7 @@ import scala.collection.{SeqMap, mutable}
 case class DseResult(
                         index: Int,
                         config: SeqMap[DseConfigElement, Any],
+                        searchRefinements: Refinements,
                         compiler: Compiler,
                         compiled: Design,
                         errors: Seq[CompilerError],

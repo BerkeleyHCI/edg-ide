@@ -182,7 +182,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           val searchGenerator = new DseSearchGenerator(options.searchConfigs)
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
-            val (baseCompilerOpt, partialCompile, pointValues, incrRefinements, completedFraction) = nextPoint.get
+            val (baseCompilerOpt, partialCompile, pointValues, searchRefinements, incrRefinements, completedFraction) = nextPoint.get
 
             indicator.setIndeterminate(false)
             indicator.setFraction(completedFraction)
@@ -207,7 +207,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               }
 
               val result = DseResult(results.length, pointValues,
-                compiler, compiled, errors, objectiveValues, compileTime)
+                searchRefinements, compiler, compiled, errors, objectiveValues, compileTime)
 
               if (errors.nonEmpty) {
                 console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
