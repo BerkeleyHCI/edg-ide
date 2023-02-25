@@ -1,5 +1,6 @@
 package edg_ide.dse
 
+import com.jetbrains.python.psi.PyExpression
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable
@@ -53,6 +54,10 @@ sealed trait DseRefinementElement[+ValueType] extends DseStaticConfig { self: Se
   // Given a value form getValues, returns a human readable representation
   // TODO: this should be properly typed, but then ValueType needs to be invariant
   def valueToString(value: Any): String
+
+  // Generates refinement HDL as a map of kwarg -> [([refinement key expr components], refinement value)],
+  // same type signature as InsertRefinementAction
+  def generateRefinementHdl: Map[String, Seq[(Seq[PyExpression], PyExpression)]]
 }
 
 
