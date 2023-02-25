@@ -286,4 +286,12 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
       .withName(s"Add refinements to ${insertIntoClass.getName}")
       .compute(insertRefinementsAction)
   }
+
+  // Utility functions for generating refinement exprs
+  //
+  def keyFromPath(path: DesignPath): PyExpression = psiElementGenerator.createExpressionFromText(languageLevel,
+    s"""[${path.steps.map(step => s"'$step'").mkString(", ")}]""")
+
+  def valueFromClass(cls: PyClass): PyExpression = psiElementGenerator.createExpressionFromText(languageLevel,
+    cls.getName)
 }

@@ -33,6 +33,7 @@ import java.util.concurrent.Callable
 import javax.swing._
 import javax.swing.event._
 import javax.swing.tree.TreePath
+import scala.collection.SeqMap
 
 
 class BlockRootPopupMenu(project: Project) extends JPopupMenu {
@@ -161,11 +162,13 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
     val (selectedPath, selectedClass) = selectedPathClass.exceptError
 
-    val insertAction = InsertRefinementAction.createInstanceRefinement(
-      topClass.exceptError, selectedPath, blockPyClass.exceptError, project)
+    val insertRefinement = new InsertRefinementAction(project, topClass.exceptError)
+    val insertAction = insertRefinement.createInsertRefinements(
+      SeqMap(InsertRefinementAction.kKwargInstanceRefinements ->
+          Seq((Seq(insertRefinement.keyFromPath(selectedPath)), insertRefinement.valueFromClass(blockPyClass.exceptError)))))
         .exceptError
     () => {  // TODO standardized continuation?
-      val inserted = insertAction()
+      val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
     }
   }
