@@ -81,10 +81,10 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
                 s"(${keyElts.map(_.getText).mkString(", ")}, ${value.getText}),") // note, trailing comma
               // for some reason, PyElementGenerator.getInstance(project).createNewLine inserts two spaces
               val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
-              val inserted = valueList.add(insertTuple).asInstanceOf[PyExpression]
+              val inserted = valueList.add(insertTuple).asInstanceOf[PyTupleExpression]
               // can't do valueList.addBefore, since that does a check for PyExpr, which whitespace is not
               inserted.addBefore(newline, inserted.getFirstChild)
-              Seq(inserted)
+              Seq(inserted.getElements.last)  // for whatever reason the tuple throws an error when navigating to
             }
           }
         }
