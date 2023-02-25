@@ -15,10 +15,10 @@ import scala.collection.SeqMap
 
 object InsertRefinementAction {
   val kRefinementsFunctionName = "refinements"
-  val kKwargInstanceRefinements = "instance_refinements" // path-based subclass refinement
-  val kKwargInstanceValues = "instance_values" // path-based value refinement
-  val kKwargClassRefinements = "class_refinements" // class-based subclass refinement (refine all classes of X)
-  val kKwargClassValues = "class_values" // class + subpath-based value refinement
+  val kKwargInstanceRefinements = "instance_refinements"  // path-based subclass refinement
+  val kKwargInstanceValues = "instance_values"  // path-based value refinement
+  val kKwargClassRefinements = "class_refinements"  // class-based subclass refinement (refine all classes of X)
+  val kKwargClassValues = "class_values"  // class + subpath-based value refinement
 }
 
 
@@ -73,7 +73,14 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
               Seq(existingRefinementTuple.getElements.last.replace(value).asInstanceOf[PyExpression])
             }
             case None => () => {
-              insertRefinementKwarg(into, kwargName, refinements)
+              val insertTuple = psiElementGenerator.createExpressionFromText(languageLevel,
+                s"(${keyElts.map(_.getText).mkString(", ")}, ${value.getText}),") // note, trailing comma
+              // for some reason, PyElementGenerator.getInstance(project).createNewLine inserts two spaces
+              val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
+              val inserted = valueList.add(insertTuple).asInstanceOf[PyExpression]
+              // can't do valueList.addBefore, since that does a check for PyExpr, which whitespace is not
+              inserted.addBefore(newline, inserted.getFirstChild)
+              Seq(inserted)
             }
           }
         }
