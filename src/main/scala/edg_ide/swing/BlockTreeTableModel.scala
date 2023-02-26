@@ -1,11 +1,16 @@
 package edg_ide.swing
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vcs.{AbstractVcs, ProjectLevelVcsManager}
+import com.intellij.openapi.vcs.history.VcsRevisionNumber
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import com.intellij.vcsUtil.VcsUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil._
 import edg.wir.DesignPath
 import edg_ide.ui.{BlockVisualizerService, EdgSettingsState}
+import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
+import edg_ide.util.{DesignAnalysisUtils, exceptable}
 import edgir.elem.elem
 
 import javax.swing.JTree
@@ -32,7 +37,16 @@ class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem
   lazy val classString = block.getSelfClass.toSimpleString
 
   lazy val proven = {
-    new BlockProven(block.getSelfClass, BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass))
+    var changed: Option[(AbstractVcs, VcsRevisionNumber)] = None
+    exceptable {
+      val thisPyClass = DesignAnalysisUtils.pyClassOf(block.getSelfClass, project).exceptError
+      val vcsMan = ProjectLevelVcsManager.getInstance(project).getVcsFor(thisPyClass.getContainingFile.getVirtualFile)
+      val history = vcsMan.getVcsHistoryProvider.createSessionFor(VcsUtil.getFilePath(thisPyClass.getContainingFile.getVirtualFile))
+      val revision = history.getCurrentRevisionNumber
+      println(f"   ****   ${thisPyClass.getName} VCS manager $vcsMan hisotry $history @ $revision")
+      changed = Some((vcsMan, revision))
+    }
+    new BlockProven(block.getSelfClass, BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass), changed)
   }
 }
 

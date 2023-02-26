@@ -1,8 +1,13 @@
 package edg_ide.swing
 
+import com.intellij.openapi.vcs.{AbstractVcs, ProjectLevelVcsManager}
+import com.intellij.openapi.vcs.history.VcsRevisionNumber
 import edg.EdgirUtils.SimpleLibraryPath
 import edgir.ref.ref
 import edg_ide.proven.{BlockProvenRecords, ProvenStatus, UserProvenRecord}
+import edg_ide.util.DesignAnalysisUtils
+
+import scala.math.Ordered.orderingToOrdered
 
 // Data holder for a Block's proven status
 sealed trait ProvenNodeBase
@@ -12,11 +17,25 @@ object EmptyProven extends ProvenNodeBase {
 }
 
 class BlockProven(path: ref.LibraryPath,
-                  val records: BlockProvenRecords) extends ProvenNodeBase {
+                  val records: BlockProvenRecords, lastCommit: Option[(AbstractVcs, VcsRevisionNumber)] = None) extends ProvenNodeBase {
   override lazy val toString: String = if (records.isEmpty) {
     ""
   } else {
-    records.getDataOfStatus(records.getLatestStatus).flatMap { case (design, records) => records }.size.toString
+    val latestRecords = records.getDataOfStatus(records.getLatestStatus)
+    val count = latestRecords.flatMap { case (design, records) => records }.size.toString
+
+
+    val mod = lastCommit match {
+      case Some((vcs, lastCommit)) =>
+        val provenCommit = vcs.parseRevisionNumber(latestRecords.head._1._2)
+        if (provenCommit <= lastCommit) {
+          ""
+        } else {
+          "*"
+        }
+      case _ => "?"
+    }
+    count + mod
   }
 
   lazy val htmlDescription = {
