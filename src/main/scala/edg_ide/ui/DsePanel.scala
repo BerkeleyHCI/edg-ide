@@ -388,8 +388,7 @@ class DsePanel(project: Project) extends JPanel {
         case node: DseResultTreeNode#ResultNode =>
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click popup menu
             new DseResultPopupMenu(node.result, project).show(e.getComponent, e.getX, e.getY)
-          }
-          else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
+          } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
             val result = node.result
             BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
               result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
