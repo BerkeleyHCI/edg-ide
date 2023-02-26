@@ -9,7 +9,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.ElemBuilder
 import edg.compiler.{Compiler, ExprToString, TextValue}
-import edg.util.{Errorable, timeExec}
+import edg.util.Errorable
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.psi_edits.{InsertAction, InsertFootprintAction, InsertPinningAction}
