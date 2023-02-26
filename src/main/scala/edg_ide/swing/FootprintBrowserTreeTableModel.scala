@@ -24,23 +24,22 @@ class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserB
 
 
 class FootprintBrowserNode(val file: File) extends FootprintBrowserBaseNode {
-  def isValidFile(filename: String): Boolean = {
-    if (filename == "." || filename == "..") return false  // ignore self and up pointers
-    val currFile = new File(filename)
-    currFile.exists() && (filename.endsWith(".mod") || filename.endsWith(".kicad_mod") || currFile.isDirectory)
+  def isValidFile(candidateFile: File): Boolean = {
+    val fileName = candidateFile.getName
+    if (fileName == "." || fileName == "..") return false  // ignore self and up pointers
+    fileName.endsWith(".mod") || fileName.endsWith(".kicad_mod") || candidateFile.isDirectory
   }
 
   override lazy val children: Seq[FootprintBrowserNode] = {
     Option(file.list()) match {
       case Some(filenames) => filenames.toSeq
-        .map(filename => file.getCanonicalPath + "/" + filename)
-        .filter(isValidFile)
         .sorted
-        .map(f => new FootprintBrowserNode(new File(f)))
+        .map(new File(file, _))
+        .filter(isValidFile)
+        .map(new FootprintBrowserNode(_))
       case None => Seq()
     }
   }
-
 
   override def equals(obj: Any): Boolean = obj match {
     case obj:FootprintBrowserNode => obj.file.equals(this.file)
@@ -48,14 +47,16 @@ class FootprintBrowserNode(val file: File) extends FootprintBrowserBaseNode {
   }
 
   override def toString: String = file.getName
-
 }
+
 
 class FootprintBrowserTreeTableModel(directories: Seq[File]) extends SeqTreeTableModel[FootprintBrowserBaseNode] {
   private val rootNode: FootprintBrowserRootNode = new FootprintBrowserRootNode(directories)
   private val COLUMNS = Seq("Path")
 
-  override def getNodeChildren(node: FootprintBrowserBaseNode): Seq[FootprintBrowserBaseNode] = node.children
+  override def getNodeChildren(node: FootprintBrowserBaseNode): Seq[FootprintBrowserBaseNode] = {
+    node.children
+  }
 
   override def getRootNode: FootprintBrowserBaseNode = rootNode
 

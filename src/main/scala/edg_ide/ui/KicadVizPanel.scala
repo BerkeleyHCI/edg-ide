@@ -4,6 +4,7 @@ import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.ElemBuilder
@@ -35,30 +36,18 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   // State
   //
   var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] = None  // should be a Block with a footprint and pinning field
-  var footprintSynced: Boolean = false  // whether the footprint is assigned to the block (as opposed to peview mode)
+  var footprintSynced: Boolean = false  // whether the footprint is assigned to the block (as opposed to preview mode)
 
   object FootprintBrowser extends JPanel {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
     // TODO use GridBagLayout?
 
-    private var libraryDirectories: Seq[File] = Seq()
-
-    // use something invalid so it doesn't try to index a real directory
-    val invalidModel = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(Seq()))
-    private var model = invalidModel
+    private val libraryDirectories = EdgSettingsState.getInstance().kicadDirectories.toSeq.map(new File(_))
+    private val model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(libraryDirectories))
     private val tree = new TreeTable(model)
     tree.setShowColumns(true)
     tree.setRootVisible(false)
-    private val treeScrollPane = new JScrollPane(tree)
-
-    // initialize the contents on startup
-    setLibraryDirectories(EdgSettingsState.getInstance().kicadDirectories.toSeq)
-
-    def setLibraryDirectories(directories: Seq[String]): Unit = {
-      libraryDirectories = directories.map(new File(_))
-      model = new FilteredTreeTableModel(new FootprintBrowserTreeTableModel(libraryDirectories))
-      TreeTableUtils.updateModel(tree, model)
-    }
+    private val treeScrollPane = new JBScrollPane(tree)
 
     def pathToFootprintName(file: File): Option[String] = {
       Option(file.getParentFile).flatMap { parentFile =>
