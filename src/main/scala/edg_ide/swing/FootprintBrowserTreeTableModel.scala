@@ -24,19 +24,17 @@ class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserB
 
 
 class FootprintBrowserNode(val file: File) extends FootprintBrowserBaseNode {
-  def isValidFile(candidateFile: File): Boolean = {
-    val fileName = candidateFile.getName
+  def isValidFileName(fileName: String): Boolean = {
     if (fileName == "." || fileName == "..") return false  // ignore self and up pointers
-    fileName.endsWith(".mod") || fileName.endsWith(".kicad_mod") || candidateFile.isDirectory
+    fileName.endsWith(".kicad_mod") || fileName.endsWith(".mod")
   }
 
   override lazy val children: Seq[FootprintBrowserNode] = {
-    Option(file.list()) match {
+    Option(file.list()) match {  // file.list() can return null
       case Some(filenames) => filenames.toSeq
+        .filter(isValidFileName)
         .sorted
-        .map(new File(file, _))
-        .filter(isValidFile)
-        .map(new FootprintBrowserNode(_))
+        .map(fileName => new FootprintBrowserNode(new File(file, fileName)))
       case None => Seq()
     }
   }

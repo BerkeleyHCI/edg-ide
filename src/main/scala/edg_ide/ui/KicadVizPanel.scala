@@ -9,7 +9,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg.ElemBuilder
 import edg.compiler.{Compiler, ExprToString, TextValue}
-import edg.util.Errorable
+import edg.util.{Errorable, timeExec}
 import edg.wir.DesignPath
 import edg_ide.EdgirUtils
 import edg_ide.psi_edits.{InsertAction, InsertFootprintAction, InsertPinningAction}
@@ -147,7 +147,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   //
   private val splitter = new JBSplitter(false, 0.5f, 0.1f, 0.9f)
 
-  splitter.setSecondComponent(FootprintBrowser)
+  splitter.setFirstComponent(FootprintBrowser)
 
   private val status = new JEditorPane("text/html",
       SwingHtmlUtil.wrapInHtml("No footprint selected", this.getFont))
@@ -184,7 +184,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   private val visualizerPanel = new JPanel(new GridBagLayout())
   visualizerPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
   visualizerPanel.add(visualizer, Gbc(0, 1, GridBagConstraints.BOTH))
-  splitter.setFirstComponent(visualizerPanel)
+  splitter.setSecondComponent(visualizerPanel)
 
 
   setLayout(new BorderLayout())
