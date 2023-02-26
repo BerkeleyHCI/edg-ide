@@ -9,11 +9,12 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
 import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
-import edg_ide.util.{exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
 import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -63,6 +64,21 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
       BlockVisualizerService(project).onDseConfigChanged(dseConfig)
     }
   }, s"Delete"))
+}
+
+
+class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu {
+  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+    val topType = result.compiled.getContents.getSelfClass
+    val topClass = DesignAnalysisUtils.pyClassOf(topType, project).exceptError
+
+    val insertAction = new InsertRefinementAction(project, topClass)
+      .createInsertRefinements(result.searchRefinements).exceptError
+    () => { // TODO standardized continuation?
+      val inserted = insertAction().head
+      InsertAction.navigateToEnd(inserted)
+    }
+  }, s"Insert refinements"))
 }
 
 
@@ -370,7 +386,9 @@ class DsePanel(project: Project) extends JPanel {
             plot.setSelection(Seq(node.setMembers))
           }
         case node: DseResultTreeNode#ResultNode =>
-          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
+          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click popup menu
+            new DseResultPopupMenu(node.result, project).show(e.getComponent, e.getX, e.getY)
+          } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
             val result = node.result
             BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
               result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))

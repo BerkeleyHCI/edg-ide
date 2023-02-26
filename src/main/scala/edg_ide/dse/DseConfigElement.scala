@@ -1,5 +1,6 @@
 package edg_ide.dse
 
+import com.jetbrains.python.psi.PyExpression
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable

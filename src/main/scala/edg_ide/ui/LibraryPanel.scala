@@ -5,7 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.treeStructure.treetable.{TreeTable, TreeTableCellRenderer, TreeTableModel}
+import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.types.TypeEvalContext
@@ -14,8 +14,8 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.{Ref, ValueExpr}
 import edg.util.{Errorable, NameCreator}
 import edg.wir
-import edg.wir.DesignPath
 import edg.wir.ProtoUtil._
+import edg.wir.{DesignPath, Refinements}
 import edg_ide.edgir_graph._
 import edg_ide.psi_edits._
 import edg_ide.swing._
@@ -133,7 +133,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   addSeparator()
 
   // Refinements action
-  private val selectedPathClass = exceptable {
+  private val selectedPathLibraryClass = exceptable {
     val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
         .exceptNone("no visualizer panel")
     val blockClass = blockPyClass.exceptError
@@ -149,7 +149,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     requireExcept(blockClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
       s"${blockClass.getName} not a subtype of ${selectedClass.getName}")
 
-    (selectedPath, selectedClass)
+    (selectedPath, selectedType, selectedClass)
   }
   private val topClass = exceptable {
     val topType = BlockVisualizerService(project).visualizerPanelOption
@@ -159,31 +159,31 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     DesignAnalysisUtils.pyClassOf(topType, project).exceptError
   }
   private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
-    val (selectedPath, selectedClass) = selectedPathClass.exceptError
-
-    val insertAction = InsertRefinementAction.createInstanceRefinement(
-      topClass.exceptError, selectedPath, blockPyClass.exceptError, project)
-        .exceptError
+    val (selectedPath, selectedLibrary, selectedClass) = selectedPathLibraryClass.exceptError
+    val insertAction = new InsertRefinementAction(project, topClass.exceptError)
+        .createInsertRefinements(Refinements(
+          instanceRefinements=Map(selectedPath -> blockType)
+        )).exceptError
     () => {  // TODO standardized continuation?
-      val inserted = insertAction()
+      val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
     }
   }
-  private val selectedPathName = selectedPathClass.map(_._1.toString).toOption.getOrElse("selection")
+  private val selectedPathName = selectedPathLibraryClass.map(_._1.toString).toOption.getOrElse("selection")
   add(ContextMenuUtils.MenuItemFromErrorable(insertInstanceRefinementAction, s"Refine instance $selectedPathName to $blockTypeName"))
 
   private val insertClassRefinementAction: Errorable[() => Unit] = exceptable {
-    val (selectedPath, selectedClass) = selectedPathClass.exceptError
-
-    val insertAction = InsertRefinementAction.createClassRefinement(
-      topClass.exceptError, selectedClass, blockPyClass.exceptError, project)
-        .exceptError
+    val (selectedPath, selectedLibrary, selectedClass) = selectedPathLibraryClass.exceptError
+    val insertAction = new InsertRefinementAction(project, topClass.exceptError)
+        .createInsertRefinements(Refinements(
+          classRefinements = Map(selectedLibrary -> blockType)
+        )).exceptError
     () => {  // TODO standardized continuation?
-      val inserted = insertAction()
+      val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
     }
   }
-  private val selectedClassName = selectedPathClass.map(_._2.getName).toOption.getOrElse("of selection")
+  private val selectedClassName = selectedPathLibraryClass.map(_._2.toSimpleString).toOption.getOrElse("of selection")
   add(ContextMenuUtils.MenuItemFromErrorable(insertClassRefinementAction, s"Refine class $selectedClassName to $blockTypeName"))
   addSeparator()
 
