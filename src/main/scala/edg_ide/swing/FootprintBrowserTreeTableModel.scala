@@ -52,9 +52,7 @@ class FootprintBrowserTreeTableModel(directories: Seq[File]) extends SeqTreeTabl
   private val rootNode: FootprintBrowserRootNode = new FootprintBrowserRootNode(directories)
   private val COLUMNS = Seq("Path")
 
-  override def getNodeChildren(node: FootprintBrowserBaseNode): Seq[FootprintBrowserBaseNode] = {
-    node.children
-  }
+  override def getNodeChildren(node: FootprintBrowserBaseNode): Seq[FootprintBrowserBaseNode] = node.children
 
   override def getRootNode: FootprintBrowserBaseNode = rootNode
 
