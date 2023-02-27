@@ -7,13 +7,16 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, PythonInterfaceLibrary}
+import edg.util.Errorable
 import edgir.schema.schema
 import edgir.elem.elem
 import edgir.ref.ref
 import edg.wir.DesignPath
-import edg_ide.dse.{DseObjective, DseResult}
+import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.proven.{ProvenDataReader, ProvenDatabase}
 import edg_ide.runner.{DseConfigurationFactory, DseRunConfiguration, DseRunConfigurationType}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptOption}
+import edg_ide.util.exceptable
 import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io.File
@@ -106,6 +109,12 @@ class BlockVisualizerService(project: Project) extends
       newConfig.options.designName = blockType.toFullString
       newConfig
     }
+  }
+
+  def addDseConfig(blockType: ref.LibraryPath, newConfig: DseConfigElement): Unit = {
+    val config = getOrCreateDseRunConfiguration(blockType)
+    config.options.searchConfigs = config.options.searchConfigs ++ Seq(newConfig)
+    onDseConfigChanged(config)
   }
 
   def setDseResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective],

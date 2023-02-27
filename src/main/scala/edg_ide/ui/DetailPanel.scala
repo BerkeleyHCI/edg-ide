@@ -9,7 +9,7 @@ import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath, Library}
 import edg_ide.dse.{DseClassParameterSearch, DseFeature, DseObjectiveParameter, DsePathParameterSearch}
 import edg_ide.swing.{ElementDetailTreeModel, TreeTableUtils}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptOption, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
 import edg_ide.util.{exceptable, requireExcept}
 import edg_ide.{EdgirUtils, swing}
 import edgir.schema.schema
@@ -26,12 +26,10 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct parameter")
     val value = compiler.getParamValue(path).exceptNone("no value")
-    () => {
-      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.searchConfigs = config.options.searchConfigs ++
-          Seq(DsePathParameterSearch(directPath, Seq(value)))
-      BlockVisualizerService(project).onDseConfigChanged(config)
-    }
+    val baseConfig = DsePathParameterSearch(directPath, Seq(value))
+    DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
+      BlockVisualizerService(project).addDseConfig(rootClass, newConfig)
+    }).exceptError
   }, s"Search values for instance $path"))
 
   add(ContextMenuUtils.MenuItemNamedFromErrorable(exceptable {
@@ -42,12 +40,10 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     val paramName = postfix.steps.onlyExcept("not a direct parameter of a block").getName
     requireExcept(block.params.get(paramName).isDefined, f"${blockClass.toSimpleString} does not have $paramName")
     val value = compiler.getParamValue(path).exceptNone("no value")
-    (() => {
-      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.searchConfigs = config.options.searchConfigs ++
-          Seq(DseClassParameterSearch(blockClass, postfix, Seq(value)))
-      BlockVisualizerService(project).onDseConfigChanged(config)
-    }, s"Search values of class ${blockClass.toSimpleString}:$paramName")
+    val baseConfig = DseClassParameterSearch(blockClass, postfix, Seq(value))
+    (DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
+      BlockVisualizerService(project).addDseConfig(rootClass, newConfig)
+    }).exceptError, s"Search values of class ${blockClass.toSimpleString}:$paramName")
   }, s"Search values of class"))
 
   add(ContextMenuUtils.MenuItemNamedFromErrorable(exceptable {
@@ -58,12 +54,10 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     val paramDefiningClass = compiler.library.blockParamGetDefiningSuperclass(block.getSelfClass, paramName)
         .exceptNone("no param-defining class")
     val value = compiler.getParamValue(path).exceptNone("no value")
-    (() => {
-      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.searchConfigs = config.options.searchConfigs ++
-          Seq(DseClassParameterSearch(paramDefiningClass, postfix, Seq(value)))
-      BlockVisualizerService(project).onDseConfigChanged(config)
-    }, s"Search values of param-defining class ${paramDefiningClass.toSimpleString}:$paramName")
+    val baseConfig = DseClassParameterSearch(paramDefiningClass, postfix, Seq(value))
+    (DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
+      BlockVisualizerService(project).addDseConfig(rootClass, newConfig)
+    }).exceptError, s"Search values of param-defining class ${paramDefiningClass.toSimpleString}:$paramName")
   }, s"Search values of param-defining class"))
 
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {

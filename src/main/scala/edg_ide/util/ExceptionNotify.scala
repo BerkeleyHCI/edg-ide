@@ -71,6 +71,15 @@ object exceptionPopup {
         PopupUtils.createErrorPopup(e.errMsg, editor)
     }
   }
+
+  def atMouse(owner: java.awt.Component)(fn: => Unit): Unit = {
+    try {
+      fn
+    } catch {
+      case e: ExceptionNotifyException =>
+        PopupUtils.createErrorPopupAtMouse(e.errMsg, owner)
+    }
+  }
 }
 
 
@@ -89,6 +98,14 @@ object ExceptionNotifyImplicits {
   implicit class ExceptNotify[T](obj: T) {
     def exceptNull(errMsg: => String): T = {
       if (obj != null) {
+        obj
+      } else {
+        exceptable.fail(errMsg)
+      }
+    }
+
+    def exceptEquals(exceptValue: T, errMsg: => String): T = {
+      if (obj != exceptValue) {
         obj
       } else {
         exceptable.fail(errMsg)

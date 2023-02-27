@@ -8,13 +8,14 @@ import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
+import edg.util.Errorable
 import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -22,6 +23,20 @@ import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
+
+
+object DseSearchConfigPopupMenu {
+  def createParamSearchEditPopup(searchConfig: DseConfigElement, project: Project,
+                                 newConfigFn: DseConfigElement => Unit): Errorable[() => Unit] = exceptable {
+    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
+    val initialValue = parseableSearchConfig.valuesToString()
+
+    () => PopupUtils.createStringEntryPopup("Search Values", project, initialValue) { text => exceptable {
+          val parsed = parseableSearchConfig.valuesStringToConfig(text).exceptError
+          newConfigFn(parsed)
+    } }
+  }
+}
 
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
@@ -35,22 +50,17 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
     }
   }, s"Delete"))
 
-  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
-    val initialValue = parseableSearchConfig.valuesToString()
-
-    () => PopupUtils.createStringEntryPopup("Search Values", project, initialValue) { text => exceptable {
-      val parsed = parseableSearchConfig.valuesStringToConfig(text).exceptError
-
-      val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
-      val originalSearchConfigs = dseConfig.options.searchConfigs
-      val index = originalSearchConfigs.indexOf(searchConfig)
-      requireExcept(index >= 0, "config not found")
-      val newSearchConfigs = originalSearchConfigs.patch(index, Seq(parsed), 1)
-      dseConfig.options.searchConfigs = newSearchConfigs
-      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
-    } }
-  }, s"Edit"))
+  add(ContextMenuUtils.MenuItemFromErrorable(
+    DseSearchConfigPopupMenu.createParamSearchEditPopup(searchConfig, project, { newConfig =>
+        exceptionPopup.atMouse(this) {
+          val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+          val originalSearchConfigs = dseConfig.options.searchConfigs
+          val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
+          val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
+          dseConfig.options.searchConfigs = newSearchConfigs
+          BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+        }
+    }), s"Edit"))
 }
 
 
