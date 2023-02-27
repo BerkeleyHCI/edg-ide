@@ -36,7 +36,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
   add(ContextMenuUtils.MenuItemNamedFromErrorable(exceptable {
     val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct parameter")
     val (blockPath, block) = EdgirUtils.resolveDeepestBlock(directPath, design)
-    val blockClass = block.getSelfClass
+    val blockClass = block.getPrerefineClass
     val postfix = directPath.postfixFromOption(blockPath).get
     requireExcept(postfix.steps.size == 1, "not a direct parameter of a block")
     val value = compiler.getParamValue(path).exceptNone("no value")

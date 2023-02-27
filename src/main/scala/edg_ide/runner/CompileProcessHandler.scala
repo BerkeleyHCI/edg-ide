@@ -192,6 +192,13 @@ trait HasConsoleStages {
     } catch {
       case e: Exception =>
         console.print(s"Failed: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
+        // By default, the stack trace isn't printed, since most of the internal details
+        // (stack trace elements) aren't relevant for end users
+        // TODO this should be plumbed to a toggle
+        // val sw = new StringWriter
+        // val pw = new PrintWriter(sw)
+        // e.printStackTrace(pw)
+        // console.print(sw.toString, ConsoleViewContentType.ERROR_OUTPUT)
         default
     }
   }
