@@ -47,8 +47,8 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       config.options.searchConfigs = config.options.searchConfigs ++
           Seq(DseClassParameterSearch(blockClass, postfix, Seq(value)))
       BlockVisualizerService(project).onDseConfigChanged(config)
-    }, s"Search values of specified class ${blockClass.toSimpleString}:$paramName")
-  }, s"Search values of specified class"))
+    }, s"Search values of class ${blockClass.toSimpleString}:$paramName")
+  }, s"Search values of class"))
 
   add(ContextMenuUtils.MenuItemNamedFromErrorable(exceptable {
     val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct parameter")
