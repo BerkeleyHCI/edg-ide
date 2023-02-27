@@ -133,6 +133,8 @@ object DseParameterSearch {
 sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: Serializable =>
   def values: Seq[ExprValue]
 
+  override def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
+
   // Returns the values as a string, that will parse back with valuesStringToConfig.
   // This contains special-case code to handle the TextValue case
   def valuesToString(): String = {
@@ -199,7 +201,6 @@ case class DsePathParameterSearch(path: DesignPath, values: Seq[ExprValue])
     extends DseInstanceRefinementElement[ExprValue] with DseParameterSearch with Serializable {
   override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(",")})"
   override def configToString: String = f"Param($path)"
-  def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path))
@@ -221,7 +222,6 @@ case class DseClassParameterSearch(cls: ref.LibraryPath, postfix: ref.LocalPath,
     extends DseParameterSearch with Serializable {
   override def toString = f"${this.getClass.getSimpleName}(${cls.toSimpleString}:${ExprToString(postfix)}, ${values.map(_.toStringValue).mkString(",")})"
   override def configToString: String = f"ClassParams(${cls.toSimpleString}:${ExprToString(postfix)})"
-  def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(classParams=Seq((cls, postfix)))
