@@ -170,7 +170,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         val design = schema.Design(contents = Some(block))
         val partialCompile = options.searchConfigs.map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
         val (removedRefinements, refinements) = Refinements(refinementsPb).partitionBy(
-          partialCompile.blocks.toSet, partialCompile.params.toSet
+          partialCompile.blocks.toSet, partialCompile.params.toSet, partialCompile.classParams.toSet
         )
         if (!removedRefinements.isEmpty) {
           console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)

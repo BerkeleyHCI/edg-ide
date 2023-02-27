@@ -1,6 +1,5 @@
 package edg_ide.dse
 
-import com.jetbrains.python.psi.PyExpression
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprToString, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable
@@ -229,7 +228,7 @@ case class DseClassParameterSearch(cls: ref.LibraryPath, postfix: ref.LocalPath,
   }
 
   override def getValues: Seq[(ExprValue, Refinements)] = values.map { value =>
-    (value, Refinements(classValues=Map(cls -> Map(postfix -> value))))
+    (value, Refinements(classValues=Map((cls, postfix) -> value)))
   }
 
   override def valuesStringToConfig(str: String): Errorable[DseClassParameterSearch] = exceptable {
