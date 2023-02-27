@@ -30,6 +30,15 @@ case class DseDerivedStatic(path: DesignPath, var value: DsePathParameterSearch)
 
 class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
   behavior of "DseSearchGenerator"
+  
+  it should "generate a single point for empty input" in {
+    val generator = new DseSearchGenerator(Seq())
+    generator.nextPoint() should equal(Some(None, PartialCompile(), SeqMap(), Refinements(), Refinements(), 0.0))
+    val rootCompiler = new MockCompiler()
+    generator.addEvaluatedPoint(rootCompiler)
+
+    generator.nextPoint() should equal(None)
+  }
 
   it should "generate a static config space" in {
     val config1 = DsePathParameterSearch(DesignPath() + "param1",
