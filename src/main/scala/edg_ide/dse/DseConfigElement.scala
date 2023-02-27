@@ -2,7 +2,7 @@ package edg_ide.dse
 
 import com.jetbrains.python.psi.PyExpression
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprToString, ExprValue, FloatValue, IntValue, PartialCompile, RangeValue, TextValue}
 import edg.util.Errorable
 import edg.wir.{DesignPath, Refinements}
 import edg_ide.ui.ParamToUnitsStringUtil
@@ -131,20 +131,8 @@ object DseParameterSearch {
 }
 
 
-// Tries all values for some parameter
-case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
-    extends DseInstanceRefinementElement[ExprValue] with Serializable {
-  override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(",")})"
-  override def configToString: String = f"Param($path)"
-  def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
-
-  override def getPartialCompile: PartialCompile = {
-    PartialCompile(params=Seq(path))
-  }
-
-  override def getValues: Seq[(ExprValue, Refinements)] = values.map { value =>
-    (value, Refinements(instanceValues=Map(path -> value)))
-  }
+sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: Serializable =>
+  def values: Seq[ExprValue]
 
   // Returns the values as a string, that will parse back with valuesStringToConfig.
   // This contains special-case code to handle the TextValue case
@@ -164,7 +152,7 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
   // Parses a string specification of values into a new DseParameterSearch (of the same path and type).
   // The existing object is required to determine the path and value type.
   // May fail with an error message that can be propagated back to the user.
-  def valuesStringToConfig(str: String): Errorable[DseParameterSearch] = exceptable {
+  def valuesStringToValues(str: String): Errorable[Seq[ExprValue]] = exceptable {
     val valueClass = values.map(_.getClass).allSameValue.exceptNone("internal error, inconsistent values")
 
     val newValues = valueClass match {
@@ -200,7 +188,53 @@ case class DseParameterSearch(path: DesignPath, values: Seq[ExprValue])
         exceptable.fail(f"unknown type of value $v")
     }
     requireExcept(newValues.nonEmpty, "no values specified")
-    DseParameterSearch(path, newValues)
+    newValues
+  }
+
+  def valuesStringToConfig(str: String): Errorable[DseParameterSearch]
+}
+
+
+// Tries all values for some parameter
+case class DsePathParameterSearch(path: DesignPath, values: Seq[ExprValue])
+    extends DseInstanceRefinementElement[ExprValue] with DseParameterSearch with Serializable {
+  override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(",")})"
+  override def configToString: String = f"Param($path)"
+  def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
+
+  override def getPartialCompile: PartialCompile = {
+    PartialCompile(params=Seq(path))
+  }
+
+  override def getValues: Seq[(ExprValue, Refinements)] = values.map { value =>
+    (value, Refinements(instanceValues=Map(path -> value)))
+  }
+
+  override def valuesStringToConfig(str: String): Errorable[DseParameterSearch] = exceptable {
+    val newValues = valuesStringToValues(str).exceptError
+    DsePathParameterSearch(path, newValues)
+  }
+}
+
+
+// Tries all values for some class
+case class DseClassParameterSearch(cls: ref.LibraryPath, postfix: ref.LocalPath, values: Seq[ExprValue])
+    extends DseParameterSearch with Serializable {
+  override def toString = f"${this.getClass.getSimpleName}(${cls.toSimpleString}:${ExprToString(postfix)}, ${values.map(_.toStringValue).mkString(",")})"
+  override def configToString: String = f"ClassParams(${cls.toSimpleString}:${ExprToString(postfix)})"
+  def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
+
+  override def getPartialCompile: PartialCompile = {
+    PartialCompile(classParams=Seq((cls, postfix)))
+  }
+
+  override def getValues: Seq[(ExprValue, Refinements)] = values.map { value =>
+    (value, Refinements(classValues=Map(cls -> Map(postfix -> value))))
+  }
+
+  override def valuesStringToConfig(str: String): Errorable[DseClassParameterSearch] = exceptable {
+    val newValues = valuesStringToValues(str).exceptError
+    DseClassParameterSearch(cls, postfix, newValues)
   }
 }
 
@@ -244,7 +278,7 @@ case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedConfig with 
     val matchingPartsPath = path.asIndirect + "matching_parts"
     compiledDesign.getParamValue(matchingPartsPath) match {
       case Some(ArrayValue.ExtractText(values)) =>
-        Errorable.Success(DseParameterSearch(path + "part", values.map(TextValue)))
+        Errorable.Success(DsePathParameterSearch(path + "part", values.map(TextValue)))
       case Some(ArrayValue.Empty(_)) => Errorable.Error(f"no matching parts: $matchingPartsPath")
       case Some(value) => Errorable.Error(f"invalid matching parts: $matchingPartsPath = ${value.toStringValue}")
       case None => Errorable.Error(f"matching parts unavailable: $matchingPartsPath")

@@ -3,7 +3,7 @@ package edg_ide.dse.tests
 import edg.compiler.{Compiler, IntValue, PartialCompile}
 import edg.util.Errorable
 import edg.wir.{DesignPath, EdgirLibrary, Refinements}
-import edg_ide.dse.{DseDerivedConfig, DseParameterSearch, DseSearchGenerator}
+import edg_ide.dse.{DseDerivedConfig, DsePathParameterSearch, DseSearchGenerator}
 import edgir.schema.schema
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,14 +15,14 @@ class MockCompiler extends Compiler(schema.Design(), new EdgirLibrary(schema.Lib
 }
 
 
-case class DseDerivedStatic(path: DesignPath, var value: DseParameterSearch) extends DseDerivedConfig with Serializable {
+case class DseDerivedStatic(path: DesignPath, var value: DsePathParameterSearch) extends DseDerivedConfig with Serializable {
   def configToString: String = f"DerivedStatic($path)"
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path))
   }
 
-  override def configFromDesign(compiledDesign: Compiler): Errorable[DseParameterSearch] = {
+  override def configFromDesign(compiledDesign: Compiler): Errorable[DsePathParameterSearch] = {
     Errorable.Success(value)
   }
 }
@@ -32,10 +32,10 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
   behavior of "DseSearchGenerator"
 
   it should "generate a static config space" in {
-    val config1 = DseParameterSearch(DesignPath() + "param1",
+    val config1 = DsePathParameterSearch(DesignPath() + "param1",
       Seq(0, 1).map(IntValue(_))
     )
-    val config2 = DseParameterSearch(DesignPath() + "param2",
+    val config2 = DsePathParameterSearch(DesignPath() + "param2",
       Seq(10, 11, 12).map(IntValue(_))
     )
 
@@ -123,11 +123,11 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
 
   it should "generate a derived config space" in {
     // we can't test dynamic behavior here since the derived space is generated only once at the test start
-    val containedConfig1 = DseParameterSearch(DesignPath() + "param1",
+    val containedConfig1 = DsePathParameterSearch(DesignPath() + "param1",
       Seq(0, 1).map(IntValue(_))
     )
     val derivedConfig1 = DseDerivedStatic(DesignPath() + "param1", containedConfig1)
-    val containedConfig2 = DseParameterSearch(DesignPath() + "param2",
+    val containedConfig2 = DsePathParameterSearch(DesignPath() + "param2",
       Seq(10).map(IntValue(_))
     )
     val derivedConfig2 = DseDerivedStatic(DesignPath() + "param2", containedConfig2)
@@ -185,10 +185,10 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
   }
 
   it should "generate a hybrid derived config space" in {
-    val config1 = DseParameterSearch(DesignPath() + "param1",
+    val config1 = DsePathParameterSearch(DesignPath() + "param1",
       Seq(0, 1).map(IntValue(_))
     )
-    val containedConfig2 = DseParameterSearch(DesignPath() + "param2",
+    val containedConfig2 = DsePathParameterSearch(DesignPath() + "param2",
       Seq(10).map(IntValue(_))
     )
     val derivedConfig2 = DseDerivedStatic(DesignPath() + "param2", containedConfig2)
@@ -231,7 +231,7 @@ class DseSearchGeneratorTest extends AnyFlatSpec with Matchers {
     generator.addEvaluatedPoint(rootCompiler) // dummy - ignore
 
     // create a new dynamic value which should take effect
-    val containedConfig2new = DseParameterSearch(DesignPath() + "param2",
+    val containedConfig2new = DsePathParameterSearch(DesignPath() + "param2",
       Seq(11).map(IntValue(_))
     )
     derivedConfig2.value = containedConfig2new
