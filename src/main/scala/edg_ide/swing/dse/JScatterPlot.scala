@@ -1,5 +1,6 @@
 package edg_ide.swing.dse
 
+import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
@@ -31,7 +32,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kDefaultRangeMarginFactor = 1.1f  // factor to extend the default range by
 
   private val kPointSizePx = 4 // diameter in px
-  private val kSnapDistancePx = 4 // distance to snap for a click
+  private val kSnapDistancePx = 6 // distance (radius) to snap for a click
+  private val kPointSelectedSizePx = 6 // diameter in px
+  private val kPointHoverOutlinePx = 12 // diameter in px
+  private val kPointHoverOutlineColor = JBColor.YELLOW
 
   private val kTickBrightness = 0.25
   private val kTickSpacingIntervals = Seq(1, 2, 5)
@@ -156,9 +160,18 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       }
       val screenX = dataToScreenX(data.x)
       val screenY = dataToScreenY(data.y)
-      dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
-      if (mouseOverIndices.contains(index) || selectedIndices.contains(index)) {  // makes it thicker
-        dataGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
+
+      if (mouseOverIndices.contains(index) || selectedIndices.contains(index)) { // mouseover: highlight
+        val hoverGraphics = paintGraphics.create()
+        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, kPointHoverOutlineColor, 0.5))
+        hoverGraphics.fillOval(screenX - kPointHoverOutlinePx / 2, screenY - kPointHoverOutlinePx / 2,
+          kPointHoverOutlinePx, kPointHoverOutlinePx)
+      }
+      if (selectedIndices.contains(index)) { // selected: thicker
+        dataGraphics.fillOval(screenX - kPointSelectedSizePx / 2, screenY - kPointSelectedSizePx / 2,
+          kPointSelectedSizePx, kPointSelectedSizePx)
+      } else {
+        dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
       }
     }
   }
