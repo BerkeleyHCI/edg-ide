@@ -132,7 +132,9 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         }
         compilerStack.append(compiler)
       } else {  // just evaluated a concrete design point, pop up the stack
-        searchStack.last.remove(0)  // remove the first (just evaluated) point
+        if (searchStack.nonEmpty) {  // searchStack may be empty for an empty design space
+          searchStack.last.remove(0)  // remove the first (just evaluated) point
+        }
         while (searchStack.nonEmpty && searchStack.last.isEmpty) {  // backtrack as needed
           compilerStack.remove(searchStack.length - 1)
           searchStack.remove(searchStack.length - 1)
