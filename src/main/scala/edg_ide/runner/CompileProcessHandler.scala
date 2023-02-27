@@ -275,7 +275,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         val (compiled, compiler, refinements) = runRequiredStage("compile", indicator) {
           val designType = ElemBuilder.LibraryPath(options.designName)
-          val output = EdgCompilerService(project).compile(designType, None)
+          val output = EdgCompilerService(project).compile(designType)
           (output, "")
         }
 
