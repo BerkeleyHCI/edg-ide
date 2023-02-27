@@ -155,10 +155,8 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
     val instanceRefinementsEntry = refinements.instanceRefinements.map { case (sourcePath, targetClass) =>
       Seq(keyFromPath(sourcePath)) -> refFromLibrary(targetClass)
     }.toSeq
-    val classValuesEntry = refinements.classValues.flatMap { case (sourceClass, targetPathValue) =>
-      targetPathValue.map { case (targetPath, targetValue) =>
-        Seq(refFromLibrary(sourceClass), keyFromLocalPath(targetPath).exceptError) -> valueFromExpr(targetValue).exceptError
-      }
+    val classValuesEntry = refinements.classValues.map { case ((sourceClass, targetPath), targetValue) =>
+      Seq(refFromLibrary(sourceClass), keyFromLocalPath(targetPath).exceptError) -> valueFromExpr(targetValue).exceptError
     }.toSeq
     val instanceValuesEntry = refinements.instanceValues.map { case (sourcePath, targetValue) =>
       Seq(keyFromPath(sourcePath)) -> valueFromExpr(targetValue).exceptError
