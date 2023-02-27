@@ -300,7 +300,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
             ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
             compiled, compiler.getAllSolved
           ).mapErr(msg => s"while refdesing: $msg").get
-          compiler.addValues(refdes, "refdes")
+          compiler.addAssignValues(refdes, "refdes")
           f"${refdes.size} components"
         }
 
