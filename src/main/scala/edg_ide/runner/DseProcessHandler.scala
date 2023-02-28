@@ -112,8 +112,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
-    uiUpdater.runIfIdle {
-      BlockVisualizerService(project).setDseResults(Seq(), options.objectives, true)  // show searching in UI
+    uiUpdater.runIfIdle {  // show searching in UI
+      BlockVisualizerService(project).setDseResults(Seq(), options.searchConfigs, options.objectives, true)
     }
 
     // Open a CSV file (if desired) and write result rows as they are computed.
@@ -223,7 +223,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
               uiUpdater.runIfIdle { // only have one UI update in progress at any time
                 System.gc() // clean up after this compile run
-                BlockVisualizerService(project).setDseResults(results.toSeq, options.objectives, true) // show searching in UI
+                BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
               }
             } else {
               console.print(s"Intermediate point ($compileTime ms)\n",
@@ -238,7 +238,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
-          BlockVisualizerService(project).setDseResults(results.toSeq, options.objectives, false)  // plumb results to UI
+          BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, false)
           ""
         }
       }

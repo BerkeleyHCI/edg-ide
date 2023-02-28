@@ -225,11 +225,12 @@ class DsePanel(project: Project) extends JPanel {
     }
   }
 
-  def setResults(results: Seq[DseResult], objectives: Seq[DseObjective], inProgress: Boolean): Unit = {
+  def setResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
+                 inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
     TreeTableUtils.updateModel(resultsTree,
       new DseResultTreeTableModel(combinedResults, objectives, inProgress))
-    plot.setResults(combinedResults, objectives)
+    plot.setResults(combinedResults, search, objectives)
   }
 
   // Configuration State

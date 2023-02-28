@@ -38,8 +38,8 @@ class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
   }
 }
 
-class DseObjectiveMappedAxis(objective: DseObjectiveParameter, postfix: String,
-                             map: ExprValue => Option[Float]) extends PlotAxis {
+class DseObjectiveParamAxis(objective: DseObjectiveParameter, postfix: String,
+                            map: ExprValue => Option[Float]) extends PlotAxis {
   override def toString = objective.objectiveToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
@@ -50,7 +50,7 @@ class DseObjectiveMappedAxis(objective: DseObjectiveParameter, postfix: String,
   }
 }
 
-class DseObjectiveOrdinalAxis(objective: DseObjectiveParameter) extends PlotAxis {
+class DseObjectiveParamOrdinalAxis(objective: DseObjectiveParameter) extends PlotAxis {
   override def toString = objective.objectiveToString
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
@@ -119,7 +119,7 @@ class DsePlotPanel() extends JPanel {
     plot.setData(points, xAxis, yAxis)
   }
 
-  private def updateAxisSelectors(objectives: Seq[DseObjective]): Unit = {
+  private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective]): Unit = {
     if (objectives == displayAxisSelectorObjectives) {
       return  // nothing needs to be done
     }
@@ -131,21 +131,21 @@ class DsePlotPanel() extends JPanel {
       case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveAxis(objective))
       case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveAxis(objective))
       case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
-        Seq(new DseObjectiveMappedAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
+        Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
       case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
-        Seq(new DseObjectiveMappedAxis(objective, "", param => Some(param.asInstanceOf[IntValue].toFloat)))
+        Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[IntValue].toFloat)))
       case objective: DseObjectiveParameter if objective.exprType == classOf[RangeType] => Seq(
-        new DseObjectiveMappedAxis(objective, " (min)", {
+        new DseObjectiveParamAxis(objective, " (min)", {
           case RangeValue(lower, upper) => Some(lower)
           case _ => None
         }),
-        new DseObjectiveMappedAxis(objective, " (max)", {
+        new DseObjectiveParamAxis(objective, " (max)", {
           case RangeValue(lower, upper) => Some(upper)
           case _ => None
         })
       )
       case objective: DseObjectiveParameter =>
-        Seq(new DseObjectiveOrdinalAxis(objective))
+        Seq(new DseObjectiveParamOrdinalAxis(objective))
       case objective => Seq(new DummyAxis(f"unknown ${objective.objectiveToString}"))
     }
 
@@ -179,8 +179,9 @@ class DsePlotPanel() extends JPanel {
     }
   }
 
-  def setResults(combinedResults: CombinedDseResultSet, objectives: Seq[DseObjective]): Unit = {
-    updateAxisSelectors(objectives)
+  def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
+                 objectives: Seq[DseObjective]): Unit = {
+    updateAxisSelectors(search, objectives)
 
     this.combinedResults = combinedResults
     updatePlot()
