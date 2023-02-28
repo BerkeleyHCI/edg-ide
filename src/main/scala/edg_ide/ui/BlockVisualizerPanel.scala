@@ -30,7 +30,7 @@ import java.awt.datatransfer.DataFlavor
 import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
-import java.util.concurrent.Callable
+import java.util.concurrent.{Callable, TimeUnit}
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JLabel, JPanel, TransferHandler}
@@ -232,12 +232,23 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   //
   private val dseSplitter = new JBSplitter(true, 0.66f, 0.1f, 0.9f)
   private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
-  if (DseFeature.kEnabled) {
-    mainSplitter.setSecondComponent(dseSplitter)
-    dseSplitter.setFirstComponent(bottomSplitter)
-  } else {
-    mainSplitter.setSecondComponent(bottomSplitter)
-  }
+  mainSplitter.setSecondComponent(bottomSplitter)
+
+  // Regularly check the selected run config and show the DSE panel if a DSE config is selected
+  private var dsePanelShown = false
+  AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
+    val dseConfigSelected = BlockVisualizerService(project).getDseRunConfiguration.isDefined
+    if (dsePanelShown != dseConfigSelected) {
+      if (dseConfigSelected) {
+        mainSplitter.setSecondComponent(dseSplitter)
+        dseSplitter.setFirstComponent(bottomSplitter)
+      } else {
+        dseSplitter.setFirstComponent(null)
+        mainSplitter.setSecondComponent(bottomSplitter)
+      }
+      dsePanelShown = dseConfigSelected
+    }
+  }, 333, 333, TimeUnit.MILLISECONDS) // seems flakey without initial delay
 
   private var designTreeModel = new BlockTreeTableModel(project, edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel) with ProvenTreeTableMixin
@@ -287,7 +298,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private val kicadVizPanel = new KicadVizPanel(project)
   tabbedPane.addTab("Kicad", kicadVizPanel)
   private val TAB_KICAD_VIZ = 3
-
 
   // GUI: Design Space Exploration (bottom tab)
   //
