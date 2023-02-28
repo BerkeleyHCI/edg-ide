@@ -49,7 +49,7 @@ class SingleThreadRunner() {
   */
 object DseCsvWriter {
   def apply(writer: java.io.Writer, elts: Seq[DseConfigElement],
-            objectives: SeqMap[String, DseObjective]): Option[DseCsvWriter] = {
+            objectives: Seq[DseObjective]): Option[DseCsvWriter] = {
     Option(CsvWriter.builder().build(writer)).map { csv =>
       new DseCsvWriter(writer, csv, elts, objectives)
     }
@@ -58,8 +58,8 @@ object DseCsvWriter {
 
 
 class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[DseConfigElement],
-                   objectives: SeqMap[String, DseObjective]) {
-  private val objectiveNames = objectives.keys.toSeq
+                   objectives: Seq[DseObjective]) {
+  private val objectiveNames = objectives.map(_.objectiveToString)
   private val searchNames = searchConfigs.map(_.configToString)
 
   csv.writeRow((Seq("index", "errors") ++ searchNames ++ objectiveNames).asJava) // write header row
@@ -70,8 +70,8 @@ class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[Ds
     val searchValueCols = searchConfigs.map { config =>
       result.config.get(config).map(DseConfigElement.valueToString).getOrElse("")
     }
-    val objectiveValueCols = objectiveNames.map { name =>
-      result.objectives.get(name).map(DseConfigElement.valueToString).getOrElse("")
+    val objectiveValueCols = objectives.map { objective =>
+      result.objectives.get(objective).map(DseConfigElement.valueToString).getOrElse("")
     }
 
     csv.writeRow((headerCols ++ searchValueCols ++ objectiveValueCols).asJava)
@@ -201,9 +201,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
                   new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
-              val objectiveValues = options.objectives.map { case (name, objective) =>
-                name -> objective.calculate(compiled, compiler)
-              }
+              val objectiveValues = SeqMap.from(options.objectives.map { objective =>
+                objective -> objective.calculate(compiled, compiler)
+              })
 
               val result = DseResult(results.length, pointValues,
                 searchRefinements, compiler, compiled, errors, objectiveValues, compileTime)

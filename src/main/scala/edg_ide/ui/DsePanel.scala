@@ -8,13 +8,14 @@ import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
+import edg.util.Errorable
 import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup, requireExcept}
 
 import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -22,6 +23,20 @@ import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 import scala.collection.SeqMap
+
+
+object DseSearchConfigPopupMenu {
+  def createParamSearchEditPopup(searchConfig: DseConfigElement, project: Project,
+                                 newConfigFn: DseConfigElement => Unit): Errorable[() => Unit] = exceptable {
+    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
+    val initialValue = parseableSearchConfig.valuesToString()
+
+    () => PopupUtils.createStringEntryPopup("Search Values", project, initialValue) { text => exceptable {
+          val parsed = parseableSearchConfig.valuesStringToConfig(text).exceptError
+          newConfigFn(parsed)
+    } }
+  }
+}
 
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
@@ -35,22 +50,17 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
     }
   }, s"Delete"))
 
-  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
-    val initialValue = parseableSearchConfig.valuesToString()
-
-    () => PopupUtils.createStringEntryPopup("Search Values", project, initialValue) { text => exceptable {
-      val parsed = parseableSearchConfig.valuesStringToConfig(text).exceptError
-
-      val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
-      val originalSearchConfigs = dseConfig.options.searchConfigs
-      val index = originalSearchConfigs.indexOf(searchConfig)
-      requireExcept(index >= 0, "config not found")
-      val newSearchConfigs = originalSearchConfigs.patch(index, Seq(parsed), 1)
-      dseConfig.options.searchConfigs = newSearchConfigs
-      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
-    } }
-  }, s"Edit"))
+  add(ContextMenuUtils.MenuItemFromErrorable(
+    DseSearchConfigPopupMenu.createParamSearchEditPopup(searchConfig, project, { newConfig =>
+        exceptionPopup.atMouse(this) {
+          val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+          val originalSearchConfigs = dseConfig.options.searchConfigs
+          val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
+          val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
+          dseConfig.options.searchConfigs = newSearchConfigs
+          BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+        }
+    }), s"Edit"))
 }
 
 
@@ -58,9 +68,8 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
-    val key = originalObjectives.find(objective == _._2).exceptNone("objective not in config")._1
     () => {
-      dseConfig.options.objectives = originalObjectives.filter(_._1 != key)
+      dseConfig.options.objectives = originalObjectives.filter(_ != objective)
       BlockVisualizerService(project).onDseConfigChanged(dseConfig)
     }
   }, s"Delete"))
@@ -85,7 +94,7 @@ class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu
 class DsePlotPanel() extends JPanel {
   // Data State
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
-  private var displayAxisSelectorObjectives: SeqMap[String, DseObjective] = SeqMap()  // reflects the widget display
+  private var displayAxisSelectorObjectives: Seq[DseObjective] = Seq()  // reflects the widget display
 
   setLayout(new GridBagLayout)
 
@@ -112,8 +121,8 @@ class DsePlotPanel() extends JPanel {
     }
   }
 
-  class DseObjectiveItem(objective: DseObjective, name: String) extends AxisItem {
-    override def toString = name
+  class DseObjectiveItem(objective: DseObjective) extends AxisItem {
+    override def toString = objective.objectiveToString
 
     override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
       val values = results.map { result =>
@@ -127,9 +136,9 @@ class DsePlotPanel() extends JPanel {
     }
   }
 
-  class DseObjectiveParameterItem(objective: DseObjectiveParameter, name: String,
+  class DseObjectiveParameterItem(objective: DseObjectiveParameter, postfix: String,
                                   map: ExprValue => Option[Float]) extends AxisItem {
-    override def toString = name
+    override def toString = objective.objectiveToString + postfix
 
     override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
       val values = results.map { result =>
@@ -139,8 +148,8 @@ class DsePlotPanel() extends JPanel {
     }
   }
 
-  class DseObjectiveParameterStringItem(objective: DseObjectiveParameter, name: String) extends AxisItem {
-    override def toString = name
+  class DseObjectiveParameterStringItem(objective: DseObjectiveParameter) extends AxisItem {
+    override def toString = objective.objectiveToString
 
     override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
       val values = results.map { result =>
@@ -197,7 +206,7 @@ class DsePlotPanel() extends JPanel {
     plot.setData(points, xAxis, yAxis)
   }
 
-  private def updateAxisSelectors(objectives: SeqMap[String, DseObjective]): Unit = {
+  private def updateAxisSelectors(objectives: Seq[DseObjective]): Unit = {
     if (objectives == displayAxisSelectorObjectives) {
       return  // nothing needs to be done
     }
@@ -205,27 +214,26 @@ class DsePlotPanel() extends JPanel {
     val selectedX = xSelector.getItem
     val selectedY = ySelector.getItem
 
-    val items = objectives flatMap { case (name, objective) => objective match {
-      case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveItem(objective, name))
-      case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveItem(objective, name))
+    val items = objectives flatMap {
+      case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveItem(objective))
+      case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveItem(objective))
       case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
-        Seq(new DseObjectiveParameterItem(objective, name, param => Some(param.asInstanceOf[FloatValue].value)))
+        Seq(new DseObjectiveParameterItem(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
       case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
-        Seq(new DseObjectiveParameterItem(objective, name, param => Some(param.asInstanceOf[IntValue].toFloat)))
+        Seq(new DseObjectiveParameterItem(objective, "", param => Some(param.asInstanceOf[IntValue].toFloat)))
       case objective: DseObjectiveParameter if objective.exprType == classOf[RangeType] => Seq(
-        new DseObjectiveParameterItem(objective, s"$name (min)", {
+        new DseObjectiveParameterItem(objective, " (min)", {
           case RangeValue(lower, upper) => Some(lower)
           case _ => None
         }),
-        new DseObjectiveParameterItem(objective, s"$name (max)", {
+        new DseObjectiveParameterItem(objective, " (max)", {
           case RangeValue(lower, upper) => Some(upper)
           case _ => None
         })
       )
       case objective: DseObjectiveParameter =>
-        Seq(new DseObjectiveParameterStringItem(objective, name))
-      case _ => Seq(new DummyAxisItem(f"unknown $name"))
-    }
+        Seq(new DseObjectiveParameterStringItem(objective))
+      case objective => Seq(new DummyAxisItem(f"unknown ${objective.objectiveToString}"))
     }
 
     xSelector.removeItemListener(axisSelectorListener)
@@ -258,7 +266,7 @@ class DsePlotPanel() extends JPanel {
     }
   }
 
-  def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective]): Unit = {
+  def setResults(combinedResults: CombinedDseResultSet, objectives: Seq[DseObjective]): Unit = {
     updateAxisSelectors(objectives)
 
     this.combinedResults = combinedResults
@@ -306,7 +314,7 @@ class DsePanel(project: Project) extends JPanel {
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
         TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(Seq(), SeqMap()))
+          new DseConfigTreeTableModel(Seq(), Seq()))
         TreeTableUtils.updateModel(resultsTree,
           new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
     }
@@ -351,7 +359,7 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Bottom Tabs: Config
   //
-  private val configTree = new TreeTable(new DseConfigTreeTableModel(Seq(), SeqMap()))
+  private val configTree = new TreeTable(new DseConfigTreeTableModel(Seq(), Seq()))
   configTree.setShowColumns(true)
   configTree.setRootVisible(false)
   configTree.addMouseListener(new MouseAdapter {
@@ -408,10 +416,10 @@ class DsePanel(project: Project) extends JPanel {
     }
   }
 
-  def setResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective], inProgress: Boolean): Unit = {
+  def setResults(results: Seq[DseResult], objectives: Seq[DseObjective], inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
     TreeTableUtils.updateModel(resultsTree,
-      new DseResultTreeTableModel(combinedResults, objectives.keys.toSeq, inProgress))
+      new DseResultTreeTableModel(combinedResults, objectives, inProgress))
     plot.setResults(combinedResults, objectives)
   }
 
