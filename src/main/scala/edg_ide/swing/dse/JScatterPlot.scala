@@ -43,16 +43,16 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kTickSizePx = 4
 
   // data state
-  private var xAxis: JScatterPlot.AxisType = None  // if text labels are specified, instead of dynamic numbers
-  private var yAxis: JScatterPlot.AxisType = None
+  private var xAxis: JScatterPlot.AxisType = Some(Seq())  // if text labels are specified, instead of dynamic numbers
+  private var yAxis: JScatterPlot.AxisType = Some(Seq())
 
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq()  // unsorted
 
   // UI state
-  private var xRange = (0f, 0f)
-  private var yRange = (0f, 0f)
+  private var xRange = (-0.5f, 0.5f)
+  private var yRange = (-0.5f, 0.5f)
 
   // multiply data by this to get screen coordinates
   private def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
@@ -125,8 +125,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   }
 
   private def paintAxes(paintGraphics: Graphics): Unit = {
-    // bottom horizontal axis
-    paintGraphics.drawLine(0, getHeight-1, getWidth-1, getHeight-1)
+    if (xAxis.isEmpty) {  // bottom horizontal axis - only on numeric axis
+      val screenOriginY = dataToScreenY(0)
+      paintGraphics.drawLine(0, screenOriginY, getWidth - 1, screenOriginY)
+    }
     val xTicks = xAxis match {
       case Some(xAxis) => xAxis
       case _ => getAxisTicks(xRange, getWidth, kMinTickSpacingPx)
@@ -138,8 +140,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
         (screenX, getHeight - 1 - kTickSizePx), DrawAnchored.Bottom)
     }
 
-    // left vertical axis
-    paintGraphics.drawLine(0, 0, 0, getHeight-1)
+    if (yAxis.isEmpty) {  // left vertical axis - only on numeric axis
+      val screenOriginX = dataToScreenX(0)
+      paintGraphics.drawLine(screenOriginX, 0, screenOriginX, getHeight - 1)
+    }
     val yTicks = yAxis match {
       case Some(yAxis) => yAxis
       case _ => getAxisTicks(yRange, getHeight, kMinTickSpacingPx)
