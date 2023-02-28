@@ -107,7 +107,6 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldResultCsvFile, options.resultCsvFile)
     JDOMExternalizerUtil.writeField(element, kFieldSearchConfigs, ObjectSerializer.serialize(options.searchConfigs))
-    // toSeq needed since SeqMap may not be serializable
     JDOMExternalizerUtil.writeField(element, kFieldObjectives, ObjectSerializer.serialize(options.objectives))
   }
 }
