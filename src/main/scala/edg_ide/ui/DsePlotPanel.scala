@@ -2,7 +2,7 @@ package edg_ide.ui
 
 import com.intellij.openapi.ui.ComboBox
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseResult}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
 import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse.JScatterPlot
 
@@ -71,6 +71,38 @@ class DseObjectiveParamOrdinalAxis(objective: DseObjectiveParameter) extends Plo
 }
 
 
+class DseConfigParamAxis(config: DseConfigElement, postfix: String,
+                         map: ExprValue => Option[Float]) extends PlotAxis {
+  override def toString = config.configToString + postfix
+
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+    val values = results.map { result =>
+      map(result.config(config).asInstanceOf[ExprValue])
+    }
+    (values, None)
+  }
+}
+
+
+class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
+  override def toString = config.configToString
+
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+    val values = results.map { result =>
+      config.valueToString(result.config(config))
+    }
+    val stringToPos = values.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+    val axis = stringToPos.map { case (str, index) => (index, str) }
+
+    val stringToPosMap = stringToPos.toMap
+    val positionalValues = values.map { value =>
+      stringToPosMap.get(value)
+    }
+    (positionalValues, Some(axis))
+  }
+}
+
+
 class DsePlotPanel() extends JPanel {
   // Data State
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
@@ -127,7 +159,27 @@ class DsePlotPanel() extends JPanel {
     val selectedX = xSelector.getItem
     val selectedY = ySelector.getItem
 
-    val items = objectives flatMap {
+    val items = search.flatMap {
+      case config: DseParameterSearch if config.values.forall(_.isInstanceOf[FloatValue]) =>
+        Seq(new DseConfigParamAxis(config, "", expr => Some(expr.asInstanceOf[FloatValue].value)))
+      case config: DseParameterSearch if config.values.forall(_.isInstanceOf[IntValue]) =>
+        Seq(new DseConfigParamAxis(config, "", expr => Some(expr.asInstanceOf[IntValue].toFloat)))
+      case config: DseParameterSearch if config.values.forall(_.isInstanceOf[RangeType]) => Seq(
+        new DseConfigParamAxis(config, " (min)", {
+          case RangeValue(lower, upper) => Some(lower)
+          case _ => None
+        }),
+        new DseConfigParamAxis(config, " (mid)", {
+          case RangeValue(lower, upper) => Some((lower + upper) / 2)
+          case _ => None
+        }),
+        new DseConfigParamAxis(config, " (max)", {
+          case RangeValue(lower, upper) => Some(upper)
+          case _ => None
+        })
+      )
+      case config => Seq(new DseConfigOrdinalAxis(config))
+    } ++ objectives.flatMap {
       case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveAxis(objective))
       case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveAxis(objective))
       case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
@@ -137,6 +189,10 @@ class DsePlotPanel() extends JPanel {
       case objective: DseObjectiveParameter if objective.exprType == classOf[RangeType] => Seq(
         new DseObjectiveParamAxis(objective, " (min)", {
           case RangeValue(lower, upper) => Some(lower)
+          case _ => None
+        }),
+        new DseObjectiveParamAxis(objective, " (mid)", {
+          case RangeValue(lower, upper) => Some((lower + upper) / 2)
           case _ => None
         }),
         new DseObjectiveParamAxis(objective, " (max)", {

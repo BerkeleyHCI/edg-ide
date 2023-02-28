@@ -37,6 +37,9 @@ sealed trait DseConfigElement { self: Serializable =>
   def getPartialCompile: PartialCompile
 
   def configToString: String  // short human-friendly string describing this configuration, excluding values
+
+  // Given a value form getValues, returns a human readable representation
+  def valueToString(value: Any): String
 }
 
 
@@ -49,10 +52,6 @@ sealed trait DseStaticConfig extends DseConfigElement { self: Serializable =>
 sealed trait DseRefinementElement[+ValueType] extends DseStaticConfig { self: Serializable =>
   // Returns a list of possibilities, as both a raw value and a refinement
   def getValues: Seq[(ValueType, Refinements)]
-
-  // Given a value form getValues, returns a human readable representation
-  // TODO: this should be properly typed, but then ValueType needs to be invariant
-  def valueToString(value: Any): String
 }
 
 
@@ -267,7 +266,9 @@ trait DseDerivedConfig extends DseConfigElement { self: Serializable =>
 
 // Search config of all matching parts from a test compile run
 case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedConfig with Serializable {
-  def configToString: String = f"Parts($path)"
+  override def configToString: String = f"Parts($path)"
+
+  override def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path + "part"))
