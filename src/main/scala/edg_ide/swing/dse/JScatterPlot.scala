@@ -51,8 +51,8 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private var selectedIndices: Seq[Int] = Seq()  // unsorted
 
   // UI state
-  private var xRange = (-0.5f, 0.5f)
-  private var yRange = (-0.5f, 0.5f)
+  private var xRange = (-1.0f, 1.0f)
+  private var yRange = (-1.0f, 1.0f)
 
   // multiply data by this to get screen coordinates
   private def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
@@ -125,9 +125,9 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   }
 
   private def paintAxes(paintGraphics: Graphics): Unit = {
-    if (xAxis.isEmpty) {  // bottom horizontal axis - only on numeric axis
-      val screenOriginY = dataToScreenY(0)
-      paintGraphics.drawLine(0, screenOriginY, getWidth - 1, screenOriginY)
+    if (xAxis.isEmpty) { // left vertical axis - only on numeric axis
+      val screenOriginX = dataToScreenX(0)
+      paintGraphics.drawLine(screenOriginX, 0, screenOriginX, getHeight - 1)
     }
     val xTicks = xAxis match {
       case Some(xAxis) => xAxis
@@ -140,9 +140,9 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
         (screenX, getHeight - 1 - kTickSizePx), DrawAnchored.Bottom)
     }
 
-    if (yAxis.isEmpty) {  // left vertical axis - only on numeric axis
-      val screenOriginX = dataToScreenX(0)
-      paintGraphics.drawLine(screenOriginX, 0, screenOriginX, getHeight - 1)
+    if (yAxis.isEmpty) { // bottom horizontal axis - only on numeric axis
+      val screenOriginY = dataToScreenY(0)
+      paintGraphics.drawLine(0, screenOriginY, getWidth - 1, screenOriginY)
     }
     val yTicks = yAxis match {
       case Some(yAxis) => yAxis
