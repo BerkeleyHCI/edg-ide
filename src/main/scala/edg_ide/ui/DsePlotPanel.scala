@@ -27,8 +27,8 @@ class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
   override def toString = objective.objectiveToString
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.map { result =>
-      objective.calculate(result.compiled, result.compiler) match {
+    val values = results.flatMap { result =>
+      result.objectives.get(objective).map {
         case x: Float => Some(x)
         case x: Int => Some(x.toFloat)
         case _ => None
@@ -43,8 +43,8 @@ class DseObjectiveParamAxis(objective: DseObjectiveParameter, postfix: String,
   override def toString = objective.objectiveToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.map { result =>
-      objective.calculate(result.compiled, result.compiler).flatMap(map)
+    val values = results.flatMap { result =>
+      result.objectives.get(objective).map(value => map(value.asInstanceOf[ExprValue]))
     }
     (values, None)
   }
@@ -55,7 +55,7 @@ class DseObjectiveParamOrdinalAxis(objective: DseObjectiveParameter) extends Plo
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
     val values = results.map { result =>
-      objective.calculate(result.compiled, result.compiler).map(_.toStringValue)
+      result.objectives.get(objective).map(value => value.asInstanceOf[ExprValue].toStringValue)
     }
     val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
     val axis = stringToPos.map { case (str, index) => (index, str) }
@@ -76,8 +76,8 @@ class DseConfigParamAxis(config: DseConfigElement, postfix: String,
   override def toString = config.configToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.map { result =>
-      map(result.config(config).asInstanceOf[ExprValue])
+    val values = results.flatMap { result =>
+      result.config.get(config).map(value => map(value.asInstanceOf[ExprValue]))
     }
     (values, None)
   }
@@ -88,8 +88,8 @@ class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
   override def toString = config.configToString
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.map { result =>
-      config.valueToString(result.config(config))
+    val values = results.flatMap { result =>
+      result.config.get(config).map(config.valueToString)
     }
     val stringToPos = values.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
     val axis = stringToPos.map { case (str, index) => (index, str) }
