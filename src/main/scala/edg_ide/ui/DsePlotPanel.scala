@@ -11,11 +11,11 @@ import java.awt.event.{ItemEvent, ItemListener}
 import javax.swing.JPanel
 
 
-sealed trait AxisItem {
+sealed trait PlotAxis {
   def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType)
 }
 
-class DummyAxisItem(val name: String) extends AxisItem {
+class DummyAxis(val name: String) extends PlotAxis {
   override def toString = name
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
@@ -23,7 +23,7 @@ class DummyAxisItem(val name: String) extends AxisItem {
   }
 }
 
-class DseObjectiveItem(objective: DseObjective) extends AxisItem {
+class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
   override def toString = objective.objectiveToString
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
@@ -38,8 +38,8 @@ class DseObjectiveItem(objective: DseObjective) extends AxisItem {
   }
 }
 
-class DseObjectiveParameterItem(objective: DseObjectiveParameter, postfix: String,
-                                map: ExprValue => Option[Float]) extends AxisItem {
+class DseObjectiveMappedAxis(objective: DseObjectiveParameter, postfix: String,
+                             map: ExprValue => Option[Float]) extends PlotAxis {
   override def toString = objective.objectiveToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
@@ -50,7 +50,7 @@ class DseObjectiveParameterItem(objective: DseObjectiveParameter, postfix: Strin
   }
 }
 
-class DseObjectiveParameterStringItem(objective: DseObjectiveParameter) extends AxisItem {
+class DseObjectiveOrdinalAxis(objective: DseObjectiveParameter) extends PlotAxis {
   override def toString = objective.objectiveToString
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
@@ -89,12 +89,12 @@ class DsePlotPanel() extends JPanel {
   }
   add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
 
-  private val xSelector = new ComboBox[AxisItem]()
-  private val xAxisHeader = new DummyAxisItem("X Axis")
+  private val xSelector = new ComboBox[PlotAxis]()
+  private val xAxisHeader = new DummyAxis("X Axis")
   xSelector.addItem(xAxisHeader)
   add(xSelector, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
-  private val ySelector = new ComboBox[AxisItem]()
-  private val yAxisHeader = new DummyAxisItem("Y Axis")
+  private val ySelector = new ComboBox[PlotAxis]()
+  private val yAxisHeader = new DummyAxis("Y Axis")
   ySelector.addItem(yAxisHeader)
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
@@ -137,25 +137,25 @@ class DsePlotPanel() extends JPanel {
     val selectedY = ySelector.getItem
 
     val items = objectives flatMap {
-      case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveItem(objective))
-      case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveItem(objective))
+      case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveAxis(objective))
+      case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveAxis(objective))
       case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
-        Seq(new DseObjectiveParameterItem(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
+        Seq(new DseObjectiveMappedAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
       case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
-        Seq(new DseObjectiveParameterItem(objective, "", param => Some(param.asInstanceOf[IntValue].toFloat)))
+        Seq(new DseObjectiveMappedAxis(objective, "", param => Some(param.asInstanceOf[IntValue].toFloat)))
       case objective: DseObjectiveParameter if objective.exprType == classOf[RangeType] => Seq(
-        new DseObjectiveParameterItem(objective, " (min)", {
+        new DseObjectiveMappedAxis(objective, " (min)", {
           case RangeValue(lower, upper) => Some(lower)
           case _ => None
         }),
-        new DseObjectiveParameterItem(objective, " (max)", {
+        new DseObjectiveMappedAxis(objective, " (max)", {
           case RangeValue(lower, upper) => Some(upper)
           case _ => None
         })
       )
       case objective: DseObjectiveParameter =>
-        Seq(new DseObjectiveParameterStringItem(objective))
-      case objective => Seq(new DummyAxisItem(f"unknown ${objective.objectiveToString}"))
+        Seq(new DseObjectiveOrdinalAxis(objective))
+      case objective => Seq(new DummyAxis(f"unknown ${objective.objectiveToString}"))
     }
 
     xSelector.removeItemListener(axisSelectorListener)
