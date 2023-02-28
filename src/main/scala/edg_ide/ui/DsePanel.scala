@@ -129,7 +129,7 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Top plot
   private val plot = new DsePlotPanel() {
-    override def onClick(data: Seq[Seq[DseResult]]): Unit = {
+    override def onClick(data: Seq[DseResult]): Unit = {
       resultsTree.clearSelection()
       val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
       val treeRootPath = new TreePath(treeRoot)
@@ -144,7 +144,7 @@ class DsePanel(project: Project) extends JPanel {
       setSelection(data)
     }
 
-    override def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {
+    override def onHoverChange(data: Seq[DseResult]): Unit = {
       // TODO something w/ results tree selection?
     }
   }
@@ -188,11 +188,13 @@ class DsePanel(project: Project) extends JPanel {
       val selectedTreePath = TreeTableUtils.getPathForRowLocation(resultsTree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
         case node: DseResultTreeNode#ResultSetNode =>
-          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in chart
-            plot.setSelection(Seq(node.setMembers))
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight all in chart
+            plot.setSelection(node.setMembers)
           }
         case node: DseResultTreeNode#ResultNode =>
-          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click popup menu
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in chart
+            plot.setSelection(Seq(node.result))
+          } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click popup menu
             new DseResultPopupMenu(node.result, project).show(e.getComponent, e.getX, e.getY)
           } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
             val result = node.result

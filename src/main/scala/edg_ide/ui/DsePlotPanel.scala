@@ -78,7 +78,7 @@ class DsePlotPanel() extends JPanel {
 
   setLayout(new GridBagLayout)
 
-  private val plot = new JScatterPlot[Seq[DseResult]]() {
+  private val plot = new JScatterPlot[DseResult]() {
     override def onClick(data: Seq[Data]): Unit = {
       DsePlotPanel.this.onClick(data.map(_.value))
     }
@@ -104,26 +104,17 @@ class DsePlotPanel() extends JPanel {
     val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(examples)
 
     val points = combinedResults.groupedResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
-      case (resultSet, (Some(xVal), Some(yVal))) =>
-        val example = resultSet.head
-        val color = if (example.errors.nonEmpty) {
+      case (resultSet, (Some(xVal), Some(yVal))) => resultSet.flatMap { result =>
+        val color = if (result.errors.nonEmpty) {
           Some(com.intellij.ui.JBColor.RED)
         } else {
           None
         }
-
-        val objectivesStr = example.objectives.map { case (objective, value) =>
-          f"$objective=${DseConfigElement.valueToString(value)}"
-        }.mkString("\n")
-        val resultsStr = resultSet.map { result =>
-          DseConfigElement.configMapToString(result.config)
-        }.mkString("\n")
-        val tooltipText = objectivesStr + f"\n\n${resultSet.size} results:\n" + resultsStr
-
-        Some(new plot.Data(resultSet, xVal, yVal, color,
+        val tooltipText = DseConfigElement.configMapToString(result.config)
+        Some(new plot.Data(result, xVal, yVal, color,
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-      case _ => None
-    }
+//      case _ => Seq(None)
+    } }
 
     plot.setData(points, xAxis, yAxis)
   }
@@ -195,18 +186,17 @@ class DsePlotPanel() extends JPanel {
     updatePlot()
   }
 
-  def setSelection(resultSets: Seq[Seq[DseResult]]): Unit = {
-    plot.setSelected(resultSets)
+  def setSelection(results: Seq[DseResult]): Unit = {
+    plot.setSelected(results)
   }
 
   // User hooks - can be overridden
   //
   // called when this widget clicked, for all points within some hover radius of the cursor
   // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(data: Seq[Seq[DseResult]]): Unit = {}
+  def onClick(results: Seq[DseResult]): Unit = {}
 
   // called when the hovered-over data changes, for all points within some hover radius of the cursor
   // may be empty (when hovering over nothing)
-  def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {}
-
+  def onHoverChange(results: Seq[DseResult]): Unit = {}
 }
