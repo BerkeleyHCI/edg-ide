@@ -66,11 +66,11 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       case _ => exceptable.fail(f"no parameter type at $path")
     }
 
-    () => PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
+    () => {
       val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq((text, objective))
+      config.options.objectives = config.options.objectives :+ objective
       BlockVisualizerService(project).onDseConfigChanged(config)
-    } }
+    }
   }, "Add objective"))
 }
 

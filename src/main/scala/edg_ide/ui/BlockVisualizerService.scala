@@ -117,7 +117,7 @@ class BlockVisualizerService(project: Project) extends
     onDseConfigChanged(config)
   }
 
-  def setDseResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective],
+  def setDseResults(results: Seq[DseResult], objectives: Seq[DseObjective],
                     inProgress: Boolean): Unit = {
     dsePanelOption.foreach(_.setResults(results, objectives, inProgress))
   }
