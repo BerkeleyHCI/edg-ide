@@ -113,9 +113,9 @@ class DsePlotPanel() extends JPanel {
         val tooltipText = DseConfigElement.configMapToString(result.config)
         Some(new plot.Data(result, xVal, yVal, color,
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-//      case _ => Seq(None)
-    } }
-
+      }
+      case _ => Seq()
+    }
     plot.setData(points, xAxis, yAxis)
   }
 

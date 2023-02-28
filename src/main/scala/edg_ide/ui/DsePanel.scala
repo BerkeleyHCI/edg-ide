@@ -11,7 +11,7 @@ import edg_ide.dse._
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
-import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel}
+import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
@@ -131,16 +131,25 @@ class DsePanel(project: Project) extends JPanel {
   private val plot = new DsePlotPanel() {
     override def onClick(data: Seq[DseResult]): Unit = {
       resultsTree.clearSelection()
+
       val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
-      val treeRootPath = new TreePath(treeRoot)
-      treeRoot.children foreach {
-        case node: treeRoot.ResultSetNode if data.contains(node.setMembers) =>
-          val nodeTreePath = treeRootPath.pathByAddingChild(node)
-          resultsTree.addSelectedPath(nodeTreePath)
-          resultsTree.getTree.expandPath(nodeTreePath)
-          resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(nodeTreePath))
-        case node =>  // ignored
+      def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
+        case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
+        case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path)
+        case _ => Seq()
       }
+      val treeRootPath = new TreePath(treeRoot)
+      val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
+
+      dataTreePaths.foreach { treePath =>
+        resultsTree.addSelectedPath(treePath)
+        resultsTree.getTree.expandPath(treePath)
+
+      }
+      dataTreePaths.headOption.foreach { treePath =>  // scroll to the first result
+        resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
+      }
+
       setSelection(data)
     }
 
