@@ -39,12 +39,14 @@ class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
 }
 
 class DseObjectiveParamAxis(objective: DseObjectiveParameter, postfix: String,
-                            map: ExprValue => Option[Float]) extends PlotAxis {
+                            mapFn: ExprValue => Option[Float]) extends PlotAxis {
   override def toString = objective.objectiveToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
     val values = results.flatMap { result =>
-      result.objectives.get(objective).map(value => map(value.asInstanceOf[ExprValue]))
+      result.objectives.get(objective).flatMap(value =>
+        value.asInstanceOf[Option[ExprValue]].map(value =>
+          mapFn(value)))
     }
     (values, None)
   }
@@ -55,7 +57,8 @@ class DseObjectiveParamOrdinalAxis(objective: DseObjectiveParameter) extends Plo
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
     val values = results.map { result =>
-      result.objectives.get(objective).map(value => value.asInstanceOf[ExprValue].toStringValue)
+      result.objectives.get(objective).flatMap(value =>
+        value.asInstanceOf[Option[ExprValue]].map(_.toStringValue))
     }
     val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
     val axis = stringToPos.map { case (str, index) => (index, str) }
