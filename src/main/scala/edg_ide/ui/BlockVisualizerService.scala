@@ -117,9 +117,9 @@ class BlockVisualizerService(project: Project) extends
     onDseConfigChanged(config)
   }
 
-  def setDseResults(results: Seq[DseResult], objectives: Seq[DseObjective],
+  def setDseResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
                     inProgress: Boolean): Unit = {
-    dsePanelOption.foreach(_.setResults(results, objectives, inProgress))
+    dsePanelOption.foreach(_.setResults(results, search, objectives, inProgress))
   }
 
   // Proven feature

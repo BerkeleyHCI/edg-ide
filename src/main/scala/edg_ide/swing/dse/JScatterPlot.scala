@@ -165,7 +165,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       val screenX = dataToScreenX(data.x)
       val screenY = dataToScreenY(data.y)
 
-      if (mouseOverIndices.contains(index) || selectedIndices.contains(index)) { // mouseover: highlight
+      if (mouseOverIndices.contains(index)) { // mouseover: highlight
         val hoverGraphics = paintGraphics.create()
         hoverGraphics.setColor(ColorUtil.blendColor(getBackground, kPointHoverOutlineColor, 0.5))
         hoverGraphics.fillOval(screenX - kPointHoverOutlinePx / 2, screenY - kPointHoverOutlinePx / 2,

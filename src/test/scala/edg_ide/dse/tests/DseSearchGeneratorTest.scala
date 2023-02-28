@@ -16,7 +16,8 @@ class MockCompiler extends Compiler(schema.Design(), new EdgirLibrary(schema.Lib
 
 
 case class DseDerivedStatic(path: DesignPath, var value: DsePathParameterSearch) extends DseDerivedConfig with Serializable {
-  def configToString: String = f"DerivedStatic($path)"
+  override def configToString: String = f"DerivedStatic($path)"
+  override def valueToString(value: Any): String = value.toString
 
   override def getPartialCompile: PartialCompile = {
     PartialCompile(params=Seq(path))
