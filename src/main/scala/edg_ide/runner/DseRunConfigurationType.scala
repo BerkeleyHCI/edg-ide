@@ -130,8 +130,8 @@ class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   override def resetEditorFrom(s: DseRunConfiguration): Unit = {
     designName.setText(s.options.designName)
     resultCsvFile.setText(s.options.resultCsvFile)
-    searchConfigs.setText("<html>" + s.options.searchConfigs.map(_.toString).mkString("<br/>") + "</html>")
-    objectives.setText("<html>" + s.options.objectives.map(_.toString).mkString("<br/>") + "</html>")
+    searchConfigs.setText("<html>" + s.options.searchConfigs.map(_.configToString).mkString("<br/>") + "</html>")
+    objectives.setText("<html>" + s.options.objectives.map(_.objectiveToString).mkString("<br/>") + "</html>")
   }
 
   override def applyEditorTo(s: DseRunConfiguration): Unit = {
