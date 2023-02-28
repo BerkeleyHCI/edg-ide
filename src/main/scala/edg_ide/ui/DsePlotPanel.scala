@@ -131,12 +131,12 @@ class DsePlotPanel() extends JPanel {
   add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private def updatePlot(): Unit = {
-    val examples = combinedResults.groupedResults.map(_.head)
-    val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(examples)
-    val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(examples)
+    val flatResults = combinedResults.groupedResults.flatten
+    val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(flatResults)
+    val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(flatResults)
 
-    val points = combinedResults.groupedResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
-      case (resultSet, (Some(xVal), Some(yVal))) => resultSet.flatMap { result =>
+    val points = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
+      case (result, (Some(xVal), Some(yVal))) =>
         val color = if (result.errors.nonEmpty) {
           Some(com.intellij.ui.JBColor.RED)
         } else {
@@ -145,7 +145,6 @@ class DsePlotPanel() extends JPanel {
         val tooltipText = DseConfigElement.configMapToString(result.config)
         Some(new plot.Data(result, xVal, yVal, color,
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-      }
       case _ => Seq()
     }
     plot.setData(points, xAxis, yAxis)
