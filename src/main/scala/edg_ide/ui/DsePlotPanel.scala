@@ -106,7 +106,7 @@ class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
 class DsePlotPanel() extends JPanel {
   // Data State
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
-  private var displayAxisSelectorObjectives: Seq[DseObjective] = Seq()  // reflects the widget display
+  private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
 
   setLayout(new GridBagLayout)
 
@@ -152,7 +152,7 @@ class DsePlotPanel() extends JPanel {
   }
 
   private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective]): Unit = {
-    if (objectives == displayAxisSelectorObjectives) {
+    if ((search, objectives) == displayAxisSelector) {
       return  // nothing needs to be done
     }
 
@@ -220,7 +220,7 @@ class DsePlotPanel() extends JPanel {
 
     xSelector.addItemListener(axisSelectorListener)
     ySelector.addItemListener(axisSelectorListener)
-    displayAxisSelectorObjectives = objectives
+    displayAxisSelector = (search, objectives)
 
     // restore prior selection by name matching
     items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
