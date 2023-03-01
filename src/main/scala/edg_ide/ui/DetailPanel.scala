@@ -28,7 +28,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val value = compiler.getParamValue(path).exceptNone("no value")
     val insertAction = new InsertRefinementAction(project, rootPyClass.exceptError).createInsertRefinements(new Refinements(
-      instanceRefinements = Map(path -> value)
+      instanceValues = Map(DesignPath.fromIndirectOption(path).exceptNone("not a direct parameter") -> value)
     )).exceptError
     () => {
       val inserted = insertAction().head
@@ -57,7 +57,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     (() => {
       val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
-    }, s"Search values of class ${blockClass.toSimpleString}:${ExprToString(postfix)}")
+    }, s"Insert refinement for class ${blockClass.toSimpleString}:${ExprToString(postfix)}")
   }, s"Insert refinement for class"))
 
   // Determine the param-defining class for class-based refinements
@@ -81,8 +81,8 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     (() => {
       val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
-    }, s"Search values of param-defining class ${paramDefiningClass.toSimpleString}:${ExprToString(postfix)}")
-  }, s"Search values of param-defining class"))
+    }, s"Insert refinement for param-defining class ${paramDefiningClass.toSimpleString}:${ExprToString(postfix)}")
+  }, s"Insert refinement for param-defining class"))
 
   if (DseFeature.kEnabled) {
     addSeparator()

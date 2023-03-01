@@ -29,6 +29,7 @@ object InsertRefinementAction {
 class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   val psiElementGenerator = PyElementGenerator.getInstance(project)
   val languageLevel = LanguageLevel.forElement(insertIntoClass)
+  val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
 
   // Must be called within writeCommandAction
   // Inserts the refinement kwarg and value into the target PyArgumentList
@@ -80,7 +81,6 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
               val insertTuple = psiElementGenerator.createExpressionFromText(languageLevel,
                 s"(${keyElts.map(_.getText).mkString(", ")}, ${value.getText}),") // note, trailing comma
               // for some reason, PyElementGenerator.getInstance(project).createNewLine inserts two spaces
-              val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
               val inserted = valueList.add(insertTuple).asInstanceOf[PyTupleExpression]
               // can't do valueList.addBefore, since that does a check for PyExpr, which whitespace is not
               inserted.addBefore(newline, inserted.getFirstChild)
@@ -195,7 +195,8 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
     case ArrayValue(values) =>
       val listExpr = psiElementGenerator.createListLiteral()
       values.foreach { value =>
-        listExpr.add(valueFromExpr(value).exceptError)
+        val inserted = listExpr.add(valueFromExpr(value).exceptError)
+        inserted.addBefore(newline, inserted.getFirstChild)
       }
       listExpr
   }}
