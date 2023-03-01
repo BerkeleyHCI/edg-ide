@@ -2,6 +2,7 @@ package edg_ide.runner
 
 import com.lowagie.text.{Document, Element, HeaderFooter, Rectangle}
 import com.lowagie.text.pdf.PdfWriter
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil.BlockProtoToSeqMap
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import org.eclipse.elk.graph.ElkNode
@@ -29,11 +30,12 @@ object PDFGeneratorUtil{
       val document = new Document()
       val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
       val footer = new HeaderFooter(true)
-      footer.setBorder(Rectangle.NO_BORDER)
-      footer.setAlignment(Element.ALIGN_RIGHT)
-      document.setFooter(footer)
+      // TODO: Fix/figure out why footer breaks code
+//      footer.setBorder(Rectangle.NO_BORDER)
+//      footer.setAlignment(Element.ALIGN_RIGHT)
+//      document.setFooter(footer)
 
-      def printNode(node: ElkNode): Unit = {
+      def printNode(node: ElkNode, path: String): Unit = {
         val (width, height) = generatePageSize(node)
         document.setPageSize(new Rectangle(width, height))
 
@@ -54,9 +56,20 @@ object PDFGeneratorUtil{
         graphics.dispose()
       }
 
+      var blockPages: Map[String, List[Int]] = Map()
+      var pageNo = 0
+
       def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
-        val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers=mappers)
-        printNode(node)
+        pageNo += 1
+        val className = block.getSelfClass.toSimpleString
+        println("#####" + className + "#####")
+
+        blockPages = blockPages + (className -> (blockPages.getOrElse(className, List.empty[Int]) :+ pageNo))
+        if (!blockPages.contains(className)) {
+          println("new classname")
+        }
+        val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
+        printNode(node, path.toString)
 
         block.blocks.asPairs.map {
           case (name, subblock) => (name, subblock.`type`)
@@ -68,6 +81,8 @@ object PDFGeneratorUtil{
       }
 
       printNextHierarchyLevel(content)
+
+      println(blockPages.toString())
       document.close()
     } catch {
       case e: FileNotFoundException => println(s"Couldn't find ${fileName}.")
