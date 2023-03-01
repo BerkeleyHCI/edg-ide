@@ -1,5 +1,6 @@
 package edg_ide.swing.dse
 
+import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
@@ -31,7 +32,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kDefaultRangeMarginFactor = 1.1f  // factor to extend the default range by
 
   private val kPointSizePx = 4 // diameter in px
-  private val kSnapDistancePx = 4 // distance to snap for a click
+  private val kSnapDistancePx = 6 // distance (radius) to snap for a click
+  private val kPointSelectedSizePx = 6 // diameter in px
+  private val kPointHoverOutlinePx = 12 // diameter in px
+  private val kPointHoverOutlineColor = JBColor.YELLOW
 
   private val kTickBrightness = 0.25
   private val kTickSpacingIntervals = Seq(1, 2, 5)
@@ -39,16 +43,16 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   private val kTickSizePx = 4
 
   // data state
-  private var xAxis: JScatterPlot.AxisType = None  // if text labels are specified, instead of dynamic numbers
-  private var yAxis: JScatterPlot.AxisType = None
+  private var xAxis: JScatterPlot.AxisType = Some(Seq())  // if text labels are specified, instead of dynamic numbers
+  private var yAxis: JScatterPlot.AxisType = Some(Seq())
 
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq()  // unsorted
 
   // UI state
-  private var xRange = (0f, 0f)
-  private var yRange = (0f, 0f)
+  private var xRange = (-1.0f, 1.0f)
+  private var yRange = (-1.0f, 1.0f)
 
   // multiply data by this to get screen coordinates
   private def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
@@ -121,8 +125,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   }
 
   private def paintAxes(paintGraphics: Graphics): Unit = {
-    // bottom horizontal axis
-    paintGraphics.drawLine(0, getHeight-1, getWidth-1, getHeight-1)
+    if (xAxis.isEmpty) { // left vertical axis - only on numeric axis
+      val screenOriginX = dataToScreenX(0)
+      paintGraphics.drawLine(screenOriginX, 0, screenOriginX, getHeight - 1)
+    }
     val xTicks = xAxis match {
       case Some(xAxis) => xAxis
       case _ => getAxisTicks(xRange, getWidth, kMinTickSpacingPx)
@@ -134,8 +140,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
         (screenX, getHeight - 1 - kTickSizePx), DrawAnchored.Bottom)
     }
 
-    // left vertical axis
-    paintGraphics.drawLine(0, 0, 0, getHeight-1)
+    if (yAxis.isEmpty) { // bottom horizontal axis - only on numeric axis
+      val screenOriginY = dataToScreenY(0)
+      paintGraphics.drawLine(0, screenOriginY, getWidth - 1, screenOriginY)
+    }
     val yTicks = yAxis match {
       case Some(yAxis) => yAxis
       case _ => getAxisTicks(yRange, getHeight, kMinTickSpacingPx)
@@ -156,9 +164,18 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       }
       val screenX = dataToScreenX(data.x)
       val screenY = dataToScreenY(data.y)
-      dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
-      if (mouseOverIndices.contains(index) || selectedIndices.contains(index)) {  // makes it thicker
-        dataGraphics.drawOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
+
+      if (mouseOverIndices.contains(index)) { // mouseover: highlight
+        val hoverGraphics = paintGraphics.create()
+        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, kPointHoverOutlineColor, 0.5))
+        hoverGraphics.fillOval(screenX - kPointHoverOutlinePx / 2, screenY - kPointHoverOutlinePx / 2,
+          kPointHoverOutlinePx, kPointHoverOutlinePx)
+      }
+      if (selectedIndices.contains(index)) { // selected: thicker
+        dataGraphics.fillOval(screenX - kPointSelectedSizePx / 2, screenY - kPointSelectedSizePx / 2,
+          kPointSelectedSizePx, kPointSelectedSizePx)
+      } else {
+        dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
       }
     }
   }

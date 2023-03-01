@@ -146,18 +146,14 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     }}, "Search matching parts"))
 
     add(ContextMenuUtils.MenuItem(() => {
-      PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
       val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintArea(path)))
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintArea(path))
       BlockVisualizerService(project).onDseConfigChanged(config)
-    } }
     }, "Add objective contained footprint area"))
     add(ContextMenuUtils.MenuItem(() => {
-      PopupUtils.createStringEntryPopup("Name", project) { text => exceptable {
-        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-        config.options.objectives = config.options.objectives ++ Seq((text, DseObjectiveFootprintCount(path)))
-        BlockVisualizerService(project).onDseConfigChanged(config)
-      } }
+      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
+      BlockVisualizerService(project).onDseConfigChanged(config)
     }, "Add objective contained footprint count"))
   }
 }

@@ -1,6 +1,7 @@
 package edg_ide.dse
 
 import edg.compiler.{Compiler, CompilerError}
+import edg.wir.Refinements
 import edgir.schema.schema.Design
 
 import scala.collection.{SeqMap, mutable}
@@ -10,10 +11,11 @@ import scala.collection.{SeqMap, mutable}
 case class DseResult(
                         index: Int,
                         config: SeqMap[DseConfigElement, Any],
+                        searchRefinements: Refinements,
                         compiler: Compiler,
                         compiled: Design,
                         errors: Seq[CompilerError],
-                        objectives: SeqMap[String, Any],
+                        objectives: SeqMap[DseObjective, Any],
                         compileTime: Long
 ) {
   def objectiveToString: String = {
@@ -28,7 +30,7 @@ case class DseResult(
 class CombinedDseResultSet(results: Seq[DseResult]) {
   // groups similar results while preserving the order of groups (based on first-seen order of results)
   private def combineSimilarResults(results: Seq[DseResult]): Seq[Seq[DseResult]] = {
-    type GroupingKey = (Boolean, SeqMap[String, Any])  // group only by objective values and if there were errors
+    type GroupingKey = (Boolean, SeqMap[DseObjective, Any])  // group only by objective values and if there were errors
     val groupedMap = mutable.SeqMap[GroupingKey, mutable.ArrayBuffer[DseResult]]()
     results.foreach { result =>
       val key = (result.errors.nonEmpty, result.objectives)

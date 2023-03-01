@@ -9,9 +9,8 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
-import edg_ide.dse.{DseConfigElement, DseDerivedConfig, DseObjective, DseRefinementElement, DseResult, DseSearchGenerator}
+import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
-import edg_ide.util.CrossProductUtils.crossProduct
 import edgir.schema.schema
 
 import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
@@ -50,7 +49,7 @@ class SingleThreadRunner() {
   */
 object DseCsvWriter {
   def apply(writer: java.io.Writer, elts: Seq[DseConfigElement],
-            objectives: SeqMap[String, DseObjective]): Option[DseCsvWriter] = {
+            objectives: Seq[DseObjective]): Option[DseCsvWriter] = {
     Option(CsvWriter.builder().build(writer)).map { csv =>
       new DseCsvWriter(writer, csv, elts, objectives)
     }
@@ -59,8 +58,8 @@ object DseCsvWriter {
 
 
 class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[DseConfigElement],
-                   objectives: SeqMap[String, DseObjective]) {
-  private val objectiveNames = objectives.keys.toSeq
+                   objectives: Seq[DseObjective]) {
+  private val objectiveNames = objectives.map(_.objectiveToString)
   private val searchNames = searchConfigs.map(_.configToString)
 
   csv.writeRow((Seq("index", "errors") ++ searchNames ++ objectiveNames).asJava) // write header row
@@ -71,8 +70,8 @@ class DseCsvWriter(writer: java.io.Writer, csv: CsvWriter, searchConfigs: Seq[Ds
     val searchValueCols = searchConfigs.map { config =>
       result.config.get(config).map(DseConfigElement.valueToString).getOrElse("")
     }
-    val objectiveValueCols = objectiveNames.map { name =>
-      result.objectives.get(name).map(DseConfigElement.valueToString).getOrElse("")
+    val objectiveValueCols = objectives.map { objective =>
+      result.objectives.get(objective).map(DseConfigElement.valueToString).getOrElse("")
     }
 
     csv.writeRow((headerCols ++ searchValueCols ++ objectiveValueCols).asJava)
@@ -113,8 +112,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
-    uiUpdater.runIfIdle {
-      BlockVisualizerService(project).setDseResults(Seq(), options.objectives, true)  // show searching in UI
+    uiUpdater.runIfIdle {  // show searching in UI
+      BlockVisualizerService(project).setDseResults(Seq(), options.searchConfigs, options.objectives, true)
     }
 
     // Open a CSV file (if desired) and write result rows as they are computed.
@@ -169,9 +168,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
         val design = schema.Design(contents = Some(block))
-        val partialCompile = options.searchConfigs.map(_.getPartialCompile).reduce(_ ++ _)
+        val partialCompile = options.searchConfigs.map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
         val (removedRefinements, refinements) = Refinements(refinementsPb).partitionBy(
-          partialCompile.blocks.toSet, partialCompile.params.toSet
+          partialCompile.blocks.toSet, partialCompile.params.toSet, partialCompile.classParams.toSet
         )
         if (!removedRefinements.isEmpty) {
           console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)
@@ -182,7 +181,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           val searchGenerator = new DseSearchGenerator(options.searchConfigs)
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
-            val (baseCompilerOpt, partialCompile, pointValues, incrRefinements, completedFraction) = nextPoint.get
+            val (baseCompilerOpt, partialCompile, pointValues, searchRefinements, incrRefinements, completedFraction) = nextPoint.get
 
             indicator.setIndeterminate(false)
             indicator.setFraction(completedFraction)
@@ -202,12 +201,12 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
               val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
                   new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
-              val objectiveValues = options.objectives.map { case (name, objective) =>
-                name -> objective.calculate(compiled, compiler)
-              }
+              val objectiveValues = SeqMap.from(options.objectives.map { objective =>
+                objective -> objective.calculate(compiled, compiler)
+              })
 
               val result = DseResult(results.length, pointValues,
-                compiler, compiled, errors, objectiveValues, compileTime)
+                searchRefinements, compiler, compiled, errors, objectiveValues, compileTime)
 
               if (errors.nonEmpty) {
                 console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
@@ -224,7 +223,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
               uiUpdater.runIfIdle { // only have one UI update in progress at any time
                 System.gc() // clean up after this compile run
-                BlockVisualizerService(project).setDseResults(results.toSeq, options.objectives, true) // show searching in UI
+                BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
               }
             } else {
               console.print(s"Intermediate point ($compileTime ms)\n",
@@ -239,7 +238,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
-          BlockVisualizerService(project).setDseResults(results.toSeq, options.objectives, false)  // plumb results to UI
+          BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, false)
           ""
         }
       }

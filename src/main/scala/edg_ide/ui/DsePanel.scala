@@ -1,26 +1,39 @@
 package edg_ide.ui
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.util.concurrency.AppExecutorUtil
-import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import edg.util.Errorable
+import edg_ide.dse._
+import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
-import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultTreeNode, DseResultTreeTableModel, JScatterPlot}
+import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
-import edg_ide.util.{exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
-import java.awt.event.{ItemEvent, ItemListener, MouseAdapter, MouseEvent}
+import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
-import scala.collection.SeqMap
+
+
+object DseSearchConfigPopupMenu {
+  def createParamSearchEditPopup(searchConfig: DseConfigElement, project: Project,
+                                 newConfigFn: DseConfigElement => Unit): Errorable[() => Unit] = exceptable {
+    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
+    val initialValue = parseableSearchConfig.valuesToString()
+
+    () => PopupUtils.createStringEntryPopup("Search Values", project, initialValue) { text => exceptable {
+          val parsed = parseableSearchConfig.valuesStringToConfig(text).exceptError
+          newConfigFn(parsed)
+    } }
+  }
+}
 
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
@@ -34,22 +47,17 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
     }
   }, s"Delete"))
 
-  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
-    val initialValue = parseableSearchConfig.valuesToString()
-
-    () => PopupUtils.createStringEntryPopup("Search Values", project, initialValue) { text => exceptable {
-      val parsed = parseableSearchConfig.valuesStringToConfig(text).exceptError
-
-      val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
-      val originalSearchConfigs = dseConfig.options.searchConfigs
-      val index = originalSearchConfigs.indexOf(searchConfig)
-      requireExcept(index >= 0, "config not found")
-      val newSearchConfigs = originalSearchConfigs.patch(index, Seq(parsed), 1)
-      dseConfig.options.searchConfigs = newSearchConfigs
-      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
-    } }
-  }, s"Edit"))
+  add(ContextMenuUtils.MenuItemFromErrorable(
+    DseSearchConfigPopupMenu.createParamSearchEditPopup(searchConfig, project, { newConfig =>
+        exceptionPopup.atMouse(this) {
+          val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+          val originalSearchConfigs = dseConfig.options.searchConfigs
+          val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
+          val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
+          dseConfig.options.searchConfigs = newSearchConfigs
+          BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+        }
+    }), s"Edit"))
 }
 
 
@@ -57,212 +65,26 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
-    val key = originalObjectives.find(objective == _._2).exceptNone("objective not in config")._1
     () => {
-      dseConfig.options.objectives = originalObjectives.filter(_._1 != key)
+      dseConfig.options.objectives = originalObjectives.filter(_ != objective)
       BlockVisualizerService(project).onDseConfigChanged(dseConfig)
     }
   }, s"Delete"))
 }
 
 
-class DsePlotPanel() extends JPanel {
-  // Data State
-  private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
-  private var displayAxisSelectorObjectives: SeqMap[String, DseObjective] = SeqMap()  // reflects the widget display
+class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu {
+  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
+    val topType = result.compiled.getContents.getSelfClass
+    val topClass = DesignAnalysisUtils.pyClassOf(topType, project).exceptError
 
-  setLayout(new GridBagLayout)
-
-  private val plot = new JScatterPlot[Seq[DseResult]]() {
-    override def onClick(data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onClick(data.map(_.value))
+    val insertAction = new InsertRefinementAction(project, topClass)
+      .createInsertRefinements(result.searchRefinements).exceptError
+    () => { // TODO standardized continuation?
+      val inserted = insertAction().head
+      InsertAction.navigateToEnd(inserted)
     }
-
-    override def onHoverChange(data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onHoverChange(data.map(_.value))
-    }
-  }
-  add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
-
-  sealed trait AxisItem {
-    def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType)
-  }
-
-  class DummyAxisItem(val name: String) extends AxisItem {
-    override def toString = name
-
-    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-      (results.map(_ => Some(0)), Some(Seq()))
-    }
-  }
-
-  class DseObjectiveItem(objective: DseObjective, name: String) extends AxisItem {
-    override def toString = name
-
-    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-      val values = results.map { result =>
-        objective.calculate(result.compiled, result.compiler) match {
-          case x: Float => Some(x)
-          case x: Int => Some(x.toFloat)
-          case _ => None
-        }
-      }
-      (values, None)
-    }
-  }
-
-  class DseObjectiveParameterItem(objective: DseObjectiveParameter, name: String,
-                                  map: ExprValue => Option[Float]) extends AxisItem {
-    override def toString = name
-
-    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-      val values = results.map { result =>
-        objective.calculate(result.compiled, result.compiler).flatMap(map)
-      }
-      (values, None)
-    }
-  }
-
-  class DseObjectiveParameterStringItem(objective: DseObjectiveParameter, name: String) extends AxisItem {
-    override def toString = name
-
-    override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-      val values = results.map { result =>
-        objective.calculate(result.compiled, result.compiler).map(_.toStringValue)
-      }
-      val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
-      val axis = stringToPos.map { case (str, index) => (index, str) }
-
-      val stringToPosMap = stringToPos.toMap
-      val positionalValues = values.map { value => value.flatMap { value =>
-        stringToPosMap.get(value)
-      } }
-      (positionalValues, Some(axis))
-    }
-  }
-
-
-  private val xSelector = new ComboBox[AxisItem]()
-  private val xAxisHeader = new DummyAxisItem("X Axis")
-  xSelector.addItem(xAxisHeader)
-  add(xSelector, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
-  private val ySelector = new ComboBox[AxisItem]()
-  private val yAxisHeader = new DummyAxisItem("Y Axis")
-  ySelector.addItem(yAxisHeader)
-  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
-
-  private def updatePlot(): Unit = {
-    val examples = combinedResults.groupedResults.map(_.head)
-    val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(examples)
-    val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(examples)
-
-    val points = combinedResults.groupedResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
-      case (resultSet, (Some(xVal), Some(yVal))) =>
-        val example = resultSet.head
-        val color = if (example.errors.nonEmpty) {
-          Some(com.intellij.ui.JBColor.RED)
-        } else {
-          None
-        }
-
-        val objectivesStr = example.objectives.map { case (objective, value) =>
-          f"$objective=${DseConfigElement.valueToString(value)}"
-        }.mkString("\n")
-        val resultsStr = resultSet.map { result =>
-          DseConfigElement.configMapToString(result.config)
-        }.mkString("\n")
-        val tooltipText = objectivesStr + f"\n\n${resultSet.size} results:\n" + resultsStr
-
-        Some(new plot.Data(resultSet, xVal, yVal, color,
-          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-      case _ => None
-    }
-
-    plot.setData(points, xAxis, yAxis)
-  }
-
-  private def updateAxisSelectors(objectives: SeqMap[String, DseObjective]): Unit = {
-    if (objectives == displayAxisSelectorObjectives) {
-      return  // nothing needs to be done
-    }
-
-    val selectedX = xSelector.getItem
-    val selectedY = ySelector.getItem
-
-    val items = objectives flatMap { case (name, objective) => objective match {
-      case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveItem(objective, name))
-      case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveItem(objective, name))
-      case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
-        Seq(new DseObjectiveParameterItem(objective, name, param => Some(param.asInstanceOf[FloatValue].value)))
-      case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
-        Seq(new DseObjectiveParameterItem(objective, name, param => Some(param.asInstanceOf[IntValue].toFloat)))
-      case objective: DseObjectiveParameter if objective.exprType == classOf[RangeType] => Seq(
-        new DseObjectiveParameterItem(objective, s"$name (min)", {
-          case RangeValue(lower, upper) => Some(lower)
-          case _ => None
-        }),
-        new DseObjectiveParameterItem(objective, s"$name (max)", {
-          case RangeValue(lower, upper) => Some(upper)
-          case _ => None
-        })
-      )
-      case objective: DseObjectiveParameter =>
-        Seq(new DseObjectiveParameterStringItem(objective, name))
-      case _ => Seq(new DummyAxisItem(f"unknown $name"))
-    }
-    }
-
-    xSelector.removeItemListener(axisSelectorListener)
-    ySelector.removeItemListener(axisSelectorListener)
-
-    xSelector.removeAllItems()
-    ySelector.removeAllItems()
-
-    xSelector.addItem(xAxisHeader)
-    ySelector.addItem(yAxisHeader)
-    items.foreach { item =>
-      xSelector.addItem(item)
-      ySelector.addItem(item)
-    }
-
-    xSelector.addItemListener(axisSelectorListener)
-    ySelector.addItemListener(axisSelectorListener)
-    displayAxisSelectorObjectives = objectives
-
-    // restore prior selection by name matching
-    items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
-    items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
-  }
-
-  private val axisSelectorListener = new ItemListener() {
-    override def itemStateChanged(e: ItemEvent): Unit = {
-      if (e.getStateChange == ItemEvent.SELECTED) {
-        updatePlot()
-      }
-    }
-  }
-
-  def setResults(combinedResults: CombinedDseResultSet, objectives: SeqMap[String, DseObjective]): Unit = {
-    updateAxisSelectors(objectives)
-
-    this.combinedResults = combinedResults
-    updatePlot()
-  }
-
-  def setSelection(resultSets: Seq[Seq[DseResult]]): Unit = {
-    plot.setSelected(resultSets)
-  }
-
-  // User hooks - can be overridden
-  //
-  // called when this widget clicked, for all points within some hover radius of the cursor
-  // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(data: Seq[Seq[DseResult]]): Unit = {}
-
-  // called when the hovered-over data changes, for all points within some hover radius of the cursor
-  // may be empty (when hovering over nothing)
-  def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {}
-
+  }, s"Insert refinements"))
 }
 
 
@@ -290,7 +112,7 @@ class DsePanel(project: Project) extends JPanel {
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
         TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(Seq(), SeqMap()))
+          new DseConfigTreeTableModel(Seq(), Seq()))
         TreeTableUtils.updateModel(resultsTree,
           new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
     }
@@ -307,22 +129,31 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Top plot
   private val plot = new DsePlotPanel() {
-    override def onClick(data: Seq[Seq[DseResult]]): Unit = {
+    override def onClick(data: Seq[DseResult]): Unit = {
       resultsTree.clearSelection()
+
       val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
-      val treeRootPath = new TreePath(treeRoot)
-      treeRoot.children foreach {
-        case node: treeRoot.ResultSetNode if data.contains(node.setMembers) =>
-          val nodeTreePath = treeRootPath.pathByAddingChild(node)
-          resultsTree.addSelectedPath(nodeTreePath)
-          resultsTree.getTree.expandPath(nodeTreePath)
-          resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(nodeTreePath))
-        case node =>  // ignored
+      def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
+        case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
+        case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
+        case _ => Seq()
       }
+      val treeRootPath = new TreePath(treeRoot)
+      val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
+
+      dataTreePaths.foreach { treePath =>
+        resultsTree.addSelectedPath(treePath)
+        resultsTree.getTree.expandPath(treePath)
+
+      }
+      dataTreePaths.headOption.foreach { treePath =>  // scroll to the first result
+        resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
+      }
+
       setSelection(data)
     }
 
-    override def onHoverChange(data: Seq[Seq[DseResult]]): Unit = {
+    override def onHoverChange(data: Seq[DseResult]): Unit = {
       // TODO something w/ results tree selection?
     }
   }
@@ -335,7 +166,7 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Bottom Tabs: Config
   //
-  private val configTree = new TreeTable(new DseConfigTreeTableModel(Seq(), SeqMap()))
+  private val configTree = new TreeTable(new DseConfigTreeTableModel(Seq(), Seq()))
   configTree.setShowColumns(true)
   configTree.setRootVisible(false)
   configTree.addMouseListener(new MouseAdapter {
@@ -366,11 +197,15 @@ class DsePanel(project: Project) extends JPanel {
       val selectedTreePath = TreeTableUtils.getPathForRowLocation(resultsTree, e.getX, e.getY).getOrElse(return)
       selectedTreePath.getLastPathComponent match {
         case node: DseResultTreeNode#ResultSetNode =>
-          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in chart
-            plot.setSelection(Seq(node.setMembers))
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight all in chart
+            plot.setSelection(node.setMembers)
           }
         case node: DseResultTreeNode#ResultNode =>
-          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
+          if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in chart
+            plot.setSelection(Seq(node.result))
+          } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click popup menu
+            new DseResultPopupMenu(node.result, project).show(e.getComponent, e.getX, e.getY)
+          } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
             val result = node.result
             BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
               result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
@@ -390,11 +225,12 @@ class DsePanel(project: Project) extends JPanel {
     }
   }
 
-  def setResults(results: Seq[DseResult], objectives: SeqMap[String, DseObjective], inProgress: Boolean): Unit = {
+  def setResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
+                 inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
     TreeTableUtils.updateModel(resultsTree,
-      new DseResultTreeTableModel(combinedResults, objectives.keys.toSeq, inProgress))
-    plot.setResults(combinedResults, objectives)
+      new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+    plot.setResults(combinedResults, search, objectives)
   }
 
   // Configuration State

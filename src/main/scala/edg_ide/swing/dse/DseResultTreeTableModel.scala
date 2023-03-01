@@ -1,7 +1,7 @@
 package edg_ide.swing.dse
 
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseResult}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseResult}
 import edg_ide.swing.SeqTreeTableModel
 
 import javax.swing.JTree
@@ -17,13 +17,14 @@ trait DseResultNodeBase {
   override def toString = config
 }
 
-class DseResultTreeNode(results: CombinedDseResultSet, objectiveNames: Seq[String], inProgress: Boolean) extends DseResultNodeBase {
+class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjective], inProgress: Boolean)
+    extends DseResultNodeBase {
   private val informationalHeader = if (inProgress) {
     Seq(new InformationalNode("... search in progress ..."))
   } else {
     Seq()
   }
-  private val objectiveNameByColumn = objectiveNames.zipWithIndex.map { case (objective, index) =>
+  private val objectiveByColumn = objective.zipWithIndex.map { case (objective, index) =>
     index + 1 -> objective
   }.toMap
 
@@ -46,8 +47,8 @@ class DseResultTreeNode(results: CombinedDseResultSet, objectiveNames: Seq[Strin
     }
     override val config = f"${setMembers.length} points" + errString
     override lazy val children = setMembers.map(result => new ResultNode(result))
-    override def getColumns(index: Int): String = objectiveNameByColumn.get(index) match {
-      case Some(objectiveName) => exampleResult.objectives.get(objectiveName) match {
+    override def getColumns(index: Int): String = objectiveByColumn.get(index) match {
+      case Some(objective) => exampleResult.objectives.get(objective) match {
         case Some(value) => DseConfigElement.valueToString(value)
         case _ => "(unknown)"
       }
@@ -69,11 +70,11 @@ class DseResultTreeNode(results: CombinedDseResultSet, objectiveNames: Seq[Strin
 }
 
 
-class DseResultTreeTableModel(results: CombinedDseResultSet, objectiveNames: Seq[String], inProgress: Boolean)
+class DseResultTreeTableModel(results: CombinedDseResultSet, objectives: Seq[DseObjective], inProgress: Boolean)
     extends SeqTreeTableModel[DseResultNodeBase] {
-  val COLUMNS = Seq("Config") ++ objectiveNames
+  val COLUMNS = Seq("Config") ++ objectives.map(_.objectiveToString)
 
-  val rootNode: DseResultTreeNode = new DseResultTreeNode(results, objectiveNames, inProgress)
+  val rootNode: DseResultTreeNode = new DseResultTreeNode(results, objectives, inProgress)
 
   // TreeView abstract methods
   //

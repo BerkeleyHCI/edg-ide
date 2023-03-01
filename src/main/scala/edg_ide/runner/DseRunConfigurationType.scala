@@ -57,7 +57,7 @@ class DseRunConfigurationOptions extends RunConfigurationOptions {
   var resultCsvFile: String = ""
 
   var searchConfigs: Seq[DseConfigElement] = Seq()
-  var objectives: SeqMap[String, DseObjective] = SeqMap()
+  var objectives: Seq[DseObjective] = Seq()
 }
 
 
@@ -95,23 +95,19 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile, "")
     Option(JDOMExternalizerUtil.readField(element, kFieldSearchConfigs))
         .flatMap(ObjectSerializer.deserialize)
-        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseRefinementElement[Any]])
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseConfigElement])
         .foreach(options.searchConfigs = _)  // only set if valid, otherwise leave as default
     Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
         .flatMap(ObjectSerializer.deserialize)
-        .flatMap(ObjectSerializer.optionInstanceOfSeq[(String, DseObjective)](
-          _,
-          { elt: (String, DseObjective) => elt._1.isInstanceOf[String] && elt._2.isInstanceOf[DseObjective] }))
-        .map(SeqMap.from)
-        .foreach(options.objectives = _)
+        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseObjective])
+        .foreach(options.objectives = _)  // only set if valid, otherwise leave as default
   }
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldResultCsvFile, options.resultCsvFile)
     JDOMExternalizerUtil.writeField(element, kFieldSearchConfigs, ObjectSerializer.serialize(options.searchConfigs))
-    // toSeq needed since SeqMap may not be serializable
-    JDOMExternalizerUtil.writeField(element, kFieldObjectives, ObjectSerializer.serialize(options.objectives.toSeq))
+    JDOMExternalizerUtil.writeField(element, kFieldObjectives, ObjectSerializer.serialize(options.objectives))
   }
 }
 
@@ -133,8 +129,8 @@ class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   override def resetEditorFrom(s: DseRunConfiguration): Unit = {
     designName.setText(s.options.designName)
     resultCsvFile.setText(s.options.resultCsvFile)
-    searchConfigs.setText("<html>" + s.options.searchConfigs.map(_.toString).mkString("<br/>") + "</html>")
-    objectives.setText("<html>" + s.options.objectives.map(_.toString).mkString("<br/>") + "</html>")
+    searchConfigs.setText("<html>" + s.options.searchConfigs.map(_.configToString).mkString("<br/>") + "</html>")
+    objectives.setText("<html>" + s.options.objectives.map(_.objectiveToString).mkString("<br/>") + "</html>")
   }
 
   override def applyEditorTo(s: DseRunConfiguration): Unit = {
