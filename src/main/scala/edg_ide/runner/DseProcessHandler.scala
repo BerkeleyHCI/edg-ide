@@ -178,6 +178,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         val results = mutable.ListBuffer[DseResult]()
         runFailableStage("search", indicator) {
+          var index: Int = 0
           val searchGenerator = new DseSearchGenerator(options.searchConfigs)
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
@@ -192,7 +193,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 refinements = refinements ++ incrRefinements, partial = partialCompile)
             }
 
-            runFailableStage(s"point ${results.length}", indicator) {
+            runFailableStage(s"point $index", indicator) {
               val (compiled, compileTime) = timeExec {
                 compiler.compile()
               }
@@ -205,7 +206,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                   objective -> objective.calculate(compiled, compiler)
                 })
 
-                val result = DseResult(results.length, pointValues,
+                val result = DseResult(index, pointValues,
                   searchRefinements, compiler, compiled, errors, objectiveValues, compileTime)
 
                 results.append(result)
@@ -230,6 +231,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
             searchGenerator.addEvaluatedPoint(compiler)
             nextPoint = searchGenerator.nextPoint()
+            index = index + 1
           }
           s"${results.length} configurations"
         }
