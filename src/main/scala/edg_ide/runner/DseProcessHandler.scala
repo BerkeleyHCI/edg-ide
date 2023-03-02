@@ -182,52 +182,50 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
             val (baseCompilerOpt, partialCompile, pointValues, searchRefinements, incrRefinements, completedFraction) = nextPoint.get
-
             indicator.setIndeterminate(false)
             indicator.setFraction(completedFraction)
 
-            val ((compiler, compiled), compileTime) = timeExec {
-              val compiler = baseCompilerOpt match {
-                case Some(baseCompiler) => baseCompiler.fork(
-                  additionalRefinements = incrRefinements, partial = partialCompile)
-                case None => new Compiler(design, EdgCompilerService(project).pyLib,
-                  refinements = refinements ++ incrRefinements, partial = partialCompile)
-              }
-              val compiled = compiler.compile()
-              (compiler, compiled)
+            val compiler = baseCompilerOpt match {
+              case Some(baseCompiler) => baseCompiler.fork(
+                additionalRefinements = incrRefinements, partial = partialCompile)
+              case None => new Compiler(design, EdgCompilerService(project).pyLib,
+                refinements = refinements ++ incrRefinements, partial = partialCompile)
             }
 
-            if (partialCompile.isEmpty) { // only evaluate the point if it's a full point
-              val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-                  new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+            runFailableStage(s"point ${results.length}", indicator) {
+              val (compiled, compileTime) = timeExec {
+                compiler.compile()
+              }
 
-              val objectiveValues = SeqMap.from(options.objectives.map { objective =>
-                objective -> objective.calculate(compiled, compiler)
-              })
+              if (partialCompile.isEmpty) { // only evaluate the point if it's a full point
+                val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
+                    new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
-              val result = DseResult(results.length, pointValues,
-                searchRefinements, compiler, compiled, errors, objectiveValues, compileTime)
+                val objectiveValues = SeqMap.from(options.objectives.map { objective =>
+                  objective -> objective.calculate(compiled, compiler)
+                })
 
-              if (errors.nonEmpty) {
-                console.print(s"Result ${results.length}, ${errors.size} errors ($compileTime ms): ${result.objectiveToString}\n",
-                  ConsoleViewContentType.ERROR_OUTPUT)
+                val result = DseResult(results.length, pointValues,
+                  searchRefinements, compiler, compiled, errors, objectiveValues, compileTime)
+
+                results.append(result)
+                csvFile.foreach { csvFile =>
+                  csvFile.writeRow(result)
+                }
+
+                uiUpdater.runIfIdle { // only have one UI update in progress at any time
+                  System.gc() // clean up after this compile run
+                  BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
+                }
+
+                if (errors.nonEmpty) {
+                  f"${errors.size} errors, ${result.objectiveToString}"
+                } else {
+                  result.objectiveToString
+                }
               } else {
-                console.print(s"Result ${results.length} ($compileTime ms): ${result.objectiveToString}\n",
-                  ConsoleViewContentType.SYSTEM_OUTPUT)
+                "intermediate point"
               }
-
-              results.append(result)
-              csvFile.foreach { csvFile =>
-                csvFile.writeRow(result)
-              }
-
-              uiUpdater.runIfIdle { // only have one UI update in progress at any time
-                System.gc() // clean up after this compile run
-                BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
-              }
-            } else {
-              console.print(s"Intermediate point ($compileTime ms)\n",
-                ConsoleViewContentType.SYSTEM_OUTPUT)
             }
 
             searchGenerator.addEvaluatedPoint(compiler)
