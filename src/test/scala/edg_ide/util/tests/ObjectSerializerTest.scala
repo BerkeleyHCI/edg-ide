@@ -3,7 +3,7 @@ package edg_ide.util.tests
 import edg.ElemBuilder
 import edg.compiler.RangeValue
 import edg.wir.DesignPath
-import edg_ide.dse.{DseParameterSearch, DseSubclassSearch}
+import edg_ide.dse.{DsePathParameterSearch, DseSubclassSearch}
 import edg_ide.util.ObjectSerializer
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -18,7 +18,7 @@ class ObjectSerializerTest extends AnyFlatSpec with Matchers {
           "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
         ).map(value => ElemBuilder.LibraryPath(value))
       ),
-      DseParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
+      DsePathParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
         Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
       ),
     )

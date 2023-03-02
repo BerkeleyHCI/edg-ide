@@ -3,21 +3,21 @@ package edg_ide.dse.tests
 import edg.compiler.{BooleanValue, ExprValue, FloatValue, IntValue, RangeValue, TextValue}
 import edg.util.Errorable
 import edg.wir.DesignPath
-import edg_ide.dse.DseParameterSearch
+import edg_ide.dse.DsePathParameterSearch
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 
-class DseParameterSearchTest extends AnyFlatSpec with Matchers {
-  behavior of "DseParameterSearch"
+class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
+  behavior of "DsePathParameterSearch"
 
   protected def shouldRoundtrip(values: Seq[ExprValue]): Unit = {
-    val parameter = DseParameterSearch(DesignPath(), values)
+    val parameter = DsePathParameterSearch(DesignPath(), values)
     parameter.valuesStringToConfig(parameter.valuesToString()).get.getValues.map(_._1) should equal(values)
   }
 
   protected def parseString(examples: Seq[ExprValue], str: String): Errorable[Seq[ExprValue]] = {
-    val exampleParameter = DseParameterSearch(DesignPath(), examples)
+    val exampleParameter = DsePathParameterSearch(DesignPath(), examples)
     exampleParameter.valuesStringToConfig(str).map(_.getValues).map(_.map(_._1))
   }
 

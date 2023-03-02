@@ -15,7 +15,7 @@ sealed trait FootprintBrowserBaseNode {
 
 class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserBaseNode {
   override lazy val children: Seq[FootprintBrowserNode] = directories.flatMap { directory =>
-    directory.list().flatMap {  // flatten the libraries regardless of their containing directory
+    Option(directory.list()).toSeq.flatten.flatMap {  // flatten the libraries regardless of their containing directory
       case elt if elt.endsWith(".pretty") => Some(new FootprintBrowserNode(new File(directory, elt)))
       case _ => None
     }
@@ -24,23 +24,20 @@ class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserB
 
 
 class FootprintBrowserNode(val file: File) extends FootprintBrowserBaseNode {
-  def isValidFile(filename: String): Boolean = {
-    if (filename == "." || filename == "..") return false  // ignore self and up pointers
-    val currFile = new File(filename)
-    currFile.exists() && (filename.endsWith(".mod") || filename.endsWith(".kicad_mod") || currFile.isDirectory)
+  def isValidFileName(fileName: String): Boolean = {
+    if (fileName == "." || fileName == "..") return false  // ignore self and up pointers
+    fileName.endsWith(".kicad_mod") || fileName.endsWith(".mod")
   }
 
   override lazy val children: Seq[FootprintBrowserNode] = {
-    Option(file.list()) match {
+    Option(file.list()) match {  // file.list() can return null
       case Some(filenames) => filenames.toSeq
-        .map(filename => file.getCanonicalPath + "/" + filename)
-        .filter(isValidFile)
+        .filter(isValidFileName)
         .sorted
-        .map(f => new FootprintBrowserNode(new File(f)))
+        .map(fileName => new FootprintBrowserNode(new File(file, fileName)))
       case None => Seq()
     }
   }
-
 
   override def equals(obj: Any): Boolean = obj match {
     case obj:FootprintBrowserNode => obj.file.equals(this.file)
@@ -48,8 +45,8 @@ class FootprintBrowserNode(val file: File) extends FootprintBrowserBaseNode {
   }
 
   override def toString: String = file.getName
-
 }
+
 
 class FootprintBrowserTreeTableModel(directories: Seq[File]) extends SeqTreeTableModel[FootprintBrowserBaseNode] {
   private val rootNode: FootprintBrowserRootNode = new FootprintBrowserRootNode(directories)

@@ -126,18 +126,13 @@ class EdgCompilerService(project: Project) extends
 
   // Compiles a top level design
   // progressFn is called (by compiler hook) for each compiler elaborate record
-  def compile(designType: ref.LibraryPath, progressFn: Option[ElaborateRecord => Unit] = None):
+  def compile(designType: ref.LibraryPath):
       (schema.Design, Compiler, edgrpc.Refinements) = {
     val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType)
         .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
     val design = schema.Design(contents = Some(block))
 
-    val compiler = new Compiler(design, EdgCompilerService(project).pyLib, refinements = Refinements(refinements)) {
-      override def onElaborate(record: ElaborateRecord): Unit = {
-        super.onElaborate(record)
-        progressFn.foreach { fn => fn(record) }
-      }
-    }
+    val compiler = new Compiler(design, EdgCompilerService(project).pyLib, refinements = Refinements(refinements))
     (compiler.compile(), compiler, refinements)
   }
 

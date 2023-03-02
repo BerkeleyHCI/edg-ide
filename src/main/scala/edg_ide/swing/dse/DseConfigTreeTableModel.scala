@@ -32,7 +32,7 @@ object DseConfigTreeNode {
     override val children: Seq[SeqNodeBase] = Seq()
   }
 
-  class Root(configs: Seq[DseConfigElement], objectives: SeqMap[String, DseObjective]) extends DseConfigTreeNode {
+  class Root(configs: Seq[DseConfigElement], objectives: Seq[DseObjective]) extends DseConfigTreeNode {
     override val path = ""
     override val value = ""
     override lazy val children = Seq(
@@ -50,11 +50,11 @@ object DseConfigTreeNode {
     }
   }
 
-  class Objectives(objectives: SeqMap[String, DseObjective]) extends DseConfigTreeNode {
+  class Objectives(objectives: Seq[DseObjective]) extends DseConfigTreeNode {
     override val path = "Objective Functions"
     override val value = ""
-    override lazy val children = objectives.map { case (name, config) =>
-      new DseObjectiveSingleNode(name, config)
+    override lazy val children = objectives.map { config =>
+      new DseObjectiveSingleNode(config)
     }.toSeq
   }
 
@@ -80,15 +80,15 @@ object DseConfigTreeNode {
     def config: DseObjective
   }
 
-  class DseObjectiveSingleNode(name: String, val config: DseObjective) extends DseObjectiveNode {
-    override val path = name
-    override val value = config.objectiveToString
+  class DseObjectiveSingleNode(val config: DseObjective) extends DseObjectiveNode {
+    override val path = config.objectiveToString
+    override val value = ""
     override lazy val children = Seq()
   }
 }
 
 
-class DseConfigTreeTableModel(searchConfigs: Seq[DseConfigElement], objectives: SeqMap[String, DseObjective])
+class DseConfigTreeTableModel(searchConfigs: Seq[DseConfigElement], objectives: Seq[DseObjective])
     extends SeqTreeTableModel[SeqNodeBase] {
   val rootNode: SeqNodeBase = new DseConfigTreeNode.Root(searchConfigs, objectives)
   val COLUMNS = Seq("Path", "Value")
