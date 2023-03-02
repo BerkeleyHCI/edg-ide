@@ -3,11 +3,8 @@ package edg_ide.swing
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, ElaborateRecord, ExprToString, ExprVarToValue}
-import edg.wir.{DesignPath, IndirectDesignPath}
-import edg_ide.EdgirUtils
 
-import java.awt.event.MouseEvent
-import javax.swing.{JTree, ToolTipManager}
+import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 
