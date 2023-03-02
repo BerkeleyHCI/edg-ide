@@ -6,7 +6,8 @@ import edg.compiler.{Compiler, CompilerError, ElaborateRecord, ExprToString, Exp
 import edg.wir.{DesignPath, IndirectDesignPath}
 import edg_ide.EdgirUtils
 
-import javax.swing.JTree
+import java.awt.event.MouseEvent
+import javax.swing.{JTree, ToolTipManager}
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 
@@ -118,7 +119,7 @@ object CompilerErrorNodeBase {
 
 class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) extends SeqTreeTableModel[CompilerErrorNodeBase] {
   val rootNode: CompilerErrorNodeBase = new CompilerErrorNodeBase.CompilerErrorTopNode(errs, compiler)
-  val COLUMNS = Seq("Error", "Path")
+  val COLUMNS = Seq("Error", "Path ⓘ")
 
   // TreeView abstract methods
   //
@@ -147,6 +148,5 @@ class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) 
   // These aren't relevant for trees that can't be edited
   override def isNodeCellEditable(node: CompilerErrorNodeBase, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: CompilerErrorNodeBase, column: Int): Unit = {}
-
-  def setTree(tree: JTree): Unit = { }  // tree updates ignored
+  def setTree(tree: JTree): Unit = {}  // tree updates ignored
 }

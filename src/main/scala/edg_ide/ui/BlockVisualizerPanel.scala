@@ -32,10 +32,11 @@ import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.Callable
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.table.{JTableHeader, TableColumnModel}
 import javax.swing.tree.TreePath
 import javax.swing.{JLabel, JPanel, TransferHandler}
-import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.collection.{SeqMap, mutable}
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
 
 
@@ -572,12 +573,32 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   }
 }
 
+class CustomTooltipTableHeader(columnModel: TableColumnModel) extends JTableHeader(columnModel: TableColumnModel) {
+  override def getToolTipText(e: MouseEvent): String = {
+    val col = columnModel.getColumnIndexAtX(e.getX)
+    val name = columnModel.getColumn(col).getHeaderValue.toString
+    val headerTooltipText = "Path from design root to constraint of the component causing the error." +
+                            "<br> " +
+                            "For example: mcu.mcu_ground:overcurrent, indicates that the ground" +
+                            "<br>" +
+                            "link of mcu is experiencing an overcurrent error."
+    val tooltip = name match {
+      case "Path ⓘ" => headerTooltipText
+      case "Error" => "Error message"
+      case _ => "Unknown"
+    }
+    tooltip
+  }
+}
+
 class ErrorPanel(compiler: Compiler) extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
+  private val customTableHeader = new CustomTooltipTableHeader(tree.getColumnModel())
+  tree.setTableHeader(customTableHeader)
   tree.setShowColumns(true)
   tree.setRootVisible(false)
-  private val treeScrollPane = new JBScrollPane(tree)
 
+  private val treeScrollPane = new JBScrollPane(tree)
   setLayout(new BorderLayout())
   add(treeScrollPane)
 
