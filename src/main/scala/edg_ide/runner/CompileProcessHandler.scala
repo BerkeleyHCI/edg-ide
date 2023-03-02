@@ -88,7 +88,7 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
 
   override def onLibraryRequest(element: ref.LibraryPath): Unit = {
     // this needs to be here to only print on requests that made it to Python (instead of just hit cache)
-    console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_DEBUG_OUTPUT)
   }
 
   override def onLibraryRequestComplete(element: ref.LibraryPath,
@@ -105,7 +105,7 @@ class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, consol
     val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
         .mkString(", ")
     console.print(s"Generate ${element.toSimpleString} ($valuesString)\n",
-      ConsoleViewContentType.LOG_INFO_OUTPUT)
+      ConsoleViewContentType.LOG_DEBUG_OUTPUT)
   }
 
   override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
@@ -176,7 +176,7 @@ trait HasConsoleStages {
       fn
     }
     val addedStr = if (fnResultStr.nonEmpty) f": $fnResultStr" else ""
-    console.print(s"Completed: $name$addedStr ($fnTime ms)\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    console.print(s"Completed: $name$addedStr ($fnTime ms)\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     fnResult
   }
 
@@ -237,7 +237,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
     startNotify()
-    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference

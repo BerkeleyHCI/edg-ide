@@ -108,7 +108,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
     startNotify()
-    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+    console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
 
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
@@ -122,7 +122,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       DseCsvWriter(new FileWriter(options.resultCsvFile), options.searchConfigs, options.objectives) match {
         case Some(csv) =>
           console.print(s"Opening results CSV at ${options.resultCsvFile}\n",
-            ConsoleViewContentType.SYSTEM_OUTPUT)
+            ConsoleViewContentType.LOG_INFO_OUTPUT)
           Some(csv)
         case None =>
           console.print(s"Failed to open results CSV at ${options.resultCsvFile}\n",
@@ -173,7 +173,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           partialCompile.blocks.toSet, partialCompile.params.toSet, partialCompile.classParams.toSet
         )
         if (!removedRefinements.isEmpty) {
-          console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.SYSTEM_OUTPUT)
+          console.print(s"Discarded conflicting refinements $removedRefinements\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
 
         val results = mutable.ListBuffer[DseResult]()
