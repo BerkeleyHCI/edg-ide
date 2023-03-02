@@ -15,7 +15,7 @@ sealed trait FootprintBrowserBaseNode {
 
 class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserBaseNode {
   override lazy val children: Seq[FootprintBrowserNode] = directories.flatMap { directory =>
-    directory.list().flatMap {  // flatten the libraries regardless of their containing directory
+    Option(directory.list()).toSeq.flatten.flatMap {  // flatten the libraries regardless of their containing directory
       case elt if elt.endsWith(".pretty") => Some(new FootprintBrowserNode(new File(directory, elt)))
       case _ => None
     }
