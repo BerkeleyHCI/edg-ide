@@ -2,7 +2,7 @@ package edg_ide.ui
 
 import com.intellij.openapi.ui.ComboBox
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveFootprintPrice, DseObjectiveParameter, DseParameterSearch, DseResult}
 import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse.JScatterPlot
 
@@ -184,6 +184,7 @@ class DsePlotPanel() extends JPanel {
     } ++ objectives.flatMap {
       case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveAxis(objective))
       case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveAxis(objective))
+      case objective: DseObjectiveFootprintPrice => Seq(new DseObjectiveAxis(objective))
       case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
         Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
       case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
