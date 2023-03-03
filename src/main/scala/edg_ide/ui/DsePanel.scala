@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
@@ -102,24 +103,21 @@ class DsePanel(project: Project) extends JPanel {
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
   protected def onConfigUpdate(): Unit = {
-    println("onConfigChange")
-    displayedConfig match {
-      case Some(config) =>
-        println("setText")
-        separator.setText(f"Design Space Exploration: ${config.getName}")
-        println("updateconfig")
-        TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        println("updateResults")
-        TreeTableUtils.updateModel(resultsTree,
-          new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
-        println("OCU DONE")
-      case _ =>
-        separator.setText(f"Design Space Exploration: no run config selected")
-        TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(Seq(), Seq()))
-        TreeTableUtils.updateModel(resultsTree,
-          new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
+    ApplicationManager.getApplication.invokeLater(() => {
+      displayedConfig match {
+        case Some(config) =>
+          separator.setText(f"Design Space Exploration: ${config.getName}")
+          TreeTableUtils.updateModel(configTree,
+            new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+          TreeTableUtils.updateModel(resultsTree,
+            new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)) // clear existing data
+        case _ =>
+          separator.setText(f"Design Space Exploration: no run config selected")
+          TreeTableUtils.updateModel(configTree,
+            new DseConfigTreeTableModel(Seq(), Seq()))
+          TreeTableUtils.updateModel(resultsTree,
+            new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)) // clear existing data
+      }
     }
   }
 
