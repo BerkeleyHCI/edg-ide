@@ -164,6 +164,13 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           s"${discarded.size} library elements"
         }
 
+        // (re)build all libraries so interactive tooling depending on this can still work
+        runFailableStage("rebuild libraries", indicator) {
+          val designModule = options.designName.split('.').init.mkString(".")
+          val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, None).get
+          f"${indexed.size} elements"
+        }
+
         val designType = ElemBuilder.LibraryPath(options.designName)
         val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
             .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
