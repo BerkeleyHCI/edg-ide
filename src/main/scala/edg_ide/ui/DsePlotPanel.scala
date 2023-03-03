@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
 import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
@@ -155,7 +156,10 @@ class DsePlotPanel() extends JPanel {
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
       case _ => Seq()
     }
-    plot.setData(points, xAxis, yAxis)
+
+    ApplicationManager.getApplication.invokeLater(() => {
+      plot.setData(points, xAxis, yAxis)
+    })
   }
 
   private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective]): Unit = {
@@ -211,27 +215,28 @@ class DsePlotPanel() extends JPanel {
         Seq(new DseObjectiveParamOrdinalAxis(objective))
       case objective => Seq(new DummyAxis(f"unknown ${objective.objectiveToString}"))
     }
-
-    xSelector.removeItemListener(axisSelectorListener)
-    ySelector.removeItemListener(axisSelectorListener)
-
-    xSelector.removeAllItems()
-    ySelector.removeAllItems()
-
-    xSelector.addItem(xAxisHeader)
-    ySelector.addItem(yAxisHeader)
-    items.foreach { item =>
-      xSelector.addItem(item)
-      ySelector.addItem(item)
-    }
-
-    xSelector.addItemListener(axisSelectorListener)
-    ySelector.addItemListener(axisSelectorListener)
     displayAxisSelector = (search, objectives)
 
-    // restore prior selection by name matching
-    items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
-    items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
+    ApplicationManager.getApplication.invokeLater(() => {
+      xSelector.removeItemListener(axisSelectorListener)
+      ySelector.removeItemListener(axisSelectorListener)
+
+      xSelector.removeAllItems()
+      ySelector.removeAllItems()
+
+      xSelector.addItem(xAxisHeader)
+      ySelector.addItem(yAxisHeader)
+      items.foreach { item =>
+        xSelector.addItem(item)
+        ySelector.addItem(item)
+      }
+
+      xSelector.addItemListener(axisSelectorListener)
+      ySelector.addItemListener(axisSelectorListener)
+      // restore prior selection by name matching
+      items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
+      items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
+    })
   }
 
   private val axisSelectorListener = new ItemListener() {

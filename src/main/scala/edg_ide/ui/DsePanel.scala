@@ -118,7 +118,7 @@ class DsePanel(project: Project) extends JPanel {
           TreeTableUtils.updateModel(resultsTree,
             new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)) // clear existing data
       }
-    }
+    })
   }
 
   setLayout(new GridBagLayout())
@@ -231,8 +231,10 @@ class DsePanel(project: Project) extends JPanel {
   def setResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
                  inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
-    TreeTableUtils.updateModel(resultsTree,
-      new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+    ApplicationManager.getApplication.invokeLater(() => {
+      TreeTableUtils.updateModel(resultsTree,
+        new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+    })
     plot.setResults(combinedResults, search, objectives)
   }
 
