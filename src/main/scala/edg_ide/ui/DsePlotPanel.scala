@@ -138,6 +138,9 @@ class DsePlotPanel() extends JPanel {
     val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(flatResults)
     val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(flatResults)
 
+    require(flatResults.size == xPoints.size, s"X axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
+    require(flatResults.size == yPoints.size, s"Y axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
+
     val points = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
         val color = if (result.errors.nonEmpty) {
