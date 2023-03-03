@@ -162,5 +162,6 @@ class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) 
   // These aren't relevant for trees that can't be edited
   override def isNodeCellEditable(node: CompilerErrorNodeBase, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: CompilerErrorNodeBase, column: Int): Unit = {}
+  
   def setTree(tree: JTree): Unit = {}  // tree updates ignored
 }
