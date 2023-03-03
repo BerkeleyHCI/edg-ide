@@ -102,13 +102,18 @@ class DsePanel(project: Project) extends JPanel {
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
   protected def onConfigUpdate(): Unit = {
+    println("onConfigChange")
     displayedConfig match {
       case Some(config) =>
+        println("setText")
         separator.setText(f"Design Space Exploration: ${config.getName}")
+        println("updateconfig")
         TreeTableUtils.updateModel(configTree,
           new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+        println("updateResults")
         TreeTableUtils.updateModel(resultsTree,
           new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
+        println("OCU DONE")
       case _ =>
         separator.setText(f"Design Space Exploration: no run config selected")
         TreeTableUtils.updateModel(configTree,
