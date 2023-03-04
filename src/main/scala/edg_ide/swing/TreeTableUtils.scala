@@ -14,9 +14,11 @@ object TreeTableUtils {
   def updateModel(treeTable: TreeTable, newModel: TreeTableModel): Unit = {
     val savedNodes = getExpandedNodes(treeTable.getTree)
     val isRootVisible = treeTable.getTree.isRootVisible
+    val savedRenderer = treeTable.getTree.getCellRenderer
     treeTable.setModel(newModel)  // note that setModel resets TreeTable.getTree, so we need to get a fresh tree handle
     restoreExpandedNodes(treeTable.getTree, savedNodes)
     treeTable.setRootVisible(isRootVisible)
+    treeTable.getTree.setCellRenderer(savedRenderer)
   }
 
   // Returns the tree path of all expanded nodes (as sequence of node objects).

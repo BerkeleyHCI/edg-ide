@@ -1,12 +1,15 @@
 package edg_ide.swing.dse
 
+import com.intellij.ui.JBColor
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
+import edg.compiler.CompilerError
 import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseResult}
 import edg_ide.swing.SeqTreeTableModel
 
+import java.awt.{Color, Component}
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
-import javax.swing.tree.TreePath
+import javax.swing.tree.{DefaultTreeCellRenderer, TreePath}
 
 
 trait DseResultNodeBase {
@@ -105,4 +108,43 @@ class DseResultTreeTableModel(results: CombinedDseResultSet, objectives: Seq[Dse
   override def setNodeValueAt(aValue: Any, node: DseResultNodeBase, column: Int): Unit = {}
 
   def setTree(tree: JTree): Unit = { }  // tree updates ignored
+}
+
+
+// TODO maybe this should go elsewhere? but nothing else uses ideal errors
+// TODO Maybe this should be shared with the block diagram renderer?
+object DseResultModel {
+  private val kIdealConstraintName = "ideal model"
+
+  val kColorOtherError: Color = JBColor.RED
+  val kColorIdealError: Color = JBColor.ORANGE
+
+  // Partitions the input compiler errors as (ideal model errors, any other error)
+  def partitionByIdeal(errors: Seq[CompilerError]): (Seq[CompilerError], Seq[CompilerError]) = errors.partition {
+    case CompilerError.FailedAssertion(_, constrName, _, _, _) if constrName == kIdealConstraintName => true
+    case _ => false
+  }
+}
+
+class DseResultTreeRenderer extends DefaultTreeCellRenderer {
+  override def getTreeCellRendererComponent(tree: JTree, value: Any, sel: Boolean, expanded: Boolean, leaf: Boolean,
+                                            row: Int, hasFocus: Boolean): Component = {
+    val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
+    val example = value match {
+      case node: DseResultTreeNode#ResultSetNode => Some(node.setMembers.head)
+      case node: DseResultTreeNode#ResultNode => Some(node.result)
+      case _ => None
+    }
+    val color = example.flatMap { example =>
+      val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(example.errors)
+      (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+        case (_, true) => Some(DseResultModel.kColorOtherError)
+        case (true, false) => Some(DseResultModel.kColorIdealError)
+        case (false, false) => None
+      }
+    }
+    color.foreach(component.setForeground(_))
+    setIcon(null)
+    component
+  }
 }

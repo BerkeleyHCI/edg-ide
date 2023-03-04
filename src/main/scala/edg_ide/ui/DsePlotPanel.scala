@@ -5,7 +5,7 @@ import com.intellij.openapi.ui.ComboBox
 import edg.compiler.{CompilerError, ExprValue, FloatValue, IntValue, RangeType, RangeValue}
 import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
 import edg_ide.swing.SwingHtmlUtil
-import edg_ide.swing.dse.JScatterPlot
+import edg_ide.swing.dse.{DseResultModel, JScatterPlot}
 
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.awt.event.{ItemEvent, ItemListener}
@@ -110,8 +110,6 @@ class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
 
 
 class DsePlotPanel() extends JPanel {
-  val kIdealConstraintName = "ideal model"
-
   // Data State
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
   private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
@@ -148,13 +146,10 @@ class DsePlotPanel() extends JPanel {
 
     val points = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
-        val (idealErrors, otherErrors) = result.errors.partition {
-          case CompilerError.FailedAssertion(_, constrName, _, _, _) if constrName == kIdealConstraintName => true
-          case _ => false
-        }
+        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
         val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-          case (_, true) => Some(com.intellij.ui.JBColor.RED)
-          case (true, false) => Some(com.intellij.ui.JBColor.ORANGE)
+          case (_, true) => Some(DseResultModel.kColorOtherError)
+          case (true, false) => Some(DseResultModel.kColorIdealError)
           case (false, false) => None
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)

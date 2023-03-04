@@ -12,7 +12,7 @@ import edg_ide.dse._
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
-import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeTableModel}
+import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeRenderer, DseResultTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
@@ -193,6 +193,7 @@ class DsePanel(project: Project) extends JPanel {
   // GUI: Bottom Tabs: Results
   //
   private val resultsTree = new TreeTable(new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))
+  resultsTree.setTreeCellRenderer(new DseResultTreeRenderer)
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
   resultsTree.addMouseListener(new MouseAdapter {
