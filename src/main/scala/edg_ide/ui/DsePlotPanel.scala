@@ -1,10 +1,11 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
-import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
+import edg.compiler.{CompilerError, ExprValue, FloatValue, IntValue, RangeType, RangeValue}
 import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
 import edg_ide.swing.SwingHtmlUtil
-import edg_ide.swing.dse.JScatterPlot
+import edg_ide.swing.dse.{DseResultModel, JScatterPlot}
 
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.awt.event.{ItemEvent, ItemListener}
@@ -145,17 +146,21 @@ class DsePlotPanel() extends JPanel {
 
     val points = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
-        val color = if (result.errors.nonEmpty) {
-          Some(com.intellij.ui.JBColor.RED)
-        } else {
-          None
+        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
+        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+          case (_, true) => Some(DseResultModel.kColorOtherError)
+          case (true, false) => Some(DseResultModel.kColorIdealError)
+          case (false, false) => None
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)
         Some(new plot.Data(result, xVal, yVal, color,
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
       case _ => Seq()
     }
-    plot.setData(points, xAxis, yAxis)
+
+    ApplicationManager.getApplication.invokeLater(() => {
+      plot.setData(points, xAxis, yAxis)
+    })
   }
 
   private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective]): Unit = {
@@ -211,27 +216,28 @@ class DsePlotPanel() extends JPanel {
         Seq(new DseObjectiveParamOrdinalAxis(objective))
       case objective => Seq(new DummyAxis(f"unknown ${objective.objectiveToString}"))
     }
-
-    xSelector.removeItemListener(axisSelectorListener)
-    ySelector.removeItemListener(axisSelectorListener)
-
-    xSelector.removeAllItems()
-    ySelector.removeAllItems()
-
-    xSelector.addItem(xAxisHeader)
-    ySelector.addItem(yAxisHeader)
-    items.foreach { item =>
-      xSelector.addItem(item)
-      ySelector.addItem(item)
-    }
-
-    xSelector.addItemListener(axisSelectorListener)
-    ySelector.addItemListener(axisSelectorListener)
     displayAxisSelector = (search, objectives)
 
-    // restore prior selection by name matching
-    items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
-    items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
+    ApplicationManager.getApplication.invokeLater(() => {
+      xSelector.removeItemListener(axisSelectorListener)
+      ySelector.removeItemListener(axisSelectorListener)
+
+      xSelector.removeAllItems()
+      ySelector.removeAllItems()
+
+      xSelector.addItem(xAxisHeader)
+      ySelector.addItem(yAxisHeader)
+      items.foreach { item =>
+        xSelector.addItem(item)
+        ySelector.addItem(item)
+      }
+
+      xSelector.addItemListener(axisSelectorListener)
+      ySelector.addItemListener(axisSelectorListener)
+      // restore prior selection by name matching
+      items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
+      items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
+    })
   }
 
   private val axisSelectorListener = new ItemListener() {

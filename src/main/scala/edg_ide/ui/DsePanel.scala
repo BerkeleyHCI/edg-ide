@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
@@ -11,7 +12,7 @@ import edg_ide.dse._
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
-import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeTableModel}
+import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeRenderer, DseResultTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
@@ -102,20 +103,22 @@ class DsePanel(project: Project) extends JPanel {
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
   protected def onConfigUpdate(): Unit = {
-    displayedConfig match {
-      case Some(config) =>
-        separator.setText(f"Design Space Exploration: ${config.getName}")
-        TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        TreeTableUtils.updateModel(resultsTree,
-          new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
-      case _ =>
-        separator.setText(f"Design Space Exploration: no run config selected")
-        TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(Seq(), Seq()))
-        TreeTableUtils.updateModel(resultsTree,
-          new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
-    }
+    ApplicationManager.getApplication.invokeLater(() => {
+      displayedConfig match {
+        case Some(config) =>
+          separator.setText(f"Design Space Exploration: ${config.getName}")
+          TreeTableUtils.updateModel(configTree,
+            new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+          TreeTableUtils.updateModel(resultsTree,
+            new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)) // clear existing data
+        case _ =>
+          separator.setText(f"Design Space Exploration: no run config selected")
+          TreeTableUtils.updateModel(configTree,
+            new DseConfigTreeTableModel(Seq(), Seq()))
+          TreeTableUtils.updateModel(resultsTree,
+            new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)) // clear existing data
+      }
+    })
   }
 
   setLayout(new GridBagLayout())
@@ -190,6 +193,7 @@ class DsePanel(project: Project) extends JPanel {
   // GUI: Bottom Tabs: Results
   //
   private val resultsTree = new TreeTable(new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))
+  resultsTree.setTreeCellRenderer(new DseResultTreeRenderer)
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
   resultsTree.addMouseListener(new MouseAdapter {
@@ -228,8 +232,10 @@ class DsePanel(project: Project) extends JPanel {
   def setResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
                  inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
-    TreeTableUtils.updateModel(resultsTree,
-      new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+    ApplicationManager.getApplication.invokeLater(() => {
+      TreeTableUtils.updateModel(resultsTree,
+        new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+    })
     plot.setResults(combinedResults, search, objectives)
   }
 

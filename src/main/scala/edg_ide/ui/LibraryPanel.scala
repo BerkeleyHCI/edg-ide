@@ -527,8 +527,7 @@ class LibraryPanel(project: Project) extends JPanel {
   libraryTree.addMouseListener(libraryMouseListener)
   libraryTree.setRootVisible(false)
   libraryTree.setShowColumns(true)
-  private val libraryTreeRenderer = new EdgirLibraryTreeRenderer()
-  libraryTree.setTreeCellRenderer(libraryTreeRenderer)
+  libraryTree.setTreeCellRenderer(new EdgirLibraryTreeRenderer())
 
   private val libraryTreeScrollPane = new JBScrollPane(libraryTree)
   libraryTreePanel.add(libraryTreeScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize = 2))
@@ -583,7 +582,6 @@ class LibraryPanel(project: Project) extends JPanel {
     TreeTableUtils.updateModel(libraryTree, this.libraryTreeModel)
     updateFilter()
     libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
-    libraryTree.setTreeCellRenderer(libraryTreeRenderer)
   }
 
   // Configuration State

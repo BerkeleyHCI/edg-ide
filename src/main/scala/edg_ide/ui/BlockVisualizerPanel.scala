@@ -238,14 +238,16 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
     val dseConfigSelected = BlockVisualizerService(project).getDseRunConfiguration.isDefined
     if (dsePanelShown != dseConfigSelected) {
-      if (dseConfigSelected) {
-        mainSplitter.setSecondComponent(dseSplitter)
-        dseSplitter.setFirstComponent(bottomSplitter)
-      } else {
-        dseSplitter.setFirstComponent(null)
-        mainSplitter.setSecondComponent(bottomSplitter)
-      }
-      dsePanelShown = dseConfigSelected
+      dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
+      ApplicationManager.getApplication.invokeLater(() => {
+        if (dseConfigSelected) {
+          mainSplitter.setSecondComponent(dseSplitter)
+          dseSplitter.setFirstComponent(bottomSplitter)
+        } else {
+          dseSplitter.setFirstComponent(null)
+          mainSplitter.setSecondComponent(bottomSplitter)
+        }
+      })
     }
   }, 333, 333, TimeUnit.MILLISECONDS) // seems flakey without initial delay
 
