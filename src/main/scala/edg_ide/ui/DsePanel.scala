@@ -164,11 +164,19 @@ class DsePanel(project: Project) extends JPanel {
 
         setSelection(data)
       } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click popup menu
-        if (data.size == 1) {
-          new DseResultPopupMenu(data.head, project).show(e.getComponent, e.getX, e.getY)
-        } else {
+        if (data.size != 1) {
           PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+          return
         }
+        new DseResultPopupMenu(data.head, project).show(e.getComponent, e.getX, e.getY)
+      } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click view result
+        if (data.size != 1) {
+          PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+          return
+        }
+        val result = data.head
+        BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
+          result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
       }
     }
 
