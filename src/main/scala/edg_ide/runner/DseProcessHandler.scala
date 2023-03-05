@@ -222,7 +222,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 }
 
                 uiUpdater.runIfIdle { // only have one UI update in progress at any time
-                  System.gc() // clean up after this compile run
                   BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
                 }
 
@@ -246,6 +245,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
           BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, false)
+          System.gc() // clean up after this compile run  TODO: we can GC more often if we can prune the completed compiler
           ""
         }
       }
