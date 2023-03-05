@@ -2,13 +2,14 @@ package edg_ide.ui
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
-import edg.compiler.{CompilerError, ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import com.intellij.ui.components.JBLabel
+import edg.compiler._
+import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse.{DseResultModel, JScatterPlot}
 
-import java.awt.{GridBagConstraints, GridBagLayout}
 import java.awt.event.{ItemEvent, ItemListener}
+import java.awt.{GridBagConstraints, GridBagLayout}
 import javax.swing.JPanel
 
 
@@ -125,16 +126,18 @@ class DsePlotPanel() extends JPanel {
       DsePlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
-  add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
+  add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
+
+  private val emptyAxis = new DummyAxis("Empty")
+  private val ySelector = new ComboBox[PlotAxis]()
+  ySelector.addItem(emptyAxis)
+  add(new JBLabel("Y ↑"), Gbc(0, 1))
+  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private val xSelector = new ComboBox[PlotAxis]()
-  private val xAxisHeader = new DummyAxis("X Axis")
-  xSelector.addItem(xAxisHeader)
-  add(xSelector, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
-  private val ySelector = new ComboBox[PlotAxis]()
-  private val yAxisHeader = new DummyAxis("Y Axis")
-  ySelector.addItem(yAxisHeader)
-  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+  xSelector.addItem(emptyAxis)
+  add(xSelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
+  add(new JBLabel("X →"), Gbc(3, 1))
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
@@ -225,8 +228,8 @@ class DsePlotPanel() extends JPanel {
       xSelector.removeAllItems()
       ySelector.removeAllItems()
 
-      xSelector.addItem(xAxisHeader)
-      ySelector.addItem(yAxisHeader)
+      xSelector.addItem(emptyAxis)
+      ySelector.addItem(emptyAxis)
       items.foreach { item =>
         xSelector.addItem(item)
         ySelector.addItem(item)
