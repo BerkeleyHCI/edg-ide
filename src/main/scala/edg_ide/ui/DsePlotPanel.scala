@@ -3,13 +3,13 @@ package edg_ide.ui
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.JBLabel
-import edg.compiler.{CompilerError, ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import edg.compiler._
+import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse.{DseResultModel, JScatterPlot}
 
-import java.awt.{GridBagConstraints, GridBagLayout}
 import java.awt.event.{ItemEvent, ItemListener}
+import java.awt.{GridBagConstraints, GridBagLayout}
 import javax.swing.JPanel
 
 
