@@ -8,7 +8,7 @@ import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse.{DseResultModel, JScatterPlot}
 
-import java.awt.event.{ItemEvent, ItemListener}
+import java.awt.event.{ItemEvent, ItemListener, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import javax.swing.JPanel
 
@@ -118,8 +118,8 @@ class DsePlotPanel() extends JPanel {
   setLayout(new GridBagLayout)
 
   private val plot = new JScatterPlot[DseResult]() {
-    override def onClick(data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onClick(data.map(_.value))
+    override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
+      DsePlotPanel.this.onClick(e, data.map(_.value))
     }
 
     override def onHoverChange(data: Seq[Data]): Unit = {
@@ -267,7 +267,7 @@ class DsePlotPanel() extends JPanel {
   //
   // called when this widget clicked, for all points within some hover radius of the cursor
   // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(results: Seq[DseResult]): Unit = {}
+  def onClick(e: MouseEvent, results: Seq[DseResult]): Unit = {}
 
   // called when the hovered-over data changes, for all points within some hover radius of the cursor
   // may be empty (when hovering over nothing)

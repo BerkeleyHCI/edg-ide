@@ -20,7 +20,7 @@ import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
-import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
+import javax.swing.{JLabel, JPanel, JPopupMenu, SwingUtilities}
 
 
 object DseSearchConfigPopupMenu {
@@ -75,6 +75,12 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
 
 
 class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu {
+  result.config.foreach { case (config, configValue) =>
+    add(new JLabel(s"Point ${result.index}"))
+    add(new JLabel(s"${config.configToString} = ${config.valueToString(configValue)}"))
+  }
+  addSeparator()
+
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val topType = result.compiled.getContents.getSelfClass
     val topClass = DesignAnalysisUtils.pyClassOf(topType, project).exceptError
@@ -132,28 +138,46 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Top plot
   private val plot = new DsePlotPanel() {
-    override def onClick(data: Seq[DseResult]): Unit = {
-      resultsTree.clearSelection()
+    override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in tree
+        resultsTree.clearSelection()
 
-      val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
-      def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
-        case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
-        case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
-        case _ => Seq()
+        val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
+
+        def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
+          case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
+          case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
+          case _ => Seq()
+        }
+
+        val treeRootPath = new TreePath(treeRoot)
+        val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
+
+        dataTreePaths.foreach { treePath =>
+          resultsTree.addSelectedPath(treePath)
+          resultsTree.getTree.expandPath(treePath)
+
+        }
+        dataTreePaths.headOption.foreach { treePath => // scroll to the first result
+          resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
+        }
+
+        setSelection(data)
+      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click popup menu
+        if (data.size != 1) {
+          PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+          return
+        }
+        new DseResultPopupMenu(data.head, project).show(e.getComponent, e.getX, e.getY)
+      } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click view result
+        if (data.size != 1) {
+          PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+          return
+        }
+        val result = data.head
+        BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
+          result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
       }
-      val treeRootPath = new TreePath(treeRoot)
-      val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
-
-      dataTreePaths.foreach { treePath =>
-        resultsTree.addSelectedPath(treePath)
-        resultsTree.getTree.expandPath(treePath)
-
-      }
-      dataTreePaths.headOption.foreach { treePath =>  // scroll to the first result
-        resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
-      }
-
-      setSelection(data)
     }
 
     override def onHoverChange(data: Seq[DseResult]): Unit = {
