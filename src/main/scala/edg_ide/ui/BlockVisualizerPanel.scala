@@ -13,7 +13,6 @@ import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
-import edg_ide.dse.DseFeature
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
@@ -34,8 +33,8 @@ import java.util.concurrent.{Callable, TimeUnit}
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JLabel, JPanel, TransferHandler}
-import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.collection.{SeqMap, mutable}
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
 
 
@@ -239,14 +238,16 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
     val dseConfigSelected = BlockVisualizerService(project).getDseRunConfiguration.isDefined
     if (dsePanelShown != dseConfigSelected) {
-      if (dseConfigSelected) {
-        mainSplitter.setSecondComponent(dseSplitter)
-        dseSplitter.setFirstComponent(bottomSplitter)
-      } else {
-        dseSplitter.setFirstComponent(null)
-        mainSplitter.setSecondComponent(bottomSplitter)
-      }
-      dsePanelShown = dseConfigSelected
+      dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
+      ApplicationManager.getApplication.invokeLater(() => {
+        if (dseConfigSelected) {
+          mainSplitter.setSecondComponent(dseSplitter)
+          dseSplitter.setFirstComponent(bottomSplitter)
+        } else {
+          dseSplitter.setFirstComponent(null)
+          mainSplitter.setSecondComponent(bottomSplitter)
+        }
+      })
     }
   }, 333, 333, TimeUnit.MILLISECONDS) // seems flakey without initial delay
 
@@ -584,6 +585,8 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
 
 class ErrorPanel(compiler: Compiler) extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
+  private val customTableHeader = new CustomTooltipTableHeader(tree.getColumnModel())
+  tree.setTableHeader(customTableHeader)
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)

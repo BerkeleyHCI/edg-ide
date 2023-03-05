@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
@@ -11,7 +12,7 @@ import edg_ide.dse._
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
-import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeTableModel}
+import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeRenderer, DseResultTreeTableModel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
@@ -19,7 +20,7 @@ import java.awt.event.{MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
-import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
+import javax.swing.{JLabel, JPanel, JPopupMenu, SwingUtilities}
 
 
 object DseSearchConfigPopupMenu {
@@ -74,6 +75,12 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
 
 
 class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu {
+  result.config.foreach { case (config, configValue) =>
+    add(new JLabel(s"Point ${result.index}"))
+    add(new JLabel(s"${config.configToString} = ${config.valueToString(configValue)}"))
+  }
+  addSeparator()
+
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val topType = result.compiled.getContents.getSelfClass
     val topClass = DesignAnalysisUtils.pyClassOf(topType, project).exceptError
@@ -102,20 +109,22 @@ class DsePanel(project: Project) extends JPanel {
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
   protected def onConfigUpdate(): Unit = {
-    displayedConfig match {
-      case Some(config) =>
-        separator.setText(f"Design Space Exploration: ${config.getName}")
-        TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
-        TreeTableUtils.updateModel(resultsTree,
-          new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
-      case _ =>
-        separator.setText(f"Design Space Exploration: no run config selected")
-        TreeTableUtils.updateModel(configTree,
-          new DseConfigTreeTableModel(Seq(), Seq()))
-        TreeTableUtils.updateModel(resultsTree,
-          new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))  // clear existing data
-    }
+    ApplicationManager.getApplication.invokeLater(() => {
+      displayedConfig match {
+        case Some(config) =>
+          separator.setText(f"Design Space Exploration: ${config.getName}")
+          TreeTableUtils.updateModel(configTree,
+            new DseConfigTreeTableModel(config.options.searchConfigs, config.options.objectives))
+          TreeTableUtils.updateModel(resultsTree,
+            new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)) // clear existing data
+        case _ =>
+          separator.setText(f"Design Space Exploration: no run config selected")
+          TreeTableUtils.updateModel(configTree,
+            new DseConfigTreeTableModel(Seq(), Seq()))
+          TreeTableUtils.updateModel(resultsTree,
+            new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)) // clear existing data
+      }
+    })
   }
 
   setLayout(new GridBagLayout())
@@ -129,28 +138,46 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Top plot
   private val plot = new DsePlotPanel() {
-    override def onClick(data: Seq[DseResult]): Unit = {
-      resultsTree.clearSelection()
+    override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in tree
+        resultsTree.clearSelection()
 
-      val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
-      def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
-        case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
-        case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
-        case _ => Seq()
+        val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
+
+        def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
+          case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
+          case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
+          case _ => Seq()
+        }
+
+        val treeRootPath = new TreePath(treeRoot)
+        val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
+
+        dataTreePaths.foreach { treePath =>
+          resultsTree.addSelectedPath(treePath)
+          resultsTree.getTree.expandPath(treePath)
+
+        }
+        dataTreePaths.headOption.foreach { treePath => // scroll to the first result
+          resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
+        }
+
+        setSelection(data)
+      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click popup menu
+        if (data.size != 1) {
+          PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+          return
+        }
+        new DseResultPopupMenu(data.head, project).show(e.getComponent, e.getX, e.getY)
+      } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click view result
+        if (data.size != 1) {
+          PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+          return
+        }
+        val result = data.head
+        BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
+          result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
       }
-      val treeRootPath = new TreePath(treeRoot)
-      val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
-
-      dataTreePaths.foreach { treePath =>
-        resultsTree.addSelectedPath(treePath)
-        resultsTree.getTree.expandPath(treePath)
-
-      }
-      dataTreePaths.headOption.foreach { treePath =>  // scroll to the first result
-        resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
-      }
-
-      setSelection(data)
     }
 
     override def onHoverChange(data: Seq[DseResult]): Unit = {
@@ -190,6 +217,7 @@ class DsePanel(project: Project) extends JPanel {
   // GUI: Bottom Tabs: Results
   //
   private val resultsTree = new TreeTable(new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))
+  resultsTree.setTreeCellRenderer(new DseResultTreeRenderer)
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
   resultsTree.addMouseListener(new MouseAdapter {
@@ -228,8 +256,10 @@ class DsePanel(project: Project) extends JPanel {
   def setResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
                  inProgress: Boolean): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
-    TreeTableUtils.updateModel(resultsTree,
-      new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+    ApplicationManager.getApplication.invokeLater(() => {
+      TreeTableUtils.updateModel(resultsTree,
+        new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+    })
     plot.setResults(combinedResults, search, objectives)
   }
 

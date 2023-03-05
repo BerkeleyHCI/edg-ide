@@ -3,11 +3,11 @@ package edg_ide.swing
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, ElaborateRecord, ExprToString, ExprVarToValue}
-import edg.wir.{DesignPath, IndirectDesignPath}
-import edg_ide.EdgirUtils
 
+import java.awt.event.MouseEvent
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
+import javax.swing.table.{JTableHeader, TableColumnModel}
 import javax.swing.tree.TreePath
 
 
@@ -115,10 +115,25 @@ object CompilerErrorNodeBase {
   }
 }
 
+class CustomTooltipTableHeader(columnModel: TableColumnModel) extends JTableHeader(columnModel: TableColumnModel) {
+  override def getToolTipText(e: MouseEvent): String = {
+    val col = columnModel.getColumnIndexAtX(e.getX)
+    val name = columnModel.getColumn(col).getHeaderValue.toString
+    val headerTooltipText = "Path from design root to constraint of the component causing the error. <br> " +
+      "For example: mcu.gnd:overcurrent, indicates that the gnd <br>" +
+      "overcurrent constraint is failing."
+    val tooltip = name match {
+      case "Path ⓘ" => headerTooltipText
+      case "Error" => "Error message"
+      case _ => "Unknown"
+    }
+    tooltip
+  }
+}
 
 class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) extends SeqTreeTableModel[CompilerErrorNodeBase] {
   val rootNode: CompilerErrorNodeBase = new CompilerErrorNodeBase.CompilerErrorTopNode(errs, compiler)
-  val COLUMNS = Seq("Error", "Path")
+  val COLUMNS = Seq("Error", "Path ⓘ")
 
   // TreeView abstract methods
   //

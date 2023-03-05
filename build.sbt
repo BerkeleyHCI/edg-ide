@@ -40,6 +40,7 @@ lazy val root = (project in file("."))
         xml.sinceBuild        = (ThisBuild / intellijBuild).value
         xml.untilBuild        = "221.*"
       },
+
       intellijVMOptions := intellijVMOptions.value.copy(
         xmx = 4096,
         xms = 1024

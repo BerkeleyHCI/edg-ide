@@ -51,7 +51,8 @@ object DesignAnalysisUtils {
 
   def isPyClassAbstract(pyClass: PyClass): Boolean = {
     val hasAbstractDecorator = Option(pyClass.getDecoratorList).map { decoratorList =>
-      decoratorList.getDecorators.exists(_.getName == "abstract_block")
+      decoratorList.getDecorators.exists(_.getName == "abstract_block") ||
+          decoratorList.getDecorators.exists(_.getName == "abstract_block_default")
     }
     hasAbstractDecorator.getOrElse(false)
   }

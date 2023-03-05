@@ -1,13 +1,15 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
-import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import com.intellij.ui.components.JBLabel
+import edg.compiler._
+import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
-import edg_ide.swing.dse.JScatterPlot
+import edg_ide.swing.dse.{DseResultModel, JScatterPlot}
 
+import java.awt.event.{ItemEvent, ItemListener, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
-import java.awt.event.{ItemEvent, ItemListener}
 import javax.swing.JPanel
 
 
@@ -27,8 +29,8 @@ class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
   override def toString = objective.objectiveToString
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.flatMap { result =>
-      result.objectives.get(objective).map {
+    val values = results.map { result =>
+      result.objectives.get(objective).flatMap {
         case x: Float => Some(x)
         case x: Int => Some(x.toFloat)
         case _ => None
@@ -43,9 +45,9 @@ class DseObjectiveParamAxis(objective: DseObjectiveParameter, postfix: String,
   override def toString = objective.objectiveToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.flatMap { result =>
+    val values = results.map { result =>
       result.objectives.get(objective).flatMap(value =>
-        value.asInstanceOf[Option[ExprValue]].map(value =>
+        value.asInstanceOf[Option[ExprValue]].flatMap(value =>
           mapFn(value)))
     }
     (values, None)
@@ -79,8 +81,8 @@ class DseConfigParamAxis(config: DseConfigElement, postfix: String,
   override def toString = config.configToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.flatMap { result =>
-      result.config.get(config).map(value => map(value.asInstanceOf[ExprValue]))
+    val values = results.map { result =>
+      result.config.get(config).flatMap(value => map(value.asInstanceOf[ExprValue]))
     }
     (values, None)
   }
@@ -91,15 +93,17 @@ class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
   override def toString = config.configToString
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
-    val values = results.flatMap { result =>
+    val values = results.map { result =>
       result.config.get(config).map(config.valueToString)
     }
-    val stringToPos = values.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+    val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
     val axis = stringToPos.map { case (str, index) => (index, str) }
 
     val stringToPosMap = stringToPos.toMap
     val positionalValues = values.map { value =>
-      stringToPosMap.get(value)
+      value.flatMap { value =>
+        stringToPosMap.get(value)
+      }
     }
     (positionalValues, Some(axis))
   }
@@ -114,43 +118,52 @@ class DsePlotPanel() extends JPanel {
   setLayout(new GridBagLayout)
 
   private val plot = new JScatterPlot[DseResult]() {
-    override def onClick(data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onClick(data.map(_.value))
+    override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
+      DsePlotPanel.this.onClick(e, data.map(_.value))
     }
 
     override def onHoverChange(data: Seq[Data]): Unit = {
       DsePlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
-  add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 2))
+  add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
+
+  private val emptyAxis = new DummyAxis("Empty")
+  private val ySelector = new ComboBox[PlotAxis]()
+  ySelector.addItem(emptyAxis)
+  add(new JBLabel("Y ↑"), Gbc(0, 1))
+  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private val xSelector = new ComboBox[PlotAxis]()
-  private val xAxisHeader = new DummyAxis("X Axis")
-  xSelector.addItem(xAxisHeader)
-  add(xSelector, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
-  private val ySelector = new ComboBox[PlotAxis]()
-  private val yAxisHeader = new DummyAxis("Y Axis")
-  ySelector.addItem(yAxisHeader)
-  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+  xSelector.addItem(emptyAxis)
+  add(xSelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
+  add(new JBLabel("X →"), Gbc(3, 1))
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
     val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(flatResults)
     val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(flatResults)
 
+    require(flatResults.size == xPoints.size, s"X axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
+    require(flatResults.size == yPoints.size, s"Y axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
+
     val points = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
-        val color = if (result.errors.nonEmpty) {
-          Some(com.intellij.ui.JBColor.RED)
-        } else {
-          None
+        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
+        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+          case (_, true) => Some(DseResultModel.kColorOtherError)
+          case (true, false) => Some(DseResultModel.kColorIdealError)
+          case (false, false) => None
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)
         Some(new plot.Data(result, xVal, yVal, color,
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
       case _ => Seq()
     }
-    plot.setData(points, xAxis, yAxis)
+
+    ApplicationManager.getApplication.invokeLater(() => {
+      plot.setData(points, xAxis, yAxis)
+    })
   }
 
   private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective]): Unit = {
@@ -206,27 +219,28 @@ class DsePlotPanel() extends JPanel {
         Seq(new DseObjectiveParamOrdinalAxis(objective))
       case objective => Seq(new DummyAxis(f"unknown ${objective.objectiveToString}"))
     }
-
-    xSelector.removeItemListener(axisSelectorListener)
-    ySelector.removeItemListener(axisSelectorListener)
-
-    xSelector.removeAllItems()
-    ySelector.removeAllItems()
-
-    xSelector.addItem(xAxisHeader)
-    ySelector.addItem(yAxisHeader)
-    items.foreach { item =>
-      xSelector.addItem(item)
-      ySelector.addItem(item)
-    }
-
-    xSelector.addItemListener(axisSelectorListener)
-    ySelector.addItemListener(axisSelectorListener)
     displayAxisSelector = (search, objectives)
 
-    // restore prior selection by name matching
-    items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
-    items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
+    ApplicationManager.getApplication.invokeLater(() => {
+      xSelector.removeItemListener(axisSelectorListener)
+      ySelector.removeItemListener(axisSelectorListener)
+
+      xSelector.removeAllItems()
+      ySelector.removeAllItems()
+
+      xSelector.addItem(emptyAxis)
+      ySelector.addItem(emptyAxis)
+      items.foreach { item =>
+        xSelector.addItem(item)
+        ySelector.addItem(item)
+      }
+
+      xSelector.addItemListener(axisSelectorListener)
+      ySelector.addItemListener(axisSelectorListener)
+      // restore prior selection by name matching
+      items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
+      items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
+    })
   }
 
   private val axisSelectorListener = new ItemListener() {
@@ -253,7 +267,7 @@ class DsePlotPanel() extends JPanel {
   //
   // called when this widget clicked, for all points within some hover radius of the cursor
   // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(results: Seq[DseResult]): Unit = {}
+  def onClick(e: MouseEvent, results: Seq[DseResult]): Unit = {}
 
   // called when the hovered-over data changes, for all points within some hover radius of the cursor
   // may be empty (when hovering over nothing)

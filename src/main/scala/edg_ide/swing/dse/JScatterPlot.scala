@@ -206,7 +206,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       val clickedPoints = getPointsForLocation(e.getX, e.getY, kSnapDistancePx)
-      onClick(clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
+      onClick(e, clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
     }
   })
 
@@ -257,7 +257,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   //
   // called when this widget clicked, for all points within some hover radius of the cursor
   // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(data: Seq[Data]): Unit = { }
+  def onClick(e: MouseEvent, data: Seq[Data]): Unit = { }
 
   // called when the hovered-over data changes, for all points within some hover radius of the cursor
   // may be empty (when hovering over nothing)
