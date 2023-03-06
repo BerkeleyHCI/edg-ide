@@ -267,10 +267,18 @@ class DsePanel(project: Project) extends JPanel {
 
   def focusConfigSearch(): Unit = {
     tabbedPane.setSelectedIndex(kTabConfig)
+
+    val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
+    val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.searchConfigNode)
+    configTree.getTree.expandPath(nodePath)
   }
 
   def focusConfigObjective(): Unit = {
     tabbedPane.setSelectedIndex(kTabConfig)
+
+    val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
+    val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.objectivesNode)
+    configTree.getTree.expandPath(nodePath)
   }
 
   def focusResults(): Unit = {
