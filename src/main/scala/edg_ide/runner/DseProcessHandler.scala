@@ -10,7 +10,7 @@ import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
-import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
+import edg_ide.ui.{BlockVisualizerService, DseService, EdgCompilerService}
 import edgir.schema.schema
 
 import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
@@ -113,7 +113,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
     uiUpdater.runIfIdle {  // show searching in UI
-      BlockVisualizerService(project).setDseResults(Seq(), options.searchConfigs, options.objectives, true)
+      DseService(project).setDseResults(Seq(), options.searchConfigs, options.objectives, true)
     }
 
     // Open a CSV file (if desired) and write result rows as they are computed.
@@ -222,7 +222,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 }
 
                 uiUpdater.runIfIdle { // only have one UI update in progress at any time
-                  BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
+                  DseService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
                 }
 
                 if (errors.nonEmpty) {
@@ -244,7 +244,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
-          BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, false)
+          DseService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, false)
           System.gc() // clean up after this compile run  TODO: we can GC more often if we can prune the completed compiler
           ""
         }

@@ -39,24 +39,24 @@ object DseSearchConfigPopupMenu {
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+    val dseConfig = DseService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
     val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
     () => {
       dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
-      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+      DseService(project).onDseConfigChanged(dseConfig)
     }
   }, s"Delete"))
 
   add(ContextMenuUtils.MenuItemFromErrorable(
     DseSearchConfigPopupMenu.createParamSearchEditPopup(searchConfig, project, { newConfig =>
         exceptionPopup.atMouse(this) {
-          val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+          val dseConfig = DseService(project).getDseRunConfiguration.exceptNone("no run config")
           val originalSearchConfigs = dseConfig.options.searchConfigs
           val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
           val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
           dseConfig.options.searchConfigs = newSearchConfigs
-          BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+          DseService(project).onDseConfigChanged(dseConfig)
         }
     }), s"Edit"))
 }
@@ -64,11 +64,11 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
 
 class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+    val dseConfig = DseService(project).getDseRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
     () => {
       dseConfig.options.objectives = originalObjectives.filter(_ != objective)
-      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+      DseService(project).onDseConfigChanged(dseConfig)
     }
   }, s"Delete"))
 }
@@ -101,7 +101,7 @@ class DsePanel(project: Project) extends JPanel {
 
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val newConfig = BlockVisualizerService(project).getDseRunConfiguration
+    val newConfig = DseService(project).getDseRunConfiguration
     if (newConfig != displayedConfig) {
       displayedConfig = newConfig
       onConfigUpdate()
@@ -212,6 +212,7 @@ class DsePanel(project: Project) extends JPanel {
       }
     }
   })
+  private val kTabConfig = tabbedPane.getTabCount
   tabbedPane.addTab("Config", new JBScrollPane(configTree))
 
   // GUI: Bottom Tabs: Results
@@ -242,6 +243,7 @@ class DsePanel(project: Project) extends JPanel {
       }
     }
   })
+  private val kTabResults = tabbedPane.getTabCount
   tabbedPane.addTab("Results", new JBScrollPane(resultsTree))
 
   onConfigUpdate()  // set initial state
@@ -263,13 +265,25 @@ class DsePanel(project: Project) extends JPanel {
     plot.setResults(combinedResults, search, objectives)
   }
 
+  def focusConfigSearch(): Unit = {
+    tabbedPane.setSelectedIndex(kTabConfig)
+  }
+
+  def focusConfigObjective(): Unit = {
+    tabbedPane.setSelectedIndex(kTabConfig)
+  }
+
+  def focusConfigResults(): Unit = {
+    tabbedPane.setSelectedIndex(kTabResults)
+  }
+
   // Configuration State
   //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
+  def saveState(state: DseServiceState): Unit = {
     state.dseTabIndex = tabbedPane.getSelectedIndex
   }
 
-  def loadState(state: BlockVisualizerServiceState): Unit = {
+  def loadState(state: DseServiceState): Unit = {
     tabbedPane.setSelectedIndex(state.dseTabIndex)
   }
 }

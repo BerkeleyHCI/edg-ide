@@ -236,7 +236,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
   private var dsePanelShown = false
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val dseConfigSelected = BlockVisualizerService(project).getDseRunConfiguration.isDefined
+    val dseConfigSelected = DseService(project).getDseRunConfiguration.isDefined
     if (dsePanelShown != dseConfigSelected) {
       dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
       ApplicationManager.getApplication.invokeLater(() => {
@@ -494,7 +494,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     detailPanel.saveState(state)
     errorPanel.saveState(state)
     kicadVizPanel.saveState(state)
-    dsePanel.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
@@ -507,7 +506,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     detailPanel.loadState(state)
     errorPanel.loadState(state)
     kicadVizPanel.loadState(state)
-    dsePanel.loadState(state)
   }
 }
 
