@@ -2,7 +2,7 @@ package edg_ide.ui
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import com.intellij.ui.JBSplitter
+import com.intellij.ui.{JBSplitter, TitledSeparator}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -129,8 +129,7 @@ class DsePanel(project: Project) extends JPanel {
 
   setLayout(new GridBagLayout())
 
-  // TODO make the collapse function actually work
-  private val separator = new CollapsibleTitledSeparator("Design Space Exploration")
+  private val separator = new TitledSeparator("Design Space Exploration")
   add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
