@@ -98,12 +98,12 @@ case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
 
 
 case class DseObjectiveFootprintPrice(rootPath: DesignPath = DesignPath())
-  extends DseTypedObjective[Int] with Serializable {
+  extends DseTypedObjective[Float] with Serializable {
   override def objectiveToString = f"FootprintPrice($rootPath)"
 
-  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface): Int = {
+  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface): Float = {
     pythonInterface.runBackend(
       ElemBuilder.LibraryPath("electronics_lib.PriceGetter.GeneratePrice"), design, compiler.getAllSolved, Map()
-    ).toOption.map(value => value(rootPath).toInt).getOrElse(0)
+    ).toOption.map(value => value(rootPath).toFloat).getOrElse(0)
   }
 }
