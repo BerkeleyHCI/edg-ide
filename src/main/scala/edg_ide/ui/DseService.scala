@@ -76,6 +76,7 @@ class DseService(project: Project) extends
   }
 
   override def loadState(state: DseServiceState): Unit = {
+    // TODO: nothing actually propagates this to the panel, and state doesn't get saved
     initialState = Some(state)
   }
 
