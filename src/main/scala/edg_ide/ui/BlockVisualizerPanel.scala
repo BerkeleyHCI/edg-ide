@@ -395,6 +395,23 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateDisplay()
   }
 
+  /** Clears the existing design
+    */
+  def clearDesign(): Unit = {
+    this.refinements = edgrpc.Refinements()
+    setDesign(schema.Design(), new Compiler(schema.Design(), EdgCompilerService(project).pyLib))
+    tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
+    errorPanel.setErrors(Seq(), compiler)
+
+    ApplicationManager.getApplication.invokeLater(() => {
+      toolWindow.setTitle("")
+    })
+
+    if (activeTool != defaultTool) { // revert to the default tool
+      toolInterface.endTool() // TODO should we also preserve state like selected?
+    }
+  }
+
   /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */

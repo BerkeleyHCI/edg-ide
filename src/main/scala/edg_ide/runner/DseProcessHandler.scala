@@ -12,6 +12,7 @@ import edg.wir.Refinements
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
 import edg_ide.ui.{BlockVisualizerService, DseService, EdgCompilerService}
 import edgir.schema.schema
+import edgir.schema.schema.Design
 
 import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
@@ -158,6 +159,8 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
+        BlockVisualizerService(project).clearDesign()
+
         // compared to the single design compiler the debug info is a lot sparser here
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
@@ -245,6 +248,15 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
           DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, false, false)
+
+          if (options.searchConfigs.isEmpty && results.length == 1) {
+            val result = results.head
+            BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler, result.compiler.refinements.toPb,
+              result.errors, Some(f"DSE: "))
+            console.print(s"Empty search space, automatically updating visualization with only design point\n",
+              ConsoleViewContentType.LOG_INFO_OUTPUT)
+          }
+
           System.gc() // clean up after this compile run  TODO: we can GC more often if we can prune the completed compiler
           ""
         }
