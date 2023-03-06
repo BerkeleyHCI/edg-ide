@@ -4,8 +4,8 @@ import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
-import java.awt.{Color, Dimension, Graphics, Rectangle}
-import javax.swing.{JComponent, Scrollable}
+import java.awt.{Color, Dimension, Graphics, Point, Rectangle}
+import javax.swing.{JComponent, Scrollable, SwingUtilities}
 import scala.collection.mutable
 
 
@@ -245,6 +245,38 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
       repaint()
     }
   })
+
+  // TODO unify w/ ZoomDragScrollPanel
+  private val dragListener = new MouseAdapter {
+    var dragLastPos: Option[Point] = None
+
+    override def mousePressed(e: MouseEvent): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e)) {
+        dragLastPos = Some(e.getPoint)
+      }
+    }
+
+    override def mouseReleased(e: MouseEvent): Unit = {
+      dragLastPos = None
+    }
+
+    override def mouseDragged(e: MouseEvent): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e)) {
+        dragLastPos.foreach { lastPos =>
+          val dx = (lastPos.getX - e.getX).toFloat * (xRange._2 - xRange._1) / getWidth
+          val dy = (lastPos.getY - e.getY).toFloat * (yRange._2 - yRange._1) / getHeight
+          xRange = (xRange._1 + dx, xRange._2 + dx)
+          yRange = (yRange._1 - dy, yRange._2 - dy)
+          this.dragLastPos = Some(e.getPoint)
+
+          validate()
+          repaint()
+        }
+      }
+    }
+  }
+  addMouseListener(dragListener)  // this registers the press / release
+  addMouseMotionListener(dragListener)  // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
     getPointsForLocation(e.getX, e.getY, kSnapDistancePx).headOption match {

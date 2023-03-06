@@ -35,10 +35,10 @@ object DseConfigTreeNode {
   class Root(configs: Seq[DseConfigElement], objectives: Seq[DseObjective]) extends DseConfigTreeNode {
     override val path = ""
     override val value = ""
-    override lazy val children = Seq(
-      new SearchConfigs(configs),
-      new Objectives(objectives)
-    )
+
+    lazy val searchConfigNode = new SearchConfigs(configs)
+    lazy val objectivesNode = new Objectives(objectives)
+    override lazy val children = Seq(searchConfigNode, objectivesNode)
   }
 
   class SearchConfigs(configs: Seq[DseConfigElement]) extends DseConfigTreeNode {
@@ -90,7 +90,7 @@ object DseConfigTreeNode {
 
 class DseConfigTreeTableModel(searchConfigs: Seq[DseConfigElement], objectives: Seq[DseObjective])
     extends SeqTreeTableModel[SeqNodeBase] {
-  val rootNode: SeqNodeBase = new DseConfigTreeNode.Root(searchConfigs, objectives)
+  val rootNode = new DseConfigTreeNode.Root(searchConfigs, objectives)
   val COLUMNS = Seq("Path", "Value")
 
   // TreeView abstract methods

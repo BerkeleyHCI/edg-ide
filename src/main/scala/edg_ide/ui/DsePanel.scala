@@ -2,7 +2,7 @@ package edg_ide.ui
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import com.intellij.ui.JBSplitter
+import com.intellij.ui.{JBSplitter, TitledSeparator}
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.dsl.builder.impl.CollapsibleTitledSeparator
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -39,24 +39,24 @@ object DseSearchConfigPopupMenu {
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+    val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
     val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
     () => {
       dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
-      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+      DseService(project).onSearchConfigChanged(dseConfig)
     }
   }, s"Delete"))
 
   add(ContextMenuUtils.MenuItemFromErrorable(
     DseSearchConfigPopupMenu.createParamSearchEditPopup(searchConfig, project, { newConfig =>
         exceptionPopup.atMouse(this) {
-          val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+          val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
           val originalSearchConfigs = dseConfig.options.searchConfigs
           val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
           val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
           dseConfig.options.searchConfigs = newSearchConfigs
-          BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+          DseService(project).onSearchConfigChanged(dseConfig)
         }
     }), s"Edit"))
 }
@@ -64,11 +64,11 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
 
 class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val dseConfig = BlockVisualizerService(project).getDseRunConfiguration.exceptNone("no run config")
+    val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
     () => {
       dseConfig.options.objectives = originalObjectives.filter(_ != objective)
-      BlockVisualizerService(project).onDseConfigChanged(dseConfig)
+      DseService(project).onObjectiveConfigChanged(dseConfig)
     }
   }, s"Delete"))
 }
@@ -101,7 +101,7 @@ class DsePanel(project: Project) extends JPanel {
 
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val newConfig = BlockVisualizerService(project).getDseRunConfiguration
+    val newConfig = DseService(project).getRunConfiguration
     if (newConfig != displayedConfig) {
       displayedConfig = newConfig
       onConfigUpdate()
@@ -129,8 +129,7 @@ class DsePanel(project: Project) extends JPanel {
 
   setLayout(new GridBagLayout())
 
-  // TODO make the collapse function actually work
-  private val separator = new CollapsibleTitledSeparator("Design Space Exploration")
+  private val separator = new TitledSeparator("Design Space Exploration")
   add(separator, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
 
   private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
@@ -212,6 +211,7 @@ class DsePanel(project: Project) extends JPanel {
       }
     }
   })
+  private val kTabConfig = tabbedPane.getTabCount
   tabbedPane.addTab("Config", new JBScrollPane(configTree))
 
   // GUI: Bottom Tabs: Results
@@ -242,6 +242,7 @@ class DsePanel(project: Project) extends JPanel {
       }
     }
   })
+  private val kTabResults = tabbedPane.getTabCount
   tabbedPane.addTab("Results", new JBScrollPane(resultsTree))
 
   onConfigUpdate()  // set initial state
@@ -263,13 +264,43 @@ class DsePanel(project: Project) extends JPanel {
     plot.setResults(combinedResults, search, objectives)
   }
 
+  def focusConfigSearch(): Unit = {
+    tabbedPane.setSelectedIndex(kTabConfig)
+
+    // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
+    // tries (and fails) to expand a node with no children (yet)
+    // TODO this is kind of ugly
+    ApplicationManager.getApplication.invokeLater(() => {
+      val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
+      val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.searchConfigNode)
+      configTree.getTree.expandPath(nodePath)
+    })
+  }
+
+  def focusConfigObjective(): Unit = {
+    tabbedPane.setSelectedIndex(kTabConfig)
+
+    // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
+    // tries (and fails) to expand a node with no children (yet)
+    // TODO this is kind of ugly
+    ApplicationManager.getApplication.invokeLater(() => {
+      val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
+      val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.objectivesNode)
+      configTree.getTree.expandPath(nodePath)
+    })
+  }
+
+  def focusResults(): Unit = {
+    tabbedPane.setSelectedIndex(kTabResults)
+  }
+
   // Configuration State
   //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
+  def saveState(state: DseServiceState): Unit = {
     state.dseTabIndex = tabbedPane.getSelectedIndex
   }
 
-  def loadState(state: BlockVisualizerServiceState): Unit = {
+  def loadState(state: DseServiceState): Unit = {
     tabbedPane.setSelectedIndex(state.dseTabIndex)
   }
 }

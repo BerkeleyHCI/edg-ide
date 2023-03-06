@@ -17,6 +17,7 @@
             displayName="EDG IDE"/>
 
     <projectService serviceImplementation="edg_ide.ui.BlockVisualizerServiceWrapper"/>
+    <projectService serviceImplementation="edg_ide.ui.DseServiceWrapper"/>
     <projectService serviceImplementation="edg_ide.ui.EdgCompilerServiceWrapper"/>
 
     <codeInsight.lineMarkerProvider language="Python"
