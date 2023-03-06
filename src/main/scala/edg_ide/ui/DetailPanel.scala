@@ -91,7 +91,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       val value = compiler.getParamValue(path).exceptNone("no value")
       val baseConfig = DsePathParameterSearch(directPath, Seq(value))
       DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
-        DseService(project).addDseConfig(rootClass, newConfig)
+        DseService(project).addConfig(rootClass, newConfig)
       }).exceptError
     }, s"Search values for instance $path"))
 
@@ -100,7 +100,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       val value = compiler.getParamValue(path).exceptNone("no value")
       val baseConfig = DseClassParameterSearch(blockClass, postfix, Seq(value))
       (DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
-        DseService(project).addDseConfig(rootClass, newConfig)
+        DseService(project).addConfig(rootClass, newConfig)
       }).exceptError, s"Search values of class ${blockClass.toSimpleString}:${ExprToString(postfix)}")
     }, s"Search values of class"))
 
@@ -109,7 +109,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       val value = compiler.getParamValue(path).exceptNone("no value")
       val baseConfig = DseClassParameterSearch(paramDefiningClass, postfix, Seq(value))
       (DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
-        DseService(project).addDseConfig(rootClass, newConfig)
+        DseService(project).addConfig(rootClass, newConfig)
       }).exceptError, s"Search values of param-defining class ${paramDefiningClass.toSimpleString}:${ExprToString(postfix)}")
     }, s"Search values of param-defining class"))
 
@@ -121,9 +121,9 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       }
 
       () => {
-        val config = DseService(project).getOrCreateDseRunConfiguration(rootClass)
+        val config = DseService(project).getOrCreateRunConfiguration(rootClass)
         config.options.objectives = config.options.objectives :+ objective
-        DseService(project).onDseConfigChanged(config)
+        DseService(project).onObjectiveConfigChanged(config)
       }
     }, "Add objective"))
   }

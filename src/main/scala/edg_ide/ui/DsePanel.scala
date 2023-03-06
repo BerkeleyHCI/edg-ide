@@ -39,24 +39,24 @@ object DseSearchConfigPopupMenu {
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val dseConfig = DseService(project).getDseRunConfiguration.exceptNone("no run config")
+    val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
     val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
     () => {
       dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
-      DseService(project).onDseConfigChanged(dseConfig)
+      DseService(project).onSearchConfigChanged(dseConfig)
     }
   }, s"Delete"))
 
   add(ContextMenuUtils.MenuItemFromErrorable(
     DseSearchConfigPopupMenu.createParamSearchEditPopup(searchConfig, project, { newConfig =>
         exceptionPopup.atMouse(this) {
-          val dseConfig = DseService(project).getDseRunConfiguration.exceptNone("no run config")
+          val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
           val originalSearchConfigs = dseConfig.options.searchConfigs
           val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
           val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
           dseConfig.options.searchConfigs = newSearchConfigs
-          DseService(project).onDseConfigChanged(dseConfig)
+          DseService(project).onSearchConfigChanged(dseConfig)
         }
     }), s"Edit"))
 }
@@ -64,11 +64,11 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
 
 class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends JPopupMenu {
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val dseConfig = DseService(project).getDseRunConfiguration.exceptNone("no run config")
+    val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
     val originalObjectives = dseConfig.options.objectives
     () => {
       dseConfig.options.objectives = originalObjectives.filter(_ != objective)
-      DseService(project).onDseConfigChanged(dseConfig)
+      DseService(project).onObjectiveConfigChanged(dseConfig)
     }
   }, s"Delete"))
 }
@@ -101,7 +101,7 @@ class DsePanel(project: Project) extends JPanel {
 
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val newConfig = DseService(project).getDseRunConfiguration
+    val newConfig = DseService(project).getRunConfiguration
     if (newConfig != displayedConfig) {
       displayedConfig = newConfig
       onConfigUpdate()
@@ -273,7 +273,7 @@ class DsePanel(project: Project) extends JPanel {
     tabbedPane.setSelectedIndex(kTabConfig)
   }
 
-  def focusConfigResults(): Unit = {
+  def focusResults(): Unit = {
     tabbedPane.setSelectedIndex(kTabResults)
   }
 

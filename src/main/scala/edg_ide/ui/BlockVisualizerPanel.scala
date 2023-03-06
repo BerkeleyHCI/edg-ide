@@ -236,7 +236,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
   private var dsePanelShown = false
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val dseConfigSelected = DseService(project).getDseRunConfiguration.isDefined
+    val dseConfigSelected = DseService(project).getRunConfiguration.isDefined
     if (dsePanelShown != dseConfigSelected) {
       dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
       ApplicationManager.getApplication.invokeLater(() => {

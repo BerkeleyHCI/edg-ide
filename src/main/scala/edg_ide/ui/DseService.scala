@@ -22,18 +22,28 @@ class DseService(project: Project) extends
   private var initialState: Option[DseServiceState] = None
 
   // Called when the run configuration changes
-  def onDseConfigChanged(config: DseRunConfiguration): Unit = {
-    dsePanelOption.foreach(_.onConfigChange(config))
+  def onSearchConfigChanged(config: DseRunConfiguration): Unit = {
+    dsePanelOption.foreach { panel =>
+      panel.onConfigChange(config)
+      panel.focusConfigSearch()
+    }
+  }
+
+  def onObjectiveConfigChanged(config: DseRunConfiguration): Unit = {
+    dsePanelOption.foreach { panel =>
+      panel.onConfigChange(config)
+      panel.focusConfigObjective()
+    }
   }
 
   // Returns the currently selected run configuration, if it is a DSE configuration
-  def getDseRunConfiguration: Option[DseRunConfiguration] = {
+  def getRunConfiguration: Option[DseRunConfiguration] = {
     Option(RunManager.getInstance(project).getSelectedConfiguration)
         .map(_.getConfiguration)
         .collect { case config: DseRunConfiguration => config }
   }
 
-  def getOrCreateDseRunConfiguration(blockType: ref.LibraryPath): DseRunConfiguration = {
+  def getOrCreateRunConfiguration(blockType: ref.LibraryPath): DseRunConfiguration = {
     val existingConfig = Option(RunManager.getInstance(project).getSelectedConfiguration)
         .map(_.getConfiguration)
         .collect { case config: DseRunConfiguration => config } match {
@@ -54,15 +64,20 @@ class DseService(project: Project) extends
     }
   }
 
-  def addDseConfig(blockType: ref.LibraryPath, newConfig: DseConfigElement): Unit = {
-    val config = getOrCreateDseRunConfiguration(blockType)
+  def addConfig(blockType: ref.LibraryPath, newConfig: DseConfigElement): Unit = {
+    val config = getOrCreateRunConfiguration(blockType)
     config.options.searchConfigs = config.options.searchConfigs ++ Seq(newConfig)
-    onDseConfigChanged(config)
+    onSearchConfigChanged(config)
   }
 
-  def setDseResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
-                    inProgress: Boolean): Unit = {
-    dsePanelOption.foreach(_.setResults(results, search, objectives, inProgress))
+  def setResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
+                 inProgress: Boolean, initial: Boolean): Unit = {
+    dsePanelOption.foreach { panel =>
+      panel.setResults(results, search, objectives, inProgress)
+      if (initial) {  // only set focus on the initial result - to not squash user intent
+        panel.focusResults()
+      }
+    }
   }
 
   // State management
