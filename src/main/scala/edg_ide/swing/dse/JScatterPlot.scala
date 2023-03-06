@@ -248,26 +248,26 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
   // TODO unify w/ ZoomDragScrollPanel
   private val dragListener = new MouseAdapter {
-    var dragOrigin: Option[Point] = None  // mouse origin, viewport origin
+    var dragLastPos: Option[Point] = None
 
     override def mousePressed(e: MouseEvent): Unit = {
       if (SwingUtilities.isLeftMouseButton(e)) {
-        dragOrigin = Some(e.getPoint)
+        dragLastPos = Some(e.getPoint)
       }
     }
 
     override def mouseReleased(e: MouseEvent): Unit = {
-      dragOrigin = None
+      dragLastPos = None
     }
 
     override def mouseDragged(e: MouseEvent): Unit = {
       if (SwingUtilities.isLeftMouseButton(e)) {
-        dragOrigin.foreach { dragOrigin =>
-          val dx = (dragOrigin.getX - e.getX).toFloat * (xRange._2 - xRange._1) / getWidth
-          val dy = (dragOrigin.getY - e.getY).toFloat * (yRange._2 - yRange._1) / getHeight
+        dragLastPos.foreach { lastPos =>
+          val dx = (lastPos.getX - e.getX).toFloat * (xRange._2 - xRange._1) / getWidth
+          val dy = (lastPos.getY - e.getY).toFloat * (yRange._2 - yRange._1) / getHeight
           xRange = (xRange._1 + dx, xRange._2 + dx)
           yRange = (yRange._1 - dy, yRange._2 - dy)
-          this.dragOrigin = Some(e.getPoint)
+          this.dragLastPos = Some(e.getPoint)
 
           validate()
           repaint()
