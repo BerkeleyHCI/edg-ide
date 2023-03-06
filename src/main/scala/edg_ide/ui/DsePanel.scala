@@ -268,17 +268,27 @@ class DsePanel(project: Project) extends JPanel {
   def focusConfigSearch(): Unit = {
     tabbedPane.setSelectedIndex(kTabConfig)
 
-    val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
-    val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.searchConfigNode)
-    configTree.getTree.expandPath(nodePath)
+    // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
+    // tries (and fails) to expand a node with no children (yet)
+    // TODO this is kind of ugly
+    ApplicationManager.getApplication.invokeLater(() => {
+      val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
+      val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.searchConfigNode)
+      configTree.getTree.expandPath(nodePath)
+    })
   }
 
   def focusConfigObjective(): Unit = {
     tabbedPane.setSelectedIndex(kTabConfig)
 
-    val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
-    val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.objectivesNode)
-    configTree.getTree.expandPath(nodePath)
+    // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
+    // tries (and fails) to expand a node with no children (yet)
+    // TODO this is kind of ugly
+    ApplicationManager.getApplication.invokeLater(() => {
+      val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
+      val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.objectivesNode)
+      configTree.getTree.expandPath(nodePath)
+    })
   }
 
   def focusResults(): Unit = {
