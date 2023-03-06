@@ -1,6 +1,6 @@
 package edg_ide.swing
 
-import java.awt.{Event, Point}
+import java.awt.Point
 import java.awt.event.{MouseAdapter, MouseEvent, MouseWheelEvent}
 import javax.swing.{JComponent, JScrollPane, SwingUtilities}
 
