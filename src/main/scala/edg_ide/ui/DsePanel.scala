@@ -13,7 +13,7 @@ import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeRenderer, DseResultTreeTableModel}
-import edg_ide.ui.dse.DsePlotPanel
+import edg_ide.ui.dse.{DseParallelPlotPanel, DseScatterPlotPanel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
@@ -137,7 +137,7 @@ class DsePanel(project: Project) extends JPanel {
   add(mainSplitter, Gbc(0, 1, GridBagConstraints.BOTH))
 
   // GUI: Top plot
-  private val plot = new DsePlotPanel() {
+  private val plot = new DseParallelPlotPanel() {
     override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
       if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in tree
         resultsTree.clearSelection()

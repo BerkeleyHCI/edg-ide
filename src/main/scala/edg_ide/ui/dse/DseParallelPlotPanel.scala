@@ -1,5 +1,6 @@
 package edg_ide.ui.dse
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.JBLabel
@@ -10,51 +11,42 @@ import edg_ide.ui.Gbc
 
 import java.awt.event.{ItemEvent, ItemListener, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
-import javax.swing.JPanel
+import javax.swing.{JButton, JPanel}
 
 
-class DsePlotPanel() extends JPanel {
+class DseParallelPlotPanel() extends JPanel {
   // Data State
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
   private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
 
   setLayout(new GridBagLayout)
 
-  private val scatterPlot = new JScatterPlot[DseResult]() {
-    override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onClick(e, data.map(_.value))
-    }
-
-    override def onHoverChange(data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onHoverChange(data.map(_.value))
-    }
-  }
-
   private val parallelPlot = new JParallelCoordinatesPlot[DseResult]() {
     override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onClick(e, data.map(_.value))
+      DseParallelPlotPanel.this.onClick(e, data.map(_.value))
     }
 
     override def onHoverChange(data: Seq[Data]): Unit = {
-      DsePlotPanel.this.onHoverChange(data.map(_.value))
+      DseParallelPlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
+  add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 100))
 
-//  add(scatterPlot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
-  add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
+  private val plotSwitchButton = new JButton()
+  plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
+  plotSwitchButton.setToolTipText("Switch plot type")
 
-  parallelPlot.setData(IndexedSeq(), IndexedSeq(None, None, None))
+  private val axisAddButton = new JButton()
+  axisAddButton.setIcon(AllIcons.General.Add)
+  axisAddButton.setToolTipText("Add plot axis")
 
   private val emptyAxis = new DummyAxis("Empty")
-  private val ySelector = new ComboBox[PlotAxis]()
-  ySelector.addItem(emptyAxis)
-  add(new JBLabel("Y ↑"), Gbc(0, 1))
-  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+  private val deleteAxis = new DummyAxis("Delete")
 
-  private val xSelector = new ComboBox[PlotAxis]()
-  xSelector.addItem(emptyAxis)
-  add(xSelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
-  add(new JBLabel("X →"), Gbc(3, 1))
+  // default to one axis
+  private val axisSelectors: Seq[ComboBox[PlotAxis]] = Seq(new ComboBox[PlotAxis]())
+  axisSelectors.head.addItem(emptyAxis)
+  axisSelectors.head.addItem(deleteAxis)
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
@@ -64,21 +56,6 @@ class DsePlotPanel() extends JPanel {
     require(flatResults.size == xPoints.size, s"X axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
     require(flatResults.size == yPoints.size, s"Y axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
 
-    val scatterPoints = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
-      case (result, (Some(xVal), Some(yVal))) =>
-        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
-        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-          case (_, true) => Some(DseResultModel.kColorOtherError)
-          case (true, false) => Some(DseResultModel.kColorIdealError)
-          case (false, false) => None
-        }
-        val tooltipText = DseConfigElement.configMapToString(result.config)
-        Some(new scatterPlot.Data(result, xVal, yVal, color,
-          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-      case _ => Seq()
-    }
-
-    // TODO separate out
     val parallelPoints = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
         val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
@@ -94,9 +71,6 @@ class DsePlotPanel() extends JPanel {
     }
 
     ApplicationManager.getApplication.invokeLater(() => {
-      scatterPlot.setData(scatterPoints, xAxis, yAxis)
-
-      // TODO separate out
       parallelPlot.setData(parallelPoints, IndexedSeq(xAxis, yAxis))
     })
   }
@@ -105,33 +79,25 @@ class DsePlotPanel() extends JPanel {
     if ((search, objectives) == displayAxisSelector) {
       return  // nothing needs to be done
     }
-
-    val selectedX = xSelector.getItem
-    val selectedY = ySelector.getItem
-
-    val items = search.flatMap(PlotAxis.fromSearchConfig) ++ objectives.flatMap(PlotAxis.fromObjective)
-
     displayAxisSelector = (search, objectives)
 
     ApplicationManager.getApplication.invokeLater(() => {
-      xSelector.removeItemListener(axisSelectorListener)
-      ySelector.removeItemListener(axisSelectorListener)
+      val items = search.flatMap(PlotAxis.fromSearchConfig) ++ objectives.flatMap(PlotAxis.fromObjective)
+      axisSelectors.foreach { axisSelector =>
+        val selected = axisSelector.getItem
 
-      xSelector.removeAllItems()
-      ySelector.removeAllItems()
+        axisSelector.removeItemListener(axisSelectorListener)
+        axisSelector.removeAllItems()
+        axisSelector.addItem(emptyAxis)
+        items.foreach { item =>
+          axisSelector.addItem(item)
+        }
+        axisSelector.addItem(deleteAxis)
+        axisSelector.addItemListener(axisSelectorListener)
 
-      xSelector.addItem(emptyAxis)
-      ySelector.addItem(emptyAxis)
-      items.foreach { item =>
-        xSelector.addItem(item)
-        ySelector.addItem(item)
+        // restore prior selection by name matching
+        items.find { item => item.toString == selected.toString }.foreach { item => axisSelector.setItem(item) }
       }
-
-      xSelector.addItemListener(axisSelectorListener)
-      ySelector.addItemListener(axisSelectorListener)
-      // restore prior selection by name matching
-      items.find { item => item.toString == selectedX.toString }.foreach { item => xSelector.setItem(item) }
-      items.find { item => item.toString == selectedY.toString }.foreach { item => ySelector.setItem(item) }
     })
   }
 
@@ -152,7 +118,6 @@ class DsePlotPanel() extends JPanel {
   }
 
   def setSelection(results: Seq[DseResult]): Unit = {
-    scatterPlot.setSelected(results)
     parallelPlot.setSelected(results)
   }
 
