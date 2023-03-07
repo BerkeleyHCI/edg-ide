@@ -3,10 +3,9 @@ package edg_ide.ui.dse
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.JBLabel
-import edg.compiler._
 import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
-import edg_ide.swing.dse.{DseConfigOrdinalAxis, DseConfigParamAxis, DseObjectiveAxis, DseObjectiveParamAxis, DseObjectiveParamOrdinalAxis, DseResultModel, DummyAxis, JParallelCoordinatesPlot, JScatterPlot, PlotAxis}
+import edg_ide.swing.dse._
 import edg_ide.ui.Gbc
 
 import java.awt.event.{ItemEvent, ItemListener, MouseEvent}
@@ -110,51 +109,8 @@ class DsePlotPanel() extends JPanel {
     val selectedX = xSelector.getItem
     val selectedY = ySelector.getItem
 
-    val items = search.flatMap {
-      case config: DseParameterSearch if config.values.forall(_.isInstanceOf[FloatValue]) =>
-        Seq(new DseConfigParamAxis(config, "", expr => Some(expr.asInstanceOf[FloatValue].value)))
-      case config: DseParameterSearch if config.values.forall(_.isInstanceOf[IntValue]) =>
-        Seq(new DseConfigParamAxis(config, "", expr => Some(expr.asInstanceOf[IntValue].toFloat)))
-      case config: DseParameterSearch if config.values.forall(_.isInstanceOf[RangeType]) => Seq(
-        new DseConfigParamAxis(config, " (min)", {
-          case RangeValue(lower, upper) => Some(lower)
-          case _ => None
-        }),
-        new DseConfigParamAxis(config, " (mid)", {
-          case RangeValue(lower, upper) => Some((lower + upper) / 2)
-          case _ => None
-        }),
-        new DseConfigParamAxis(config, " (max)", {
-          case RangeValue(lower, upper) => Some(upper)
-          case _ => None
-        })
-      )
-      case config => Seq(new DseConfigOrdinalAxis(config))
-    } ++ objectives.flatMap {
-      case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveAxis(objective))
-      case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveAxis(objective))
-      case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
-        Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
-      case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
-        Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[IntValue].toFloat)))
-      case objective: DseObjectiveParameter if objective.exprType == classOf[RangeType] => Seq(
-        new DseObjectiveParamAxis(objective, " (min)", {
-          case RangeValue(lower, upper) => Some(lower)
-          case _ => None
-        }),
-        new DseObjectiveParamAxis(objective, " (mid)", {
-          case RangeValue(lower, upper) => Some((lower + upper) / 2)
-          case _ => None
-        }),
-        new DseObjectiveParamAxis(objective, " (max)", {
-          case RangeValue(lower, upper) => Some(upper)
-          case _ => None
-        })
-      )
-      case objective: DseObjectiveParameter =>
-        Seq(new DseObjectiveParamOrdinalAxis(objective))
-      case objective => Seq(new DummyAxis(f"unknown ${objective.objectiveToString}"))
-    }
+    val items = search.flatMap(PlotAxis.fromSearchConfig) ++ objectives.flatMap(PlotAxis.fromObjective)
+
     displayAxisSelector = (search, objectives)
 
     ApplicationManager.getApplication.invokeLater(() => {
