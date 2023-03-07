@@ -20,6 +20,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   // arbitrarily initialize to one axis, because why would this have less than one axis?
   private var axes: IndexedSeq[PlotAxis.AxisType] = IndexedSeq(Some(Seq()))
   private var data: IndexedSeq[Data] = IndexedSeq()
+  private var mouseoverDimNonselected: Boolean = false  // dim out non-selected points
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
 
@@ -101,7 +102,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
   }
 
-  private def paintData(paintGraphics: Graphics, data: IndexedSeq[Data], noColor: Boolean = false): Unit = {
+  private def paintData(paintGraphics: Graphics, data: IndexedSeq[Data], noColor: Boolean = false,
+                        colorBlend: Float = 1.0f): Unit = {
     data.foreach { data =>
       val dataGraphics = if (noColor) {
         paintGraphics
@@ -112,6 +114,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         }
         dataGraphics
       }
+      dataGraphics.setColor(ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend))
 
       data.positions.sliding(2).zipWithIndex.foreach {
         case (Seq(Some(value), Some(nextValue)), axisIndex) =>
@@ -139,7 +142,9 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       mouseOverIndices.contains(dataIndex)
     }.map(_._1)
 
-    paintData(paintGraphics, normalData)
+    val normalDataBlend = if (mouseoverDimNonselected) 0.33f else 1.0f
+    paintData(paintGraphics, normalData, colorBlend = normalDataBlend)
+
     val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     selectedGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
     paintData(selectedGraphics, selectedData)
@@ -147,7 +152,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
     hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
-    paintData(hoverGraphics, mouseoverData, true)
+    paintData(hoverGraphics, mouseoverData, noColor = true)
 
     paintData(selectedGraphics, mouseoverData)  // TODO: separate out selected from mouseover? idk
   }
@@ -205,17 +210,36 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       val clickedPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
-      onClick(e, clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
+      val selectOverlapPoints = clickedPoints.filter { case (index, dist) =>
+        selectedIndices.contains(index)
+      }
+      val newPoints = if (selectOverlapPoints.isEmpty) { // no overlap, new selection
+        clickedPoints
+      } else { // overlap, subset selection
+        selectOverlapPoints
+      }
+
+      onClick(e, newPoints.sortBy(_._2).map(pair => data(pair._1)))
     }
   })
 
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val newPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
-      val newIndices = newPoints.map(_._1)
-      if (mouseOverIndices != newIndices) {
-        mouseOverIndices = newIndices
+      val mouseoverPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
+      val selectOverlapPoints = mouseoverPoints.filter { case (index, dist) =>
+        selectedIndices.contains(index)
+      }
+      val newPoints = if (selectOverlapPoints.isEmpty) {  // no overlap, new selection
+        mouseoverDimNonselected = false
+        mouseoverPoints
+      } else {  // overlap, subset selection
+        mouseoverDimNonselected = true
+        selectOverlapPoints
+      }
+
+      if (mouseOverIndices != newPoints.map(_._1)) {
+        mouseOverIndices = newPoints.map(_._1)
         validate()
         repaint()
 
