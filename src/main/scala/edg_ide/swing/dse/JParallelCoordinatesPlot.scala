@@ -101,8 +101,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
   }
 
-  private def paintData(paintGraphics: Graphics, data: IndexedSeq[(Data, Int)], noColor: Boolean = false): Unit = {
-    data.foreach { case (data, dataIndex) =>
+  private def paintData(paintGraphics: Graphics, data: IndexedSeq[Data], noColor: Boolean = false): Unit = {
+    data.foreach { data =>
       val dataGraphics = if (noColor) {
         paintGraphics
       } else {
@@ -131,13 +131,13 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     // paint order: (bottom) normal -> selected -> mouseover
     val normalData = data.zipWithIndex.filter { case (data, dataIndex) =>
       !mouseOverIndices.contains(dataIndex) && !selectedIndices.contains(dataIndex)
-    }
+    }.map(_._1)
     val selectedData = data.zipWithIndex.filter { case (data, dataIndex) =>
       !mouseOverIndices.contains(dataIndex) && selectedIndices.contains(dataIndex)
-    }
+    }.map(_._1)
     val mouseoverData = data.zipWithIndex.filter { case (data, dataIndex) =>
       mouseOverIndices.contains(dataIndex)
-    }
+    }.map(_._1)
 
     paintData(paintGraphics, normalData)
     val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
