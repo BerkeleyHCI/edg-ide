@@ -43,7 +43,6 @@ class DseParallelPlotPanel() extends JPanel {
 
   private var axisSelectors: Seq[ComboBox[PlotAxis]] = Seq(new ComboBox[PlotAxis]())
   axisSelectors.head.addItem(emptyAxis)
-  axisSelectors.head.addItem(deleteAxis)
   axisSelectors.head.addItemListener(axisSelectorListener)
   add(axisSelectors.head, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
@@ -117,7 +116,9 @@ class DseParallelPlotPanel() extends JPanel {
         items.foreach { item =>
           axisSelector.addItem(item)
         }
-        axisSelector.addItem(deleteAxis)
+        if (axisSelectors.length > 1) {  // don't allow only axis to be deleted
+          axisSelector.addItem(deleteAxis)
+        }
         axisSelector.addItemListener(axisSelectorListener)
 
         // restore prior selection by name matching
