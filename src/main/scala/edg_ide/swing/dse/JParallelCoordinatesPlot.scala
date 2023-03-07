@@ -17,13 +17,14 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   // data state, note axes is considered the authoritative definition of the number of positions
-  private var axes: IndexedSeq[PlotAxis.AxisType] = IndexedSeq()
+  // arbitrarily initialize to one axis, because why would this have less than one axis?
+  private var axes: IndexedSeq[PlotAxis.AxisType] = IndexedSeq(Some(Seq()))
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
 
   // UI state
-  private var axesRange: Seq[(Float, Float)] = Seq()  // range for each axis
+  private var axesRange: Seq[(Float, Float)] = Seq((-1.0f, 1.0f))  // range for each axis
 
   // axis MUST be defined for each position, but can be None for a numeric axis
   def setData(data: IndexedSeq[Data], axes: IndexedSeq[PlotAxis.AxisType]): Unit = {

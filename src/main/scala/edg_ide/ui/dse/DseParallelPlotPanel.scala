@@ -13,7 +13,7 @@ import java.awt.{GridBagConstraints, GridBagLayout}
 import javax.swing.{JButton, JPanel}
 
 
-class DseParallelPlotPanel() extends JPanel {
+class DseParallelPlotPanel() extends DseBasePlot {
   // Data State
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
   private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
@@ -31,11 +31,11 @@ class DseParallelPlotPanel() extends JPanel {
     }
   }
   add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 3))
-  parallelPlot.setData(IndexedSeq(), IndexedSeq(None))  // reflect Empty status
 
   private val plotSwitchButton = new JButton()
   plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
   plotSwitchButton.setToolTipText("Switch plot type")
+  plotSwitchButton.addActionListener((actionEvent: ActionEvent) => onSwitchClick())
   add(plotSwitchButton, Gbc(0, 1))
 
   // default to one axis
@@ -43,8 +43,7 @@ class DseParallelPlotPanel() extends JPanel {
   private val deleteAxis = new DummyAxis("Delete")
 
   private var axisSelectors: Seq[ComboBox[PlotAxis]] = Seq(new ComboBox[PlotAxis]())
-  axisSelectors.head.addItem(emptyAxis)
-  axisSelectors.head.addItemListener(axisSelectorListener)
+  axisSelectors.head.addItem(emptyAxis)  // don't need listener yet, does nothing
   add(axisSelectors.head, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private val axisAddButton = new JButton()
@@ -156,7 +155,7 @@ class DseParallelPlotPanel() extends JPanel {
     }
   }
 
-  def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
+  override def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
                  objectives: Seq[DseObjective]): Unit = {
     updateAxisSelectors(search, objectives)
 
@@ -164,17 +163,7 @@ class DseParallelPlotPanel() extends JPanel {
     updatePlot()
   }
 
-  def setSelection(results: Seq[DseResult]): Unit = {
+  override def setSelection(results: Seq[DseResult]): Unit = {
     parallelPlot.setSelected(results)
   }
-
-  // User hooks - can be overridden
-  //
-  // called when this widget clicked, for all points within some hover radius of the cursor
-  // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(e: MouseEvent, results: Seq[DseResult]): Unit = {}
-
-  // called when the hovered-over data changes, for all points within some hover radius of the cursor
-  // may be empty (when hovering over nothing)
-  def onHoverChange(results: Seq[DseResult]): Unit = {}
 }

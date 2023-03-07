@@ -1,5 +1,6 @@
 package edg_ide.ui.dse
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.components.JBLabel
@@ -8,12 +9,34 @@ import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse._
 import edg_ide.ui.Gbc
 
-import java.awt.event.{ItemEvent, ItemListener, MouseEvent}
+import java.awt.event.{ActionEvent, ItemEvent, ItemListener, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
-import javax.swing.JPanel
+import javax.swing.{JButton, JPanel}
 
 
-class DseScatterPlotPanel() extends JPanel {
+abstract class DseBasePlot extends JPanel {
+  // API functions
+  //
+  def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
+                 objectives: Seq[DseObjective]): Unit
+  def setSelection(results: Seq[DseResult]): Unit
+
+  // User hooks - can be overridden
+  //
+  // called when this widget clicked, for all points within some hover radius of the cursor
+  // sorted by distance from cursor (earlier = closer), and may be empty
+  def onClick(e: MouseEvent, results: Seq[DseResult]): Unit = {}
+
+  // called when the hovered-over data changes, for all points within some hover radius of the cursor
+  // may be empty (when hovering over nothing)
+  def onHoverChange(results: Seq[DseResult]): Unit = {}
+
+  // called when the switch plot button is clicked
+  def onSwitchClick(): Unit = {}
+}
+
+
+class DseScatterPlotPanel() extends DseBasePlot {
   // Data State
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
   private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
@@ -29,18 +52,24 @@ class DseScatterPlotPanel() extends JPanel {
       DseScatterPlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
-  add(scatterPlot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
+  add(scatterPlot, Gbc(0, 0, GridBagConstraints.BOTH, 5))
+
+  private val plotSwitchButton = new JButton()
+  plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
+  plotSwitchButton.setToolTipText("Switch plot type")
+  plotSwitchButton.addActionListener((actionEvent: ActionEvent) => onSwitchClick())
+  add(plotSwitchButton, Gbc(0, 1))
 
   private val emptyAxis = new DummyAxis("Empty")
   private val ySelector = new ComboBox[PlotAxis]()
-  ySelector.addItem(emptyAxis)
-  add(new JBLabel("Y ↑"), Gbc(0, 1))
-  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+  ySelector.addItem(emptyAxis)  // don't need listener yet, does nothing
+  add(new JBLabel("Y ↑"), Gbc(1, 1))
+  add(ySelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
 
   private val xSelector = new ComboBox[PlotAxis]()
-  xSelector.addItem(emptyAxis)
-  add(xSelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
-  add(new JBLabel("X →"), Gbc(3, 1))
+  xSelector.addItem(emptyAxis)  // don't need listener yet, does nothing
+  add(xSelector, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
+  add(new JBLabel("X →"), Gbc(4, 1))
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
@@ -102,7 +131,7 @@ class DseScatterPlotPanel() extends JPanel {
     }
   }
 
-  def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
+  override def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
                  objectives: Seq[DseObjective]): Unit = {
     updateAxisSelectors(search, objectives)
 
@@ -110,17 +139,7 @@ class DseScatterPlotPanel() extends JPanel {
     updatePlot()
   }
 
-  def setSelection(results: Seq[DseResult]): Unit = {
+  override def setSelection(results: Seq[DseResult]): Unit = {
     scatterPlot.setSelected(results)
   }
-
-  // User hooks - can be overridden
-  //
-  // called when this widget clicked, for all points within some hover radius of the cursor
-  // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(e: MouseEvent, results: Seq[DseResult]): Unit = {}
-
-  // called when the hovered-over data changes, for all points within some hover radius of the cursor
-  // may be empty (when hovering over nothing)
-  def onHoverChange(results: Seq[DseResult]): Unit = {}
 }
