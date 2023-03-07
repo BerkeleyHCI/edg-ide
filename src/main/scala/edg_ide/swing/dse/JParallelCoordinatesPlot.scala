@@ -171,7 +171,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   def getPositionForAxis(axisIndex: Int): Int = {
-    val axisSpacing = getWidth / (axes.length)
+    val axisSpacing = getWidth / math.max(axes.length, 1)
     axisSpacing * axisIndex + axisSpacing / 2
   }
 
@@ -237,7 +237,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     override def mouseDragged(e: MouseEvent): Unit = {
       if (SwingUtilities.isLeftMouseButton(e)) {
         dragLastAxisPos.foreach { case (axisIndex, pos) =>
-          if (axisIndex >= axesRange.length) {
+          if (axisIndex >= axesRange.length || axesRange.isEmpty) {
             return
           }
           val currentRange = axesRange(axisIndex)

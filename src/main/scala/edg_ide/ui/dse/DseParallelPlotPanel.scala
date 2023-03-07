@@ -8,7 +8,7 @@ import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse._
 import edg_ide.ui.Gbc
 
-import java.awt.event.{ItemEvent, ItemListener, MouseEvent}
+import java.awt.event._
 import java.awt.{GridBagConstraints, GridBagLayout}
 import javax.swing.{JButton, JPanel}
 
@@ -18,7 +18,8 @@ class DseParallelPlotPanel() extends JPanel {
   private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
   private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
 
-  setLayout(new GridBagLayout)
+  val thisLayout = new GridBagLayout
+  setLayout(thisLayout)
 
   private val parallelPlot = new JParallelCoordinatesPlot[DseResult]() {
     override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
@@ -29,23 +30,45 @@ class DseParallelPlotPanel() extends JPanel {
       DseParallelPlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
-  add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 100))
+  add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 3))
 
   private val plotSwitchButton = new JButton()
   plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
   plotSwitchButton.setToolTipText("Switch plot type")
+  add(plotSwitchButton, Gbc(0, 1))
+
+  // default to one axis
+  private val emptyAxis = new DummyAxis("Empty")
+  private val deleteAxis = new DummyAxis("Delete")
+
+  private var axisSelectors: Seq[ComboBox[PlotAxis]] = Seq(new ComboBox[PlotAxis]())
+  axisSelectors.head.addItem(emptyAxis)
+  axisSelectors.head.addItem(deleteAxis)
+  axisSelectors.head.addItemListener(axisSelectorListener)
+  add(axisSelectors.head, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private val axisAddButton = new JButton()
   axisAddButton.setIcon(AllIcons.General.Add)
   axisAddButton.setToolTipText("Add plot axis")
+  axisAddButton.addActionListener(new ActionListener {
+    override def actionPerformed(actionEvent: ActionEvent): Unit = {
+      ApplicationManager.getApplication.invokeLater(() => {
+        // add the new axis at the end, updating layout constraints as needed
+        val newAxis = new ComboBox[PlotAxis]()
+        newAxis.addItem(emptyAxis)
+        axisSelectors = axisSelectors :+ newAxis
+        add(newAxis, Gbc(axisSelectors.size, 1, GridBagConstraints.HORIZONTAL))
+        thisLayout.setConstraints(axisAddButton, Gbc(axisSelectors.size + 1, 1))
+        thisLayout.setConstraints(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, axisSelectors.size + 2))
 
-  private val emptyAxis = new DummyAxis("Empty")
-  private val deleteAxis = new DummyAxis("Delete")
-
-  // default to one axis
-  private val axisSelectors: Seq[ComboBox[PlotAxis]] = Seq(new ComboBox[PlotAxis]())
-  axisSelectors.head.addItem(emptyAxis)
-  axisSelectors.head.addItem(deleteAxis)
+        // update all the axes to populate the menu items
+        val (search, objectives) = displayAxisSelector
+        updateAxisSelectors(search, objectives, true)  // TODO doesn't need to be rewrapped in invokeLater
+        updatePlot()  // TODO doesn't need to be rewrapped in invokeLater
+      })
+    }
+  })
+  add(axisAddButton, Gbc(2, 1))
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
@@ -55,20 +78,20 @@ class DseParallelPlotPanel() extends JPanel {
       (points, axis)
     }.unzip
 
-    val parallelPoints = flatResults.zipWithIndex.flatMap { case (result, index) =>
+    val parallelPoints = flatResults.toIndexedSeq.zipWithIndex.map { case (result, dataIndex) =>
+      val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
+      val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+        case (_, true) => Some(DseResultModel.kColorOtherError)
+        case (true, false) => Some(DseResultModel.kColorIdealError)
+        case (false, false) => None
+      }
+      val tooltipText = DseConfigElement.configMapToString(result.config)
+      val axisValues = axisSelectors.indices.map { axisIndex =>
+        pointsByAxis(axisIndex)(dataIndex)
+      }.toIndexedSeq
 
-
-//      case (result, (Some(xVal), Some(yVal))) =>
-//        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
-//        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-//          case (_, true) => Some(DseResultModel.kColorOtherError)
-//          case (true, false) => Some(DseResultModel.kColorIdealError)
-//          case (false, false) => None
-//        }
-//        val tooltipText = DseConfigElement.configMapToString(result.config)
-//        Some(new parallelPlot.Data(result, IndexedSeq(xVal, yVal), color,
-//          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-//      case _ => Seq()
+      new parallelPlot.Data(result, axisValues, color,
+        Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont)))
     }
 
     ApplicationManager.getApplication.invokeLater(() => {
@@ -76,8 +99,9 @@ class DseParallelPlotPanel() extends JPanel {
     })
   }
 
-  private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective]): Unit = {
-    if ((search, objectives) == displayAxisSelector) {
+  private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective],
+                                  forced: Boolean = false): Unit = {
+    if ((search, objectives) == displayAxisSelector && !forced) {
       return  // nothing needs to be done
     }
     displayAxisSelector = (search, objectives)
@@ -99,13 +123,33 @@ class DseParallelPlotPanel() extends JPanel {
         // restore prior selection by name matching
         items.find { item => item.toString == selected.toString }.foreach { item => axisSelector.setItem(item) }
       }
+      revalidate()
     })
   }
 
   private val axisSelectorListener = new ItemListener() {
     override def itemStateChanged(e: ItemEvent): Unit = {
       if (e.getStateChange == ItemEvent.SELECTED) {
-        updatePlot()
+        ApplicationManager.getApplication.invokeLater(() => {
+          val (filteredAxisSelectors, removedAxisSelectors) = axisSelectors.partition { axisSelector =>
+            axisSelector.getItem != deleteAxis
+          }
+          if (removedAxisSelectors.nonEmpty) {
+            axisSelectors = filteredAxisSelectors
+            removedAxisSelectors.foreach { axisSelector =>
+              remove(axisSelector)
+            }
+            filteredAxisSelectors.zipWithIndex.foreach { case (axisSelector, axisIndex) =>
+              thisLayout.setConstraints(axisSelector, Gbc(axisIndex + 1, 1, GridBagConstraints.HORIZONTAL))
+              axisSelector
+            }
+            thisLayout.setConstraints(axisAddButton, Gbc(axisSelectors.size + 1, 1))
+            thisLayout.setConstraints(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, axisSelectors.size + 2))
+          }
+          revalidate()
+
+          updatePlot()  // TODO doesn't need to be wrapped in invokeLater
+        })
       }
     }
   }
