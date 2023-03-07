@@ -26,15 +26,15 @@ object JScatterPlot {
   val kMinTickSpacingPx: Int = 64 // min spacing between axis ticks, used to determine tick resolution
   val kTickSizePx: Int = 4
 
-  def expandedRange(range: (Float, Float), factor: Float = kDefaultRangeMarginFactor): (Float, Float) = {
-    val rangeWithZero = (math.min(range._1, 0), math.max(range._2, 0))
-    val span = rangeWithZero._2 - rangeWithZero._1
+  def defaultValuesRange(values: Seq[Float], factor: Float = kDefaultRangeMarginFactor): (Float, Float) = {
+    val range = ((values :+ 0f).min, (values :+ 0f).max)  // 0 in case values is empty, and forces the scale to include 0
+    val span = range._2 - range._1
     val expansion = if (span > 0) { // range units to expand on each side
       span * (factor - 1) / 2
     } else { // if span is empty, arbitrarily expand by 1 on each side and center the data
       1
     }
-    (rangeWithZero._1 - expansion, rangeWithZero._2 + expansion)
+    (range._1 - expansion, range._2 + expansion)
   }
 
   // multiply data by this to get screen coordinates
@@ -100,10 +100,8 @@ class JScatterPlot[ValueType] extends JComponent {
     mouseOverIndices = Seq()  // clear
     selectedIndices = Seq()  // clear
 
-    val xs = data.map(_.x)
-    xRange = JScatterPlot.expandedRange((xs.min, xs.max))
-    val ys = data.map(_.y)
-    yRange = JScatterPlot.expandedRange((ys.min, ys.max))
+    xRange = JScatterPlot.defaultValuesRange(data.map(_.x))
+    yRange = JScatterPlot.defaultValuesRange(data.map(_.y))
 
     this.xAxis = xAxis
     this.yAxis = yAxis

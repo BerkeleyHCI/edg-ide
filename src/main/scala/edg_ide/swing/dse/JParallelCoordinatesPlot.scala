@@ -42,7 +42,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
           Some(elt.positions(index))
         }
       }
-      JScatterPlot.expandedRange((values.min, values.max))
+      JScatterPlot.defaultValuesRange(values)
     }
 
     validate()
@@ -65,9 +65,9 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   private def paintAxes(paintGraphics: Graphics): Unit = {
-    val axisSpacing = getWidth / (axes.length + 1)
+    val axisSpacing = getWidth / (axes.length)
     (axes zip axesRange).zipWithIndex.foreach { case ((axis, range), index) =>
-      val axisX = axisSpacing * (index + 1)
+      val axisX = axisSpacing * index + axisSpacing / 2
       paintGraphics.drawLine(axisX, 0, axisX, getHeight)
 
       val ticks = axis match {
@@ -76,9 +76,9 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       }
       ticks.foreach { case (tickPos, tickVal) =>
         val screenPos = ((range._2 - tickPos) * JScatterPlot.dataScale(range, getHeight)).toInt
-        paintGraphics.drawLine(axisX, screenPos, JScatterPlot.kTickSizePx, axisX + JScatterPlot.kTickSizePx)
+        paintGraphics.drawLine(axisX, screenPos, axisX + JScatterPlot.kTickSizePx, screenPos)
         DrawAnchored.drawLabel(paintGraphics, tickVal,
-          (JScatterPlot.kTickSizePx, screenPos), DrawAnchored.Left)
+          (axisX + JScatterPlot.kTickSizePx, screenPos), DrawAnchored.Left)
       }
     }
   }
