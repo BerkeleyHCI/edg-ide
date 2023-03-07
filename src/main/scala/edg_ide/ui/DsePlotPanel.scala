@@ -161,7 +161,7 @@ class DsePlotPanel() extends JPanel {
     require(flatResults.size == xPoints.size, s"X axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
     require(flatResults.size == yPoints.size, s"Y axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
 
-    val points = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
+    val scatterPoints = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
         val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
         val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
@@ -175,8 +175,26 @@ class DsePlotPanel() extends JPanel {
       case _ => Seq()
     }
 
+    // TODO separate out
+    val parallelPoints = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
+      case (result, (Some(xVal), Some(yVal))) =>
+        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
+        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+          case (_, true) => Some(DseResultModel.kColorOtherError)
+          case (true, false) => Some(DseResultModel.kColorIdealError)
+          case (false, false) => None
+        }
+        val tooltipText = DseConfigElement.configMapToString(result.config)
+        Some(new parallelPlot.Data(result, IndexedSeq(xVal, yVal), color,
+          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
+      case _ => Seq()
+    }
+
     ApplicationManager.getApplication.invokeLater(() => {
-      scatterPlot.setData(points, xAxis, yAxis)
+      scatterPlot.setData(scatterPoints, xAxis, yAxis)
+
+      // TODO separate out
+      parallelPlot.setData(parallelPoints, IndexedSeq(xAxis, yAxis))
     })
   }
 

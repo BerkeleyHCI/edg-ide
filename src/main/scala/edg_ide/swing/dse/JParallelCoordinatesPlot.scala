@@ -4,7 +4,7 @@ import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
 import java.awt.event._
-import java.awt.{Color, Graphics, Point}
+import java.awt.{BasicStroke, Color, Graphics, Graphics2D, Point}
 import javax.swing.{JComponent, SwingUtilities}
 import scala.collection.mutable
 
@@ -65,9 +65,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   private def paintAxes(paintGraphics: Graphics): Unit = {
-    val axisSpacing = getWidth / (axes.length)
     (axes zip axesRange).zipWithIndex.foreach { case ((axis, range), index) =>
-      val axisX = axisSpacing * index + axisSpacing / 2
+      val axisX = getPositionForAxis(index)
       paintGraphics.drawLine(axisX, 0, axisX, getHeight)
 
       val ticks = axis match {
@@ -84,7 +83,50 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
+    data.zipWithIndex.foreach { case (data, index) =>
+      val dataGraphics = paintGraphics.create()
+      data.color.foreach { color => // if color is specified, set the color
+        dataGraphics.setColor(color)
+      }
+      data.positions.sliding(2).zipWithIndex.foreach { case (Seq(prevValue, nextValue), prevIndex) =>
+        val prevAxisPos = getPositionForAxis(prevIndex)
+        val prevValuePos = getPositionForValue(prevIndex, prevValue)
+        val nextAxisPos = getPositionForAxis(prevIndex + 1)
+        val nextValuePos = getPositionForValue(prevIndex + 1, nextValue)
 
+        if (mouseOverIndices.contains(index)) { // mouseover: highlight
+          val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kPointHoverOutlineColor, 0.5))
+          hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kPointHoverOutlinePx))
+          hoverGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
+        }
+        if (selectedIndices.contains(index)) { // selected: thicker
+          val lineGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+          lineGraphics.setStroke(new BasicStroke(JScatterPlot.kPointSelectedSizePx / 2))  // TODO actual line constant
+          lineGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
+        } else {
+          paintGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
+        }
+      }
+
+      data.positions.zipWithIndex.foreach { case (value, axisIndex) =>
+        val axisPos = getPositionForAxis(axisIndex)
+        val dataPos = getPositionForValue(axisIndex, value)
+        if (mouseOverIndices.contains(index)) { // mouseover: highlight
+          val hoverGraphics = paintGraphics.create()
+          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kPointHoverOutlineColor, 0.5))
+          hoverGraphics.fillOval(axisPos - JScatterPlot.kPointHoverOutlinePx / 2, dataPos - JScatterPlot.kPointHoverOutlinePx / 2,
+            JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
+        }
+        if (selectedIndices.contains(index)) { // selected: thicker
+          dataGraphics.fillOval(axisPos - JScatterPlot.kPointSelectedSizePx / 2, dataPos - JScatterPlot.kPointSelectedSizePx / 2,
+            JScatterPlot.kPointSelectedSizePx, JScatterPlot.kPointSelectedSizePx)
+        } else {
+          dataGraphics.fillOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
+            JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
+        }
+      }
+    }
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
@@ -97,6 +139,19 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
   def getAxisForLocation(x: Int): Int = {
     math.min(x * axes.length / getWidth, axes.length - 1)
+  }
+
+  def getPositionForAxis(axisIndex: Int): Int = {
+    val axisSpacing = getWidth / (axes.length)
+    axisSpacing * axisIndex + axisSpacing / 2
+  }
+
+  def getPositionForValue(axisIndex: Int, value: Float): Int = {
+    if (axisIndex >= axesRange.length) {
+      return Int.MinValue
+    }
+    val range = axesRange(axisIndex)
+    ((range._2 - value) * JScatterPlot.dataScale(range, getHeight)).toInt
   }
 
   addMouseWheelListener(new MouseWheelListener {
