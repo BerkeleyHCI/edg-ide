@@ -293,6 +293,7 @@ class DsePlotPanel() extends JPanel {
 
   def setSelection(results: Seq[DseResult]): Unit = {
     scatterPlot.setSelected(results)
+    parallelPlot.setSelected(results)
   }
 
   // User hooks - can be overridden

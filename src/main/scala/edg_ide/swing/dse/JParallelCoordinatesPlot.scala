@@ -36,7 +36,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
     axesRange = axes.zipWithIndex.map { case (axis, index) =>
       val values = data.flatMap { elt =>
-        if (index < elt.positions.length) {
+        if (index >= elt.positions.length) {
           None
         } else {
           Some(elt.positions(index))
