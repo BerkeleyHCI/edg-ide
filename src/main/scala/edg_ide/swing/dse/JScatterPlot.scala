@@ -3,33 +3,17 @@ package edg_ide.swing.dse
 import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
-import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter, MouseWheelEvent, MouseWheelListener}
-import java.awt.{Color, Dimension, Graphics, Point, Rectangle}
-import javax.swing.{JComponent, Scrollable, SwingUtilities}
+import java.awt.event._
+import java.awt.{Color, Graphics, Point}
+import javax.swing.{JComponent, SwingUtilities}
 import scala.collection.mutable
 
 
 object JScatterPlot {
   type AxisType = Option[Seq[(Float, String)]]
-}
-
-
-/** Scatterplot widget with two numerical axes, with labels inside the plot.
-  * Data is structured as (x, y, data) coordinates, with some arbitrary data attached to each point.
-  *
-  * TODO: support other ordinal axes?
-  */
-class JScatterPlot[ValueType] extends JComponent with Scrollable {
-  /** Scatterplot data point. Value (arbitrary data associated with this point), X, Y are required,
-    * others are optional with defaults.
-    * This allows future extensibility with additional parameters, eg size or marks.
-    */
-  class Data(val value: ValueType, val x: Float, val y: Float,
-             val color: Option[Color] = None, val tooltipText: Option[String] = None) {
-  }
 
   // GUI constants
-  private val kDefaultRangeMarginFactor = 1.1f  // factor to extend the default range by
+  private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
 
   private val kPointSizePx = 4 // diameter in px
   private val kSnapDistancePx = 6 // distance (radius) to snap for a click
@@ -39,8 +23,34 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
   private val kTickBrightness = 0.25
   private val kTickSpacingIntervals = Seq(1, 2, 5)
-  private val kMinTickSpacingPx = 64  // min spacing between axis ticks, used to determine tick resolution
+  private val kMinTickSpacingPx = 64 // min spacing between axis ticks, used to determine tick resolution
   private val kTickSizePx = 4
+
+  def expandedRange(range: (Float, Float), factor: Float = kDefaultRangeMarginFactor): (Float, Float) = {
+    val rangeWithZero = (math.min(range._1, 0), math.max(range._2, 0))
+    val span = rangeWithZero._2 - rangeWithZero._1
+    val expansion = if (span > 0) { // range units to expand on each side
+      span * (factor - 1) / 2
+    } else { // if span is empty, arbitrarily expand by 1 on each side and center the data
+      1
+    }
+    (rangeWithZero._1 - expansion, rangeWithZero._2 + expansion)
+  }
+}
+
+
+/** Scatterplot widget with two numerical axes, with labels inside the plot.
+  * Data is structured as (x, y, data) coordinates, with some arbitrary data attached to each point.
+  *
+  */
+class JScatterPlot[ValueType] extends JComponent {
+  /** Scatterplot data point. Value (arbitrary data associated with this point), X, Y are required,
+    * others are optional with defaults.
+    * This allows future extensibility with additional parameters, eg size or marks.
+    */
+  class Data(val value: ValueType, val x: Float, val y: Float,
+             val color: Option[Color] = None, val tooltipText: Option[String] = None) {
+  }
 
   // data state
   private var xAxis: JScatterPlot.AxisType = Some(Seq())  // if text labels are specified, instead of dynamic numbers
@@ -71,19 +81,10 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     mouseOverIndices = Seq()  // clear
     selectedIndices = Seq()  // clear
 
-    def expandedRange(range: (Float, Float), factor: Float): (Float, Float) = {
-      val span = range._2 - range._1
-      val expansion = if (span > 0) {  // range units to expand on each side
-        span * (factor - 1) / 2
-      } else {  // if span is empty, arbitrarily expand by 1 on each side and center the data
-        1
-      }
-      (range._1 - expansion, range._2 + expansion)
-    }
     val xs = data.map(_.x)
-    xRange = expandedRange(((xs :+ 0f).min, (xs :+ 0f).max), kDefaultRangeMarginFactor)
+    xRange = JScatterPlot.expandedRange((xs.min, xs.max))
     val ys = data.map(_.y)
-    yRange = expandedRange(((ys :+ 0f).min, (ys :+ 0f).max), kDefaultRangeMarginFactor)
+    yRange = JScatterPlot.expandedRange((ys.min, ys.max))
 
     this.xAxis = xAxis
     this.yAxis = yAxis
@@ -110,7 +111,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
   private def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int): Seq[(Float, String)] = {
     val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize))  // min tick spacing in data units
-    val tickSpacings = kTickSpacingIntervals.map { factor =>  // try all the spacings and take the minimum
+    val tickSpacings = JScatterPlot.kTickSpacingIntervals.map { factor =>  // try all the spacings and take the minimum
       math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
     }
     val tickSpacing = tickSpacings.min
@@ -131,13 +132,13 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     }
     val xTicks = xAxis match {
       case Some(xAxis) => xAxis
-      case _ => getAxisTicks(xRange, getWidth, kMinTickSpacingPx)
+      case _ => getAxisTicks(xRange, getWidth, JScatterPlot.kMinTickSpacingPx)
     }
     xTicks.foreach { case (tickPos, tickVal) =>
       val screenX = dataToScreenX(tickPos)
-      paintGraphics.drawLine(screenX, getHeight - 1, screenX, getHeight - 1 - kTickSizePx)
+      paintGraphics.drawLine(screenX, getHeight - 1, screenX, getHeight - 1 - JScatterPlot.kTickSizePx)
       DrawAnchored.drawLabel(paintGraphics, tickVal,
-        (screenX, getHeight - 1 - kTickSizePx), DrawAnchored.Bottom)
+        (screenX, getHeight - 1 - JScatterPlot.kTickSizePx), DrawAnchored.Bottom)
     }
 
     if (yAxis.isEmpty) { // bottom horizontal axis - only on numeric axis
@@ -146,13 +147,13 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
     }
     val yTicks = yAxis match {
       case Some(yAxis) => yAxis
-      case _ => getAxisTicks(yRange, getHeight, kMinTickSpacingPx)
+      case _ => getAxisTicks(yRange, getHeight, JScatterPlot.kMinTickSpacingPx)
     }
     yTicks.foreach { case (tickPos, tickVal) =>
       val screenY = dataToScreenY(tickPos)
-      paintGraphics.drawLine(0, screenY, kTickSizePx, screenY)
+      paintGraphics.drawLine(0, screenY, JScatterPlot.kTickSizePx, screenY)
       DrawAnchored.drawLabel(paintGraphics, tickVal,
-        (kTickSizePx, screenY), DrawAnchored.Left)
+        (JScatterPlot.kTickSizePx, screenY), DrawAnchored.Left)
     }
   }
 
@@ -167,22 +168,23 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
       if (mouseOverIndices.contains(index)) { // mouseover: highlight
         val hoverGraphics = paintGraphics.create()
-        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, kPointHoverOutlineColor, 0.5))
-        hoverGraphics.fillOval(screenX - kPointHoverOutlinePx / 2, screenY - kPointHoverOutlinePx / 2,
-          kPointHoverOutlinePx, kPointHoverOutlinePx)
+        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kPointHoverOutlineColor, 0.5))
+        hoverGraphics.fillOval(screenX - JScatterPlot.kPointHoverOutlinePx / 2, screenY - JScatterPlot.kPointHoverOutlinePx / 2,
+          JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
       }
       if (selectedIndices.contains(index)) { // selected: thicker
-        dataGraphics.fillOval(screenX - kPointSelectedSizePx / 2, screenY - kPointSelectedSizePx / 2,
-          kPointSelectedSizePx, kPointSelectedSizePx)
+        dataGraphics.fillOval(screenX - JScatterPlot.kPointSelectedSizePx / 2, screenY - JScatterPlot.kPointSelectedSizePx / 2,
+          JScatterPlot.kPointSelectedSizePx, JScatterPlot.kPointSelectedSizePx)
       } else {
-        dataGraphics.fillOval(screenX - kPointSizePx / 2, screenY - kPointSizePx / 2, kPointSizePx, kPointSizePx)
+        dataGraphics.fillOval(screenX - JScatterPlot.kPointSizePx / 2, screenY - JScatterPlot.kPointSizePx / 2,
+          JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
       }
     }
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val axesGraphics = paintGraphics.create()
-    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, kTickBrightness))
+    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JScatterPlot.kTickBrightness))
     paintAxes(axesGraphics)
 
     paintData(paintGraphics)
@@ -205,7 +207,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
 
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val clickedPoints = getPointsForLocation(e.getX, e.getY, kSnapDistancePx)
+      val clickedPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
       onClick(e, clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
     }
   })
@@ -213,7 +215,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val newPoints = getPointsForLocation(e.getX, e.getY, kSnapDistancePx)
+      val newPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
       val newIndices = newPoints.map(_._1)
       if (mouseOverIndices != newIndices) {
         mouseOverIndices = newIndices
@@ -279,7 +281,7 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   addMouseMotionListener(dragListener)  // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getPointsForLocation(e.getX, e.getY, kSnapDistancePx).headOption match {
+    getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
       case None => null
     }
@@ -294,19 +296,4 @@ class JScatterPlot[ValueType] extends JComponent with Scrollable {
   // called when the hovered-over data changes, for all points within some hover radius of the cursor
   // may be empty (when hovering over nothing)
   def onHoverChange(data: Seq[Data]): Unit = { }
-
-
-  override def getPreferredScrollableViewportSize: Dimension = getPreferredSize
-
-  // Scrollable APIs
-  //
-  override def getPreferredSize: Dimension = new Dimension(100, 100)  // TODO arbitrary
-
-  override def getScrollableBlockIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
-
-  override def getScrollableUnitIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
-
-  override def getScrollableTracksViewportWidth: Boolean = false
-
-  override def getScrollableTracksViewportHeight: Boolean = false
 }
