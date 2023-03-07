@@ -174,7 +174,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     val axisIndex = getAxisForLocation(x)
     val axisPosition = getPositionForAxis(axisIndex)
     if (math.abs(axisPosition - x) > maxDistance) {
-      return Seq()  // quick sanity check
+      return Seq()  // if not close enough to the axis nothing else matters
     }
 
     data.zipWithIndex.flatMap { case (data, index) =>
