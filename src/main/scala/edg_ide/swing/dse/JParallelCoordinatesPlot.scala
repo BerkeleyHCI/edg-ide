@@ -81,47 +81,53 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     }
   }
 
-  private def paintDataLine(paintGraphics: Graphics, dataIndex: Int, value: Float, nextValue: Float,
+  private def paintDataLine(paintGraphics: Graphics, value: Float, nextValue: Float,
                             axisIndex: Int): Unit = {
     val prevAxisPos = getPositionForAxis(axisIndex)
     val prevValuePos = getPositionForValue(axisIndex, value)
     val nextAxisPos = getPositionForAxis(axisIndex + 1)
     val nextValuePos = getPositionForValue(axisIndex + 1, nextValue)
 
-    if (mouseOverIndices.contains(dataIndex)) { // mouseover: highlight
-      val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-      hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-      hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
-      hoverGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-    }
-    if (selectedIndices.contains(dataIndex)) { // selected: thicker
-      val lineGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-      lineGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
-      lineGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-    } else {
-      paintGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-    }
+    paintGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
   }
 
-  private def paintDataPoint(paintGraphics: Graphics, dataIndex: Int, value: Float, axisIndex: Int): Unit = {
+  private def paintDataPoint(paintGraphics: Graphics, value: Float, axisIndex: Int): Unit = {
     val axisPos = getPositionForAxis(axisIndex)
     val dataPos = getPositionForValue(axisIndex, value)
-    if (mouseOverIndices.contains(dataIndex)) { // mouseover: highlight
-      val hoverGraphics = paintGraphics.create()
-      hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-      hoverGraphics.fillOval(axisPos - JScatterPlot.kPointHoverOutlinePx / 2, dataPos - JScatterPlot.kPointHoverOutlinePx / 2,
-        JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
-    }
-    if (selectedIndices.contains(dataIndex)) { // selected: thicker
-      paintGraphics.fillOval(axisPos - JScatterPlot.kPointSelectedSizePx / 2, dataPos - JScatterPlot.kPointSelectedSizePx / 2,
-        JScatterPlot.kPointSelectedSizePx, JScatterPlot.kPointSelectedSizePx)
-    } else {
-      paintGraphics.fillOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
-        JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
+
+    paintGraphics.drawOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
+      JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
+    paintGraphics.fillOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
+      JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
+  }
+
+  private def paintData(paintGraphics: Graphics, data: IndexedSeq[(Data, Int)], noColor: Boolean = false): Unit = {
+    data.foreach { case (data, dataIndex) =>
+      val dataGraphics = if (noColor) {
+        paintGraphics
+      } else {
+        val dataGraphics = paintGraphics.create()
+        data.color.foreach { color => // if color is specified, set the color
+          dataGraphics.setColor(color)
+        }
+        dataGraphics
+      }
+
+      data.positions.sliding(2).zipWithIndex.foreach {
+        case (Seq(Some(value), Some(nextValue)), axisIndex) =>
+          paintDataLine(dataGraphics, value, nextValue, axisIndex)
+        case _ => // ignore None data for any lines
+      }
+
+      data.positions.zipWithIndex.foreach {
+        case (Some(value), axisIndex) =>
+          paintDataPoint(dataGraphics, value, axisIndex)
+        case _ => // ignore None data for its specific axis
+      }
     }
   }
 
-  private def paintData(paintGraphics: Graphics): Unit = {
+  private def paintAllData(paintGraphics: Graphics): Unit = {
     // paint order: (bottom) normal -> selected -> mouseover
     val normalData = data.zipWithIndex.filter { case (data, dataIndex) =>
       !mouseOverIndices.contains(dataIndex) && !selectedIndices.contains(dataIndex)
@@ -132,28 +138,18 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     val mouseoverData = data.zipWithIndex.filter { case (data, dataIndex) =>
       mouseOverIndices.contains(dataIndex)
     }
-    val layers = Seq(normalData, selectedData, mouseoverData)
 
-    layers.foreach { layerData =>
-      layerData.foreach { case (data, dataIndex) =>
-        val dataGraphics = paintGraphics.create()
-        data.color.foreach { color => // if color is specified, set the color
-          dataGraphics.setColor(color)
-        }
+    paintData(paintGraphics, normalData)
+    val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+    selectedGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
+    paintData(selectedGraphics, selectedData)
 
-        data.positions.sliding(2).zipWithIndex.foreach {
-          case (Seq(Some(value), Some(nextValue)), axisIndex) =>
-            paintDataLine(dataGraphics, dataIndex, value, nextValue, axisIndex)
-          case _ => // ignore None data for any lines
-        }
+    val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
+    hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
+    paintData(hoverGraphics, mouseoverData, true)
 
-        data.positions.zipWithIndex.foreach {
-          case (Some(value), axisIndex) =>
-            paintDataPoint(dataGraphics, dataIndex, value, axisIndex)
-          case _ => // ignore None data for its specific axis
-        }
-      }
-    }
+    paintData(selectedGraphics, mouseoverData)  // TODO: separate out selected from mouseover? idk
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
@@ -161,7 +157,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JScatterPlot.kTickBrightness))
     paintAxes(axesGraphics)
 
-    paintData(paintGraphics)
+    paintAllData(paintGraphics)
   }
 
   def getAxisForLocation(x: Int): Int = {

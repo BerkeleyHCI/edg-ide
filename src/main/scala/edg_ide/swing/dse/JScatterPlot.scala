@@ -17,8 +17,8 @@ object JScatterPlot {
   val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
   val kPointSelectedSizePx: Int = 6 // diameter in px
   val kPointHoverOutlinePx: Int = 12 // diameter in px
-  val kLineSelectedSizePx: Int = kPointSelectedSizePx / 2 // width in px
-  val kLineHoverOutlinePx: Int = kPointHoverOutlinePx / 2 // width in px
+  val kLineSelectedSizePx: Int = 3 // width in px
+  val kLineHoverOutlinePx: Int = 8 // width in px
   val kHoverOutlineColor: Color = JBColor.YELLOW
 
   val kTickBrightness: Float = 0.25f
