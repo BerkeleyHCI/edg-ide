@@ -1,12 +1,10 @@
 package edg_ide.swing.dse
 
-import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
 import java.awt.event._
-import java.awt.{BasicStroke, Color, Graphics, Graphics2D, Point}
+import java.awt.{BasicStroke, Color, Graphics, Graphics2D}
 import javax.swing.{JComponent, SwingUtilities}
-import scala.collection.mutable
 
 
 /** Parallel coordinates plot with arbitrary number of axes, with data structured as ((positions ...), data),
@@ -19,7 +17,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   // data state, note axes is considered the authoritative definition of the number of positions
-  private var axes: IndexedSeq[JScatterPlot.AxisType] = IndexedSeq()
+  private var axes: IndexedSeq[PlotAxis.AxisType] = IndexedSeq()
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
@@ -28,7 +26,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   private var axesRange: Seq[(Float, Float)] = Seq()  // range for each axis
 
   // axis MUST be defined for each position, but can be None for a numeric axis
-  def setData(data: IndexedSeq[Data], axes: IndexedSeq[JScatterPlot.AxisType]): Unit = {
+  def setData(data: IndexedSeq[Data], axes: IndexedSeq[PlotAxis.AxisType]): Unit = {
     this.data = data
     this.axes = axes
     mouseOverIndices = Seq() // clear

@@ -10,8 +10,6 @@ import scala.collection.mutable
 
 
 object JScatterPlot {
-  type AxisType = Option[Seq[(Float, String)]]
-
   // GUI constants
   private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
 
@@ -92,8 +90,8 @@ class JScatterPlot[ValueType] extends JComponent {
   }
 
   // data state
-  private var xAxis: JScatterPlot.AxisType = Some(Seq())  // if text labels are specified, instead of dynamic numbers
-  private var yAxis: JScatterPlot.AxisType = Some(Seq())
+  private var xAxis: PlotAxis.AxisType = Some(Seq())  // if text labels are specified, instead of dynamic numbers
+  private var yAxis: PlotAxis.AxisType = Some(Seq())
 
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
@@ -106,7 +104,7 @@ class JScatterPlot[ValueType] extends JComponent {
   private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * JScatterPlot.dataScale(xRange, getWidth)).toInt
   private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * JScatterPlot.dataScale(yRange, getHeight)).toInt
 
-  def setData(xys: IndexedSeq[Data], xAxis: JScatterPlot.AxisType = None, yAxis: JScatterPlot.AxisType = None): Unit = {
+  def setData(xys: IndexedSeq[Data], xAxis: PlotAxis.AxisType = None, yAxis: PlotAxis.AxisType = None): Unit = {
     data = xys
     mouseOverIndices = Seq()  // clear
     selectedIndices = Seq()  // clear

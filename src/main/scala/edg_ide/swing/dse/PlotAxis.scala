@@ -4,14 +4,19 @@ import edg.compiler.ExprValue
 import edg_ide.dse.{DseConfigElement, DseObjective, DseObjectiveParameter, DseResult}
 
 
+object PlotAxis {
+  type AxisType = Option[Seq[(Float, String)]]
+}
+
+
 sealed trait PlotAxis {
-  def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType)
+  def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType)
 }
 
 class DummyAxis(val name: String) extends PlotAxis {
   override def toString = name
 
-  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     (results.map(_ => Some(0)), Some(Seq())) // zero everything so other axes can display
   }
 }
@@ -19,7 +24,7 @@ class DummyAxis(val name: String) extends PlotAxis {
 class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
   override def toString = objective.objectiveToString
 
-  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     val values = results.map { result =>
       result.objectives.get(objective).flatMap {
         case x: Float => Some(x)
@@ -35,7 +40,7 @@ class DseObjectiveParamAxis(objective: DseObjectiveParameter, postfix: String,
                             mapFn: ExprValue => Option[Float]) extends PlotAxis {
   override def toString = objective.objectiveToString + postfix
 
-  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     val values = results.map { result =>
       result.objectives.get(objective).flatMap(value =>
         value.asInstanceOf[Option[ExprValue]].flatMap(value =>
@@ -48,7 +53,7 @@ class DseObjectiveParamAxis(objective: DseObjectiveParameter, postfix: String,
 class DseObjectiveParamOrdinalAxis(objective: DseObjectiveParameter) extends PlotAxis {
   override def toString = objective.objectiveToString
 
-  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     val values = results.map { result =>
       result.objectives.get(objective).flatMap(value =>
         value.asInstanceOf[Option[ExprValue]].map(_.toStringValue))
@@ -71,7 +76,7 @@ class DseConfigParamAxis(config: DseConfigElement, postfix: String,
                          map: ExprValue => Option[Float]) extends PlotAxis {
   override def toString = config.configToString + postfix
 
-  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     val values = results.map { result =>
       result.config.get(config).flatMap(value => map(value.asInstanceOf[ExprValue]))
     }
@@ -83,7 +88,7 @@ class DseConfigParamAxis(config: DseConfigElement, postfix: String,
 class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
   override def toString = config.configToString
 
-  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], JScatterPlot.AxisType) = {
+  override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     val values = results.map { result =>
       result.config.get(config).map(config.valueToString)
     }
