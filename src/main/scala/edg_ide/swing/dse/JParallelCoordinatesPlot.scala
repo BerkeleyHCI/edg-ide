@@ -19,7 +19,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   // data state, note axes is considered the authoritative definition of the number of positions
-  private var axes: IndexedSeq[Option[JScatterPlot.AxisType]] = IndexedSeq()
+  private var axes: IndexedSeq[JScatterPlot.AxisType = IndexedSeq()
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
@@ -64,5 +64,34 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     repaint()
   }
 
+  private def paintAxes(paintGraphics: Graphics): Unit = {
+    val axisSpacing = getWidth / (axes.length + 1)
+    (axes zip axesRange).zipWithIndex.foreach { case ((axis, range), index) =>
+      val axisX = axisSpacing * (index + 1)
+      paintGraphics.drawLine(axisX, 0, axisX, getHeight)
 
+      val ticks = axis match {
+        case Some(axis) => axis
+        case _ => JScatterPlot.getAxisTicks(range, getHeight)
+      }
+      ticks.foreach { case (tickPos, tickVal) =>
+        val screenPos = ((range._2 - tickPos) * JScatterPlot.dataScale(range, getHeight)).toInt
+        paintGraphics.drawLine(axisX, screenPos, JScatterPlot.kTickSizePx, axisX + JScatterPlot.kTickSizePx)
+        DrawAnchored.drawLabel(paintGraphics, tickVal,
+          (JScatterPlot.kTickSizePx, screenPos), DrawAnchored.Left)
+      }
+    }
+  }
+
+  private def paintData(paintGraphics: Graphics): Unit = {
+
+  }
+
+  override def paintComponent(paintGraphics: Graphics): Unit = {
+    val axesGraphics = paintGraphics.create()
+    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JScatterPlot.kTickBrightness))
+    paintAxes(axesGraphics)
+
+    paintData(paintGraphics)
+  }
 }

@@ -15,16 +15,16 @@ object JScatterPlot {
   // GUI constants
   private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
 
-  private val kPointSizePx = 4 // diameter in px
-  private val kSnapDistancePx = 6 // distance (radius) to snap for a click
-  private val kPointSelectedSizePx = 6 // diameter in px
-  private val kPointHoverOutlinePx = 12 // diameter in px
-  private val kPointHoverOutlineColor = JBColor.YELLOW
+  val kPointSizePx: Int = 4 // diameter in px
+  val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
+  val kPointSelectedSizePx: Int = 6 // diameter in px
+  val kPointHoverOutlinePx: Int = 12 // diameter in px
+  val kPointHoverOutlineColor: Color = JBColor.YELLOW
 
-  private val kTickBrightness = 0.25
-  private val kTickSpacingIntervals = Seq(1, 2, 5)
-  private val kMinTickSpacingPx = 64 // min spacing between axis ticks, used to determine tick resolution
-  private val kTickSizePx = 4
+  val kTickBrightness: Float = 0.25f
+  val kTickSpacingIntervals: Seq[Int] = Seq(1, 2, 5)
+  val kMinTickSpacingPx: Int = 64 // min spacing between axis ticks, used to determine tick resolution
+  val kTickSizePx: Int = 4
 
   def expandedRange(range: (Float, Float), factor: Float = kDefaultRangeMarginFactor): (Float, Float) = {
     val rangeWithZero = (math.min(range._1, 0), math.max(range._2, 0))
@@ -36,6 +36,34 @@ object JScatterPlot {
     }
     (rangeWithZero._1 - expansion, rangeWithZero._2 + expansion)
   }
+
+  // multiply data by this to get screen coordinates
+  def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
+    if (dataRange._1 != dataRange._2) {
+      screenSize / (dataRange._2 - dataRange._1)
+    } else {
+      1
+    }
+  }
+
+  // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
+  def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int = kMinTickSpacingPx):
+      Seq[(Float, String)] = {
+    val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize)) // min tick spacing in data units
+    val tickSpacings = JScatterPlot.kTickSpacingIntervals.map { factor => // try all the spacings and take the minimum
+      math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
+    }
+    val tickSpacing = tickSpacings.min
+
+    var tickPos = (math.floor(range._1 / tickSpacing) * tickSpacing).toFloat
+    val ticksBuilder = mutable.ArrayBuffer[(Float, String)]()
+    while (tickPos <= range._2) {
+      ticksBuilder.append((tickPos, f"$tickPos%.02g"))
+      tickPos = (tickPos + tickSpacing).toFloat
+    }
+    ticksBuilder.toSeq
+  }
+
 }
 
 
@@ -64,17 +92,8 @@ class JScatterPlot[ValueType] extends JComponent {
   private var xRange = (-1.0f, 1.0f)
   private var yRange = (-1.0f, 1.0f)
 
-  // multiply data by this to get screen coordinates
-  private def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
-    if (dataRange._1 != dataRange._2) {
-      screenSize / (dataRange._2 - dataRange._1)
-    } else {
-      1
-    }
-  }
-
-  private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * dataScale(xRange, getWidth)).toInt
-  private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * dataScale(yRange, getHeight)).toInt
+  private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * JScatterPlot.dataScale(xRange, getWidth)).toInt
+  private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * JScatterPlot.dataScale(yRange, getHeight)).toInt
 
   def setData(xys: IndexedSeq[Data], xAxis: JScatterPlot.AxisType = None, yAxis: JScatterPlot.AxisType = None): Unit = {
     data = xys
@@ -108,23 +127,6 @@ class JScatterPlot[ValueType] extends JComponent {
     repaint()
   }
 
-  // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
-  private def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int): Seq[(Float, String)] = {
-    val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize))  // min tick spacing in data units
-    val tickSpacings = JScatterPlot.kTickSpacingIntervals.map { factor =>  // try all the spacings and take the minimum
-      math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
-    }
-    val tickSpacing = tickSpacings.min
-
-    var tickPos = (math.floor(range._1 / tickSpacing) * tickSpacing).toFloat
-    val ticksBuilder = mutable.ArrayBuffer[(Float, String)]()
-    while (tickPos <= range._2) {
-      ticksBuilder.append((tickPos, f"$tickPos%.02g"))
-      tickPos = (tickPos + tickSpacing).toFloat
-    }
-    ticksBuilder.toSeq
-  }
-
   private def paintAxes(paintGraphics: Graphics): Unit = {
     if (xAxis.isEmpty) { // left vertical axis - only on numeric axis
       val screenOriginX = dataToScreenX(0)
@@ -132,7 +134,7 @@ class JScatterPlot[ValueType] extends JComponent {
     }
     val xTicks = xAxis match {
       case Some(xAxis) => xAxis
-      case _ => getAxisTicks(xRange, getWidth, JScatterPlot.kMinTickSpacingPx)
+      case _ => JScatterPlot.getAxisTicks(xRange, getWidth)
     }
     xTicks.foreach { case (tickPos, tickVal) =>
       val screenX = dataToScreenX(tickPos)
@@ -147,7 +149,7 @@ class JScatterPlot[ValueType] extends JComponent {
     }
     val yTicks = yAxis match {
       case Some(yAxis) => yAxis
-      case _ => getAxisTicks(yRange, getHeight, JScatterPlot.kMinTickSpacingPx)
+      case _ => JScatterPlot.getAxisTicks(yRange, getHeight)
     }
     yTicks.foreach { case (tickPos, tickVal) =>
       val screenY = dataToScreenY(tickPos)

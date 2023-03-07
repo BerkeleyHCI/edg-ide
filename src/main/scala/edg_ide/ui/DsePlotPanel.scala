@@ -6,7 +6,7 @@ import com.intellij.ui.components.JBLabel
 import edg.compiler._
 import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
-import edg_ide.swing.dse.{DseResultModel, JScatterPlot}
+import edg_ide.swing.dse.{DseResultModel, JParallelCoordinatesPlot, JScatterPlot}
 
 import java.awt.event.{ItemEvent, ItemListener, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -117,7 +117,7 @@ class DsePlotPanel() extends JPanel {
 
   setLayout(new GridBagLayout)
 
-  private val plot = new JScatterPlot[DseResult]() {
+  private val scatterPlot = new JScatterPlot[DseResult]() {
     override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
       DsePlotPanel.this.onClick(e, data.map(_.value))
     }
@@ -126,7 +126,21 @@ class DsePlotPanel() extends JPanel {
       DsePlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
-  add(plot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
+
+  private val parallelPlot = new JParallelCoordinatesPlot[DseResult]() {
+//    override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
+//      DsePlotPanel.this.onClick(e, data.map(_.value))
+//    }
+//
+//    override def onHoverChange(data: Seq[Data]): Unit = {
+//      DsePlotPanel.this.onHoverChange(data.map(_.value))
+//    }
+  }
+
+//  add(scatterPlot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
+  add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
+
+  parallelPlot.setData(IndexedSeq(), IndexedSeq(None, None, None))
 
   private val emptyAxis = new DummyAxis("Empty")
   private val ySelector = new ComboBox[PlotAxis]()
@@ -156,13 +170,13 @@ class DsePlotPanel() extends JPanel {
           case (false, false) => None
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)
-        Some(new plot.Data(result, xVal, yVal, color,
+        Some(new scatterPlot.Data(result, xVal, yVal, color,
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
       case _ => Seq()
     }
 
     ApplicationManager.getApplication.invokeLater(() => {
-      plot.setData(points, xAxis, yAxis)
+      scatterPlot.setData(points, xAxis, yAxis)
     })
   }
 
@@ -260,7 +274,7 @@ class DsePlotPanel() extends JPanel {
   }
 
   def setSelection(results: Seq[DseResult]): Unit = {
-    plot.setSelected(results)
+    scatterPlot.setSelected(results)
   }
 
   // User hooks - can be overridden
