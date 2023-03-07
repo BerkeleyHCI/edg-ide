@@ -95,12 +95,16 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     paintData(paintGraphics)
   }
 
+  def getAxisForLocation(x: Int): Int = {
+    math.min(x * axes.length / getWidth, axes.length - 1)
+  }
+
   addMouseWheelListener(new MouseWheelListener {
     override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
       // TODO maybe require the mouse to be closer to an axis?
       val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
 
-      val axisIndex = math.min(e.getX * axes.length / getWidth, axes.length - 1)
+      val axisIndex = getAxisForLocation(e.getX)
       val newRange = JScatterPlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
       axesRange = axesRange.updated(axisIndex, newRange)
 
@@ -108,4 +112,39 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       repaint()
     }
   })
+
+  // TODO unify w/ ZoomDragScrollPanel
+  private val dragListener = new MouseAdapter {
+    var dragLastAxisPos: Option[(Int, Int)] = None  // axis, y-pos
+
+    override def mousePressed(e: MouseEvent): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e)) {
+        dragLastAxisPos = Some((getAxisForLocation(e.getX), e.getY))
+      }
+    }
+
+    override def mouseReleased(e: MouseEvent): Unit = {
+      dragLastAxisPos = None
+    }
+
+    override def mouseDragged(e: MouseEvent): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e)) {
+        dragLastAxisPos.foreach { case (axisIndex, pos) =>
+          if (axisIndex >= axesRange.length) {
+            return
+          }
+          val currentRange = axesRange(axisIndex)
+          val dy = (pos - e.getY).toFloat * (currentRange._2 - currentRange._1) / getHeight
+          axesRange = axesRange.updated(axisIndex, (currentRange._1 - dy, currentRange._2 - dy))
+
+          this.dragLastAxisPos = Some((axisIndex, e.getY))
+
+          validate()
+          repaint()
+        }
+      }
+    }
+  }
+  addMouseListener(dragListener) // this registers the press / release
+  addMouseMotionListener(dragListener) // this registers the dragged
 }
