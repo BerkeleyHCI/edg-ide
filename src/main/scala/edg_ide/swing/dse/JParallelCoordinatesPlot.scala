@@ -249,6 +249,13 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseListener(dragListener) // this registers the press / release
   addMouseMotionListener(dragListener) // this registers the dragged
 
+  override def getToolTipText(e: MouseEvent): String = {
+    getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx).headOption match {
+      case Some((index, distance)) => data(index).tooltipText.orNull
+      case None => null
+    }
+  }
+  
   // User hooks - can be overridden
   //
   // called when this widget clicked, for all points within some hover radius of the cursor
