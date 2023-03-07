@@ -37,6 +37,15 @@ object JScatterPlot {
     (range._1 - expansion, range._2 + expansion)
   }
 
+  // calculates a new range after applying some scaling factor, but keeping some fractional point of
+  // the old and new range static (eg, the point the mouse is over)
+  def scrollNewRange(oldRange: (Float, Float), scaleFactor: Float, staticFrac: Float): (Float, Float) = {
+    val span = oldRange._2 - oldRange._1
+    val mouseValue = oldRange._1 + (span * staticFrac)
+    val newSpan = span * scaleFactor
+    (mouseValue - (newSpan * staticFrac), mouseValue + (newSpan * (1 - staticFrac)))
+  }
+
   // multiply data by this to get screen coordinates
   def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
     if (dataRange._1 != dataRange._2) {
@@ -230,18 +239,9 @@ class JScatterPlot[ValueType] extends JComponent {
 
   addMouseWheelListener(new MouseWheelListener {
     override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
-      // calculates a new range after applying some scaling factor, but keeping some fractional point of
-      // the old and new range static (eg, the point the mouse is over)
-      def calculateNewRange(oldRange: (Float, Float), scaleFactor: Float, staticFrac: Float): (Float, Float) = {
-        val span = oldRange._2 - oldRange._1
-        val mouseValue = oldRange._1 + (span * staticFrac)
-        val newSpan = span * scaleFactor
-        (mouseValue - (newSpan * staticFrac), mouseValue + (newSpan * (1 - staticFrac)))
-      }
-
       val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
-      xRange = calculateNewRange(xRange, zoomFactor, e.getX.toFloat / getWidth)
-      yRange = calculateNewRange(yRange, zoomFactor, 1 - (e.getY.toFloat / getHeight))
+      xRange = JScatterPlot.scrollNewRange(xRange, zoomFactor, e.getX.toFloat / getWidth)
+      yRange = JScatterPlot.scrollNewRange(yRange, zoomFactor, 1 - (e.getY.toFloat / getHeight))
 
       validate()
       repaint()

@@ -94,4 +94,18 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
     paintData(paintGraphics)
   }
+
+  addMouseWheelListener(new MouseWheelListener {
+    override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
+      // TODO maybe require the mouse to be closer to an axis?
+      val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
+
+      val axisIndex = math.min(e.getX * axes.length / getWidth, axes.length - 1)
+      val newRange = JScatterPlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
+      axesRange = axesRange.updated(axisIndex, newRange)
+
+      validate()
+      repaint()
+    }
+  })
 }
