@@ -13,6 +13,7 @@ import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.dse.{DseConfigTreeNode, DseConfigTreeTableModel, DseResultNodeBase, DseResultTreeNode, DseResultTreeRenderer, DseResultTreeTableModel}
+import edg_ide.ui.dse.{DseBasePlot, DseParallelPlotPanel, DseScatterPlotPanel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
@@ -136,54 +137,64 @@ class DsePanel(project: Project) extends JPanel {
   add(mainSplitter, Gbc(0, 1, GridBagConstraints.BOTH))
 
   // GUI: Top plot
-  private val plot = new DsePlotPanel() {
-    override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
-      if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in tree
-        resultsTree.clearSelection()
+  def plotOnClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
+    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in tree
+      resultsTree.clearSelection()
 
-        val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
+      val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
 
-        def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
-          case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
-          case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
-          case _ => Seq()
-        }
-
-        val treeRootPath = new TreePath(treeRoot)
-        val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
-
-        dataTreePaths.foreach { treePath =>
-          resultsTree.addSelectedPath(treePath)
-          resultsTree.getTree.expandPath(treePath)
-
-        }
-        dataTreePaths.headOption.foreach { treePath => // scroll to the first result
-          resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
-        }
-
-        setSelection(data)
-      } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click popup menu
-        if (data.size != 1) {
-          PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
-          return
-        }
-        new DseResultPopupMenu(data.head, project).show(e.getComponent, e.getX, e.getY)
-      } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click view result
-        if (data.size != 1) {
-          PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
-          return
-        }
-        val result = data.head
-        BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
-          result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
+      def getTreePathsForResults(path: TreePath, node: DseResultNodeBase): Seq[TreePath] = node match {
+        case node: treeRoot.ResultSetNode => node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
+        case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
+        case _ => Seq()
       }
-    }
 
-    override def onHoverChange(data: Seq[DseResult]): Unit = {
-      // TODO something w/ results tree selection?
+      val treeRootPath = new TreePath(treeRoot)
+      val dataTreePaths = treeRoot.children.flatMap(getTreePathsForResults(treeRootPath, _))
+
+      dataTreePaths.foreach { treePath =>
+        resultsTree.addSelectedPath(treePath)
+        resultsTree.getTree.expandPath(treePath)
+
+      }
+      dataTreePaths.headOption.foreach { treePath => // scroll to the first result
+        resultsTree.scrollRectToVisible(resultsTree.getTree.getPathBounds(treePath))
+      }
+
+      scatterPlot.setSelection(data)
+      parallelPlot.setSelection(data)
+    } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click popup menu
+      if (data.size != 1) {
+        PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+        return
+      }
+      new DseResultPopupMenu(data.head, project).show(e.getComponent, e.getX, e.getY)
+    } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click view result
+      if (data.size != 1) {
+        PopupUtils.createErrorPopupAtMouse("must select exactly one point", this)
+        return
+      }
+      val result = data.head
+      BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
+        result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
     }
   }
-  mainSplitter.setFirstComponent(plot)
+
+  private val scatterPlot: DseScatterPlotPanel = new DseScatterPlotPanel() {
+    override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = plotOnClick(e, data)
+    override def onSwitchClick(): Unit = {
+      mainSplitter.setFirstComponent(parallelPlot)
+    }
+  }
+  private val parallelPlot: DseParallelPlotPanel = new DseParallelPlotPanel() {
+    override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = plotOnClick(e, data)
+    override def onSwitchClick(): Unit = {
+      mainSplitter.setFirstComponent(scatterPlot)
+    }
+  }
+  // TODO this updates all the plots even when one is displayed, this could be optimized
+  private val allPlots = Seq(scatterPlot, parallelPlot)
+  mainSplitter.setFirstComponent(scatterPlot)
 
   // GUI: Bottom tabs
 
@@ -226,11 +237,11 @@ class DsePanel(project: Project) extends JPanel {
       selectedTreePath.getLastPathComponent match {
         case node: DseResultTreeNode#ResultSetNode =>
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight all in chart
-            plot.setSelection(node.setMembers)
+            allPlots.foreach{_.setSelection(node.setMembers)}
           }
         case node: DseResultTreeNode#ResultNode =>
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in chart
-            plot.setSelection(Seq(node.result))
+            allPlots.foreach{_.setSelection(Seq(node.result))}
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click popup menu
             new DseResultPopupMenu(node.result, project).show(e.getComponent, e.getX, e.getY)
           } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double click
@@ -261,7 +272,7 @@ class DsePanel(project: Project) extends JPanel {
       TreeTableUtils.updateModel(resultsTree,
         new DseResultTreeTableModel(combinedResults, objectives, inProgress))
     })
-    plot.setResults(combinedResults, search, objectives)
+    allPlots.foreach{_.setResults(combinedResults, search, objectives)}
   }
 
   def focusConfigSearch(): Unit = {
