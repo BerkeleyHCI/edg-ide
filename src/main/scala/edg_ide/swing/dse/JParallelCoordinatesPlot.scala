@@ -19,7 +19,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   // data state, note axes is considered the authoritative definition of the number of positions
-  private var axes: IndexedSeq[JScatterPlot.AxisType = IndexedSeq()
+  private var axes: IndexedSeq[JScatterPlot.AxisType] = IndexedSeq()
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
