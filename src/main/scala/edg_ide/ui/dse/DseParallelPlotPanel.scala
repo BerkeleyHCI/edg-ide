@@ -31,6 +31,7 @@ class DseParallelPlotPanel() extends JPanel {
     }
   }
   add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 3))
+  parallelPlot.setData(IndexedSeq(), IndexedSeq(None))  // reflect Empty status
 
   private val plotSwitchButton = new JButton()
   plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
