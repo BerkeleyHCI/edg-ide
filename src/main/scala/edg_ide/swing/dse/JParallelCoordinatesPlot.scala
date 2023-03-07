@@ -28,7 +28,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   private var axesRange: Seq[(Float, Float)] = Seq()  // range for each axis
 
   // axis MUST be defined for each position, but can be None for a numeric axis
-  def setData(data: IndexedSeq[Data], axes: IndexedSeq[Option[JScatterPlot.AxisType]]): Unit = {
+  def setData(data: IndexedSeq[Data], axes: IndexedSeq[JScatterPlot.AxisType]): Unit = {
     this.data = data
     this.axes = axes
     mouseOverIndices = Seq() // clear
