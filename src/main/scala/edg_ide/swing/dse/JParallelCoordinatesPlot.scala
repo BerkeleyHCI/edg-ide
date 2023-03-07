@@ -12,7 +12,7 @@ import javax.swing.{JComponent, SwingUtilities}
   */
 class JParallelCoordinatesPlot[ValueType] extends JComponent {
   // Data point object
-  class Data(val value: ValueType, val positions: IndexedSeq[Float],
+  class Data(val value: ValueType, val positions: IndexedSeq[Option[Float]],
              val color: Option[Color] = None, val tooltipText: Option[String] = None) {
   }
 
@@ -40,7 +40,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
           Some(elt.positions(index))
         }
       }
-      JScatterPlot.defaultValuesRange(values)
+      JScatterPlot.defaultValuesRange(values.flatten)
     }
 
     validate()
@@ -88,43 +88,47 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       }
 
       // TODO proper layering
-      data.positions.sliding(2).zipWithIndex.foreach { case (Seq(prevValue, nextValue), prevIndex) =>
-        val prevAxisPos = getPositionForAxis(prevIndex)
-        val prevValuePos = getPositionForValue(prevIndex, prevValue)
-        val nextAxisPos = getPositionForAxis(prevIndex + 1)
-        val nextValuePos = getPositionForValue(prevIndex + 1, nextValue)
+      data.positions.sliding(2).zipWithIndex.foreach {
+        case (Seq(Some(prevValue), Some(nextValue)), prevIndex) =>
+          val prevAxisPos = getPositionForAxis(prevIndex)
+          val prevValuePos = getPositionForValue(prevIndex, prevValue)
+          val nextAxisPos = getPositionForAxis(prevIndex + 1)
+          val nextValuePos = getPositionForValue(prevIndex + 1, nextValue)
 
-        if (mouseOverIndices.contains(index)) { // mouseover: highlight
-          val hoverGraphics = dataGraphics.create().asInstanceOf[Graphics2D]
-          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-          hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
-          hoverGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-        }
-        if (selectedIndices.contains(index)) { // selected: thicker
-          val lineGraphics = dataGraphics.create().asInstanceOf[Graphics2D]
-          lineGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
-          lineGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-        } else {
-          dataGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-        }
+          if (mouseOverIndices.contains(index)) { // mouseover: highlight
+            val hoverGraphics = dataGraphics.create().asInstanceOf[Graphics2D]
+            hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
+            hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
+            hoverGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
+          }
+          if (selectedIndices.contains(index)) { // selected: thicker
+            val lineGraphics = dataGraphics.create().asInstanceOf[Graphics2D]
+            lineGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
+            lineGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
+          } else {
+            dataGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
+          }
+        case _ => // ignore None data for any lines
       }
 
-      data.positions.zipWithIndex.foreach { case (value, axisIndex) =>
-        val axisPos = getPositionForAxis(axisIndex)
-        val dataPos = getPositionForValue(axisIndex, value)
-        if (mouseOverIndices.contains(index)) { // mouseover: highlight
-          val hoverGraphics = dataGraphics.create()
-          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-          hoverGraphics.fillOval(axisPos - JScatterPlot.kPointHoverOutlinePx / 2, dataPos - JScatterPlot.kPointHoverOutlinePx / 2,
-            JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
-        }
-        if (selectedIndices.contains(index)) { // selected: thicker
-          dataGraphics.fillOval(axisPos - JScatterPlot.kPointSelectedSizePx / 2, dataPos - JScatterPlot.kPointSelectedSizePx / 2,
-            JScatterPlot.kPointSelectedSizePx, JScatterPlot.kPointSelectedSizePx)
-        } else {
-          dataGraphics.fillOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
-            JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
-        }
+      data.positions.zipWithIndex.foreach {
+        case (Some(value), axisIndex) =>
+          val axisPos = getPositionForAxis(axisIndex)
+          val dataPos = getPositionForValue(axisIndex, value)
+          if (mouseOverIndices.contains(index)) { // mouseover: highlight
+            val hoverGraphics = dataGraphics.create()
+            hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
+            hoverGraphics.fillOval(axisPos - JScatterPlot.kPointHoverOutlinePx / 2, dataPos - JScatterPlot.kPointHoverOutlinePx / 2,
+              JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
+          }
+          if (selectedIndices.contains(index)) { // selected: thicker
+            dataGraphics.fillOval(axisPos - JScatterPlot.kPointSelectedSizePx / 2, dataPos - JScatterPlot.kPointSelectedSizePx / 2,
+              JScatterPlot.kPointSelectedSizePx, JScatterPlot.kPointSelectedSizePx)
+          } else {
+            dataGraphics.fillOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
+              JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
+          }
+        case _ => // ignore None data for its specific axis
       }
     }
   }
@@ -151,13 +155,17 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     }
 
     data.zipWithIndex.flatMap { case (data, index) =>
-      val xDist = axisPosition - x
-      val yDist = getPositionForValue(axisIndex, data.positions(axisIndex)) - y
-      val distance = math.sqrt(xDist * xDist + yDist * yDist).toFloat
-      if (distance <= maxDistance) {
-        Some(index, distance)
-      } else {
-        None
+      data.positions(axisIndex) match {
+        case Some(value) =>
+          val xDist = axisPosition - x
+          val yDist = getPositionForValue(axisIndex, value) - y
+          val distance = math.sqrt(xDist * xDist + yDist * yDist).toFloat
+          if (distance <= maxDistance) {
+            Some(index, distance)
+          } else {
+            None
+          }
+        case _ => None  // ignore None
       }
     }
   }

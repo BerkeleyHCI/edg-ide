@@ -3,7 +3,6 @@ package edg_ide.ui.dse
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
-import com.intellij.ui.components.JBLabel
 import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse._
@@ -50,28 +49,30 @@ class DseParallelPlotPanel() extends JPanel {
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
-    val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(flatResults)
-    val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(flatResults)
+    val (pointsByAxis, axisByAxis) = axisSelectors.zipWithIndex.map { case (axisSelector, index) =>
+      val (points, axis) = axisSelector.getItem.resultsToValuesAxis(flatResults)
+      require(flatResults.size == points.size, s"Axis ${index} points mismatch, got ${points.size} expected ${flatResults.size}")
+      (points, axis)
+    }.unzip
 
-    require(flatResults.size == xPoints.size, s"X axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
-    require(flatResults.size == yPoints.size, s"Y axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
+    val parallelPoints = flatResults.zipWithIndex.flatMap { case (result, index) =>
 
-    val parallelPoints = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
-      case (result, (Some(xVal), Some(yVal))) =>
-        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
-        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-          case (_, true) => Some(DseResultModel.kColorOtherError)
-          case (true, false) => Some(DseResultModel.kColorIdealError)
-          case (false, false) => None
-        }
-        val tooltipText = DseConfigElement.configMapToString(result.config)
-        Some(new parallelPlot.Data(result, IndexedSeq(xVal, yVal), color,
-          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
-      case _ => Seq()
+
+//      case (result, (Some(xVal), Some(yVal))) =>
+//        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
+//        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+//          case (_, true) => Some(DseResultModel.kColorOtherError)
+//          case (true, false) => Some(DseResultModel.kColorIdealError)
+//          case (false, false) => None
+//        }
+//        val tooltipText = DseConfigElement.configMapToString(result.config)
+//        Some(new parallelPlot.Data(result, IndexedSeq(xVal, yVal), color,
+//          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
+//      case _ => Seq()
     }
 
     ApplicationManager.getApplication.invokeLater(() => {
-      parallelPlot.setData(parallelPoints, IndexedSeq(xAxis, yAxis))
+      parallelPlot.setData(parallelPoints, axisByAxis.toIndexedSeq)
     })
   }
 
