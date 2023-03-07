@@ -19,7 +19,9 @@ object JScatterPlot {
   val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
   val kPointSelectedSizePx: Int = 6 // diameter in px
   val kPointHoverOutlinePx: Int = 12 // diameter in px
-  val kPointHoverOutlineColor: Color = JBColor.YELLOW
+  val kLineSelectedSizePx: Int = kPointSelectedSizePx / 2 // width in px
+  val kLineHoverOutlinePx: Int = kPointHoverOutlinePx / 2 // width in px
+  val kHoverOutlineColor: Color = JBColor.YELLOW
 
   val kTickBrightness: Float = 0.25f
   val kTickSpacingIntervals: Seq[Int] = Seq(1, 2, 5)
@@ -177,7 +179,7 @@ class JScatterPlot[ValueType] extends JComponent {
 
       if (mouseOverIndices.contains(index)) { // mouseover: highlight
         val hoverGraphics = paintGraphics.create()
-        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kPointHoverOutlineColor, 0.5))
+        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
         hoverGraphics.fillOval(screenX - JScatterPlot.kPointHoverOutlinePx / 2, screenY - JScatterPlot.kPointHoverOutlinePx / 2,
           JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
       }

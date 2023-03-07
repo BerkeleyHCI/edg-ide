@@ -88,6 +88,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       data.color.foreach { color => // if color is specified, set the color
         dataGraphics.setColor(color)
       }
+
+      // TODO proper layering
       data.positions.sliding(2).zipWithIndex.foreach { case (Seq(prevValue, nextValue), prevIndex) =>
         val prevAxisPos = getPositionForAxis(prevIndex)
         val prevValuePos = getPositionForValue(prevIndex, prevValue)
@@ -95,17 +97,17 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         val nextValuePos = getPositionForValue(prevIndex + 1, nextValue)
 
         if (mouseOverIndices.contains(index)) { // mouseover: highlight
-          val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kPointHoverOutlineColor, 0.5))
-          hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kPointHoverOutlinePx))
+          val hoverGraphics = dataGraphics.create().asInstanceOf[Graphics2D]
+          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
+          hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
           hoverGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
         }
         if (selectedIndices.contains(index)) { // selected: thicker
-          val lineGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-          lineGraphics.setStroke(new BasicStroke(JScatterPlot.kPointSelectedSizePx / 2))  // TODO actual line constant
+          val lineGraphics = dataGraphics.create().asInstanceOf[Graphics2D]
+          lineGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
           lineGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
         } else {
-          paintGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
+          dataGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
         }
       }
 
@@ -113,8 +115,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         val axisPos = getPositionForAxis(axisIndex)
         val dataPos = getPositionForValue(axisIndex, value)
         if (mouseOverIndices.contains(index)) { // mouseover: highlight
-          val hoverGraphics = paintGraphics.create()
-          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kPointHoverOutlineColor, 0.5))
+          val hoverGraphics = dataGraphics.create()
+          hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
           hoverGraphics.fillOval(axisPos - JScatterPlot.kPointHoverOutlinePx / 2, dataPos - JScatterPlot.kPointHoverOutlinePx / 2,
             JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
         }
@@ -141,6 +143,27 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     math.min(x * axes.length / getWidth, axes.length - 1)
   }
 
+  // Returns the points with some specified distance (in screen coordinates, px) of the point.
+  // Returns as (index of point, distance)
+  def getPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
+    val axisIndex = getAxisForLocation(x)
+    val axisPosition = getPositionForAxis(axisIndex)
+    if (math.abs(axisPosition - x) > maxDistance) {
+      return Seq()  // quick sanity check
+    }
+
+    data.zipWithIndex.flatMap { case (data, index) =>
+      val xDist = axisPosition - x
+      val yDist = getPositionForValue(axisIndex, data.positions(axisIndex)) - y
+      val distance = math.sqrt(xDist * xDist + yDist * yDist).toFloat
+      if (distance <= maxDistance) {
+        Some(index, distance)
+      } else {
+        None
+      }
+    }
+  }
+
   def getPositionForAxis(axisIndex: Int): Int = {
     val axisSpacing = getWidth / (axes.length)
     axisSpacing * axisIndex + axisSpacing / 2
@@ -153,6 +176,29 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     val range = axesRange(axisIndex)
     ((range._2 - value) * JScatterPlot.dataScale(range, getHeight)).toInt
   }
+
+  addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      val clickedPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
+      onClick(e, clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
+    }
+  })
+
+  addMouseMotionListener(new MouseMotionAdapter {
+    override def mouseMoved(e: MouseEvent): Unit = {
+      super.mouseMoved(e)
+      val newPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
+      val newIndices = newPoints.map(_._1)
+      if (mouseOverIndices != newIndices) {
+        mouseOverIndices = newIndices
+        validate()
+        repaint()
+
+        // sort by distance and call hover
+        onHoverChange(newPoints.sortBy(_._2).map(pair => data(pair._1)))
+      }
+    }
+  })
 
   addMouseWheelListener(new MouseWheelListener {
     override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
@@ -202,4 +248,14 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
   addMouseListener(dragListener) // this registers the press / release
   addMouseMotionListener(dragListener) // this registers the dragged
+
+  // User hooks - can be overridden
+  //
+  // called when this widget clicked, for all points within some hover radius of the cursor
+  // sorted by distance from cursor (earlier = closer), and may be empty
+  def onClick(e: MouseEvent, data: Seq[Data]): Unit = {}
+
+  // called when the hovered-over data changes, for all points within some hover radius of the cursor
+  // may be empty (when hovering over nothing)
+  def onHoverChange(data: Seq[Data]): Unit = {}
 }

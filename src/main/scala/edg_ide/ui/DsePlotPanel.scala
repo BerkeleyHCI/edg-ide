@@ -128,13 +128,13 @@ class DsePlotPanel() extends JPanel {
   }
 
   private val parallelPlot = new JParallelCoordinatesPlot[DseResult]() {
-//    override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
-//      DsePlotPanel.this.onClick(e, data.map(_.value))
-//    }
-//
-//    override def onHoverChange(data: Seq[Data]): Unit = {
-//      DsePlotPanel.this.onHoverChange(data.map(_.value))
-//    }
+    override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
+      DsePlotPanel.this.onClick(e, data.map(_.value))
+    }
+
+    override def onHoverChange(data: Seq[Data]): Unit = {
+      DsePlotPanel.this.onHoverChange(data.map(_.value))
+    }
   }
 
 //  add(scatterPlot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
