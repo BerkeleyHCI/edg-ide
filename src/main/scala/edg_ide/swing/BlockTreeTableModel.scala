@@ -18,7 +18,7 @@ class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem
 
   lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs.filter { case (name, subblock) =>
     if (!EdgSettingsState.getInstance().showInternalBlocks) {
-      !(name.startsWith("(bridge)") || name.startsWith("(adapter)"))
+      !(name.startsWith("(bridge)") || name.startsWith("(adapter)") || name.startsWith("(not_connected)"))
     } else {
       true
     }
