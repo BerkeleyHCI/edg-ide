@@ -226,7 +226,7 @@ class DsePanel(project: Project) extends JPanel {
     override def keyReleased(keyEvent: KeyEvent): Unit = {}
     override def keyPressed(keyEvent: KeyEvent): Unit = {
       if (keyEvent.getKeyCode == KeyEvent.VK_DELETE) {
-        configTree.getTree.getSelectionPath.getLastPathComponent match {
+        Option(configTree.getTree.getSelectionPath).getOrElse(return).getLastPathComponent match {
           case node: DseConfigTreeNode.DseSearchConfigNode =>
             DseService(project).getRunConfiguration.foreach { dseConfig =>
               val originalSearchConfigs = dseConfig.options.searchConfigs
