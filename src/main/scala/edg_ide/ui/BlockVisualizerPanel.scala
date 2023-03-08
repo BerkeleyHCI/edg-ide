@@ -241,11 +241,13 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
       ApplicationManager.getApplication.invokeLater(() => {
         if (dseConfigSelected) {
-          mainSplitter.setSecondComponent(dseSplitter)
-          dseSplitter.setFirstComponent(bottomSplitter)
+          remove(mainSplitter)
+          dseSplitter.setFirstComponent(mainSplitter)
+          add(dseSplitter)
         } else {
+          remove(dseSplitter)
           dseSplitter.setFirstComponent(null)
-          mainSplitter.setSecondComponent(bottomSplitter)
+          add(mainSplitter)
         }
       })
     }
