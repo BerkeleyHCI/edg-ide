@@ -25,7 +25,7 @@ trait ProvenTreeTableMixin extends TreeTable {
     super.setModel(treeTableModel)
     getColumnModel.getColumns.asScala.foreach { column =>  // must support the case where the column isn't shown
       if (column.getIdentifier == "Proven") {
-        column.setPreferredWidth(32)
+        column.setMaxWidth(48)
       }
     }
   }
