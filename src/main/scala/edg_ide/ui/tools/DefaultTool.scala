@@ -129,10 +129,8 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
             PopupUtils.createErrorPopupAtMouse(s"${blockPyClass.getName} has no non-abstract subclasses", this)
           } else {
             val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-            config.options.searchConfigs = config.options.searchConfigs ++ Seq(
-              DseSubclassSearch(path, subclasses.toSeq)
-            )
-            DseService(project).onSearchConfigChanged(config)
+            config.options.searchConfigs = config.options.searchConfigs :+ DseSubclassSearch(path, subclasses.toSeq)
+            DseService(project).onSearchConfigChanged(config, true)
           }
         }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       }
@@ -141,19 +139,19 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       requireExcept(block.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
       () => {
         val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-        config.options.searchConfigs = config.options.searchConfigs ++ Seq(DseDerivedPartSearch(path))
-        DseService(project).onSearchConfigChanged(config)
+        config.options.searchConfigs = config.options.searchConfigs :+ DseDerivedPartSearch(path)
+        DseService(project).onSearchConfigChanged(config, true)
     }}, "Search matching parts"))
 
     add(ContextMenuUtils.MenuItem(() => {
       val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintArea(path))
-      DseService(project).onObjectiveConfigChanged(config)
+      config.options.objectives = config.options.objectives :+ DseObjectiveFootprintArea(path)
+      DseService(project).onObjectiveConfigChanged(config, true)
     }, "Add objective contained footprint area"))
     add(ContextMenuUtils.MenuItem(() => {
       val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
-      DseService(project).onObjectiveConfigChanged(config)
+      config.options.objectives = config.options.objectives :+ DseObjectiveFootprintCount(path)
+      DseService(project).onObjectiveConfigChanged(config, true)
     }, "Add objective contained footprint count"))
   }
 }

@@ -44,7 +44,7 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
     val originalSearchConfigs = dseConfig.options.searchConfigs
     () => {
       dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != searchConfig)
-      DseService(project).onSearchConfigChanged(dseConfig)
+      DseService(project).onSearchConfigChanged(dseConfig, false)
     }
   }, s"Delete"))
 
@@ -56,7 +56,7 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
           val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
           val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
           dseConfig.options.searchConfigs = newSearchConfigs
-          DseService(project).onSearchConfigChanged(dseConfig)
+          DseService(project).onSearchConfigChanged(dseConfig, false)
         }
     }), s"Edit"))
 }
@@ -68,7 +68,7 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
     val originalObjectives = dseConfig.options.objectives
     () => {
       dseConfig.options.objectives = originalObjectives.filter(_ != objective)
-      DseService(project).onObjectiveConfigChanged(dseConfig)
+      DseService(project).onObjectiveConfigChanged(dseConfig, false)
     }
   }, s"Delete"))
 }
@@ -231,13 +231,13 @@ class DsePanel(project: Project) extends JPanel {
             DseService(project).getRunConfiguration.foreach { dseConfig =>
               val originalSearchConfigs = dseConfig.options.searchConfigs
               dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != node.config)
-              DseService(project).onSearchConfigChanged(dseConfig)
+              DseService(project).onSearchConfigChanged(dseConfig, false)
             }
           case node: DseConfigTreeNode.DseObjectiveNode =>
             DseService(project).getRunConfiguration.foreach { dseConfig =>
               val originalObjectives = dseConfig.options.objectives
               dseConfig.options.objectives = originalObjectives.filter(_ != node.config)
-              DseService(project).onSearchConfigChanged(dseConfig)
+              DseService(project).onSearchConfigChanged(dseConfig, false)
             }
           case _ => // ignored
         }
@@ -297,9 +297,7 @@ class DsePanel(project: Project) extends JPanel {
     allPlots.foreach{_.setResults(combinedResults, search, objectives)}
   }
 
-  def focusConfigSearch(): Unit = {
-    tabbedPane.setSelectedIndex(kTabConfig)
-
+  def focusConfigSearch(scrollToLast: Boolean): Unit = {
     // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
     // tries (and fails) to expand a node with no children (yet)
     // TODO this is kind of ugly
@@ -307,12 +305,15 @@ class DsePanel(project: Project) extends JPanel {
       val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
       val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.searchConfigNode)
       configTree.getTree.expandPath(nodePath)
+      if (scrollToLast) {
+        val lastNodePath = nodePath.pathByAddingChild(treeRoot.searchConfigNode.children.last)
+        configTree.scrollRectToVisible(configTree.getTree.getPathBounds(lastNodePath))
+      }
+      tabbedPane.setSelectedIndex(kTabConfig)
     })
   }
 
-  def focusConfigObjective(): Unit = {
-    tabbedPane.setSelectedIndex(kTabConfig)
-
+  def focusConfigObjective(scrollToLast: Boolean): Unit = {
     // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
     // tries (and fails) to expand a node with no children (yet)
     // TODO this is kind of ugly
@@ -320,6 +321,11 @@ class DsePanel(project: Project) extends JPanel {
       val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
       val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.objectivesNode)
       configTree.getTree.expandPath(nodePath)
+      if (scrollToLast) {
+        val lastNodePath = nodePath.pathByAddingChild(treeRoot.objectivesNode.children.last)
+        configTree.scrollRectToVisible(configTree.getTree.getPathBounds(lastNodePath))
+      }
+      tabbedPane.setSelectedIndex(kTabConfig)
     })
   }
 

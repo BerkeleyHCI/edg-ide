@@ -25,17 +25,17 @@ class DseService(project: Project) extends
   private var initialState: Option[DseServiceState] = None
 
   // Called when the run configuration changes
-  def onSearchConfigChanged(config: DseRunConfiguration): Unit = {
+  def onSearchConfigChanged(config: DseRunConfiguration, scrollToLast: Boolean): Unit = {
     dsePanelOption.foreach { panel =>
       panel.onConfigChange(config)
-      panel.focusConfigSearch()
+      panel.focusConfigSearch(scrollToLast)
     }
   }
 
-  def onObjectiveConfigChanged(config: DseRunConfiguration): Unit = {
+  def onObjectiveConfigChanged(config: DseRunConfiguration, scrollToLast: Boolean): Unit = {
     dsePanelOption.foreach { panel =>
       panel.onConfigChange(config)
-      panel.focusConfigObjective()
+      panel.focusConfigObjective(scrollToLast)
     }
   }
 
@@ -81,8 +81,8 @@ class DseService(project: Project) extends
 
   def addSearchConfig(blockType: ref.LibraryPath, newConfig: DseConfigElement, owner: Component): Unit = {
     val config = getOrCreateRunConfiguration(blockType, owner)
-    config.options.searchConfigs = config.options.searchConfigs ++ Seq(newConfig)
-    onSearchConfigChanged(config)
+    config.options.searchConfigs = config.options.searchConfigs :+ newConfig
+    onSearchConfigChanged(config, true)
   }
 
   def setResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],

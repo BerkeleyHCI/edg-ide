@@ -123,7 +123,7 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
       () => {
         val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
         config.options.objectives = config.options.objectives :+ objective
-        DseService(project).onObjectiveConfigChanged(config)
+        DseService(project).onObjectiveConfigChanged(config, true)
       }
     }, "Add objective"))
   }
