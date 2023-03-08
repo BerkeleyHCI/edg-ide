@@ -250,6 +250,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           add(mainSplitter)
         }
       })
+      revalidate()
     }
   }, 333, 333, TimeUnit.MILLISECONDS) // seems flakey without initial delay
 
