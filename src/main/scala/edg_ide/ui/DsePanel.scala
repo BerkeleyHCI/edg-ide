@@ -17,7 +17,7 @@ import edg_ide.ui.dse.{DseBasePlot, DseParallelPlotPanel, DseScatterPlotPanel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
-import java.awt.event.{MouseAdapter, MouseEvent}
+import java.awt.event.{KeyEvent, KeyListener, MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
@@ -42,9 +42,8 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
-    val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
     () => {
-      dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
+      dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != searchConfig)
       DseService(project).onSearchConfigChanged(dseConfig)
     }
   }, s"Delete"))
@@ -197,7 +196,7 @@ class DsePanel(project: Project) extends JPanel {
   mainSplitter.setFirstComponent(scatterPlot)
 
   // GUI: Bottom tabs
-
+  //
   private val tabbedPane = new JBTabbedPane()
   mainSplitter.setSecondComponent(tabbedPane)
 
@@ -219,6 +218,29 @@ class DsePanel(project: Project) extends JPanel {
             new DseObjectivePopupMenu(node.config, project).show(e.getComponent, e.getX, e.getY)
           }
         case _ =>  // any other type ignored
+      }
+    }
+  })
+  configTree.addKeyListener(new KeyListener {
+    override def keyTyped(keyEvent: KeyEvent): Unit = {}
+    override def keyReleased(keyEvent: KeyEvent): Unit = {}
+    override def keyPressed(keyEvent: KeyEvent): Unit = {
+      if (keyEvent.getKeyCode == KeyEvent.VK_DELETE) {
+        configTree.getTree.getSelectionPath.getLastPathComponent match {
+          case node: DseConfigTreeNode.DseSearchConfigNode =>
+            DseService(project).getRunConfiguration.foreach { dseConfig =>
+              val originalSearchConfigs = dseConfig.options.searchConfigs
+              dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != node.config)
+              DseService(project).onSearchConfigChanged(dseConfig)
+            }
+          case node: DseConfigTreeNode.DseObjectiveNode =>
+            DseService(project).getRunConfiguration.foreach { dseConfig =>
+              val originalObjectives = dseConfig.options.objectives
+              dseConfig.options.objectives = originalObjectives.filter(_ != node.config)
+              DseService(project).onSearchConfigChanged(dseConfig)
+            }
+          case _ => // ignored
+        }
       }
     }
   })
