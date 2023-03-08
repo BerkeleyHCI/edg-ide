@@ -256,6 +256,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
+        BlockVisualizerService(project).setDesignStale()
+
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
           if (discarded.nonEmpty) {

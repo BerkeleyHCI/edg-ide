@@ -135,6 +135,8 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   private val tree = new TreeTable(new ElementDetailTreeModel(initPath, schema.Design(), edgrpc.Refinements(), initCompiler))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
+  private val treeTreeRenderer = tree.getTree.getCellRenderer
+  private val treeTableRenderer = tree.getDefaultRenderer(classOf[Object])
 
   setLayout(new BorderLayout())
   add(treeScrollPane)
@@ -159,6 +161,16 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   //
   def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
     TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
+  }
+
+  def setStale(stale: Boolean): Unit = {
+    if (stale) {
+      tree.setTreeCellRenderer(new StaleTreeRenderer)
+      tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    } else {
+      tree.setTreeCellRenderer(treeTreeRenderer)
+      tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+    }
   }
 
   // Configuration State

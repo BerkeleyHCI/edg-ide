@@ -20,7 +20,6 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   // arbitrarily initialize to one axis, because why would this have less than one axis?
   private var axes: IndexedSeq[PlotAxis.AxisType] = IndexedSeq(Some(Seq()))
   private var data: IndexedSeq[Data] = IndexedSeq()
-  private var mouseoverDimNonselected: Boolean = false  // dim out non-selected points
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
 
@@ -142,7 +141,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       mouseOverIndices.contains(dataIndex)
     }.map(_._1)
 
-    val normalDataBlend = if (mouseoverDimNonselected) 0.33f else 1.0f
+    val normalDataBlend = if (selectedIndices.nonEmpty) 0.33f else 1.0f  // dim others if there is a selection
     paintData(paintGraphics, normalData, colorBlend = normalDataBlend)
 
     val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
@@ -210,13 +209,12 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       val clickedPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
-      val selectOverlapPoints = clickedPoints.filter { case (index, dist) =>
-        selectedIndices.contains(index)
-      }
-      val newPoints = if (selectOverlapPoints.isEmpty) { // no overlap, new selection
+      val newPoints = if (selectedIndices.nonEmpty) {  // if selection, subset from selection
+        clickedPoints.filter { case (index, dist) =>
+          selectedIndices.contains(index)
+        }
+      } else {  // otherwise create fresh selection
         clickedPoints
-      } else { // overlap, subset selection
-        selectOverlapPoints
       }
 
       onClick(e, newPoints.sortBy(_._2).map(pair => data(pair._1)))
@@ -227,15 +225,12 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
       val mouseoverPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
-      val selectOverlapPoints = mouseoverPoints.filter { case (index, dist) =>
-        selectedIndices.contains(index)
-      }
-      val newPoints = if (selectOverlapPoints.isEmpty) {  // no overlap, new selection
-        mouseoverDimNonselected = false
+      val newPoints = if (selectedIndices.nonEmpty) {  // if selection, subset from selection
+        mouseoverPoints.filter { case (index, dist) =>
+          selectedIndices.contains(index)
+        }
+      } else { // otherwise create fresh selection
         mouseoverPoints
-      } else {  // overlap, subset selection
-        mouseoverDimNonselected = true
-        selectOverlapPoints
       }
 
       if (mouseOverIndices != newPoints.map(_._1)) {

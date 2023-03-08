@@ -275,6 +275,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   })
   designTree.setShowColumns(true)
 
+  private val designTreeTreeRenderer = designTree.getTree.getCellRenderer
+  private val designTreeTableRenderer = designTree.getDefaultRenderer(classOf[Object])
+
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
 
@@ -388,28 +391,23 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
     TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+    designTree.setTreeCellRenderer(designTreeTreeRenderer)
+    designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
 
     // Also update the active detail panel
     selectPath(selectionPath)
+    detailPanel.setStale(false)
 
     updateDisplay()
   }
 
-  /** Clears the existing design
+  /** Sets the entire design as stale, eg if a recompile is running. Cleared with any variation of setDesign.
     */
-  def clearDesign(): Unit = {
-    this.refinements = edgrpc.Refinements()
-    setDesign(schema.Design(), new Compiler(schema.Design(), EdgCompilerService(project).pyLib))
-    tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
-    errorPanel.setErrors(Seq(), compiler)
-
-    ApplicationManager.getApplication.invokeLater(() => {
-      toolWindow.setTitle("")
-    })
-
-    if (activeTool != defaultTool) { // revert to the default tool
-      toolInterface.endTool() // TODO should we also preserve state like selected?
-    }
+  def setDesignStale(): Unit = {
+    designTree.setTreeCellRenderer(new StaleTreeRenderer)
+    designTree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    errorPanel.setStale()
+    detailPanel.setStale(true)
   }
 
   /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
@@ -605,6 +603,8 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
+  private val treeTreeRenderer = tree.getTree.getCellRenderer
+  private val treeTableRenderer = tree.getDefaultRenderer(classOf[Object])
 
   setLayout(new BorderLayout())
   add(treeScrollPane)
@@ -613,6 +613,13 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   //
   def setErrors(errs: Seq[CompilerError], compiler: Compiler): Unit = {
     TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
+    tree.setTreeCellRenderer(treeTreeRenderer)
+    tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+  }
+
+  def setStale(): Unit = {
+    tree.setTreeCellRenderer(new StaleTreeRenderer)
+    tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
   }
 
   // Configuration State

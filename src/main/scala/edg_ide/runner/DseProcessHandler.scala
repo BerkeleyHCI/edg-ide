@@ -159,7 +159,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
-        BlockVisualizerService(project).clearDesign()
+        BlockVisualizerService(project).setDesignStale()
 
         // compared to the single design compiler the debug info is a lot sparser here
         runFailableStage("discard stale", indicator) {
