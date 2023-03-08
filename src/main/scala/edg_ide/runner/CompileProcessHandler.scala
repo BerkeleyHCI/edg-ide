@@ -170,6 +170,7 @@ trait HasConsoleStages {
     */
   protected def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
                                           (fn: => (ReturnType, String)): ReturnType = {
+    if (Thread.interrupted()) throw new InterruptedException  // TODO cleaner way to stop compile process?
     indicator.setText(f"EDG compiling: $name")
     indicator.setIndeterminate(true)
     val ((fnResult, fnResultStr), fnTime) = timeExec {
@@ -190,7 +191,7 @@ trait HasConsoleStages {
         fn
       }
     } catch {
-      case e: Exception =>
+      case e: Exception if !e.isInstanceOf[InterruptedException] =>
         console.print(s"Failed: $name: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
         // By default, the stack trace isn't printed, since most of the internal details
         // (stack trace elements) aren't relevant for end users
