@@ -118,12 +118,12 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).get
       () => {
         ReadAction.nonBlocking((() => {
-          val subClasses = PyClassInheritorsSearch.search(blockPyClass, true).findAll().asScala
-          subClasses.filter { subclass =>  // filter out abstract blocks
-            !DesignAnalysisUtils.isPyClassAbstract(subclass)
-          } .map { subclass =>
-            DesignAnalysisUtils.typeOf(subclass)
-          }
+          DesignAnalysisUtils.findOrderedSubclassesOf(blockPyClass)
+              .filter { subclass =>  // filter out abstract blocks
+                !DesignAnalysisUtils.isPyClassAbstract(subclass)
+              } .map { subclass =>
+                DesignAnalysisUtils.typeOf(subclass)
+              }
         }): Callable[Iterable[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), subclasses => {
           if (subclasses.isEmpty) {
             PopupUtils.createErrorPopupAtMouse(s"${blockPyClass.getName} has no non-abstract subclasses", this)
