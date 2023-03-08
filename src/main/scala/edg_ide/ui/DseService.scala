@@ -9,6 +9,9 @@ import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.runner.{DseConfigurationFactory, DseRunConfiguration, DseRunConfigurationType}
 import edgir.ref.ref
 
+import java.awt.Component
+import scala.jdk.CollectionConverters.ListHasAsScala
+
 
 object DseService {
   def apply(project: Project): DseService = {
@@ -43,29 +46,44 @@ class DseService(project: Project) extends
         .collect { case config: DseRunConfiguration => config }
   }
 
-  def getOrCreateRunConfiguration(blockType: ref.LibraryPath): DseRunConfiguration = {
-    val existingConfig = Option(RunManager.getInstance(project).getSelectedConfiguration)
+  def getOrCreateRunConfiguration(blockType: ref.LibraryPath, owner: Component): DseRunConfiguration = {
+    val runManager = RunManager.getInstance(project)
+    val currentConfig = Option(runManager.getSelectedConfiguration)
         .map(_.getConfiguration)
-        .collect { case config: DseRunConfiguration => config } match {
-      case Some(existingConfig) if existingConfig.options.designName == blockType.toFullString =>
-        Some(existingConfig)
-      case _ => None
+        .collect {
+          case config: DseRunConfiguration if config.options.designName == blockType.toFullString => config
+        }
+    val existingConfig = currentConfig.orElse {
+      runManager.getAllSettings.asScala.toSeq.map { configSettings =>
+        println(s"$configSettings    ${configSettings.getConfiguration}")
+        (configSettings, configSettings.getConfiguration)
+      }.collectFirst {
+        case (configSettings, config: DseRunConfiguration) if config.options.designName == blockType.toFullString =>
+          (configSettings, config)
+      } match {
+        case Some((configSettings, config)) =>
+          runManager.setSelectedConfiguration(configSettings)
+          PopupUtils.createPopupAtMouse(s"switched to existing DSE config ${config.getName}", owner)
+          Some(config)
+        case None => None
+      }
     }
     existingConfig.getOrElse { // if no existing config of the type, create a new one
-      val runManager = RunManager.getInstance(project)
-      val newRunnerConfig = runManager.createConfiguration(
+      val newConfigSettings = runManager.createConfiguration(
         blockType.toFullString, new DseConfigurationFactory(new DseRunConfigurationType))
-      runManager.addConfiguration(newRunnerConfig)
-      runManager.setSelectedConfiguration(newRunnerConfig)
+      runManager.addConfiguration(newConfigSettings)
+      runManager.setSelectedConfiguration(newConfigSettings)
 
-      val newConfig = newRunnerConfig.getConfiguration.asInstanceOf[DseRunConfiguration]
+      val newConfig = newConfigSettings.getConfiguration.asInstanceOf[DseRunConfiguration]
       newConfig.options.designName = blockType.toFullString
+      PopupUtils.createPopupAtMouse(s"created new DSE config ${newConfig.getName}", owner)
+
       newConfig
     }
   }
 
-  def addConfig(blockType: ref.LibraryPath, newConfig: DseConfigElement): Unit = {
-    val config = getOrCreateRunConfiguration(blockType)
+  def addSearchConfig(blockType: ref.LibraryPath, newConfig: DseConfigElement, owner: Component): Unit = {
+    val config = getOrCreateRunConfiguration(blockType, owner)
     config.options.searchConfigs = config.options.searchConfigs ++ Seq(newConfig)
     onSearchConfigChanged(config)
   }
