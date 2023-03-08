@@ -54,18 +54,15 @@ class DseService(project: Project) extends
           case config: DseRunConfiguration if config.options.designName == blockType.toFullString => config
         }
     val existingConfig = currentConfig.orElse {
-      runManager.getAllSettings.asScala.toSeq.map { configSettings =>
-        println(s"$configSettings    ${configSettings.getConfiguration}")
+      runManager.getAllSettings.asScala.map { configSettings =>
         (configSettings, configSettings.getConfiguration)
       }.collectFirst {
         case (configSettings, config: DseRunConfiguration) if config.options.designName == blockType.toFullString =>
           (configSettings, config)
-      } match {
-        case Some((configSettings, config)) =>
-          runManager.setSelectedConfiguration(configSettings)
-          PopupUtils.createPopupAtMouse(s"switched to existing DSE config ${config.getName}", owner)
-          Some(config)
-        case None => None
+      }.map { case (configSettings, config) =>
+        runManager.setSelectedConfiguration(configSettings)
+        PopupUtils.createPopupAtMouse(s"switched to existing DSE config ${config.getName}", owner)
+        config
       }
     }
     existingConfig.getOrElse { // if no existing config of the type, create a new one
