@@ -5,7 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
+import com.intellij.ui.{JBColor, JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemModifier
@@ -26,13 +26,13 @@ import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
-import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.event.{ComponentAdapter, ComponentEvent, MouseAdapter, MouseEvent}
+import java.awt.{BorderLayout, Color, Dimension, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel, TransferHandler}
+import javax.swing.{JLabel, JLayeredPane, JPanel, OverlayLayout, SwingConstants, TransferHandler}
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
@@ -128,7 +128,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     override def endTool(): Unit = {
       activeTool = defaultTool
       activeTool.init()
-      setStatus("Ready")
+      setStatus("")
     }
   }
 
@@ -177,28 +177,17 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI Components
   //
-  private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
+  private val mainSplitter = new JBSplitter(true, 0.5f, 0.05f, 0.95f)
 
   // GUI: Top half (status and block visualization)
   //
-  private val visualizationPanel = new JPanel(new GridBagLayout())
+  private val visualizationPanel = new JLayeredPane()
   mainSplitter.setFirstComponent(visualizationPanel)
 
-  private val status = new JLabel(s"Ready " +
-      s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
-      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
-  )
-  visualizationPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
-
-  // TODO max value based on depth of tree?
-  private val depthSpinner = new JBIntSpinner(1, 1, 8)
-  depthSpinner.addChangeListener(new ChangeListener {
-    override def stateChanged(e: ChangeEvent): Unit = {
-      updateDisplay()
-    }
-  })
-  // TODO update visualization on change?
-  visualizationPanel.add(depthSpinner, Gbc(2, 0))
+  private val status = new JLabel("")
+  status.setHorizontalAlignment(SwingConstants.LEFT)
+  status.setVerticalAlignment(SwingConstants.TOP)
+  visualizationPanel.add(status, Integer.valueOf(2))
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
@@ -225,12 +214,21 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
   graph.addMouseListener(graphScrollPane.makeMouseAdapter)
   graph.addMouseMotionListener(graphScrollPane.makeMouseAdapter)
-  visualizationPanel.add(graphScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize=3))
+  visualizationPanel.add(graphScrollPane, Integer.valueOf(1))
+
+  visualizationPanel.addComponentListener(new ComponentAdapter() {
+    override def componentResized(e: ComponentEvent): Unit = {
+      status.setSize(visualizationPanel.getSize)  // explicit size required for JLayeredPane which has null layout
+      graphScrollPane.setSize(visualizationPanel.getSize)
+      visualizationPanel.revalidate()
+      visualizationPanel.repaint()
+    }
+  });
 
   // GUI: Bottom half (design tree and task tabs)
   //
-  private val dseSplitter = new JBSplitter(true, 0.66f, 0.1f, 0.9f)
-  private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
+  private val dseSplitter = new JBSplitter(true, 0.66f, 0.05f, 0.95f)
+  private val bottomSplitter = new JBSplitter(false, 0.33f, 0.05f, 0.95f)
   mainSplitter.setSecondComponent(bottomSplitter)
 
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
@@ -424,7 +422,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
       val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(
-        block, blockPath, depthSpinner.getNumber,
+        block, blockPath, 1,
         // note, adding port side constraints with hierarchy seems to break ELK
         Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
           ElkEdgirGraphUtils.DesignPathMapper)
@@ -503,7 +501,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.depthSpinner = depthSpinner.getNumber
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
@@ -515,7 +512,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
-    depthSpinner.setNumber(state.depthSpinner)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)

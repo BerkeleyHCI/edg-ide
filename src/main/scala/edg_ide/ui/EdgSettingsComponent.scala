@@ -5,6 +5,7 @@ import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.FormBuilder
+import edg_ide.build.BuildInfo
 
 import javax.swing.{JCheckBox, JPanel}
 
@@ -38,6 +39,10 @@ class EdgSettingsComponent {
     "IDE restart may be required to take effect.")
   showInternalBlocksHelp.setEnabled(false)
 
+  val versionLabel = new JBLabel(s"Version ${BuildInfo.version}, built at ${BuildInfo.builtAtString}, " +
+      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}")
+  versionLabel.setEnabled(false)
+
   val mainPanel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
       .addComponent(kicadDirectoryHelp)
@@ -48,6 +53,7 @@ class EdgSettingsComponent {
       .addLabeledComponent(new JBLabel("Show Internal Blocks"), showInternalBlocks, false)
       .addComponent(showInternalBlocksHelp)
       .addComponentFillVertically(new JPanel(), 0)
+      .addComponent(versionLabel)
       .getPanel
 }
 
