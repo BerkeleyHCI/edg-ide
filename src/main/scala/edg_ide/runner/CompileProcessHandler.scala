@@ -239,6 +239,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    BlockVisualizerService(project).setDesignStale()
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
@@ -257,8 +258,6 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
-        BlockVisualizerService(project).setDesignStale()
-
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
           if (discarded.nonEmpty) {

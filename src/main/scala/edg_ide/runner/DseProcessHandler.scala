@@ -110,6 +110,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    BlockVisualizerService(project).setDesignStale()
 
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
@@ -159,8 +160,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
-        BlockVisualizerService(project).setDesignStale()
-
         // compared to the single design compiler the debug info is a lot sparser here
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()

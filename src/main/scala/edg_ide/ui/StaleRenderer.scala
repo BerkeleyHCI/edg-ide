@@ -19,7 +19,6 @@ class StaleTreeRenderer extends DefaultTreeCellRenderer {
 }
 
 
-
 class StaleTableRenderer extends DefaultTableCellRenderer {
   override def getTableCellRendererComponent(table: JTable, value: Any, isSelected: Boolean, hasFocus: Boolean,
                                              row: Int, column: Int): Component = {
