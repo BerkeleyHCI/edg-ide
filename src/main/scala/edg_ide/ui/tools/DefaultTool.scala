@@ -109,11 +109,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     addSeparator()
 
     val rootClass = interface.getDesign.getContents.getSelfClass
-    val (refinementClass, refinementLabel) = block.prerefineClass match {
-      case Some(prerefineClass) if prerefineClass != block.getSelfClass =>
-        (prerefineClass, f"Search refinements of base ${prerefineClass.toSimpleString}")
-      case _ => (block.getSelfClass, f"Search refinements of ${block.getSelfClass.toSimpleString}")
-    }
+    val refinementClass = block.prerefineClass.getOrElse(block.getSelfClass)
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).get
       () => {
@@ -134,25 +130,25 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
           }
         }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       }
-    }, refinementLabel))
+    }, f"Search subclasses of ${refinementClass.toSimpleString}"))
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       requireExcept(block.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
       () => {
         val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
         config.options.searchConfigs = config.options.searchConfigs :+ DseDerivedPartSearch(path)
         DseService(project).onSearchConfigChanged(config, true)
-    }}, "Search matching parts"))
+    }}, s"Search matching parts"))
 
     add(ContextMenuUtils.MenuItem(() => {
       val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
       config.options.objectives = config.options.objectives :+ DseObjectiveFootprintArea(path)
       DseService(project).onObjectiveConfigChanged(config, true)
-    }, "Add objective contained footprint area"))
+    }, s"Add objective area"))
     add(ContextMenuUtils.MenuItem(() => {
       val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
       config.options.objectives = config.options.objectives :+ DseObjectiveFootprintCount(path)
       DseService(project).onObjectiveConfigChanged(config, true)
-    }, "Add objective contained footprint count"))
+    }, s"Add objective component count"))
   }
 }
 
