@@ -41,7 +41,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
           Some(elt.positions(index))
         }
       }
-      JScatterPlot.defaultValuesRange(values.flatten)
+      JDsePlot.defaultValuesRange(values.flatten)
     }
 
     validate()
@@ -70,13 +70,13 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
       val ticks = axis match {
         case Some(axis) => axis
-        case _ => JScatterPlot.getAxisTicks(range, getHeight)
+        case _ => JDsePlot.getAxisTicks(range, getHeight)
       }
       ticks.foreach { case (tickPos, tickVal) =>
-        val screenPos = ((range._2 - tickPos) * JScatterPlot.dataScale(range, getHeight)).toInt
-        paintGraphics.drawLine(axisX, screenPos, axisX + JScatterPlot.kTickSizePx, screenPos)
+        val screenPos = ((range._2 - tickPos) * JDsePlot.dataScale(range, getHeight)).toInt
+        paintGraphics.drawLine(axisX, screenPos, axisX + JDsePlot.kTickSizePx, screenPos)
         DrawAnchored.drawLabel(paintGraphics, tickVal,
-          (axisX + JScatterPlot.kTickSizePx, screenPos), DrawAnchored.Left)
+          (axisX + JDsePlot.kTickSizePx, screenPos), DrawAnchored.Left)
       }
     }
   }
@@ -95,10 +95,10 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     val axisPos = getPositionForAxis(axisIndex)
     val dataPos = getPositionForValue(axisIndex, value)
 
-    paintGraphics.drawOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
-      JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
-    paintGraphics.fillOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
-      JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
+    paintGraphics.drawOval(axisPos - JDsePlot.kPointSizePx / 2, dataPos - JDsePlot.kPointSizePx / 2,
+      JDsePlot.kPointSizePx, JDsePlot.kPointSizePx)
+    paintGraphics.fillOval(axisPos - JDsePlot.kPointSizePx / 2, dataPos - JDsePlot.kPointSizePx / 2,
+      JDsePlot.kPointSizePx, JDsePlot.kPointSizePx)
   }
 
   private def paintData(paintGraphics: Graphics, data: IndexedSeq[Data], noColor: Boolean = false,
@@ -145,12 +145,12 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     paintData(paintGraphics, normalData, colorBlend = normalDataBlend)
 
     val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-    selectedGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
+    selectedGraphics.setStroke(new BasicStroke(JDsePlot.kLineSelectedSizePx.toFloat))
     paintData(selectedGraphics, selectedData)
 
     val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-    hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
+    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, 0.5))
+    hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverOutlinePx.toFloat))
     paintData(hoverGraphics, mouseoverData, noColor = true)
 
     paintData(selectedGraphics, mouseoverData)  // TODO: separate out selected from mouseover? idk
@@ -158,7 +158,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val axesGraphics = paintGraphics.create()
-    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JScatterPlot.kTickBrightness))
+    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness))
     paintAxes(axesGraphics)
 
     paintAllData(paintGraphics)
@@ -203,12 +203,12 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       return Int.MinValue
     }
     val range = axesRange(axisIndex)
-    ((range._2 - value) * JScatterPlot.dataScale(range, getHeight)).toInt
+    ((range._2 - value) * JDsePlot.dataScale(range, getHeight)).toInt
   }
 
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val clickedPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
+      val clickedPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
       val newPoints = if (selectedIndices.nonEmpty) {  // if selection, subset from selection
         clickedPoints.filter { case (index, dist) =>
           selectedIndices.contains(index)
@@ -224,7 +224,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val mouseoverPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
+      val mouseoverPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
       val newPoints = if (selectedIndices.nonEmpty) {  // if selection, subset from selection
         mouseoverPoints.filter { case (index, dist) =>
           selectedIndices.contains(index)
@@ -250,7 +250,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
 
       val axisIndex = getAxisForLocation(e.getX)
-      val newRange = JScatterPlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
+      val newRange = JDsePlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
       axesRange = axesRange.updated(axisIndex, newRange)
 
       validate()
@@ -294,7 +294,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseMotionListener(dragListener) // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx).headOption match {
+    getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
       case None => null
     }

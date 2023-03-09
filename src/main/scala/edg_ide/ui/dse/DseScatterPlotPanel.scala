@@ -43,7 +43,7 @@ class DseScatterPlotPanel() extends DseBasePlot {
 
   setLayout(new GridBagLayout)
 
-  private val scatterPlot = new JScatterPlot[DseResult]() {
+  private val scatterPlot = new JDsePlot[DseResult]() {
     override def onClick(e: MouseEvent, data: Seq[Data]): Unit = {
       DseScatterPlotPanel.this.onClick(e, data.map(_.value))
     }
