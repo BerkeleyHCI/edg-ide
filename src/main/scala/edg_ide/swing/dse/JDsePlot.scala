@@ -15,7 +15,7 @@ object JDsePlot {
   val kPointSelectedSizePx: Int = 6 // diameter in px
   val kPointHoverOutlinePx: Int = 12 // diameter in px
   val kLineSelectedSizePx: Int = 2 // width in px
-  val kLineHoverOutlinePx: Int = 8 // width in px
+  val kLineHoverOutlinePx: Int = 7 // width in px
   val kHoverOutlineColor: Color = JBColor.YELLOW
 
   val kTickBrightness: Float = 0.25f

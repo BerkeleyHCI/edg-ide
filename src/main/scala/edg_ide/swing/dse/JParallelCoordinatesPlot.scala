@@ -193,6 +193,17 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     }
   }
 
+  def getSelectingPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
+    val allPoints = getPointsForLocation(x, y, maxDistance)
+    if (selectedIndices.nonEmpty) { // if selection, subset from selection
+      allPoints.filter { case (index, dist) =>
+        selectedIndices.contains(index)
+      }
+    } else { // otherwise create fresh selection
+      allPoints
+    }
+  }
+
   def getPositionForAxis(axisIndex: Int): Int = {
     val axisSpacing = getWidth / math.max(axes.length, 1)
     axisSpacing * axisIndex + axisSpacing / 2
@@ -214,15 +225,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val clickedPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
-      val newPoints = if (selectedIndices.nonEmpty) {  // if selection, subset from selection
-        clickedPoints.filter { case (index, dist) =>
-          selectedIndices.contains(index)
-        }
-      } else {  // otherwise create fresh selection
-        clickedPoints
-      }
-
+      val newPoints = getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
       onClick(e, newPoints.sortBy(_._2).map(pair => data(pair._1)))
     }
   })
@@ -230,15 +233,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val mouseoverPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
-      val newPoints = if (selectedIndices.nonEmpty) {  // if selection, subset from selection
-        mouseoverPoints.filter { case (index, dist) =>
-          selectedIndices.contains(index)
-        }
-      } else { // otherwise create fresh selection
-        mouseoverPoints
-      }
-
+      val newPoints = getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
       if (mouseOverIndices != newPoints.map(_._1)) {
         mouseOverIndices = newPoints.map(_._1)
         validate()
@@ -300,7 +295,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseMotionListener(dragListener) // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
+    getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
       case None => null
     }

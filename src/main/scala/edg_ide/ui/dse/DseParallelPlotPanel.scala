@@ -4,7 +4,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ui.ComboBox
 import edg_ide.dse._
-import edg_ide.swing.SwingHtmlUtil
+import edg_ide.swing.{ColorUtil, SwingHtmlUtil}
 import edg_ide.swing.dse._
 import edg_ide.ui.Gbc
 
@@ -80,14 +80,14 @@ class DseParallelPlotPanel() extends DseBasePlot {
     val parallelPoints = flatResults.toIndexedSeq.zipWithIndex.map { case (result, dataIndex) =>
       val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
       val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-        case (_, true) => Some(DseResultModel.kColorOtherError)
-        case (true, false) => Some(DseResultModel.kColorIdealError)
+        case (_, true) => Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorOtherError, 0.66))
+        case (true, false) => Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorIdealError, 0.66))
         case (false, false) => None
       }
       val tooltipText = DseConfigElement.configMapToString(result.config)
       val axisValues = axisSelectors.indices.map { axisIndex =>
         pointsByAxis(axisIndex)(dataIndex)
-      }.toIndexedSeq
+      }
 
       new parallelPlot.Data(result, axisValues, color,
         Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont)))
