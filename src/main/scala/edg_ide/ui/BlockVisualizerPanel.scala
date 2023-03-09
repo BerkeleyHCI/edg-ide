@@ -5,14 +5,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.intellij.ui.{JBColor, JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
+import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemModifier
 import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
-import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
@@ -27,12 +26,12 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.{ComponentAdapter, ComponentEvent, MouseAdapter, MouseEvent}
-import java.awt.{BorderLayout, Color, Dimension, GridBagConstraints, GridBagLayout}
+import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
-import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JLayeredPane, JPanel, OverlayLayout, SwingConstants, TransferHandler}
+import javax.swing._
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
