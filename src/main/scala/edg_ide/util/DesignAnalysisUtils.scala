@@ -334,10 +334,12 @@ object DesignAnalysisUtils {
   }
 
   /** Like PyClassInheritorsSearch.search, but returns subclasses depth-first order (roughly grouping similar results).
+    * Each level is sorted alphabetically by name.
     * If a subclass occurs multiple times, only the first is kept.
     */
   def findOrderedSubclassesOf(superclass: PyClass): Seq[PyClass] = {
     val directSubclasses = PyClassInheritorsSearch.search(superclass, false).findAll().asScala.toSeq
+        .sortBy(_.getName)
     directSubclasses.flatMap { directSubclass =>
       directSubclass +: findOrderedSubclassesOf(directSubclass)
     }.distinct

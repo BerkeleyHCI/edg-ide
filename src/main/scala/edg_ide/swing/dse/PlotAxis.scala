@@ -1,7 +1,7 @@
 package edg_ide.swing.dse
 
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import edg_ide.dse.{DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseRefinementElement, DseResult}
 
 
 object PlotAxis {
@@ -142,7 +142,17 @@ class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
     val values = results.map { result =>
       result.config.get(config).map(config.valueToString)
     }
-    val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+
+    val distinctValues = values.flatten.distinct
+    val presort = (config match {  // sorted by input space
+      case config: DseRefinementElement[Any] => config.getValues.map { case (value, refinements) =>
+        config.valueToString(value)
+      }
+      case _ => Seq()
+    }).filter(distinctValues.contains(_))
+    val postsort = distinctValues.filter(!presort.contains(_)).sorted  // anything else in actual results
+
+    val stringToPos = (presort ++ postsort).zipWithIndex.map { case (str, index) => (str, index.toFloat) }
     val axis = stringToPos.map { case (str, index) => (index, str) }
 
     val stringToPosMap = stringToPos.toMap
