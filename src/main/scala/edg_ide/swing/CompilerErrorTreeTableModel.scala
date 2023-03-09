@@ -3,6 +3,7 @@ package edg_ide.swing
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, ElaborateRecord, ExprToString, ExprVarToValue}
+import edg.wir.{DesignPath, IndirectDesignPath}
 
 import java.awt.event.MouseEvent
 import javax.swing.JTree
@@ -43,41 +44,41 @@ object CompilerErrorNodeBase {
         new CompilerErrorDetailNode("Missing Port", path.toString)
     }
 
-    private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
+    private lazy val all: (String, IndirectDesignPath, Seq[CompilerErrorNodeBase]) = err match {
       case CompilerError.Unelaborated(ElaborateRecord.Block(path), deps) =>
-        ("Unelaborated Block", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
+        ("Unelaborated Block", path.asIndirect, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Link(path), deps) =>
-        ("Unelaborated Link", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
+        ("Unelaborated Link", path.asIndirect, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.ParamValue(path), deps) =>
-        ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
+        ("Unelaborated Param", path, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath, root), deps) =>
-        (s"Unelaborated Connect", root.toString, Seq(
+        (s"Unelaborated Connect", root.asIndirect, Seq(
           new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
           new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString),
         ) ++ deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(unelaborated, deps) =>
-        (s"Unknown unelaborated $unelaborated", "", deps.toSeq.map(elaborateRecordToDetailNode))
+        (s"Unknown unelaborated $unelaborated", DesignPath().asIndirect, deps.toSeq.map(elaborateRecordToDetailNode))
 
       case CompilerError.LibraryElement(path, target) =>
-        (s"Missing library element ${target.toSimpleString}", path.toString, Seq())
+        (s"Missing library element ${target.toSimpleString}", path.asIndirect, Seq())
 
       case CompilerError.BadRef(path, ref) =>
-        (s"Bad reference $ref", path.toString, Seq())
+        (s"Bad reference $ref", path.asIndirect, Seq())
       case CompilerError.UndefinedPortArray(path, portType) =>
-        (s"Undefined port array", path.toString, Seq())
+        (s"Undefined port array", path.asIndirect, Seq())
       case CompilerError.LibraryError(path, target, err) =>
-        (s"Library error, ${target.toSimpleString}", path.toString,
+        (s"Library error, ${target.toSimpleString}", path.asIndirect,
             err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
       case CompilerError.GeneratorError(path, target, err) =>
-        (s"Generator error, ${target.toSimpleString}", path.toString,
+        (s"Generator error, ${target.toSimpleString}", path.asIndirect,
             err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
       case CompilerError.RefinementSubclassError(path, refinedLibrary, designLibrary) =>
         (s"Refinement class ${refinedLibrary.toSimpleString} " +
             s"not a subclass of design class ${designLibrary.toSimpleString}",
-            path.toString, Seq())
+          path.asIndirect, Seq())
 
       case CompilerError.OverAssign(target, causes) =>
-        ("Conflicting assign", target.toString,
+        ("Conflicting assign", target,
             causes.map {
               case CompilerError.OverAssignCause.Assign(target, root, constrName, value) =>
                 new CompilerErrorDetailNode(s"$target ⇐ ${ExprToString(value)}", s"$root:$constrName")
@@ -85,32 +86,34 @@ object CompilerErrorNodeBase {
                 new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
             })
       case CompilerError.AbstractBlock(path, blockType) =>
-        (s"Abstract block, ${blockType.toSimpleString}", path.toString, Seq())
+        (s"Abstract block, ${blockType.toSimpleString}", path.asIndirect, Seq())
       case CompilerError.FailedAssertion(root, constrName, value, result, compiler) => {
-        (s"Failed assertion", s"$root:$constrName", Seq(
+        (s"Failed assertion", (DesignPath() + s"$root:$constrName").asIndirect, Seq(
           new CompilerErrorDetailNode(ExprVarToValue(value, compiler, root), result.toStringValue)
         ))
       }
       case CompilerError.MissingAssertion(root, constrName, value, missing) =>
-        (s"Missing assertion", s"$root:$constrName", missing.toSeq.map { param =>
+        (s"Missing assertion", (DesignPath() + s"$root:$constrName").asIndirect, missing.toSeq.map { param =>
           new CompilerErrorDetailNode("Missing param", param.toString)
         })
 
       case CompilerError.InconsistentLinkArrayElements(root, linkPath, linkElements,
                                                        blockPortPath, blockPortElements) =>
-        (s"Inconsistent link array elements", s"$linkPath", Seq(
+        (s"Inconsistent link array elements", (DesignPath() +  s"$linkPath").asIndirect, Seq(
           new CompilerErrorDetailNode("Link elements", linkElements.toStringValue),
           new CompilerErrorDetailNode(f"Block port elements @ $blockPortPath", blockPortElements.toStringValue)
         ))
 
       case CompilerError.EmptyRange(param, root, constrName, value) =>
-        (s"Empty range", s"$param", Seq(
+        (s"Empty range", (DesignPath() + s"$param").asIndirect, Seq(
           new CompilerErrorDetailNode(ExprToString(value), s"$root:$constrName")
         ))
     }
 
     override lazy val children: Seq[CompilerErrorNodeBase] = all._3
-    override def getColumns(index: Int): String = all._2
+    override def getColumns(index: Int): String = {
+      "<html><a href=''>" + all._2.toString + "</a></html>"
+    }
     override def toString: String = all._1
   }
 }
@@ -162,5 +165,6 @@ class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) 
   // These aren't relevant for trees that can't be edited
   override def isNodeCellEditable(node: CompilerErrorNodeBase, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: CompilerErrorNodeBase, column: Int): Unit = {}
+
   def setTree(tree: JTree): Unit = {}  // tree updates ignored
 }
