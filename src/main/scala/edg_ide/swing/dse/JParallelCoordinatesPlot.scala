@@ -202,8 +202,14 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     if (axisIndex >= axesRange.length) {
       return Int.MinValue
     }
-    val range = axesRange(axisIndex)
-    ((range._2 - value) * JDsePlot.dataScale(range, getHeight)).toInt
+    value match {
+      case Float.PositiveInfinity => 1
+      case Float.NegativeInfinity => getHeight - 2
+      case _ =>
+        val range = axesRange(axisIndex)
+        ((range._2 - value) * JDsePlot.dataScale(range, getHeight)).toInt
+    }
+
   }
 
   addMouseListener(new MouseAdapter {

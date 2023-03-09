@@ -32,8 +32,16 @@ class JScatterPlot[ValueType] extends JComponent {
   private var xRange = (-1.0f, 1.0f)
   private var yRange = (-1.0f, 1.0f)
 
-  private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * JDsePlot.dataScale(xRange, getWidth)).toInt
-  private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * JDsePlot.dataScale(yRange, getHeight)).toInt
+  private def dataToScreenX(dataVal: Float): Int = dataVal match {
+    case Float.PositiveInfinity => getWidth - 2
+    case Float.NegativeInfinity => 1
+    case _ => ((dataVal - xRange._1) * JDsePlot.dataScale(xRange, getWidth)).toInt
+  }
+  private def dataToScreenY(dataVal: Float): Int = dataVal match {
+    case Float.PositiveInfinity => 1
+    case Float.NegativeInfinity => getHeight - 2
+    case _ => ((yRange._2 - dataVal) * JDsePlot.dataScale(yRange, getHeight)).toInt
+  }
 
   def setData(xys: IndexedSeq[Data], xAxis: PlotAxis.AxisType = None, yAxis: PlotAxis.AxisType = None): Unit = {
     data = xys
