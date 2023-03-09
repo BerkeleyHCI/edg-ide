@@ -247,6 +247,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
           DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, false, false)
+          BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
           if (options.searchConfigs.isEmpty && results.length == 1) {
             val result = results.head
