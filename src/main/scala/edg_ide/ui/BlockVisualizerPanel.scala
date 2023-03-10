@@ -27,7 +27,7 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.{BorderLayout, Component, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
@@ -588,6 +588,21 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
+
+  // Mouse listener for node click event
+  tree.addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      val dataTree = tree.getTree().getComponentAt(0, e.getY)
+
+      def printPath(dataTree: Component): String = {
+        dataTree match {
+          case `dataTree` => "" + dataTree
+          case null => "none"
+        }
+      }
+      printf(printPath(dataTree))
+    }
+  })
 
   setLayout(new BorderLayout())
   add(treeScrollPane)
