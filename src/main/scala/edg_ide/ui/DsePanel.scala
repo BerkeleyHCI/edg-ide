@@ -75,9 +75,12 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
 
 
 class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu {
+  add(new JLabel(s"Point ${result.index}"))
   result.config.foreach { case (config, configValue) =>
-    add(new JLabel(s"Point ${result.index}"))
     add(new JLabel(s"${config.configToString} = ${config.valueToString(configValue)}"))
+  }
+  result.objectives.foreach { case (objective, objectiveValue) =>
+    add(new JLabel(s"${objective.objectiveToString} = ${DseConfigElement.valueToString(objectiveValue)}"))
   }
   addSeparator()
 
