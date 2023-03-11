@@ -13,7 +13,6 @@ import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.build.BuildInfo
-import edg_ide.dse.DseFeature
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
@@ -34,8 +33,8 @@ import java.util.concurrent.{Callable, TimeUnit}
 import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing.{JLabel, JPanel, TransferHandler}
-import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.collection.{SeqMap, mutable}
+import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
 
 
@@ -237,16 +236,18 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
   private var dsePanelShown = false
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val dseConfigSelected = BlockVisualizerService(project).getDseRunConfiguration.isDefined
+    val dseConfigSelected = DseService(project).getRunConfiguration.isDefined
     if (dsePanelShown != dseConfigSelected) {
-      if (dseConfigSelected) {
-        mainSplitter.setSecondComponent(dseSplitter)
-        dseSplitter.setFirstComponent(bottomSplitter)
-      } else {
-        dseSplitter.setFirstComponent(null)
-        mainSplitter.setSecondComponent(bottomSplitter)
-      }
-      dsePanelShown = dseConfigSelected
+      dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
+      ApplicationManager.getApplication.invokeLater(() => {
+        if (dseConfigSelected) {
+          mainSplitter.setSecondComponent(dseSplitter)
+          dseSplitter.setFirstComponent(bottomSplitter)
+        } else {
+          dseSplitter.setFirstComponent(null)
+          mainSplitter.setSecondComponent(bottomSplitter)
+        }
+      })
     }
   }, 333, 333, TimeUnit.MILLISECONDS) // seems flakey without initial delay
 
@@ -394,6 +395,23 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     updateDisplay()
   }
 
+  /** Clears the existing design
+    */
+  def clearDesign(): Unit = {
+    this.refinements = edgrpc.Refinements()
+    setDesign(schema.Design(), new Compiler(schema.Design(), EdgCompilerService(project).pyLib))
+    tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
+    errorPanel.setErrors(Seq(), compiler)
+
+    ApplicationManager.getApplication.invokeLater(() => {
+      toolWindow.setTitle("")
+    })
+
+    if (activeTool != defaultTool) { // revert to the default tool
+      toolInterface.endTool() // TODO should we also preserve state like selected?
+    }
+  }
+
   /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
     * Does not update visualizations that are unaffected by operations that don't change the design.
     */
@@ -493,7 +511,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     detailPanel.saveState(state)
     errorPanel.saveState(state)
     kicadVizPanel.saveState(state)
-    dsePanel.saveState(state)
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
@@ -506,7 +523,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     detailPanel.loadState(state)
     errorPanel.loadState(state)
     kicadVizPanel.loadState(state)
-    dsePanel.loadState(state)
   }
 }
 
@@ -584,6 +600,8 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
 
 class ErrorPanel(compiler: Compiler) extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
+  private val customTableHeader = new CustomTooltipTableHeader(tree.getColumnModel())
+  tree.setTableHeader(customTableHeader)
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
