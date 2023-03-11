@@ -9,7 +9,7 @@ import edg.util.Errorable
 import edg.wir.DesignPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg_ide.dse._
-import edg_ide.ui.{BlockVisualizerService, ContextMenuUtils, PopupUtils}
+import edg_ide.ui.{BlockVisualizerService, ContextMenuUtils, DseService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
@@ -128,11 +128,11 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
           if (subclasses.isEmpty) {
             PopupUtils.createErrorPopupAtMouse(s"${blockPyClass.getName} has no non-abstract subclasses", this)
           } else {
-            val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+            val config = DseService(project).getOrCreateRunConfiguration(rootClass)
             config.options.searchConfigs = config.options.searchConfigs ++ Seq(
               DseSubclassSearch(path, subclasses.toSeq)
             )
-            BlockVisualizerService(project).onDseConfigChanged(config)
+            DseService(project).onSearchConfigChanged(config)
           }
         }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       }
@@ -140,25 +140,25 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       requireExcept(block.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
       () => {
-        val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+        val config = DseService(project).getOrCreateRunConfiguration(rootClass)
         config.options.searchConfigs = config.options.searchConfigs ++ Seq(DseDerivedPartSearch(path))
-        BlockVisualizerService(project).onDseConfigChanged(config)
+        DseService(project).onSearchConfigChanged(config)
     }}, "Search matching parts"))
 
     add(ContextMenuUtils.MenuItem(() => {
-      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+      val config = DseService(project).getOrCreateRunConfiguration(rootClass)
       config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintArea(path))
-      BlockVisualizerService(project).onDseConfigChanged(config)
+      DseService(project).onObjectiveConfigChanged(config)
     }, "Add objective contained footprint area"))
     add(ContextMenuUtils.MenuItem(() => {
-      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
+      val config = DseService(project).getOrCreateRunConfiguration(rootClass)
       config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
-      BlockVisualizerService(project).onDseConfigChanged(config)
+      DseService(project).onObjectiveConfigChanged(config)
     }, "Add objective contained footprint count"))
     add(ContextMenuUtils.MenuItem(() => {
-      val config = BlockVisualizerService(project).getOrCreateDseRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintPrice(path))
-      BlockVisualizerService(project).onDseConfigChanged(config)
+      val config = DseService(project).getOrCreateRunConfiguration(rootClass)
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
+      DseService(project).onObjectiveConfigChanged(config)
     }, "Add objective price"))
   }
 }

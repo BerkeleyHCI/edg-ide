@@ -10,8 +10,9 @@ import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
-import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
+import edg_ide.ui.{BlockVisualizerService, DseService, EdgCompilerService}
 import edgir.schema.schema
+import edgir.schema.schema.Design
 
 import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
 import java.nio.file.Paths
@@ -113,7 +114,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
     uiUpdater.runIfIdle {  // show searching in UI
-      BlockVisualizerService(project).setDseResults(Seq(), options.searchConfigs, options.objectives, true)
+      DseService(project).setResults(Seq(), options.searchConfigs, options.objectives, true, true)
     }
 
     // Open a CSV file (if desired) and write result rows as they are computed.
@@ -159,10 +160,19 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       pythonInterfaceOption = Some(pythonInterface)
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
+        BlockVisualizerService(project).clearDesign()
+
         // compared to the single design compiler the debug info is a lot sparser here
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
           s"${discarded.size} library elements"
+        }
+
+        // (re)build all libraries so interactive tooling depending on this can still work
+        runFailableStage("rebuild libraries", indicator) {
+          val designModule = options.designName.split('.').init.mkString(".")
+          val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, None).get
+          f"${indexed.size} elements"
         }
 
         val designType = ElemBuilder.LibraryPath(options.designName)
@@ -216,8 +226,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 }
 
                 uiUpdater.runIfIdle { // only have one UI update in progress at any time
-                  System.gc() // clean up after this compile run
-                  BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, true)
+                  DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, true, false)
                 }
 
                 if (errors.nonEmpty) {
@@ -239,7 +248,17 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
-          BlockVisualizerService(project).setDseResults(results.toSeq, options.searchConfigs, options.objectives, false)
+          DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, false, false)
+
+          if (options.searchConfigs.isEmpty && results.length == 1) {
+            val result = results.head
+            BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler, result.compiler.refinements.toPb,
+              result.errors, Some(f"DSE: "))
+            console.print(s"Empty search space, automatically updating visualization with only design point\n",
+              ConsoleViewContentType.LOG_INFO_OUTPUT)
+          }
+
+          System.gc() // clean up after this compile run  TODO: we can GC more often if we can prune the completed compiler
           ""
         }
       }

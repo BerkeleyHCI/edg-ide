@@ -1,26 +1,17 @@
 package edg_ide.ui
 
-import com.intellij.execution.RunManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
-import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, CompilerError, PythonInterfaceLibrary}
-import edg.util.Errorable
-import edgir.schema.schema
-import edgir.elem.elem
-import edgir.ref.ref
 import edg.wir.DesignPath
-import edg_ide.dse.{DseConfigElement, DseObjective, DseResult}
 import edg_ide.proven.{ProvenDataReader, ProvenDatabase}
-import edg_ide.runner.{DseConfigurationFactory, DseRunConfiguration, DseRunConfigurationType}
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptOption}
-import edg_ide.util.exceptable
+import edgir.elem.elem
+import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io.File
-import scala.collection.SeqMap
 
 
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
@@ -69,64 +60,21 @@ class BlockVisualizerService(project: Project) extends
     visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors, namePrefix))
   }
 
+  def clearDesign(): Unit = {
+    visualizerPanelOption.foreach(_.clearDesign())
+  }
+
   def getDesign: Option[schema.Design] = {
     visualizerPanelOption.map(_.getDesign)
   }
 
-  // DSE Feature
-  //
-  // TODO maybe separate DSE functionality into its own class / service?
-  // but this is mixed into the block diagram visualizer panel and the two are quite linked
-
-  // Called when the run configuration changes
-  def onDseConfigChanged(config: DseRunConfiguration): Unit = {
-    dsePanelOption.foreach(_.onConfigChange(config))
-  }
-
-  // Returns the currently selected run configuration, if it is a DSE configuration
-  def getDseRunConfiguration: Option[DseRunConfiguration] = {
-    Option(RunManager.getInstance(project).getSelectedConfiguration)
-        .map(_.getConfiguration)
-        .collect { case config: DseRunConfiguration => config }
-  }
-
-  def getOrCreateDseRunConfiguration(blockType: ref.LibraryPath): DseRunConfiguration = {
-    val existingConfig = Option(RunManager.getInstance(project).getSelectedConfiguration)
-        .map(_.getConfiguration)
-        .collect { case config: DseRunConfiguration => config } match {
-      case Some(existingConfig) if existingConfig.options.designName == blockType.toFullString =>
-        Some(existingConfig)
-      case _ => None
-    }
-    existingConfig.getOrElse {  // if no existing config of the type, create a new one
-      val runManager = RunManager.getInstance(project)
-      val newRunnerConfig = runManager.createConfiguration(
-        blockType.toFullString, new DseConfigurationFactory(new DseRunConfigurationType))
-      runManager.addConfiguration(newRunnerConfig)
-      runManager.setSelectedConfiguration(newRunnerConfig)
-
-      val newConfig = newRunnerConfig.getConfiguration.asInstanceOf[DseRunConfiguration]
-      newConfig.options.designName = blockType.toFullString
-      newConfig
-    }
-  }
-
-  def addDseConfig(blockType: ref.LibraryPath, newConfig: DseConfigElement): Unit = {
-    val config = getOrCreateDseRunConfiguration(blockType)
-    config.options.searchConfigs = config.options.searchConfigs ++ Seq(newConfig)
-    onDseConfigChanged(config)
-  }
-
-  def setDseResults(results: Seq[DseResult], search: Seq[DseConfigElement], objectives: Seq[DseObjective],
-                    inProgress: Boolean): Unit = {
-    dsePanelOption.foreach(_.setResults(results, search, objectives, inProgress))
-  }
 
   // Proven feature
   //
   lazy val getProvenDatabase: ProvenDatabase = {
     ProvenDataReader.read(new File("src/main/resources/proven-designs/data.csv"))
   }
+
 
   // State management
   //
