@@ -157,7 +157,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     }, "Add objective contained footprint count"))
     add(ContextMenuUtils.MenuItem(() => {
       val config = DseService(project).getOrCreateRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintPrice(path))
       DseService(project).onObjectiveConfigChanged(config)
     }, "Add objective price"))
   }
