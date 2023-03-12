@@ -161,8 +161,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       pythonInterfaceOption = Some(pythonInterface)
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
-        BlockVisualizerService(project).clearDesign()
-
         // compared to the single design compiler the debug info is a lot sparser here
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
