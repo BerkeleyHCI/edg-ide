@@ -149,11 +149,18 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
       DseService(project).onObjectiveConfigChanged(config, true)
     }, "Add objective component count"))
+    if (path == DesignPath()) {  // price only supported at top level for now
+      add(ContextMenuUtils.MenuItem(() => {
+        val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+        config.options.objectives = config.options.objectives ++ Seq(DseObjectivePrice())
+        DseService(project).onObjectiveConfigChanged(config, true)
+      }, "Add objective price"))
+    }
     add(ContextMenuUtils.MenuItem(() => {
       val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintPrice(path))
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveUnprovenCount(path))
       DseService(project).onObjectiveConfigChanged(config, true)
-    }, "Add objective price"))
+    }, "Add unproven count"))
   }
 }
 

@@ -1,7 +1,7 @@
 package edg_ide.swing.dse
 
 import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseRefinementElement, DseResult}
+import edg_ide.dse.{DseConfigElement, DseNumericObjective, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseRefinementElement, DseResult}
 
 
 object PlotAxis {
@@ -32,8 +32,7 @@ object PlotAxis {
 
   // creates plot axes for an objective function
   def fromObjective(objective: DseObjective): Seq[PlotAxis] = objective match {
-    case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveAxis(objective))
-    case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveAxis(objective))
+    case objective: DseNumericObjective => Seq(new DseObjectiveAxis(objective))
     case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
       Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
     case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>

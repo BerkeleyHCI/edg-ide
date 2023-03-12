@@ -213,7 +213,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                     new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
                 val objectiveValues = SeqMap.from(options.objectives.map { objective =>
-                  objective -> objective.calculate(compiled, compiler, pythonInterface)
+                  objective -> objective.calculate(compiled, compiler, pythonInterface, project)
                 })
 
                 val result = DseResult(index, pointValues,
