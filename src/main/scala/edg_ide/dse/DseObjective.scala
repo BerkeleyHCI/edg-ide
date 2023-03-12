@@ -1,8 +1,10 @@
 package edg_ide.dse
-import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, RangeEmpty, RangeValue, TextValue}
+import edg.ElemBuilder
+import edg.compiler.{ArrayValue, BooleanValue, Compiler, ExprValue, FloatValue, IntValue, PythonInterface, RangeEmpty, RangeValue, TextValue}
 import edg.util.Errorable
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath}
+import edg_ide.runner.CompileProcessHandler
 import edg_ide.ui.KicadParser
 import edg_ide.util.KicadFootprintUtil
 import edgir.elem.elem.HierarchyBlock
@@ -19,13 +21,13 @@ import scala.collection.{SeqMap, mutable}
 sealed trait DseObjective { self: Serializable =>
   def objectiveToString: String  // short human-friendly string describing this configuration
 
-  def calculate(design: schema.Design, compiler: Compiler): Any
+  def calculate(design: schema.Design, compiler: Compiler, pythonInterface: PythonInterface): Any
 }
 
 
 // Abstract base class that defines the calculation type
 sealed abstract class DseTypedObjective[T] extends DseObjective { self: Serializable =>
-  def calculate(design: schema.Design, compiler: Compiler): T
+  def calculate(design: schema.Design, compiler: Compiler, pythonInterface: PythonInterface): T
 }
 
 
@@ -34,7 +36,7 @@ case class DseObjectiveParameter(path: IndirectDesignPath, val exprType: Class[_
     extends DseTypedObjective[Option[ExprValue]] { self: Serializable =>
   override def objectiveToString = f"Parameter($path)"
 
-  override def calculate(design: Design, compiler: Compiler): Option[ExprValue] = {
+  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface): Option[ExprValue] = {
     compiler.getParamValue(path)
   }
 }
@@ -61,7 +63,7 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath = DesignPath())
     extends DseTypedObjective[Float] with Serializable {
   override def objectiveToString = f"FootprintArea($rootPath)"
 
-  override def calculate(design: Design, compiler: Compiler): Float = {
+  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface): Float = {
     new DesignBlockMap[Float] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Float]): Float = {
         val thisArea = if (path.startsWith(rootPath)) {
@@ -84,12 +86,24 @@ case class DseObjectiveFootprintCount(rootPath: DesignPath = DesignPath())
     extends DseTypedObjective[Int] with Serializable {
   override def objectiveToString = f"FootprintCount($rootPath)"
 
-  override def calculate(design: Design, compiler: Compiler): Int = {
+  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
         val thisValue = if (path.startsWith(rootPath) && block.params.toSeqMap.contains("fp_footprint")) 1 else 0
         thisValue + blocks.values.sum
       }
     }.map(design)
+  }
+}
+
+
+case class DseObjectiveFootprintPrice(rootPath: DesignPath = DesignPath())
+  extends DseTypedObjective[Float] with Serializable {
+  override def objectiveToString = f"FootprintPrice($rootPath)"
+
+  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface): Float = {
+    pythonInterface.runBackend(
+      ElemBuilder.LibraryPath("electronics_lib.PriceGetter.GeneratePrice"), design, compiler.getAllSolved, Map()
+    ).toOption.map(value => value(rootPath).toFloat).getOrElse(0)
   }
 }
