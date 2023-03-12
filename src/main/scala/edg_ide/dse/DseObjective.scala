@@ -26,9 +26,14 @@ sealed trait DseObjective { self: Serializable =>
 }
 
 
-// Abstract base class that defines the calculation type
-sealed abstract class DseNumericObjective extends DseObjective { self: Serializable =>
+// Abstract base class for numeric calculation results
+sealed abstract class DseFloatObjective extends DseObjective { self: Serializable =>
   def calculate(design: schema.Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Float
+}
+
+
+sealed abstract class DseIntObjective extends DseObjective { self: Serializable =>
+  def calculate(design: schema.Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Int
 }
 
 
@@ -60,7 +65,7 @@ object DseObjectiveFootprintArea {
 }
 
 
-case class DseObjectiveFootprintArea(rootPath: DesignPath) extends DseNumericObjective with Serializable {
+case class DseObjectiveFootprintArea(rootPath: DesignPath) extends DseFloatObjective with Serializable {
   override def objectiveToString = f"FootprintArea($rootPath)"
 
   override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Float = {
@@ -82,21 +87,21 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath) extends DseNumericObj
 
 
 // Counts the total number of footprints
-case class DseObjectiveFootprintCount(rootPath: DesignPath) extends DseNumericObjective with Serializable {
+case class DseObjectiveFootprintCount(rootPath: DesignPath) extends DseIntObjective with Serializable {
   override def objectiveToString = f"FootprintCount($rootPath)"
 
-  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Float = {
+  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
         val thisValue = if (path.startsWith(rootPath) && block.params.toSeqMap.contains("fp_footprint")) 1 else 0
         thisValue + blocks.values.sum
       }
-    }.map(design).toFloat
+    }.map(design)
   }
 }
 
 
-case class DseObjectivePrice() extends DseNumericObjective with Serializable {
+case class DseObjectivePrice() extends DseFloatObjective with Serializable {
   override def objectiveToString = f"Price"
 
   override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Float = {
@@ -107,10 +112,10 @@ case class DseObjectivePrice() extends DseNumericObjective with Serializable {
 }
 
 
-case class DseObjectiveUnprovenCount(rootPath: DesignPath) extends DseNumericObjective with Serializable {
+case class DseObjectiveUnprovenCount(rootPath: DesignPath) extends DseIntObjective with Serializable {
   override def objectiveToString = f"UnprovenCount($rootPath)"
 
-  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Float = {
+  override def calculate(design: Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
         val thisProven = BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass)
@@ -120,6 +125,6 @@ case class DseObjectiveUnprovenCount(rootPath: DesignPath) extends DseNumericObj
         }
         thisUnprovenCount + blocks.values.sum
       }
-    }.map(design).toFloat
+    }.map(design)
   }
 }
