@@ -146,9 +146,14 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     }, s"Add objective area"))
     add(ContextMenuUtils.MenuItem(() => {
       val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-      config.options.objectives = config.options.objectives :+ DseObjectiveFootprintCount(path)
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
       DseService(project).onObjectiveConfigChanged(config, true)
-    }, s"Add objective component count"))
+    }, "Add objective component count"))
+    add(ContextMenuUtils.MenuItem(() => {
+      val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintPrice(path))
+      DseService(project).onObjectiveConfigChanged(config, true)
+    }, "Add objective price"))
   }
 }
 

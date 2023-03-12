@@ -137,13 +137,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
-    var pythonInterface: Option[PythonInterface] = None
+    var pythonInterfaceOption: Option[PythonInterface] = None
+
     var exitCode: Int = -1
     def forwardProcessOutput(): Unit = {
-      pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processOutputStream) { data =>
+      pythonInterfaceOption.foreach { pyIf => StreamUtils.forAvailable(pyIf.processOutputStream) { data =>
         console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
       }}
-      pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processErrorStream) { data =>
+      pythonInterfaceOption.foreach { pyIf => StreamUtils.forAvailable(pyIf.processErrorStream) { data =>
         console.print(new String(data), ConsoleViewContentType.ERROR_OUTPUT)
       }}
     }
@@ -154,12 +155,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       ).get
       console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT)
-      pythonInterface = Some(new LoggingPythonInterface(
-        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile,
-        pythonCommand,
-        console))
 
-      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
+      val pythonInterface = new LoggingPythonInterface(
+        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile, pythonCommand, console)
+      pythonInterfaceOption = Some(pythonInterface)
+
+      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
+        BlockVisualizerService(project).clearDesign()
+
         // compared to the single design compiler the debug info is a lot sparser here
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
@@ -212,7 +215,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                     new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
                 val objectiveValues = SeqMap.from(options.objectives.map { objective =>
-                  objective -> objective.calculate(compiled, compiler)
+                  objective -> objective.calculate(compiled, compiler, pythonInterface)
                 })
 
                 val result = DseResult(index, pointValues,
@@ -263,7 +266,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       }
     } catch {
       case e: Throwable =>
-        pythonInterface.foreach { pyIf => exitCode = pyIf.shutdown() }
+        pythonInterfaceOption.foreach { pyIf => exitCode = pyIf.shutdown() }
         forwardProcessOutput()  // dump remaining process output first
 
         console.print(s"Compiler internal error: ${e.toString}\n", ConsoleViewContentType.ERROR_OUTPUT)
