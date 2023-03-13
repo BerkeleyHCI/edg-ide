@@ -170,7 +170,7 @@ class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, Des
     records.nonEmpty
   }
 
-  lazy val getLatestStatus = testedData.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.Untested)
+  lazy val latestStatus = testedData.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.Untested)
 
   def getDataOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = {
     val dataSeq = data

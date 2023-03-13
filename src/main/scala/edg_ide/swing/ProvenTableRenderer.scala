@@ -37,7 +37,7 @@ class ProvenTableRenderer extends DefaultTableCellRenderer {
     val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
     value match {
       case cell: BlockProven =>
-        component.setForeground(ProvenStatus.colorOf(cell.records.getLatestStatus))
+        component.setForeground(ProvenStatus.colorOf(cell.records.latestStatus))
       case _ =>
     }
     component

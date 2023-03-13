@@ -119,7 +119,7 @@ case class DseObjectiveUnprovenCount(rootPath: DesignPath) extends DseIntObjecti
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
         val thisProven = BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass)
-        val thisUnprovenCount = thisProven.getLatestStatus match {
+        val thisUnprovenCount = thisProven.latestStatus match {
           case ProvenStatus.Working => 0
           case _ => 1
         }
