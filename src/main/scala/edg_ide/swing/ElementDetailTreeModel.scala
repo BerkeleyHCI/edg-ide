@@ -11,9 +11,10 @@ import edgir.schema.schema
 import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
-import edg.compiler.{ArrayValue, Compiler, ExprResult, ExprToString, ExprValue}
+import edg.compiler.{ArrayValue, Compiler, ExprResult, ExprToString, ExprValue, FloatValue, IntValue, RangeValue}
 import edg.wir.ProtoUtil._
 import edg_ide.EdgirUtils
+import edg_ide.ui.ParamToUnitsStringUtil
 
 import javax.swing.JTree
 import javax.swing.event.TreeModelListener
@@ -280,23 +281,14 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     }
 
     override def getColumns(index: Int): String = {
-      def valInitName(valInit: init.ValInit): String = valInit.`val` match {
-        case init.ValInit.Val.Floating(_) => "float"
-        case init.ValInit.Val.Boolean(_) => "boolean"
-        case init.ValInit.Val.Integer(_) => "integer"
-        case init.ValInit.Val.Range(_) => "range"
-        case init.ValInit.Val.Text(_) => "text"
-        case init.ValInit.Val.Array(arrayValInit) => s"array[${valInitName(arrayValInit)}]"
-        case init.ValInit.Val.Set(_) => "set"
-        case init.ValInit.Val.Struct(_) => "set"
-        case init.ValInit.Val.Empty => "empty"
-      }
-      val typeName = valInitName(param)
       val value = compiler.getParamValue(path) match {
+        case Some(value @ FloatValue(_)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
+        case Some(value @ IntValue(_)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
+        case Some(value @ RangeValue(_, _)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
         case Some(value) => value.toStringValue
-        case None => "Unsolved"
+        case None => "(unsolved)"
       }
-      s"$value ($typeName)"
+      s"$value"
     }
   }
 
@@ -384,8 +376,8 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     override def getColumns(index: Int): String = meta.meta match {
       case common.Metadata.Meta.Members(members) => "(dict)"
       case common.Metadata.Meta.BinLeaf(binary) => s"(binary, ${binary.size()} long)"
-      case common.Metadata.Meta.TextLeaf(text) => s"$text (text)"
-      case common.Metadata.Meta.Empty => s"empty"
+      case common.Metadata.Meta.TextLeaf(text) => s"$text"
+      case common.Metadata.Meta.Empty => s"(empty)"
       case other => s"(unknown ${other.getClass.getSimpleName})"
     }
   }
