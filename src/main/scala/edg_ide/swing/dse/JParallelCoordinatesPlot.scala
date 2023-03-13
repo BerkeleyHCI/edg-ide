@@ -41,7 +41,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
           Some(elt.positions(index))
         }
       }
-      JScatterPlot.defaultValuesRange(values.flatten)
+      JDsePlot.defaultValuesRange(values.flatten)
     }
 
     validate()
@@ -70,98 +70,98 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
       val ticks = axis match {
         case Some(axis) => axis
-        case _ => JScatterPlot.getAxisTicks(range, getHeight)
+        case _ => JDsePlot.getAxisTicks(range, getHeight)
       }
       ticks.foreach { case (tickPos, tickVal) =>
-        val screenPos = ((range._2 - tickPos) * JScatterPlot.dataScale(range, getHeight)).toInt
-        paintGraphics.drawLine(axisX, screenPos, axisX + JScatterPlot.kTickSizePx, screenPos)
+        val screenPos = ((range._2 - tickPos) * JDsePlot.dataScale(range, getHeight)).toInt
+        paintGraphics.drawLine(axisX, screenPos, axisX + JDsePlot.kTickSizePx, screenPos)
         DrawAnchored.drawLabel(paintGraphics, tickVal,
-          (axisX + JScatterPlot.kTickSizePx, screenPos), DrawAnchored.Left)
+          (axisX + JDsePlot.kTickSizePx, screenPos), DrawAnchored.Left)
       }
     }
   }
 
-  private def paintDataLine(paintGraphics: Graphics, dataIndex: Int, value: Float, nextValue: Float,
+  private def paintDataLine(paintGraphics: Graphics, value: Float, nextValue: Float,
                             axisIndex: Int): Unit = {
     val prevAxisPos = getPositionForAxis(axisIndex)
     val prevValuePos = getPositionForValue(axisIndex, value)
     val nextAxisPos = getPositionForAxis(axisIndex + 1)
     val nextValuePos = getPositionForValue(axisIndex + 1, nextValue)
 
-    if (mouseOverIndices.contains(dataIndex)) { // mouseover: highlight
-      val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-      hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-      hoverGraphics.setStroke(new BasicStroke(JScatterPlot.kLineHoverOutlinePx.toFloat))
-      hoverGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-    }
-    if (selectedIndices.contains(dataIndex)) { // selected: thicker
-      val lineGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-      lineGraphics.setStroke(new BasicStroke(JScatterPlot.kLineSelectedSizePx.toFloat))
-      lineGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-    } else {
-      paintGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
-    }
+    paintGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
   }
 
-  private def paintDataPoint(paintGraphics: Graphics, dataIndex: Int, value: Float, axisIndex: Int): Unit = {
+  private def paintDataPoint(paintGraphics: Graphics, value: Float, axisIndex: Int): Unit = {
     val axisPos = getPositionForAxis(axisIndex)
     val dataPos = getPositionForValue(axisIndex, value)
-    if (mouseOverIndices.contains(dataIndex)) { // mouseover: highlight
-      val hoverGraphics = paintGraphics.create()
-      hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-      hoverGraphics.fillOval(axisPos - JScatterPlot.kPointHoverOutlinePx / 2, dataPos - JScatterPlot.kPointHoverOutlinePx / 2,
-        JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
-    }
-    if (selectedIndices.contains(dataIndex)) { // selected: thicker
-      paintGraphics.fillOval(axisPos - JScatterPlot.kPointSelectedSizePx / 2, dataPos - JScatterPlot.kPointSelectedSizePx / 2,
-        JScatterPlot.kPointSelectedSizePx, JScatterPlot.kPointSelectedSizePx)
-    } else {
-      paintGraphics.fillOval(axisPos - JScatterPlot.kPointSizePx / 2, dataPos - JScatterPlot.kPointSizePx / 2,
-        JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
-    }
+
+    paintGraphics.drawOval(axisPos - JDsePlot.kPointSizePx / 2, dataPos - JDsePlot.kPointSizePx / 2,
+      JDsePlot.kPointSizePx, JDsePlot.kPointSizePx)
+    paintGraphics.fillOval(axisPos - JDsePlot.kPointSizePx / 2, dataPos - JDsePlot.kPointSizePx / 2,
+      JDsePlot.kPointSizePx, JDsePlot.kPointSizePx)
   }
 
-  private def paintData(paintGraphics: Graphics): Unit = {
-    // paint order: (bottom) normal -> selected -> mouseover
-    val normalData = data.zipWithIndex.filter { case (data, dataIndex) =>
-      !mouseOverIndices.contains(dataIndex) && !selectedIndices.contains(dataIndex)
-    }
-    val selectedData = data.zipWithIndex.filter { case (data, dataIndex) =>
-      !mouseOverIndices.contains(dataIndex) && selectedIndices.contains(dataIndex)
-    }
-    val mouseoverData = data.zipWithIndex.filter { case (data, dataIndex) =>
-      mouseOverIndices.contains(dataIndex)
-    }
-    val layers = Seq(normalData, selectedData, mouseoverData)
-
-    layers.foreach { layerData =>
-      layerData.foreach { case (data, dataIndex) =>
+  private def paintData(paintGraphics: Graphics, data: IndexedSeq[Data], noColor: Boolean = false,
+                        colorBlend: Float = 1.0f): Unit = {
+    data.foreach { data =>
+      val dataGraphics = if (noColor) {
+        paintGraphics
+      } else {
         val dataGraphics = paintGraphics.create()
         data.color.foreach { color => // if color is specified, set the color
           dataGraphics.setColor(color)
         }
+        dataGraphics
+      }
+      dataGraphics.setColor(ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend))
 
-        data.positions.sliding(2).zipWithIndex.foreach {
-          case (Seq(Some(value), Some(nextValue)), axisIndex) =>
-            paintDataLine(dataGraphics, dataIndex, value, nextValue, axisIndex)
-          case _ => // ignore None data for any lines
-        }
+      data.positions.sliding(2).zipWithIndex.foreach {
+        case (Seq(Some(value), Some(nextValue)), axisIndex) =>
+          paintDataLine(dataGraphics, value, nextValue, axisIndex)
+        case _ => // ignore None data for any lines
+      }
 
-        data.positions.zipWithIndex.foreach {
-          case (Some(value), axisIndex) =>
-            paintDataPoint(dataGraphics, dataIndex, value, axisIndex)
-          case _ => // ignore None data for its specific axis
-        }
+      data.positions.zipWithIndex.foreach {
+        case (Some(value), axisIndex) =>
+          paintDataPoint(dataGraphics, value, axisIndex)
+        case _ => // ignore None data for its specific axis
       }
     }
   }
 
+  private def paintAllData(paintGraphics: Graphics): Unit = {
+    // paint order: (bottom) normal -> selected -> mouseover
+    val normalData = data.zipWithIndex.filter { case (data, dataIndex) =>
+      !mouseOverIndices.contains(dataIndex) && !selectedIndices.contains(dataIndex)
+    }.map(_._1)
+    val selectedData = data.zipWithIndex.filter { case (data, dataIndex) =>
+      !mouseOverIndices.contains(dataIndex) && selectedIndices.contains(dataIndex)
+    }.map(_._1)
+    val mouseoverData = data.zipWithIndex.filter { case (data, dataIndex) =>
+      mouseOverIndices.contains(dataIndex)
+    }.map(_._1)
+
+    val normalDataBlend = if (selectedIndices.nonEmpty) 0.33f else 1.0f  // dim others if there is a selection
+    paintData(paintGraphics, normalData, colorBlend = normalDataBlend)
+
+    val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+    selectedGraphics.setStroke(new BasicStroke(JDsePlot.kLineSelectedSizePx.toFloat))
+    paintData(selectedGraphics, selectedData)
+
+    val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, 0.5))
+    hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverOutlinePx.toFloat))
+    paintData(hoverGraphics, mouseoverData, noColor = true)
+
+    paintData(selectedGraphics, mouseoverData)  // TODO: separate out selected from mouseover? idk
+  }
+
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val axesGraphics = paintGraphics.create()
-    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JScatterPlot.kTickBrightness))
+    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness))
     paintAxes(axesGraphics)
 
-    paintData(paintGraphics)
+    paintAllData(paintGraphics)
   }
 
   def getAxisForLocation(x: Int): Int = {
@@ -193,6 +193,17 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     }
   }
 
+  def getSelectingPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
+    val allPoints = getPointsForLocation(x, y, maxDistance)
+    if (selectedIndices.nonEmpty) { // if selection, subset from selection
+      allPoints.filter { case (index, dist) =>
+        selectedIndices.contains(index)
+      }
+    } else { // otherwise create fresh selection
+      allPoints
+    }
+  }
+
   def getPositionForAxis(axisIndex: Int): Int = {
     val axisSpacing = getWidth / math.max(axes.length, 1)
     axisSpacing * axisIndex + axisSpacing / 2
@@ -202,24 +213,29 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     if (axisIndex >= axesRange.length) {
       return Int.MinValue
     }
-    val range = axesRange(axisIndex)
-    ((range._2 - value) * JScatterPlot.dataScale(range, getHeight)).toInt
+    value match {
+      case Float.PositiveInfinity => 1
+      case Float.NegativeInfinity => getHeight - 2
+      case _ =>
+        val range = axesRange(axisIndex)
+        ((range._2 - value) * JDsePlot.dataScale(range, getHeight)).toInt
+    }
+
   }
 
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val clickedPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
-      onClick(e, clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
+      val newPoints = getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
+      onClick(e, newPoints.sortBy(_._2).map(pair => data(pair._1)))
     }
   })
 
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val newPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
-      val newIndices = newPoints.map(_._1)
-      if (mouseOverIndices != newIndices) {
-        mouseOverIndices = newIndices
+      val newPoints = getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
+      if (mouseOverIndices != newPoints.map(_._1)) {
+        mouseOverIndices = newPoints.map(_._1)
         validate()
         repaint()
 
@@ -235,7 +251,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
 
       val axisIndex = getAxisForLocation(e.getX)
-      val newRange = JScatterPlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
+      val newRange = JDsePlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
       axesRange = axesRange.updated(axisIndex, newRange)
 
       validate()
@@ -279,7 +295,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseMotionListener(dragListener) // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx).headOption match {
+    getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
       case None => null
     }

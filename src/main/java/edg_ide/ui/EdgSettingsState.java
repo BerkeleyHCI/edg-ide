@@ -17,6 +17,7 @@ public class EdgSettingsState implements PersistentStateComponent<EdgSettingsSta
     public String[] kicadDirectories = {};
     public boolean persistBlockCache = false;
     public boolean showProvenStatus = false;
+    public boolean showInternalBlocks = false;
 
 
     public static EdgSettingsState getInstance() {

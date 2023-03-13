@@ -5,6 +5,7 @@ import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.FormBuilder
+import edg_ide.build.BuildInfo
 
 import javax.swing.{JCheckBox, JPanel}
 
@@ -32,6 +33,16 @@ class EdgSettingsComponent {
     "IDE restart may be required to take effect.")
   showProvenStatusHelp.setEnabled(false)
 
+  val showInternalBlocks = new JCheckBox()
+  val showInternalBlocksHelp = new JBLabel("Show internal blocks like bridges and adapters in the design tree. " +
+    "These are implementation details in most cases but may be useful for model debugging. " +
+    "IDE restart may be required to take effect.")
+  showInternalBlocksHelp.setEnabled(false)
+
+  val versionLabel = new JBLabel(s"Version ${BuildInfo.version}, built at ${BuildInfo.builtAtString}, " +
+      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}")
+  versionLabel.setEnabled(false)
+
   val mainPanel = FormBuilder.createFormBuilder()
       .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
       .addComponent(kicadDirectoryHelp)
@@ -39,7 +50,10 @@ class EdgSettingsComponent {
       .addComponent(persistBlockCacheHelp)
       .addLabeledComponent(new JBLabel("Show Proven Status"), showProvenStatus, false)
       .addComponent(showProvenStatusHelp)
+      .addLabeledComponent(new JBLabel("Show Internal Blocks"), showInternalBlocks, false)
+      .addComponent(showInternalBlocksHelp)
       .addComponentFillVertically(new JPanel(), 0)
+      .addComponent(versionLabel)
       .getPanel
 }
 
@@ -56,7 +70,8 @@ class EdgSettingsConfigurable extends Configurable {
     val settings = EdgSettingsState.getInstance()
     !settings.kicadDirectories.sameElements(component.kicadDirectoryText.getText.split(";")) ||
         settings.persistBlockCache != component.persistBlockCache.isSelected ||
-        settings.showProvenStatus != component.showProvenStatus.isSelected
+        settings.showProvenStatus != component.showProvenStatus.isSelected ||
+        settings.showInternalBlocks != component.showInternalBlocks.isSelected
   }
 
   override def apply(): Unit = {
@@ -64,6 +79,7 @@ class EdgSettingsConfigurable extends Configurable {
     settings.kicadDirectories = component.kicadDirectoryText.getText.split(";")
     settings.persistBlockCache = component.persistBlockCache.isSelected
     settings.showProvenStatus = component.showProvenStatus.isSelected
+    settings.showInternalBlocks = component.showInternalBlocks.isSelected
   }
 
   override def reset(): Unit = {
@@ -71,5 +87,6 @@ class EdgSettingsConfigurable extends Configurable {
     component.kicadDirectoryText.setText(settings.kicadDirectories.mkString(";"))
     component.persistBlockCache.setSelected(settings.persistBlockCache)
     component.showProvenStatus.setSelected(settings.showProvenStatus)
+    component.showInternalBlocks.setSelected(settings.showInternalBlocks)
   }
 }

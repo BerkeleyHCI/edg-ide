@@ -11,15 +11,22 @@ object EmptyProven extends ProvenNodeBase {
   override def toString = ""
 }
 
-class BlockProven(path: ref.LibraryPath,
+class BlockProven(blockClass: ref.LibraryPath,
                   val records: BlockProvenRecords) extends ProvenNodeBase {
+  private val latestData = records.getDataOfStatus(records.latestStatus)
+  private val latestRecords = latestData.flatMap { case (design, records) => records }
+
   override lazy val toString: String = if (records.isEmpty) {
     ""
-  } else {
-    records.getDataOfStatus(records.getLatestStatus).flatMap { case (design, records) => records }.size.toString
+  } else {  // get all instance-level records
+    latestRecords.size.toString
   }
 
   lazy val htmlDescription = {
+    val latestStatus = records.latestStatus
+    val latestStatusColor = SwingHtmlUtil.colorToHtml(ProvenStatus.colorOf(records.latestStatus))
+    val header = f"""<b>${latestRecords.size} <font style="color:$latestStatusColor;">$latestStatus</font> instances across ${latestData.size} designs:</b>"""
+
     val dataFormatted = records.data.map { case ((file, version), records) =>
       val statusCountString = records.groupBy(_._1.status).map { case (status, records) =>
         val statusColor = SwingHtmlUtil.colorToHtml(ProvenStatus.colorOf(status))
@@ -29,15 +36,15 @@ class BlockProven(path: ref.LibraryPath,
       val comments = records.map(_._1).collect {
         case record: UserProvenRecord => record.comments
       }.flatten.map { comment =>
-        s"- $comment"
-      }.mkString("<br/>")
-      val commentsString = if (comments.nonEmpty) s"<br/>$comments" else ""
+        s"- - $comment"
+      }.mkString("\n")
+      val commentsString = if (comments.nonEmpty) s"\n$comments" else ""
 
-      s"""<b>${file.getName}</b>@${version.substring(0, 7)}: $statusCountString$commentsString"""
+      s"""- <b>${file.getName}</b>@${version.substring(0, 7)}: $statusCountString$commentsString"""
     }.toSeq.reverse  // most recent first
 
-    f"""<b>${path.toSimpleString}</b><hr>
-        ${dataFormatted.mkString("<br/>")}
+    f"""<b>${blockClass.toSimpleString}</b><hr>$header
+        ${dataFormatted.mkString("\n")}
         """
   }
 }

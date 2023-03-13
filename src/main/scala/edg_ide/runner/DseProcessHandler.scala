@@ -110,6 +110,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    BlockVisualizerService(project).setDesignStale()
 
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
@@ -160,8 +161,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       pythonInterfaceOption = Some(pythonInterface)
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
-        BlockVisualizerService(project).clearDesign()
-
         // compared to the single design compiler the debug info is a lot sparser here
         runFailableStage("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
@@ -214,7 +213,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                     new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
                 val objectiveValues = SeqMap.from(options.objectives.map { objective =>
-                  objective -> objective.calculate(compiled, compiler, pythonInterface)
+                  objective -> objective.calculate(compiled, compiler, pythonInterface, project)
                 })
 
                 val result = DseResult(index, pointValues,
@@ -249,6 +248,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         runFailableStage("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
           DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, false, false)
+          BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
           if (options.searchConfigs.isEmpty && results.length == 1) {
             val result = results.head

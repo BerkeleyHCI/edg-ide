@@ -6,6 +6,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.SlowOperations
 import com.jetbrains.python.psi.types.TypeEvalContext
 import com.jetbrains.python.psi._
+import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir.DesignPath
@@ -15,7 +16,7 @@ import edg_ide.EdgirUtils
 import edg_ide.psi_edits.InsertConnectAction
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 
-import scala.jdk.CollectionConverters.ListHasAsScala
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala}
 import scala.collection.mutable
 
 
@@ -330,5 +331,17 @@ object DesignAnalysisUtils {
     } else {
       assigns
     }
+  }
+
+  /** Like PyClassInheritorsSearch.search, but returns subclasses depth-first order (roughly grouping similar results).
+    * Each level is sorted alphabetically by name.
+    * If a subclass occurs multiple times, only the first is kept.
+    */
+  def findOrderedSubclassesOf(superclass: PyClass): Seq[PyClass] = {
+    val directSubclasses = PyClassInheritorsSearch.search(superclass, false).findAll().asScala.toSeq
+        .sortBy(_.getName)
+    directSubclasses.flatMap { directSubclass =>
+      directSubclass +: findOrderedSubclassesOf(directSubclass)
+    }.distinct
   }
 }

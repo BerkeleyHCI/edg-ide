@@ -1,79 +1,10 @@
 package edg_ide.swing.dse
 
-import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 
 import java.awt.event._
 import java.awt.{Color, Graphics, Point}
 import javax.swing.{JComponent, SwingUtilities}
-import scala.collection.mutable
-
-
-object JScatterPlot {
-  // GUI constants
-  private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
-
-  val kPointSizePx: Int = 4 // diameter in px
-  val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
-  val kPointSelectedSizePx: Int = 6 // diameter in px
-  val kPointHoverOutlinePx: Int = 12 // diameter in px
-  val kLineSelectedSizePx: Int = kPointSelectedSizePx / 2 // width in px
-  val kLineHoverOutlinePx: Int = kPointHoverOutlinePx / 2 // width in px
-  val kHoverOutlineColor: Color = JBColor.YELLOW
-
-  val kTickBrightness: Float = 0.25f
-  val kTickSpacingIntervals: Seq[Int] = Seq(1, 2, 5)
-  val kMinTickSpacingPx: Int = 64 // min spacing between axis ticks, used to determine tick resolution
-  val kTickSizePx: Int = 4
-
-  def defaultValuesRange(values: Seq[Float], factor: Float = kDefaultRangeMarginFactor): (Float, Float) = {
-    val range = ((values :+ 0f).min, (values :+ 0f).max)  // 0 in case values is empty, and forces the scale to include 0
-    val span = range._2 - range._1
-    val expansion = if (span > 0) { // range units to expand on each side
-      span * (factor - 1) / 2
-    } else { // if span is empty, arbitrarily expand by 1 on each side and center the data
-      1
-    }
-    (range._1 - expansion, range._2 + expansion)
-  }
-
-  // calculates a new range after applying some scaling factor, but keeping some fractional point of
-  // the old and new range static (eg, the point the mouse is over)
-  def scrollNewRange(oldRange: (Float, Float), scaleFactor: Float, staticFrac: Float): (Float, Float) = {
-    val span = oldRange._2 - oldRange._1
-    val mouseValue = oldRange._1 + (span * staticFrac)
-    val newSpan = span * scaleFactor
-    (mouseValue - (newSpan * staticFrac), mouseValue + (newSpan * (1 - staticFrac)))
-  }
-
-  // multiply data by this to get screen coordinates
-  def dataScale(dataRange: (Float, Float), screenSize: Int): Float = {
-    if (dataRange._1 != dataRange._2) {
-      screenSize / (dataRange._2 - dataRange._1)
-    } else {
-      1
-    }
-  }
-
-  // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
-  def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int = kMinTickSpacingPx):
-      Seq[(Float, String)] = {
-    val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize)) // min tick spacing in data units
-    val tickSpacings = JScatterPlot.kTickSpacingIntervals.map { factor => // try all the spacings and take the minimum
-      math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
-    }
-    val tickSpacing = tickSpacings.min
-
-    var tickPos = (math.floor(range._1 / tickSpacing) * tickSpacing).toFloat
-    val ticksBuilder = mutable.ArrayBuffer[(Float, String)]()
-    while (tickPos <= range._2) {
-      ticksBuilder.append((tickPos, f"$tickPos%.02g"))
-      tickPos = (tickPos + tickSpacing).toFloat
-    }
-    ticksBuilder.toSeq
-  }
-
-}
 
 
 /** Scatterplot widget with two numerical axes, with labels inside the plot.
@@ -101,16 +32,24 @@ class JScatterPlot[ValueType] extends JComponent {
   private var xRange = (-1.0f, 1.0f)
   private var yRange = (-1.0f, 1.0f)
 
-  private def dataToScreenX(dataVal: Float): Int = ((dataVal - xRange._1) * JScatterPlot.dataScale(xRange, getWidth)).toInt
-  private def dataToScreenY(dataVal: Float): Int = ((yRange._2 - dataVal) * JScatterPlot.dataScale(yRange, getHeight)).toInt
+  private def dataToScreenX(dataVal: Float): Int = dataVal match {
+    case Float.PositiveInfinity => getWidth - 2
+    case Float.NegativeInfinity => 1
+    case _ => ((dataVal - xRange._1) * JDsePlot.dataScale(xRange, getWidth)).toInt
+  }
+  private def dataToScreenY(dataVal: Float): Int = dataVal match {
+    case Float.PositiveInfinity => 1
+    case Float.NegativeInfinity => getHeight - 2
+    case _ => ((yRange._2 - dataVal) * JDsePlot.dataScale(yRange, getHeight)).toInt
+  }
 
   def setData(xys: IndexedSeq[Data], xAxis: PlotAxis.AxisType = None, yAxis: PlotAxis.AxisType = None): Unit = {
     data = xys
     mouseOverIndices = Seq()  // clear
     selectedIndices = Seq()  // clear
 
-    xRange = JScatterPlot.defaultValuesRange(data.map(_.x))
-    yRange = JScatterPlot.defaultValuesRange(data.map(_.y))
+    xRange = JDsePlot.defaultValuesRange(data.map(_.x))
+    yRange = JDsePlot.defaultValuesRange(data.map(_.y))
 
     this.xAxis = xAxis
     this.yAxis = yAxis
@@ -141,13 +80,13 @@ class JScatterPlot[ValueType] extends JComponent {
     }
     val xTicks = xAxis match {
       case Some(xAxis) => xAxis
-      case _ => JScatterPlot.getAxisTicks(xRange, getWidth)
+      case _ => JDsePlot.getAxisTicks(xRange, getWidth)
     }
     xTicks.foreach { case (tickPos, tickVal) =>
       val screenX = dataToScreenX(tickPos)
-      paintGraphics.drawLine(screenX, getHeight - 1, screenX, getHeight - 1 - JScatterPlot.kTickSizePx)
+      paintGraphics.drawLine(screenX, getHeight - 1, screenX, getHeight - 1 - JDsePlot.kTickSizePx)
       DrawAnchored.drawLabel(paintGraphics, tickVal,
-        (screenX, getHeight - 1 - JScatterPlot.kTickSizePx), DrawAnchored.Bottom)
+        (screenX, getHeight - 1 - JDsePlot.kTickSizePx), DrawAnchored.Bottom)
     }
 
     if (yAxis.isEmpty) { // bottom horizontal axis - only on numeric axis
@@ -156,13 +95,13 @@ class JScatterPlot[ValueType] extends JComponent {
     }
     val yTicks = yAxis match {
       case Some(yAxis) => yAxis
-      case _ => JScatterPlot.getAxisTicks(yRange, getHeight)
+      case _ => JDsePlot.getAxisTicks(yRange, getHeight)
     }
     yTicks.foreach { case (tickPos, tickVal) =>
       val screenY = dataToScreenY(tickPos)
-      paintGraphics.drawLine(0, screenY, JScatterPlot.kTickSizePx, screenY)
+      paintGraphics.drawLine(0, screenY, JDsePlot.kTickSizePx, screenY)
       DrawAnchored.drawLabel(paintGraphics, tickVal,
-        (JScatterPlot.kTickSizePx, screenY), DrawAnchored.Left)
+        (JDsePlot.kTickSizePx, screenY), DrawAnchored.Left)
     }
   }
 
@@ -177,23 +116,23 @@ class JScatterPlot[ValueType] extends JComponent {
 
       if (mouseOverIndices.contains(index)) { // mouseover: highlight
         val hoverGraphics = paintGraphics.create()
-        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JScatterPlot.kHoverOutlineColor, 0.5))
-        hoverGraphics.fillOval(screenX - JScatterPlot.kPointHoverOutlinePx / 2, screenY - JScatterPlot.kPointHoverOutlinePx / 2,
-          JScatterPlot.kPointHoverOutlinePx, JScatterPlot.kPointHoverOutlinePx)
+        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, 0.5))
+        hoverGraphics.fillOval(screenX - JDsePlot.kPointHoverOutlinePx / 2, screenY - JDsePlot.kPointHoverOutlinePx / 2,
+          JDsePlot.kPointHoverOutlinePx, JDsePlot.kPointHoverOutlinePx)
       }
       if (selectedIndices.contains(index)) { // selected: thicker
-        dataGraphics.fillOval(screenX - JScatterPlot.kPointSelectedSizePx / 2, screenY - JScatterPlot.kPointSelectedSizePx / 2,
-          JScatterPlot.kPointSelectedSizePx, JScatterPlot.kPointSelectedSizePx)
+        dataGraphics.fillOval(screenX - JDsePlot.kPointSelectedSizePx / 2, screenY - JDsePlot.kPointSelectedSizePx / 2,
+          JDsePlot.kPointSelectedSizePx, JDsePlot.kPointSelectedSizePx)
       } else {
-        dataGraphics.fillOval(screenX - JScatterPlot.kPointSizePx / 2, screenY - JScatterPlot.kPointSizePx / 2,
-          JScatterPlot.kPointSizePx, JScatterPlot.kPointSizePx)
+        dataGraphics.fillOval(screenX - JDsePlot.kPointSizePx / 2, screenY - JDsePlot.kPointSizePx / 2,
+          JDsePlot.kPointSizePx, JDsePlot.kPointSizePx)
       }
     }
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val axesGraphics = paintGraphics.create()
-    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JScatterPlot.kTickBrightness))
+    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness))
     paintAxes(axesGraphics)
 
     paintData(paintGraphics)
@@ -216,7 +155,7 @@ class JScatterPlot[ValueType] extends JComponent {
 
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val clickedPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
+      val clickedPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
       onClick(e, clickedPoints.sortBy(_._2).map(pair => data(pair._1)))
     }
   })
@@ -224,7 +163,7 @@ class JScatterPlot[ValueType] extends JComponent {
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val newPoints = getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx)
+      val newPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
       val newIndices = newPoints.map(_._1)
       if (mouseOverIndices != newIndices) {
         mouseOverIndices = newIndices
@@ -240,8 +179,8 @@ class JScatterPlot[ValueType] extends JComponent {
   addMouseWheelListener(new MouseWheelListener {
     override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
       val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
-      xRange = JScatterPlot.scrollNewRange(xRange, zoomFactor, e.getX.toFloat / getWidth)
-      yRange = JScatterPlot.scrollNewRange(yRange, zoomFactor, 1 - (e.getY.toFloat / getHeight))
+      xRange = JDsePlot.scrollNewRange(xRange, zoomFactor, e.getX.toFloat / getWidth)
+      yRange = JDsePlot.scrollNewRange(yRange, zoomFactor, 1 - (e.getY.toFloat / getHeight))
 
       validate()
       repaint()
@@ -281,7 +220,7 @@ class JScatterPlot[ValueType] extends JComponent {
   addMouseMotionListener(dragListener)  // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getPointsForLocation(e.getX, e.getY, JScatterPlot.kSnapDistancePx).headOption match {
+    getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
       case None => null
     }

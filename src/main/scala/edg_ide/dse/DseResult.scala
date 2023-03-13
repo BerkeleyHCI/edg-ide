@@ -2,6 +2,7 @@ package edg_ide.dse
 
 import edg.compiler.{Compiler, CompilerError}
 import edg.wir.Refinements
+import edg_ide.swing.dse.DseResultModel
 import edgir.schema.schema.Design
 
 import scala.collection.{SeqMap, mutable}
@@ -30,10 +31,12 @@ case class DseResult(
 class CombinedDseResultSet(results: Seq[DseResult]) {
   // groups similar results while preserving the order of groups (based on first-seen order of results)
   private def combineSimilarResults(results: Seq[DseResult]): Seq[Seq[DseResult]] = {
-    type GroupingKey = (Boolean, SeqMap[DseObjective, Any])  // group only by objective values and if there were errors
+    // group only by ideal errors only, non-ideal errors, objective values
+    type GroupingKey = (Boolean, Boolean, SeqMap[DseObjective, Any])
     val groupedMap = mutable.SeqMap[GroupingKey, mutable.ArrayBuffer[DseResult]]()
     results.foreach { result =>
-      val key = (result.errors.nonEmpty, result.objectives)
+      val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
+      val key = ((idealErrors.nonEmpty && otherErrors.isEmpty), otherErrors.nonEmpty, result.objectives)
       groupedMap.getOrElseUpdate(key, mutable.ArrayBuffer[DseResult]()).append(result)
     }
     groupedMap.map { case (key, vals) =>

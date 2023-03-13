@@ -63,10 +63,14 @@ object PopupUtils {
   }
 
   // creates an error popup without showing it
-  private def createErrorPopupRaw(message: String): (JBPopup, Int) = {
+  private def createErrorPopupRaw(message: String, isWarning: Boolean): (JBPopup, Int) = {
     var hintHeight: Int = 0
+    var validationInfo = new ValidationInfo(message, null)  // TODO support component?
+    if (isWarning) {
+      validationInfo = validationInfo.asWarning()
+    }
     val popupBuilder = ComponentValidator.createPopupBuilder(
-      new ValidationInfo(message, null),  // TODO support component?
+      validationInfo,
       (editorPane: JEditorPane) => {
         hintHeight = editorPane.getPreferredSize.height
       }
@@ -79,21 +83,28 @@ object PopupUtils {
 
   // creates and shows an error popup at some point in screen coordinates
   // point will be the top left of the popup
+  def createPopupAtMouse(message: String, owner: java.awt.Component): Unit = {
+    val (popup, height) = createErrorPopupRaw(message, true)
+    val clickLocation = MouseInfo.getPointerInfo.getLocation
+    val adjustedLocation = new Point(clickLocation.x, clickLocation.y - JBUIScale.scale(6) + height)
+    popup.showInScreenCoordinates(owner, adjustedLocation)
+  }
+
   def createErrorPopupAtMouse(message: String, owner: java.awt.Component): Unit = {
-    val (popup, height) = createErrorPopupRaw(message)
+    val (popup, height) = createErrorPopupRaw(message, false)
     val clickLocation = MouseInfo.getPointerInfo.getLocation
     val adjustedLocation = new Point(clickLocation.x, clickLocation.y - JBUIScale.scale(6) + height)
     popup.showInScreenCoordinates(owner, adjustedLocation)
   }
 
   def createErrorPopup(message: String, e: MouseEvent): Unit = {
-    val (popup, height) = createErrorPopupRaw(message)
+    val (popup, height) = createErrorPopupRaw(message, false)
     popup.showInScreenCoordinates(e.getComponent,
       new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - height))
   }
 
   def createErrorPopup(message: String, editor: Editor): Unit = {
-    val (popup, height) = createErrorPopupRaw(message)
+    val (popup, height) = createErrorPopupRaw(message, false)
     popup.showInBestPositionFor(editor)
   }
 }

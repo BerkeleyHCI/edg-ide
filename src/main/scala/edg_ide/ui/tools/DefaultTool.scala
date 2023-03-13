@@ -109,57 +109,58 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
     addSeparator()
 
     val rootClass = interface.getDesign.getContents.getSelfClass
-    val (refinementClass, refinementLabel) = block.prerefineClass match {
-      case Some(prerefineClass) if prerefineClass != block.getSelfClass =>
-        (prerefineClass, f"Search refinements of base ${prerefineClass.toSimpleString}")
-      case _ => (block.getSelfClass, f"Search refinements of ${block.getSelfClass.toSimpleString}")
-    }
+    val refinementClass = block.prerefineClass.getOrElse(block.getSelfClass)
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).get
       () => {
         ReadAction.nonBlocking((() => {
-          val subClasses = PyClassInheritorsSearch.search(blockPyClass, true).findAll().asScala
-          subClasses.filter { subclass =>  // filter out abstract blocks
-            !DesignAnalysisUtils.isPyClassAbstract(subclass)
-          } .map { subclass =>
-            DesignAnalysisUtils.typeOf(subclass)
-          }
+          DesignAnalysisUtils.findOrderedSubclassesOf(blockPyClass)
+              .filter { subclass =>  // filter out abstract blocks
+                !DesignAnalysisUtils.isPyClassAbstract(subclass)
+              } .map { subclass =>
+                DesignAnalysisUtils.typeOf(subclass)
+              }
         }): Callable[Iterable[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), subclasses => {
           if (subclasses.isEmpty) {
             PopupUtils.createErrorPopupAtMouse(s"${blockPyClass.getName} has no non-abstract subclasses", this)
           } else {
-            val config = DseService(project).getOrCreateRunConfiguration(rootClass)
-            config.options.searchConfigs = config.options.searchConfigs ++ Seq(
-              DseSubclassSearch(path, subclasses.toSeq)
-            )
-            DseService(project).onSearchConfigChanged(config)
+            val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+            config.options.searchConfigs = config.options.searchConfigs :+ DseSubclassSearch(path, subclasses.toSeq)
+            DseService(project).onSearchConfigChanged(config, true)
           }
         }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
       }
-    }, refinementLabel))
+    }, f"Search subclasses of ${refinementClass.toSimpleString}"))
     add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
       requireExcept(block.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
       () => {
-        val config = DseService(project).getOrCreateRunConfiguration(rootClass)
-        config.options.searchConfigs = config.options.searchConfigs ++ Seq(DseDerivedPartSearch(path))
-        DseService(project).onSearchConfigChanged(config)
-    }}, "Search matching parts"))
+        val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+        config.options.searchConfigs = config.options.searchConfigs :+ DseDerivedPartSearch(path)
+        DseService(project).onSearchConfigChanged(config, true)
+    }}, s"Search matching parts"))
 
     add(ContextMenuUtils.MenuItem(() => {
-      val config = DseService(project).getOrCreateRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintArea(path))
-      DseService(project).onObjectiveConfigChanged(config)
-    }, "Add objective contained footprint area"))
+      val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+      config.options.objectives = config.options.objectives :+ DseObjectiveFootprintArea(path)
+      DseService(project).onObjectiveConfigChanged(config, true)
+    }, s"Add objective area"))
     add(ContextMenuUtils.MenuItem(() => {
-      val config = DseService(project).getOrCreateRunConfiguration(rootClass)
+      val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
       config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintCount(path))
-      DseService(project).onObjectiveConfigChanged(config)
-    }, "Add objective contained footprint count"))
+      DseService(project).onObjectiveConfigChanged(config, true)
+    }, "Add objective component count"))
+    if (path == DesignPath()) {  // price only supported at top level for now
+      add(ContextMenuUtils.MenuItem(() => {
+        val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+        config.options.objectives = config.options.objectives ++ Seq(DseObjectivePrice())
+        DseService(project).onObjectiveConfigChanged(config, true)
+      }, "Add objective price"))
+    }
     add(ContextMenuUtils.MenuItem(() => {
-      val config = DseService(project).getOrCreateRunConfiguration(rootClass)
-      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveFootprintPrice(path))
-      DseService(project).onObjectiveConfigChanged(config)
-    }, "Add objective price"))
+      val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+      config.options.objectives = config.options.objectives ++ Seq(DseObjectiveUnprovenCount(path))
+      DseService(project).onObjectiveConfigChanged(config, true)
+    }, "Add unproven count"))
   }
 }
 
