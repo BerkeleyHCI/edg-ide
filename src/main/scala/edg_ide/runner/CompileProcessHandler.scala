@@ -312,16 +312,6 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           ""
         }
 
-        if (options.pdfFile.nonEmpty) {
-          runFailableStage("generate PDF", indicator) {
-            PDFGeneratorUtil.generate(compiled.getContents, mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
-            f"wrote ${options.pdfFile}"
-          }
-        } else {
-          console.print(s"Skip generating PDF, no PDF file specified in run options\n",
-            ConsoleViewContentType.ERROR_OUTPUT)
-        }
-
         if (options.netlistFile.nonEmpty) {
           runFailableStage("generate netlist", indicator) {
             val netlist = pythonInterface.get.runBackend(
@@ -338,7 +328,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         } else {
           console.print(s"Skip generating netlist, no netlist file specified in run options\n",
-            ConsoleViewContentType.ERROR_OUTPUT)
+            ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
 
         if (options.bomFile.nonEmpty) {
@@ -357,7 +347,14 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         } else {
           console.print(s"Skip generating BOM, no BOM file specified in run options\n",
-            ConsoleViewContentType.ERROR_OUTPUT)
+            ConsoleViewContentType.LOG_INFO_OUTPUT)
+        }
+
+        if (options.pdfFile.nonEmpty) {
+          runFailableStage("generate PDF", indicator) {
+            PDFGeneratorUtil.generate(compiled.getContents, mappers = Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
+            f"wrote ${options.pdfFile}"
+          }
         }
       }
       exitCode = pythonInterface.get.shutdown()
