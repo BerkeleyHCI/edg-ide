@@ -185,16 +185,25 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     math.min(x * axes.length / getWidth, axes.length - 1)
   }
 
+  // Given the current selection, returns the selectable points zipped with index
+  private def selectablePointsWithIndex: Seq[(Data, Int)] = {
+    if (selectedIndices.nonEmpty) { // if currently selected points, filter from that
+      selectedIndices.map(index => (data(index), index))
+    } else { // otherwise all points valid
+      data.zipWithIndex
+    }
+  }
+
   // Returns the points with some specified distance (in screen coordinates, px) of the point.
   // Returns as (index of point, distance)
-  private def getPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
+  private def getPointsForLocation(x: Int, y: Int, maxDistance: Int, selectableWithIndex: Seq[(Data, Int)]): Seq[(Int, Float)] = {
     val axisIndex = getAxisForLocation(x)
     val axisPosition = getPositionForAxis(axisIndex)
     if (math.abs(axisPosition - x) > maxDistance) {
       return Seq()  // if not close enough to the axis nothing else matters
     }
 
-    data.zipWithIndex.flatMap { case (data, index) =>
+    selectableWithIndex.flatMap { case (data, index) =>
       data.positions(axisIndex) match {
         case Some(value) =>
           val xDist = axisPosition - x
@@ -207,17 +216,6 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
           }
         case _ => None  // ignore None
       }
-    }
-  }
-
-  private def getSelectingPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
-    val allPoints = getPointsForLocation(x, y, maxDistance)
-    if (selectedIndices.nonEmpty) { // if selection, subset from selection
-      allPoints.filter { case (index, dist) =>
-        selectedIndices.contains(index)
-      }
-    } else { // otherwise create fresh selection
-      allPoints
     }
   }
 
@@ -261,7 +259,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
       if (dragRange.isEmpty) {  // only runs on non-drag
-        val newPoints = getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
+        val newPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx, selectablePointsWithIndex)
         val sortedIndices = newPoints.sortBy(_._2).map(_._1)  // sort by distance
         hoverUpdated(sortedIndices)
       }
@@ -361,12 +359,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
           dragRange = Some((axisIndex, startY, Some(currY)))
 
           val (minY, maxY) = JDsePlot.orderedValues(startY, currY)
-          val allPointsWithIndex = if (selectedIndices.nonEmpty) {  // if currently selected points, filter from that
-            selectedIndices.map(index => (data(index), index))
-          } else {  // otherwise all points valid
-            data.zipWithIndex
-          }
-          val newIndices = allPointsWithIndex.flatMap { case (data, index) =>
+
+          val newIndices = selectablePointsWithIndex.flatMap { case (data, index) =>
             data.positions(axisIndex) match {
               case Some(value) =>
                 if (minY <= value && value <= maxY) {
@@ -374,7 +368,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
                 } else {
                   None
                 }
-              case _ => None
+              case None => None
             }
           }
 
@@ -390,7 +384,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseMotionListener(dragSelectListener) // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
+    getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx, selectablePointsWithIndex).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
       case None => null
     }
