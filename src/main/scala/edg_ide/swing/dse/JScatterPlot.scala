@@ -142,17 +142,16 @@ class JScatterPlot[ValueType] extends JComponent {
 
     paintData(paintGraphics)
 
-    dragRange match {
-      case Some(((startX, startY), Some((currX, currY)))) =>
-        val selectionGraphics = paintGraphics.create()
-        selectionGraphics.setColor(JDsePlot.kHoverOutlineColor)
-        val (minX, maxX) = JDsePlot.orderedValues(dataToScreenX(startX), dataToScreenX(currX))
-        val (minY, maxY) = JDsePlot.orderedValues(dataToScreenY(startY), dataToScreenY(currY))
+    dragRange.collect { case ((startX, startY), Some((currX, currY))) =>
+      val selectionGraphics = paintGraphics.create()
+      selectionGraphics.setColor(JDsePlot.kHoverOutlineColor)
+      val (minX, maxX) = JDsePlot.orderedValues(dataToScreenX(startX), dataToScreenX(currX))
+      val (minY, maxY) = JDsePlot.orderedValues(dataToScreenY(startY), dataToScreenY(currY))
 
-        selectionGraphics.drawRect(minX, minY, maxX - minX, maxY - minY)
+      selectionGraphics.drawRect(minX, minY, maxX - minX, maxY - minY)
 
-        selectionGraphics.setColor(ColorUtil.withAlpha(selectionGraphics.getColor, JDsePlot.kDragSelectAlpha))
-        selectionGraphics.fillRect(minX, minY, maxX - minX, maxY - minY)
+      selectionGraphics.setColor(ColorUtil.withAlpha(selectionGraphics.getColor, JDsePlot.kDragSelectAlpha))
+      selectionGraphics.fillRect(minX, minY, maxX - minX, maxY - minY)
     }
   }
 
