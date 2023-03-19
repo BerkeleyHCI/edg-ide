@@ -10,7 +10,7 @@ import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
-import edg_ide.ui.{BlockVisualizerService, DseService, EdgCompilerService}
+import edg_ide.ui.{BlockVisualizerService, DseService, EdgCompilerService, Instrumentation}
 import edgir.schema.schema
 import edgir.schema.schema.Design
 
@@ -111,6 +111,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     BlockVisualizerService(project).setDesignStale()
+
+    Instrumentation.writeRow(this, "DseStart",
+      s"${options.designName}; conf=${options.searchConfigs.map(_.toString).mkString(",")}, obj=${options.objectives.map(_.toString).mkString(",")}")
 
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
@@ -259,6 +262,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           System.gc() // clean up after this compile run  TODO: we can GC more often if we can prune the completed compiler
           ""
         }
+        Instrumentation.writeRow(this, "DseComplete", s"${options.designName}; results=${results.length}")
       }
     } catch {
       case e: Throwable =>
@@ -279,5 +283,6 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     }
 
     terminatedNotify(exitCode)
+    Instrumentation.writeRow(this, "DseEnd", s"${options.designName}")
   }
 }

@@ -6,7 +6,7 @@ import com.intellij.openapi.ui.ComboBox
 import edg_ide.dse._
 import edg_ide.swing.{ColorUtil, SwingHtmlUtil}
 import edg_ide.swing.dse._
-import edg_ide.ui.Gbc
+import edg_ide.ui.{Gbc, Instrumentation}
 
 import java.awt.event._
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -150,6 +150,10 @@ class DseParallelPlotPanel() extends DseBasePlot {
           revalidate()
 
           updatePlot()  // TODO doesn't need to be wrapped in invokeLater
+          val axisElts = axisSelectors.zipWithIndex.map { case (selector, index) =>
+            s"$index=${selector.getItem}"
+          }
+          Instrumentation.writeRow(DseParallelPlotPanel.this, "AxisSelector", axisElts.mkString(", "))
         })
       }
     }
@@ -165,5 +169,6 @@ class DseParallelPlotPanel() extends DseBasePlot {
 
   override def setSelection(results: Seq[DseResult]): Unit = {
     parallelPlot.setSelected(results)
+    Instrumentation.writeRow(DseParallelPlotPanel.this, "Select", results.length.toString)
   }
 }

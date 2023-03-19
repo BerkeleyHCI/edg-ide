@@ -311,6 +311,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   setLayout(new BorderLayout())
   add(mainSplitter)
 
+  Instrumentation.writeRow(this, "Start", "")
+
   // Actions
   //
   def getDsePanel: DsePanel = dsePanel
@@ -359,6 +361,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
     detailPanel.setLoaded(path, design, refinements, compiler)
     kicadVizPanel.setBlock(path, design, compiler)
+    Instrumentation.writeRow(this, "SetDetailView", path.toString)
   }
 
   /** Sets the design and updates displays accordingly.

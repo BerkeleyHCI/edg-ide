@@ -7,7 +7,7 @@ import com.intellij.ui.components.JBLabel
 import edg_ide.dse._
 import edg_ide.swing.SwingHtmlUtil
 import edg_ide.swing.dse._
-import edg_ide.ui.Gbc
+import edg_ide.ui.{Gbc, Instrumentation}
 
 import java.awt.event.{ActionEvent, ItemEvent, ItemListener, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
@@ -127,6 +127,7 @@ class DseScatterPlotPanel() extends DseBasePlot {
     override def itemStateChanged(e: ItemEvent): Unit = {
       if (e.getStateChange == ItemEvent.SELECTED) {
         updatePlot()
+        Instrumentation.writeRow(DseScatterPlotPanel.this, "AxisSelector", s"x=${xSelector.getItem}, y=${ySelector.getItem}")
       }
     }
   }
@@ -141,5 +142,6 @@ class DseScatterPlotPanel() extends DseBasePlot {
 
   override def setSelection(results: Seq[DseResult]): Unit = {
     scatterPlot.setSelected(results)
+    Instrumentation.writeRow(DseScatterPlotPanel.this, "Select", results.length.toString)
   }
 }

@@ -93,6 +93,7 @@ class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu
     () => { // TODO standardized continuation?
       val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
+      Instrumentation.writeRow(DseResultPopupMenu.this, "InsertRefinement", result.searchRefinements.toString)
     }
   }, s"Insert refinements"))
 }
@@ -179,6 +180,7 @@ class DsePanel(project: Project) extends JPanel {
       val result = data.head
       BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
         result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
+      Instrumentation.writeRow(DsePanel.this, "SetDesignTop", s"plot, ${result.searchRefinements}")
     }
   }
 
@@ -186,12 +188,14 @@ class DsePanel(project: Project) extends JPanel {
     override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = plotOnClick(e, data)
     override def onSwitchClick(): Unit = {
       mainSplitter.setFirstComponent(parallelPlot)
+      Instrumentation.writeRow(DsePanel.this, "PlotSwitch", s"parallel")
     }
   }
   private val parallelPlot: DseParallelPlotPanel = new DseParallelPlotPanel() {
     override def onClick(e: MouseEvent, data: Seq[DseResult]): Unit = plotOnClick(e, data)
     override def onSwitchClick(): Unit = {
       mainSplitter.setFirstComponent(scatterPlot)
+      Instrumentation.writeRow(DsePanel.this, "PlotSwitch", s"scatter")
     }
   }
   // TODO this updates all the plots even when one is displayed, this could be optimized
@@ -273,6 +277,7 @@ class DsePanel(project: Project) extends JPanel {
             val result = node.result
             BlockVisualizerService(project).setDesignTop(result.compiled, result.compiler,
               result.compiler.refinements.toPb, result.errors, Some(f"DSE ${result.index}: "))
+            Instrumentation.writeRow(DsePanel.this, "SetDesignTop", s"tree, ${result.searchRefinements}")
           }
         case _ => // any other type ignored
       }

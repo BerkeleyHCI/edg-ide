@@ -17,7 +17,7 @@ import edg.compiler._
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.{ElkEdgirGraphUtils, HierarchyGraphElk}
-import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
+import edg_ide.ui.{BlockVisualizerService, EdgCompilerService, Instrumentation}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
 import edgir.elem.elem
@@ -253,6 +253,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     BlockVisualizerService(project).setDesignStale()
 
+    Instrumentation.writeRow(this, "CompileStart", options.designName)
+
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
     var pythonInterface: Option[LoggingPythonInterface] = None
@@ -382,6 +384,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         console.print(s"Compiler internal error, compilation stopped:\n", ConsoleViewContentType.ERROR_OUTPUT)
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
+    Instrumentation.writeRow(this, "CompileEnd", options.designName)
     terminatedNotify(exitCode)
   }
 }
