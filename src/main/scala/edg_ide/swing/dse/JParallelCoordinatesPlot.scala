@@ -356,20 +356,28 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
     override def mouseDragged(e: MouseEvent): Unit = {
       if (SwingUtilities.isLeftMouseButton(e)) {
-        dragRange.foreach { case (axisIndex, startY, end) =>
-          val currX = screenToDataX(e.getX)
-          val currY = screenToDataY(e.getY)
+        dragRange.foreach { case (axisIndex, startY, _) =>
+          val currY = getValueForPosition(axisIndex, e.getY)
           dragRange = Some((axisIndex, startY, Some(currY)))
 
-          val (minX, maxX) = JDsePlot.orderedValues(startX, currX)
           val (minY, maxY) = JDsePlot.orderedValues(startY, currY)
-          val newIndices = data.zipWithIndex.flatMap { case (data, index) =>
-            if (minX <= data.x && data.x <= maxX && minY <= data.y && data.y <= maxY) {
-              Some(index)
-            } else {
-              None
+          val allPointsWithIndex = if (selectedIndices.nonEmpty) {  // if currently selected points, filter from that
+            selectedIndices.map(index => (data(index), index))
+          } else {  // otherwise all points valid
+            data.zipWithIndex
+          }
+          val newIndices = allPointsWithIndex.flatMap { case (data, index) =>
+            data.positions(axisIndex) match {
+              case Some(value) =>
+                if (minY <= value && value <= maxY) {
+                  Some(index)
+                } else {
+                  None
+                }
+              case _ => None
             }
           }
+
           hoverUpdated(newIndices)
 
           validate()
