@@ -193,9 +193,7 @@ class JScatterPlot[ValueType] extends JComponent {
 
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      println(s"Click ${mouseOverIndices}")
       onClick(e, mouseOverIndices.map(data(_)))
-      mouseOverIndices = Seq()
       validate()
       repaint()
     }
