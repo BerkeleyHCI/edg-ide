@@ -169,6 +169,6 @@ class DseParallelPlotPanel() extends DseBasePlot {
 
   override def setSelection(results: Seq[DseResult]): Unit = {
     parallelPlot.setSelected(results)
-    Instrumentation.writeRow(DseParallelPlotPanel.this, "Select", results.length.toString)
+    Instrumentation.writeRow(this, "Select", results.length.toString)
   }
 }

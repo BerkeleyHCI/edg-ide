@@ -33,10 +33,17 @@ object Instrumentation {
   }
 
   def writeRow(cls: Any, tag: String, data: String): Unit = {
+    val (writer, csv) = getWriterCsv()
     val rowTime = timeFormat.format(new Date())
     val rowMillis = System.currentTimeMillis() - startMillis
-    val (writer, csv) = getWriterCsv()
-    csv.writeRow(Seq(cls.getClass.getSimpleName, rowTime, (rowMillis / 1000f).toString, tag, data).asJava)
+    def resolveClassName[T](cls: Class[T]): String = {
+      if (cls.getSimpleName.nonEmpty) {
+        cls.getSimpleName
+      } else {
+        resolveClassName(cls.getSuperclass)
+      }
+    }
+    csv.writeRow(Seq(rowTime, (rowMillis / 1000f).toString, resolveClassName(cls.getClass), tag, data).asJava)
     writer.flush()
   }
 }
