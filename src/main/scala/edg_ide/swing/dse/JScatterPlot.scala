@@ -192,17 +192,19 @@ class JScatterPlot[ValueType] extends JComponent {
     var dragLastPos: Option[Point] = None
 
     override def mousePressed(e: MouseEvent): Unit = {
-      if (SwingUtilities.isLeftMouseButton(e)) {
+      if (SwingUtilities.isMiddleMouseButton(e)) {
         dragLastPos = Some(e.getPoint)
       }
     }
 
     override def mouseReleased(e: MouseEvent): Unit = {
-      dragLastPos = None
+      if (SwingUtilities.isMiddleMouseButton(e)) {
+        dragLastPos = None
+      }
     }
 
     override def mouseDragged(e: MouseEvent): Unit = {
-      if (SwingUtilities.isLeftMouseButton(e)) {
+      if (SwingUtilities.isMiddleMouseButton(e)) {
         dragLastPos.foreach { lastPos =>
           val dx = (lastPos.getX - e.getX).toFloat * (xRange._2 - xRange._1) / getWidth
           val dy = (lastPos.getY - e.getY).toFloat * (yRange._2 - yRange._1) / getHeight

@@ -264,17 +264,19 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     var dragLastAxisPos: Option[(Int, Int)] = None  // axis, y-pos
 
     override def mousePressed(e: MouseEvent): Unit = {
-      if (SwingUtilities.isLeftMouseButton(e)) {
+      if (SwingUtilities.isMiddleMouseButton(e)) {
         dragLastAxisPos = Some((getAxisForLocation(e.getX), e.getY))
       }
     }
 
     override def mouseReleased(e: MouseEvent): Unit = {
-      dragLastAxisPos = None
+      if (SwingUtilities.isMiddleMouseButton(e)) {
+        dragLastAxisPos = None
+      }
     }
 
     override def mouseDragged(e: MouseEvent): Unit = {
-      if (SwingUtilities.isLeftMouseButton(e)) {
+      if (SwingUtilities.isMiddleMouseButton(e)) {
         dragLastAxisPos.foreach { case (axisIndex, pos) =>
           if (axisIndex >= axesRange.length || axesRange.isEmpty) {
             return
