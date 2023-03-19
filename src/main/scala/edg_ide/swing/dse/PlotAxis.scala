@@ -25,7 +25,16 @@ object PlotAxis {
       new DseConfigParamAxis(config, " (max)", {
         case RangeValue(lower, upper) => Some(upper)
         case _ => None
-      })
+      }),
+      new DseConfigParamAxis(config, " (tol)", {
+        case RangeValue(lower, upper) if lower > 0 & upper > 0 =>
+          val mid = (lower + upper) / 2
+          Some((upper - mid) / mid * 100)
+        case RangeValue(lower, upper) if lower < 0 & upper < 0 =>
+          val mid = (lower + upper) / 2
+          Some((lower - mid) / mid * 100)
+        case _ => None // including case where it crosses zero, and tolerance is undefined
+      }),
     )
     case config => Seq(new DseConfigOrdinalAxis(config))
   }
@@ -50,7 +59,16 @@ object PlotAxis {
       new DseObjectiveParamAxis(objective, " (max)", {
         case RangeValue(lower, upper) => Some(upper)
         case _ => None
-      })
+      }),
+      new DseObjectiveParamAxis(objective, " (tol)", {
+        case RangeValue(lower, upper) if lower > 0 & upper > 0 =>
+          val mid = (lower + upper) / 2
+          Some((upper - mid) / mid * 100)
+        case RangeValue(lower, upper) if lower < 0 & upper < 0 =>
+          val mid = (lower + upper) / 2
+          Some((lower - mid) / mid * 100)
+        case _ => None  // including case where it crosses zero, and tolerance is undefined
+      }),
     )
     case objective: DseObjectiveParameter =>
       Seq(new DseObjectiveParamOrdinalAxis(objective))
