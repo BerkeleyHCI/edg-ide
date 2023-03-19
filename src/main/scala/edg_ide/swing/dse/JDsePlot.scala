@@ -10,7 +10,7 @@ object JDsePlot {
   // GUI constants
   private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
 
-  val kPointAlpha: Int = 191
+  val kPointAlpha: Int = 223
   val kBackgroundBlend: Float = 0.5f
   val kBackgroundAlpha: Int = 63
 
@@ -18,7 +18,7 @@ object JDsePlot {
   val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
   val kPointSelectedSizePx: Int = 6 // diameter in px
   val kPointHoverOutlinePx: Int = 12 // diameter in px
-  val kLineHoverBackgroundPx: Int = 9 // width in px
+  val kLineHoverBackgroundPx: Int = 13 // width in px
   val kLineHoverOutlinePx: Int = 5 // width in px
   val kHoverOutlineColor: Color = JBColor.YELLOW
   val kHoverOutlineBlend: Float = 0.5f

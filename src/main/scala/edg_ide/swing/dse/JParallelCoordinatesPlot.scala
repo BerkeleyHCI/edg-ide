@@ -144,12 +144,14 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
     paintData(paintGraphics, backgroundData.map(_._1), colorBlend = JDsePlot.kBackgroundBlend,
       alpha = JDsePlot.kBackgroundAlpha)
+
+    paintGraphics.asInstanceOf[Graphics2D].setStroke(new BasicStroke(1.5f))
     paintData(paintGraphics, normalData.map(_._1), alpha = JDsePlot.kPointAlpha)
 
     val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     hoverGraphics.setColor(getBackground)
     hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverBackgroundPx.toFloat))
-    paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true)  // draw the background exclusion border
+    paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true, alpha = 191)  // draw the background exclusion border
     hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, JDsePlot.kHoverOutlineBlend))
     hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverOutlinePx.toFloat))
     paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true)
