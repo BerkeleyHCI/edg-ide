@@ -140,7 +140,8 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Top plot
   def plotOnClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
-    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in tree
+    // note: some platforms register drag-release as 0 clicks
+    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount <= 1) { // single click, highlight in tree
       resultsTree.clearSelection()
 
       val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
