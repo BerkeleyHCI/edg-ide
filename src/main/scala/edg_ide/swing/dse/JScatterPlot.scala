@@ -17,7 +17,7 @@ class JScatterPlot[ValueType] extends JComponent {
     * This allows future extensibility with additional parameters, eg size or marks.
     */
   class Data(val value: ValueType, val x: Float, val y: Float,
-             val color: Option[Color] = None, val tooltipText: Option[String] = None) {
+             val zOrder: Int = 1, val color: Option[Color] = None, val tooltipText: Option[String] = None) {
   }
 
   // data state
@@ -111,7 +111,7 @@ class JScatterPlot[ValueType] extends JComponent {
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
-    data.zipWithIndex.foreach { case (data, index) =>
+    data.zipWithIndex.sortBy(_._1.zOrder).foreach { case (data, index) =>
       val dataGraphics = paintGraphics.create()
       data.color.foreach { color =>  // if color is specified, set the color
         dataGraphics.setColor(color)
@@ -121,7 +121,7 @@ class JScatterPlot[ValueType] extends JComponent {
 
       if (mouseOverIndices.contains(index)) { // mouseover: highlight
         val hoverGraphics = paintGraphics.create()
-        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, 0.5))
+        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, JDsePlot.kHoverOutlineBlend))
         hoverGraphics.fillOval(screenX - JDsePlot.kPointHoverOutlinePx / 2, screenY - JDsePlot.kPointHoverOutlinePx / 2,
           JDsePlot.kPointHoverOutlinePx, JDsePlot.kPointHoverOutlinePx)
       }

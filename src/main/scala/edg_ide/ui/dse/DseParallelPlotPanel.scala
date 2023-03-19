@@ -79,17 +79,17 @@ class DseParallelPlotPanel() extends DseBasePlot {
 
     val parallelPoints = flatResults.toIndexedSeq.zipWithIndex.map { case (result, dataIndex) =>
       val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
-      val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-        case (_, true) => Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorOtherError, 0.66))
-        case (true, false) => Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorIdealError, 0.66))
-        case (false, false) => None
+      val (zOrder, color) = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+        case (_, true) => (-1, Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorOtherError, 0.66)))
+        case (true, false) => (0, Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorIdealError, 0.66)))
+        case (false, false) => (1, None)
       }
       val tooltipText = DseConfigElement.configMapToString(result.config)
       val axisValues = axisSelectors.indices.map { axisIndex =>
         pointsByAxis(axisIndex)(dataIndex)
       }
 
-      new parallelPlot.Data(result, axisValues, color,
+      new parallelPlot.Data(result, axisValues, zOrder, color,
         Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont)))
     }
 

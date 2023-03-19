@@ -13,7 +13,7 @@ import javax.swing.{JComponent, SwingUtilities}
 class JParallelCoordinatesPlot[ValueType] extends JComponent {
   // Data point object
   class Data(val value: ValueType, val positions: IndexedSeq[Option[Float]],
-             val color: Option[Color] = None, val tooltipText: Option[String] = None) {
+             val zOrder: Int = 1, val color: Option[Color] = None, val tooltipText: Option[String] = None) {
   }
 
   // data state, note axes is considered the authoritative definition of the number of positions
@@ -105,8 +105,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   private def paintData(paintGraphics: Graphics, data: IndexedSeq[Data], noColor: Boolean = false,
-                        colorBlend: Float = 1.0f): Unit = {
-    data.foreach { data =>
+                        colorBlend: Float = 1.0f, alpha: Int = 255): Unit = {
+    data.sortBy(_.zOrder).foreach { data =>
       val dataGraphics = if (noColor) {
         paintGraphics
       } else {
@@ -116,7 +116,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         }
         dataGraphics
       }
-      dataGraphics.setColor(ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend))
+      dataGraphics.setColor(ColorUtil.withAlpha(
+        ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend), alpha))
 
       data.positions.sliding(2).zipWithIndex.foreach {
         case (Seq(Some(value), Some(nextValue)), axisIndex) =>
@@ -133,30 +134,27 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   private def paintAllData(paintGraphics: Graphics): Unit = {
-    // paint order: (bottom) normal -> selected -> mouseover
-    val normalData = data.zipWithIndex.filter { case (data, dataIndex) =>
-      !mouseOverIndices.contains(dataIndex) && !selectedIndices.contains(dataIndex)
-    }.map(_._1)
-    val selectedData = data.zipWithIndex.filter { case (data, dataIndex) =>
-      !mouseOverIndices.contains(dataIndex) && selectedIndices.contains(dataIndex)
-    }.map(_._1)
-    val mouseoverData = data.zipWithIndex.filter { case (data, dataIndex) =>
+    val (mouseoverData, nonMouseoverData) = data.zipWithIndex.partition { case (data, dataIndex) =>
       mouseOverIndices.contains(dataIndex)
-    }.map(_._1)
+    }
+    val (normalData, backgroundData) = nonMouseoverData.partition { case (data, dataIndex) =>
+      // only have backgrounded data if there is an active selection
+      selectedIndices.isEmpty || selectedIndices.contains(dataIndex)
+    }
 
-    val normalDataBlend = if (selectedIndices.nonEmpty) 0.33f else 1.0f  // dim others if there is a selection
-    paintData(paintGraphics, normalData, colorBlend = normalDataBlend)
-
-    val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-    selectedGraphics.setStroke(new BasicStroke(JDsePlot.kLineSelectedSizePx.toFloat))
-    paintData(selectedGraphics, selectedData)
+    paintData(paintGraphics, backgroundData.map(_._1), colorBlend = JDsePlot.kBackgroundBlend,
+      alpha = JDsePlot.kBackgroundAlpha)
+    paintData(paintGraphics, normalData.map(_._1), alpha = JDsePlot.kPointAlpha)
 
     val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, 0.5))
+    hoverGraphics.setColor(getBackground)
+    hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverBackgroundPx.toFloat))
+    paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true)  // draw the background exclusion border
+    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, JDsePlot.kHoverOutlineBlend))
     hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverOutlinePx.toFloat))
-    paintData(hoverGraphics, mouseoverData, noColor = true)
+    paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true)
 
-    paintData(selectedGraphics, mouseoverData)  // TODO: separate out selected from mouseover? idk
+    paintData(paintGraphics, mouseoverData.map(_._1), alpha = JDsePlot.kPointAlpha)
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
