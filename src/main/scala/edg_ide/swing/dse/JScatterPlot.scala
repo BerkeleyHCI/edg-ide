@@ -157,7 +157,7 @@ class JScatterPlot[ValueType] extends JComponent {
 
   // Returns the points with some specified distance (in screen coordinates, px) of the point.
   // Returns as (index of point, distance)
-  def getPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
+  private def getPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
     data.zipWithIndex.flatMap { case (data, index) =>
       val xDist = dataToScreenX(data.x) - x
       val yDist = dataToScreenY(data.y) - y
@@ -194,8 +194,6 @@ class JScatterPlot[ValueType] extends JComponent {
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       onClick(e, mouseOverIndices.map(data(_)))
-      validate()
-      repaint()
     }
   })
 
