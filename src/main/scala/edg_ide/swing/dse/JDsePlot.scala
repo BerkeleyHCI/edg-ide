@@ -18,6 +18,8 @@ object JDsePlot {
   val kLineHoverOutlinePx: Int = 7 // width in px
   val kHoverOutlineColor: Color = JBColor.YELLOW
 
+  val kDragSelectAlpha: Int = 64
+
   val kTickBrightness: Float = 0.25f
   val kTickSpacingIntervals: Seq[Int] = Seq(1, 2, 5)
   val kMinTickSpacingPx: Int = 64 // min spacing between axis ticks, used to determine tick resolution
@@ -53,6 +55,14 @@ object JDsePlot {
     } else {
       1
     }
+  }
+
+  def orderedValues(v1: Int, v2: Int): (Int, Int) = {
+    (math.min(v1, v2), math.max(v1, v2))
+  }
+
+  def orderedValues(v1: Float, v2: Float): (Float, Float) = {
+    (math.min(v1, v2), math.max(v1, v2))
   }
 
   // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
