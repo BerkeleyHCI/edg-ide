@@ -10,9 +10,9 @@ object JDsePlot {
   // GUI constants
   private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
 
-  val kPointAlpha: Int = 223
-  val kBackgroundBlend: Float = 0.5f
-  val kBackgroundAlpha: Int = 63
+  val kPointAlpha: Int = 191
+  val kBackgroundBlend: Float = 0.25f
+  val kBackgroundAlpha: Int = 127
 
   val kPointSizePx: Int = 4 // diameter in px
   val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click

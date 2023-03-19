@@ -156,7 +156,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverOutlinePx.toFloat))
     paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true)
 
-    paintData(paintGraphics, mouseoverData.map(_._1), alpha = JDsePlot.kPointAlpha)
+    paintData(paintGraphics, mouseoverData.map(_._1))
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
