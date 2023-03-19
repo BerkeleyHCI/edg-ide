@@ -10,13 +10,20 @@ object JDsePlot {
   // GUI constants
   private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
 
+  val kPointAlpha: Int = 191
+  val kBackgroundBlend: Float = 0.25f
+  val kBackgroundAlpha: Int = 127
+
   val kPointSizePx: Int = 4 // diameter in px
   val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
   val kPointSelectedSizePx: Int = 6 // diameter in px
   val kPointHoverOutlinePx: Int = 12 // diameter in px
-  val kLineSelectedSizePx: Int = 2 // width in px
-  val kLineHoverOutlinePx: Int = 7 // width in px
+  val kLineHoverBackgroundPx: Int = 13 // width in px
+  val kLineHoverOutlinePx: Int = 5 // width in px
   val kHoverOutlineColor: Color = JBColor.YELLOW
+  val kHoverOutlineBlend: Float = 0.5f
+
+  val kDragSelectAlpha: Int = 63
 
   val kTickBrightness: Float = 0.25f
   val kTickSpacingIntervals: Seq[Int] = Seq(1, 2, 5)
@@ -53,6 +60,14 @@ object JDsePlot {
     } else {
       1
     }
+  }
+
+  def orderedValues(v1: Int, v2: Int): (Int, Int) = {
+    (math.min(v1, v2), math.max(v1, v2))
+  }
+
+  def orderedValues(v1: Float, v2: Float): (Float, Float) = {
+    (math.min(v1, v2), math.max(v1, v2))
   }
 
   // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing

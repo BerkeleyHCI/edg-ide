@@ -13,7 +13,7 @@ import javax.swing.{JComponent, SwingUtilities}
 class JParallelCoordinatesPlot[ValueType] extends JComponent {
   // Data point object
   class Data(val value: ValueType, val positions: IndexedSeq[Option[Float]],
-             val color: Option[Color] = None, val tooltipText: Option[String] = None) {
+             val zOrder: Int = 1, val color: Option[Color] = None, val tooltipText: Option[String] = None) {
   }
 
   // data state, note axes is considered the authoritative definition of the number of positions
@@ -22,6 +22,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   private var data: IndexedSeq[Data] = IndexedSeq()
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
+
+  private var dragRange: Option[(Int, Float, Option[Float])] = None  // (axis, start, current) in data-space if in drag
 
   // UI state
   private var axesRange: Seq[(Float, Float)] = Seq((-1.0f, 1.0f))  // range for each axis
@@ -32,6 +34,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     this.axes = axes
     mouseOverIndices = Seq() // clear
     selectedIndices = Seq() // clear
+    dragRange = None
 
     axesRange = axes.zipWithIndex.map { case (axis, index) =>
       val values = data.flatMap { elt =>
@@ -54,7 +57,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   def setSelected(values: Seq[ValueType]): Unit = {
     selectedIndices = values flatMap { value =>
       data.indexWhere(_.value == value) match {
-        case index if (index >= 0) => Some(index)
+        case index if index >= 0 => Some(index)
         case _ => None // ignored
       }
     }
@@ -102,8 +105,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   private def paintData(paintGraphics: Graphics, data: IndexedSeq[Data], noColor: Boolean = false,
-                        colorBlend: Float = 1.0f): Unit = {
-    data.foreach { data =>
+                        colorBlend: Float = 1.0f, alpha: Int = 255): Unit = {
+    data.sortBy(_.zOrder).foreach { data =>
       val dataGraphics = if (noColor) {
         paintGraphics
       } else {
@@ -113,7 +116,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         }
         dataGraphics
       }
-      dataGraphics.setColor(ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend))
+      dataGraphics.setColor(ColorUtil.withAlpha(
+        ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend), alpha))
 
       data.positions.sliding(2).zipWithIndex.foreach {
         case (Seq(Some(value), Some(nextValue)), axisIndex) =>
@@ -130,30 +134,29 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   }
 
   private def paintAllData(paintGraphics: Graphics): Unit = {
-    // paint order: (bottom) normal -> selected -> mouseover
-    val normalData = data.zipWithIndex.filter { case (data, dataIndex) =>
-      !mouseOverIndices.contains(dataIndex) && !selectedIndices.contains(dataIndex)
-    }.map(_._1)
-    val selectedData = data.zipWithIndex.filter { case (data, dataIndex) =>
-      !mouseOverIndices.contains(dataIndex) && selectedIndices.contains(dataIndex)
-    }.map(_._1)
-    val mouseoverData = data.zipWithIndex.filter { case (data, dataIndex) =>
+    val (mouseoverData, nonMouseoverData) = data.zipWithIndex.partition { case (data, dataIndex) =>
       mouseOverIndices.contains(dataIndex)
-    }.map(_._1)
+    }
+    val (normalData, backgroundData) = nonMouseoverData.partition { case (data, dataIndex) =>
+      // only have backgrounded data if there is an active selection
+      selectedIndices.isEmpty || selectedIndices.contains(dataIndex)
+    }
 
-    val normalDataBlend = if (selectedIndices.nonEmpty) 0.33f else 1.0f  // dim others if there is a selection
-    paintData(paintGraphics, normalData, colorBlend = normalDataBlend)
+    paintData(paintGraphics, backgroundData.map(_._1), colorBlend = JDsePlot.kBackgroundBlend,
+      alpha = JDsePlot.kBackgroundAlpha)
 
-    val selectedGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-    selectedGraphics.setStroke(new BasicStroke(JDsePlot.kLineSelectedSizePx.toFloat))
-    paintData(selectedGraphics, selectedData)
+    paintGraphics.asInstanceOf[Graphics2D].setStroke(new BasicStroke(1.5f))
+    paintData(paintGraphics, normalData.map(_._1), alpha = JDsePlot.kPointAlpha)
 
     val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
-    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, 0.5))
+    hoverGraphics.setColor(getBackground)
+    hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverBackgroundPx.toFloat))
+    paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true, alpha = 191)  // draw the background exclusion border
+    hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, JDsePlot.kHoverOutlineBlend))
     hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverOutlinePx.toFloat))
-    paintData(hoverGraphics, mouseoverData, noColor = true)
+    paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true)
 
-    paintData(selectedGraphics, mouseoverData)  // TODO: separate out selected from mouseover? idk
+    paintData(paintGraphics, mouseoverData.map(_._1))
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
@@ -162,22 +165,45 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     paintAxes(axesGraphics)
 
     paintAllData(paintGraphics)
+
+    dragRange.collect { case (axis, startVal, Some(currVal)) =>
+      val selectionGraphics = paintGraphics.create()
+      selectionGraphics.setColor(JDsePlot.kHoverOutlineColor)
+      val (minY, maxY) = JDsePlot.orderedValues(getPositionForValue(axis, startVal), getPositionForValue(axis, currVal))
+      val centerX = getPositionForAxis(axis)
+      val minX = centerX - JDsePlot.kPointHoverOutlinePx / 2
+      val maxX = centerX + JDsePlot.kPointHoverOutlinePx / 2
+
+      selectionGraphics.drawRect(minX, minY, maxX - minX, maxY - minY)
+
+      selectionGraphics.setColor(ColorUtil.withAlpha(selectionGraphics.getColor, JDsePlot.kDragSelectAlpha))
+      selectionGraphics.fillRect(minX, minY, maxX - minX, maxY - minY)
+    }
   }
 
-  def getAxisForLocation(x: Int): Int = {
+  private def getAxisForLocation(x: Int): Int = {
     math.min(x * axes.length / getWidth, axes.length - 1)
+  }
+
+  // Given the current selection, returns the selectable points zipped with index
+  private def selectablePointsWithIndex: Seq[(Data, Int)] = {
+    if (selectedIndices.nonEmpty) { // if currently selected points, filter from that
+      selectedIndices.map(index => (data(index), index))
+    } else { // otherwise all points valid
+      data.zipWithIndex
+    }
   }
 
   // Returns the points with some specified distance (in screen coordinates, px) of the point.
   // Returns as (index of point, distance)
-  def getPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
+  private def getPointsForLocation(x: Int, y: Int, maxDistance: Int, selectableWithIndex: Seq[(Data, Int)]): Seq[(Int, Float)] = {
     val axisIndex = getAxisForLocation(x)
     val axisPosition = getPositionForAxis(axisIndex)
     if (math.abs(axisPosition - x) > maxDistance) {
       return Seq()  // if not close enough to the axis nothing else matters
     }
 
-    data.zipWithIndex.flatMap { case (data, index) =>
+    selectableWithIndex.flatMap { case (data, index) =>
       data.positions(axisIndex) match {
         case Some(value) =>
           val xDist = axisPosition - x
@@ -193,23 +219,12 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     }
   }
 
-  def getSelectingPointsForLocation(x: Int, y: Int, maxDistance: Int): Seq[(Int, Float)] = {
-    val allPoints = getPointsForLocation(x, y, maxDistance)
-    if (selectedIndices.nonEmpty) { // if selection, subset from selection
-      allPoints.filter { case (index, dist) =>
-        selectedIndices.contains(index)
-      }
-    } else { // otherwise create fresh selection
-      allPoints
-    }
-  }
-
-  def getPositionForAxis(axisIndex: Int): Int = {
+  private def getPositionForAxis(axisIndex: Int): Int = {
     val axisSpacing = getWidth / math.max(axes.length, 1)
     axisSpacing * axisIndex + axisSpacing / 2
   }
 
-  def getPositionForValue(axisIndex: Int, value: Float): Int = {
+  private def getPositionForValue(axisIndex: Int, value: Float): Int = {
     if (axisIndex >= axesRange.length) {
       return Int.MinValue
     }
@@ -220,28 +235,40 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         val range = axesRange(axisIndex)
         ((range._2 - value) * JDsePlot.dataScale(range, getHeight)).toInt
     }
-
   }
 
-  addMouseListener(new MouseAdapter {
-    override def mouseClicked(e: MouseEvent): Unit = {
-      val newPoints = getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
-      onClick(e, newPoints.sortBy(_._2).map(pair => data(pair._1)))
+  private def getValueForPosition(axisIndex: Int, position: Int): Float = {
+    if (axisIndex >= axesRange.length) {
+      return Float.NaN
     }
-  })
+    val range = axesRange(axisIndex)
+    -(position / JDsePlot.dataScale(range, getHeight) - range._2)
+  }
+
+  private def hoverUpdated(newIndices: Seq[Int]): Unit = {
+    if (mouseOverIndices != newIndices) {
+      mouseOverIndices = newIndices
+      validate()
+      repaint()
+
+      onHoverChange(newIndices.map(data(_)))
+    }
+  }
 
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      val newPoints = getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
-      if (mouseOverIndices != newPoints.map(_._1)) {
-        mouseOverIndices = newPoints.map(_._1)
-        validate()
-        repaint()
-
-        // sort by distance and call hover
-        onHoverChange(newPoints.sortBy(_._2).map(pair => data(pair._1)))
+      if (dragRange.isEmpty) {  // only runs on non-drag
+        val newPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx, selectablePointsWithIndex)
+        val sortedIndices = newPoints.sortBy(_._2).map(_._1)  // sort by distance
+        hoverUpdated(sortedIndices)
       }
+    }
+  })
+
+  addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      onClick(e, mouseOverIndices.map(data(_)))
     }
   })
 
@@ -260,21 +287,23 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   })
 
   // TODO unify w/ ZoomDragScrollPanel
-  private val dragListener = new MouseAdapter {
+  private val dragPanListener = new MouseAdapter {
     var dragLastAxisPos: Option[(Int, Int)] = None  // axis, y-pos
 
     override def mousePressed(e: MouseEvent): Unit = {
-      if (SwingUtilities.isLeftMouseButton(e)) {
+      if (SwingUtilities.isMiddleMouseButton(e)) {
         dragLastAxisPos = Some((getAxisForLocation(e.getX), e.getY))
       }
     }
 
     override def mouseReleased(e: MouseEvent): Unit = {
-      dragLastAxisPos = None
+      if (SwingUtilities.isMiddleMouseButton(e)) {
+        dragLastAxisPos = None
+      }
     }
 
     override def mouseDragged(e: MouseEvent): Unit = {
-      if (SwingUtilities.isLeftMouseButton(e)) {
+      if (SwingUtilities.isMiddleMouseButton(e)) {
         dragLastAxisPos.foreach { case (axisIndex, pos) =>
           if (axisIndex >= axesRange.length || axesRange.isEmpty) {
             return
@@ -291,11 +320,71 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       }
     }
   }
-  addMouseListener(dragListener) // this registers the press / release
-  addMouseMotionListener(dragListener) // this registers the dragged
+  addMouseListener(dragPanListener) // this registers the press / release
+  addMouseMotionListener(dragPanListener) // this registers the dragged
+
+  private val dragSelectListener = new MouseAdapter {
+    override def mousePressed(e: MouseEvent): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e)) {
+        val axisIndex = getAxisForLocation(e.getX)
+        val axisValue = getValueForPosition(axisIndex, e.getY)
+        dragRange = Some((axisIndex, axisValue, None))
+
+        validate()
+        repaint() // repaint the selection box regardless
+      }
+    }
+
+    override def mouseReleased(e: MouseEvent): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e)) {
+        dragRange.foreach { case (axisIndex, startY, end) =>
+          if (end.nonEmpty) {
+            if (mouseOverIndices.nonEmpty) {
+              onClick(e, mouseOverIndices.map(data(_)))
+            }
+            mouseOverIndices = Seq()
+          }
+          dragRange = None
+
+          validate()
+          repaint() // repaint the selection box regardless
+        }
+      }
+    }
+
+    override def mouseDragged(e: MouseEvent): Unit = {
+      if (SwingUtilities.isLeftMouseButton(e)) {
+        dragRange.foreach { case (axisIndex, startY, _) =>
+          val currY = getValueForPosition(axisIndex, e.getY)
+          dragRange = Some((axisIndex, startY, Some(currY)))
+
+          val (minY, maxY) = JDsePlot.orderedValues(startY, currY)
+
+          val newIndices = selectablePointsWithIndex.flatMap { case (data, index) =>
+            data.positions(axisIndex) match {
+              case Some(value) =>
+                if (minY <= value && value <= maxY) {
+                  Some(index)
+                } else {
+                  None
+                }
+              case None => None
+            }
+          }
+
+          hoverUpdated(newIndices)
+
+          validate()
+          repaint() // repaint the selection box regardless
+        }
+      }
+    }
+  }
+  addMouseListener(dragSelectListener) // this registers the press / release
+  addMouseMotionListener(dragSelectListener) // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getSelectingPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
+    getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx, selectablePointsWithIndex).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
       case None => null
     }

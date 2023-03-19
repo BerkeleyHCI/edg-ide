@@ -162,13 +162,13 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
         // compared to the single design compiler the debug info is a lot sparser here
-        runFailableStage("discard stale", indicator) {
+        runFailableStageUnit("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
           s"${discarded.size} library elements"
         }
 
         // (re)build all libraries so interactive tooling depending on this can still work
-        runFailableStage("rebuild libraries", indicator) {
+        runFailableStageUnit("rebuild libraries", indicator) {
           val designModule = options.designName.split('.').init.mkString(".")
           val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, None).get
           f"${indexed.size} elements"
@@ -187,14 +187,12 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         }
 
         val results = mutable.ListBuffer[DseResult]()
-        runFailableStage("search", indicator) {
+        runFailableStageUnit("search", indicator, Some(0.0f)) {
           var index: Int = 0
           val searchGenerator = new DseSearchGenerator(options.searchConfigs)
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
             val (baseCompilerOpt, partialCompile, pointValues, searchRefinements, incrRefinements, completedFraction) = nextPoint.get
-            indicator.setIndeterminate(false)
-            indicator.setFraction(completedFraction)
 
             val compiler = baseCompilerOpt match {
               case Some(baseCompiler) => baseCompiler.fork(
@@ -203,7 +201,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 refinements = refinements ++ incrRefinements, partial = partialCompile)
             }
 
-            runFailableStage(s"point $index", indicator) {
+            runFailableStageUnit(s"point $index", indicator, Some(completedFraction)) {
               val (compiled, compileTime) = timeExec {
                 compiler.compile()
               }
@@ -245,7 +243,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           s"${results.length} configurations"
         }
 
-        runFailableStage("update visualization", indicator) {
+        runFailableStageUnit("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
           DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, false, false)
           BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
@@ -274,7 +272,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     }
 
     csvFile.foreach { case csvFile =>
-      runFailableStage("closing CSV", indicator) {
+      runFailableStageUnit("closing CSV", indicator) {
         csvFile.close()
         f"closed ${options.resultCsvFile}"
       }

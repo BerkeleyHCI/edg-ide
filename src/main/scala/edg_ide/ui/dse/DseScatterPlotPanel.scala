@@ -82,13 +82,13 @@ class DseScatterPlotPanel() extends DseBasePlot {
     val scatterPoints = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
         val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
-        val color = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-          case (_, true) => Some(DseResultModel.kColorOtherError)
-          case (true, false) => Some(DseResultModel.kColorIdealError)
-          case (false, false) => None
+        val (zOrder, color) = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
+          case (_, true) => (-1, Some(DseResultModel.kColorOtherError))
+          case (true, false) => (0, Some(DseResultModel.kColorIdealError))
+          case (false, false) => (1, None)
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)
-        Some(new scatterPlot.Data(result, xVal, yVal, color,
+        Some(new scatterPlot.Data(result, xVal, yVal, zOrder, color,
           Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
       case _ => Seq()
     }
