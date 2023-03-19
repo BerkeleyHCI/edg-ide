@@ -18,9 +18,9 @@ object JDsePlot {
   val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
   val kPointSelectedSizePx: Int = 6 // diameter in px
   val kPointHoverOutlinePx: Int = 12 // diameter in px
-  val kLineHoverBackgroundPx: Int = 13 // width in px
-  val kLineHoverOutlinePx: Int = 5 // width in px
-  val kHoverOutlineColor: Color = JBColor.YELLOW
+  val kLineHoverBackgroundPx: Int = 19 // width in px
+  val kLineHoverOutlinePx: Int = 9 // width in px
+  val kHoverOutlineColor: Color = JBColor.BLUE
   val kHoverOutlineBlend: Float = 0.5f
 
   val kDragSelectAlpha: Int = 63
