@@ -22,7 +22,7 @@ object Instrumentation {
       case None =>
         val openTime = timeFormat.format(new Date())
         startMillis = System.currentTimeMillis()
-        val fileName = s"EdgIdeInstrumentation $openTime"
+        val fileName = s"EdgIdeInstrumentation $openTime.csv"
         val writer = new FileWriter(fileName)
         val csv = CsvWriter.builder().build(writer)
 

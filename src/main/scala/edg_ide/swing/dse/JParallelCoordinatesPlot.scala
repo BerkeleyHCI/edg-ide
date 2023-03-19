@@ -1,6 +1,7 @@
 package edg_ide.swing.dse
 
 import edg_ide.swing.{ColorUtil, DrawAnchored}
+import edg_ide.ui.Instrumentation
 
 import java.awt.event._
 import java.awt.{BasicStroke, Color, Graphics, Graphics2D}
@@ -269,6 +270,9 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       onClick(e, mouseOverIndices.map(data(_)))
+      val axisIndex = getAxisForLocation(e.getX)
+      val currY = getValueForPosition(axisIndex, e.getY)
+      Instrumentation.writeRow(JParallelCoordinatesPlot.this, "Drag", s"${mouseOverIndices.length} @ ($axisIndex, $currY)")
     }
   })
 
@@ -341,6 +345,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
           if (end.nonEmpty) {
             if (mouseOverIndices.nonEmpty) {
               onClick(e, mouseOverIndices.map(data(_)))
+              val currY = end.get
+              Instrumentation.writeRow(JParallelCoordinatesPlot.this, "Drag", s"${mouseOverIndices.length} @ ($axisIndex, $startY -> $currY)")
             }
             mouseOverIndices = Seq()
           }

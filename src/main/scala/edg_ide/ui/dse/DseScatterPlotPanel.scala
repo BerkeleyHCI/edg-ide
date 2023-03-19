@@ -142,6 +142,5 @@ class DseScatterPlotPanel() extends DseBasePlot {
 
   override def setSelection(results: Seq[DseResult]): Unit = {
     scatterPlot.setSelected(results)
-    Instrumentation.writeRow(this, "Select", results.length.toString)
   }
 }

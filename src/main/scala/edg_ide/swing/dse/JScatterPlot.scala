@@ -1,6 +1,7 @@
 package edg_ide.swing.dse
 
 import edg_ide.swing.{ColorUtil, DrawAnchored}
+import edg_ide.ui.Instrumentation
 
 import java.awt.event._
 import java.awt.{Color, Graphics, Point}
@@ -194,6 +195,7 @@ class JScatterPlot[ValueType] extends JComponent {
   addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
       onClick(e, mouseOverIndices.map(data(_)))
+      Instrumentation.writeRow(JScatterPlot.this, "Select", s"${mouseOverIndices.length} @ (${screenToDataX(e.getX)}, ${screenToDataY(e.getY)})")
     }
   })
 
@@ -260,6 +262,8 @@ class JScatterPlot[ValueType] extends JComponent {
           if (end.nonEmpty) {
             if (mouseOverIndices.nonEmpty) {
               onClick(e, mouseOverIndices.map(data(_)))
+              val (currX, currY) = end.get
+              Instrumentation.writeRow(JScatterPlot.this, "Drag", s"${mouseOverIndices.length} @ ($startX, $startY) -> ($currX, $currY)")
             }
             mouseOverIndices = Seq()
           }
