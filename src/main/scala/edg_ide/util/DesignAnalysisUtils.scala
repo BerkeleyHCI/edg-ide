@@ -340,6 +340,24 @@ object DesignAnalysisUtils {
   def findOrderedSubclassesOf(superclass: PyClass): Seq[PyClass] = {
     val directSubclasses = PyClassInheritorsSearch.search(superclass, false).findAll().asScala.toSeq
         .sortBy(_.getName)
+    val defaultRefinement = Option(superclass.getDecoratorList).toSeq.flatMap(_.getDecorators.toSeq)
+        .filter(_.getName ==  "abstract_block_default")
+        .map(_.getExpression)
+        .collect {
+          case expr: PyCallExpression => Option(expr.getArgument(0, classOf[PyLambdaExpression]))
+        }.flatten
+        .map(_.getBody)
+        .map {
+          case expr: PyReferenceExpression => expr
+        }
+    val ref2 = defaultRefinement.map(_.getReference)
+    val resol = ref2.map(_.multiResolve(false))
+
+    if (defaultRefinement.nonEmpty) {
+      println(f"default $defaultRefinement, $ref2, $resol")
+    }
+
+
     directSubclasses.flatMap { directSubclass =>
       directSubclass +: findOrderedSubclassesOf(directSubclass)
     }.distinct
