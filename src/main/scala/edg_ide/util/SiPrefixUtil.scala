@@ -1,10 +1,18 @@
 package edg_ide.util
 
+import edg.util.Errorable
+import edg_ide.util.ExceptionNotifyImplicits.ExceptOption
+
 import java.math.MathContext
 
 object SiPrefixUtil {
   private val PREFIXES_POW3_HIGH = Seq("k", "M", "G", "T", "P", "E", "Z", "Y")
   private val PREFIXES_POW3_LOW = Seq("m", "μ", "n", "p", "f", "a", "z", "y")
+  private val PREFIXES_MAP = (PREFIXES_POW3_HIGH.zipWithIndex.map { case (prefix, index) =>
+    prefix -> math.pow(10, 3 * (index + 1))
+  } ++ PREFIXES_POW3_LOW.zipWithIndex.map { case (prefix, index) =>
+    prefix -> math.pow(10, -3 * (index + 1))
+  } ++ Map("u" -> 1e-6)).toMap
 
   // prepends a space if the string is nonempty
   // used to add a space between the number and units, except when it's dimensionless (no units) and no SI prefix
@@ -18,9 +26,9 @@ object SiPrefixUtil {
 
   def unitsToString(value: Double, units: String): String = {
     if (value.isPosInfinity) {
-      s"+∞ $units"
+      s"+∞${prependSpaceNonempty(units)}"
     } else if (value.isNegInfinity) {
-      s"-∞ $units"
+      s"-∞${prependSpaceNonempty(units)}"
     } else {
       val roundedValue = BigDecimal(value).round(new MathContext(3)).doubleValue
 
@@ -40,5 +48,20 @@ object SiPrefixUtil {
         f"$valuePrefixed%.03g${prependSpaceNonempty(prefix + units)}"
       }
     }
+  }
+
+  def stringToFloat(str: String): Errorable[Float] = exceptable {
+    requireExcept(str.nonEmpty, "empty number")
+    val (numericStr, multiplier) = if (Character.isAlphabetic(str.last)) {
+      val (numericStr, siPrefix) = str.splitAt(str.length - 1)
+      val multiplier = PREFIXES_MAP.get(siPrefix) match {
+        case Some(multiplier) => multiplier
+        case None => exceptable.fail(s"bad SI prefix '$siPrefix'")
+      }
+      (numericStr, multiplier.toFloat)
+    } else {
+      (str, 1.0f)
+    }
+    numericStr.toFloatOption.exceptNone(s"bad number '$numericStr'") * multiplier
   }
 }
