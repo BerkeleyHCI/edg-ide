@@ -283,7 +283,6 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     override def getColumns(index: Int): String = {
       val value = compiler.getParamValue(path) match {
         case Some(value @ FloatValue(_)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
-        case Some(value @ IntValue(_)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
         case Some(value @ RangeValue(_, _)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
         case Some(value) => value.toStringValue
         case None => "(unsolved)"
