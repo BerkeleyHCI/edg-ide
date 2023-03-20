@@ -60,6 +60,8 @@ class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
   it should "parse String to FloatValue" in {
     val reference = Seq(FloatValue(1.0))
     parseString(reference, "1.0").get should equal(Seq(FloatValue(1.0)))
+    parseString(reference, "1.0k").get should equal(Seq(FloatValue(1000.0)))
+    parseString(reference, "1.0 k").get should equal(Seq(FloatValue(1000.0)))
     parseString(reference, "1.0, 2.0").get should equal(Seq(FloatValue(1.0), FloatValue(2.0)))
     parseString(reference, "1.0, 2.0,3.0").get should equal(Seq(FloatValue(1.0), FloatValue(2.0), FloatValue(3.0)))
 
@@ -70,6 +72,7 @@ class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
 
   it should "roundtrip FloatValue" in {
     shouldRoundtrip(Seq(FloatValue(1.0)))
+    shouldRoundtrip(Seq(FloatValue(1000.0)))
     shouldRoundtrip(Seq(FloatValue(1.0), FloatValue(2.0)))
     shouldRoundtrip(Seq(FloatValue(1.0), FloatValue(2.0), FloatValue(3.0)))
   }
@@ -107,8 +110,17 @@ class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
 
   it should "parse String to RangeValue" in {
     val reference = Seq(RangeValue(-1, 1))
+    parseString(reference, "1.5±0.5").get should equal(Seq(RangeValue(1, 2)))
     parseString(reference, "(1, 2)").get should equal(Seq(RangeValue(1, 2)))
+    parseString(reference, "1k±10%").get should equal(Seq(RangeValue(900, 1100)))
+    parseString(reference, "1k ± 10%").get should equal(Seq(RangeValue(900, 1100)))
+    parseString(reference, "1 k ± 10 %").get should equal(Seq(RangeValue(900, 1100)))
+    parseString(reference, "1k ± 1000ppm").get should equal(Seq(RangeValue(999, 1001)))
+    parseString(reference, "1k±25%").get should equal(Seq(RangeValue(750, 1250)))
+    parseString(reference, "1μ±10%").get should equal(Seq(RangeValue(0.9e-6, 1.1e-6)))
+    parseString(reference, "1u±10%").get should equal(Seq(RangeValue(0.9e-6, 1.1e-6)))
     parseString(reference, "(-1, 1)").get should equal(Seq(RangeValue(-1, 1)))
+    parseString(reference, "±1").get should equal(Seq(RangeValue(-1, 1)))
     parseString(reference, "(-2.5, 4.2)").get should equal(Seq(RangeValue(-2.5, 4.2)))
     parseString(reference, "(-1, 1), (-2.5, 4.2)").get should equal(
       Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2)))
@@ -123,6 +135,8 @@ class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
 
   it should "roundtrip RangeValue" in {
     shouldRoundtrip(Seq(RangeValue(1, 2)))
+    shouldRoundtrip(Seq(RangeValue(900, 1100)))
+    shouldRoundtrip(Seq(RangeValue(0.9e-6, 1.1e-6)))
     shouldRoundtrip(Seq(RangeValue(-1, 1)))
     shouldRoundtrip(Seq(RangeValue(-2.5, 4.2)))
     shouldRoundtrip(Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2)))
