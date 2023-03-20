@@ -97,21 +97,21 @@ object DseParameterSearch {
         val max = SiPrefixUtil.stringToFloat(maxStr.strip()).mapErr(err => f"bad upper: $err").exceptError
         requireExcept(min <= max, f"lower > upper")
         RangeValue(min, max)
-      case s"$numStr±$tolStr" =>
-        val num = if (numStr.isEmpty) {
+      case s"$centerStr±$tolStr" =>
+        val center = if (centerStr.isEmpty) {
           0
         } else {
-          SiPrefixUtil.stringToFloat(numStr.strip()).mapErr(err => f"bad numeric: $err").exceptError
+          SiPrefixUtil.stringToFloat(centerStr.strip()).mapErr(err => f"bad center: $err").exceptError
         }
         val halfSpan = tolStr match {
           case s"$pctStr%" =>
-            pctStr.toFloatOption.exceptNone(f"bad percent '$pctStr") / 100 * num
+            pctStr.toFloatOption.exceptNone(f"bad percent '$pctStr") / 100 * center
           case s"${ppmStr}ppm" =>
-            ppmStr.toFloatOption.exceptNone(f"bad ppm '$ppmStr") / 1e6 * num
+            ppmStr.toFloatOption.exceptNone(f"bad ppm '$ppmStr") / 1e6 * center
           case s"$absStr" =>
             absStr.toFloatOption.exceptNone(f"bad tolerance '$absStr")
         }
-        RangeValue(num - math.abs(halfSpan).toFloat, num + math.abs(halfSpan).toFloat)
+        RangeValue(center - math.abs(halfSpan).toFloat, center + math.abs(halfSpan).toFloat)
       case str =>
         exceptable.fail(s"bad range format '$str'")
     }
