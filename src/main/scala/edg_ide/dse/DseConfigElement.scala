@@ -134,7 +134,7 @@ object DseParameterSearch {
       } else if (char == '"') {
         if (inQuotes) {
           mustEnd = true
-        } else {  // must either start with open quotes, excluding whitespace
+        } else {  // if have unescaped quotes, they must start the string
           builder.toString().strip().isEmpty.exceptFalse("unexpected open quote, may only be at start of element or escaped")
           builder.clear()
         }
