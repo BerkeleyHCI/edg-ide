@@ -20,8 +20,8 @@ case class DseResult(
                         compileTime: Long
 ) {
   def objectiveToString: String = {
-    objectives.map { case (name, value) =>
-      f"$name -> ${DseConfigElement.valueToString(value)}"
+    objectives.map { case (objective, value) =>
+      f"${objective.objectiveToString} -> ${DseConfigElement.valueToString(value)}"
     }.mkString(", ")
   }
 }
