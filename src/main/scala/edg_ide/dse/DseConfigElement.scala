@@ -91,8 +91,7 @@ object DseParameterSearch {
   }
 
   def stringToRange(str: String): Errorable[RangeValue] = exceptable {
-    val stripped = str.strip()
-    stripped match {
+    str.strip() match {
       case s"($minStr,$maxStr)" =>
         val min = SiPrefixUtil.stringToFloat(minStr.strip()).mapErr(err => f"bad lower: $err").exceptError
         val max = SiPrefixUtil.stringToFloat(maxStr.strip()).mapErr(err => f"bad upper: $err").exceptError
