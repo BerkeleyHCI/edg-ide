@@ -30,12 +30,16 @@ object RefinementsNodes {
 
   class ClassValuesNode(refinements: edgrpc.Refinements) extends ElementDetailNode {
     override lazy val children = refinements.values.map { value =>
-      (value.source, value.getValue)
+      (value.source, value.value)
     }.collect {
-      case (edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam), replaceValue) =>
+      case (edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam), edgrpc.Refinements.Value.Value.Expr(expr)) =>
         new RefinementsDetailNode(
           srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
-          ExprToString(replaceValue))
+          ExprToString(expr))
+      case (edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam), edgrpc.Refinements.Value.Value.Param(path)) =>
+        new RefinementsDetailNode(
+          srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
+          f"ParamValue(${ExprToString(path)}")
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Class Values Refinements"
@@ -43,10 +47,12 @@ object RefinementsNodes {
 
   class InstanceValuesNode(refinements: edgrpc.Refinements) extends ElementDetailNode {
     override lazy val children = refinements.values.map { value =>
-      (value.source, value.getValue)
+      (value.source, value.value)
     }.collect {
-      case (edgrpc.Refinements.Value.Source.Path(srcPath), replaceValue) =>
-        new RefinementsDetailNode(ExprToString(srcPath), ExprToString(replaceValue))
+      case (edgrpc.Refinements.Value.Source.Path(srcPath), edgrpc.Refinements.Value.Value.Expr(expr)) =>
+        new RefinementsDetailNode(ExprToString(srcPath), ExprToString(expr))
+      case (edgrpc.Refinements.Value.Source.Path(srcPath), edgrpc.Refinements.Value.Value.Param(path)) =>
+        new RefinementsDetailNode(ExprToString(srcPath), f"ParamValue(${ExprToString(path)}")
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Instance Value Refinements"
