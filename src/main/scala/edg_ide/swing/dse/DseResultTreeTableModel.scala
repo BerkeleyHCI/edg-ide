@@ -33,13 +33,23 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
 
 
   // Defines the root node
-  override lazy val children = informationalHeader ++ results.groupedResults.map { resultsSet =>
+  override lazy val children = {
+    informationalHeader ++ results.groupedResults.sortBy { resultsSet =>
+      val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
+      (idealErrors.isEmpty, otherErrors.isEmpty) match {
+        case (true, true) => 0  // non-error points prioritized
+        case (_, true) => 1 // ideal points next
+        case _ => 2 // error points last
+      }
+    }.map { resultsSet =>
       if (resultsSet.length == 1) {
         new ResultNode(resultsSet.head, true)
       } else {
         new ResultSetNode(resultsSet)
       }
+    }
   }
+
   override val config = "" // empty, since the root node is hidden
   override def getColumns(index: Int): String = ""
 
