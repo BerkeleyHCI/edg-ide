@@ -36,7 +36,7 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   private def insertRefinementKwarg(into: PyArgumentList, kwargName: String,
                                     refinements: Seq[(Seq[PyExpression], PyExpression)]): Seq[PyElement] = {
     val refinementsText = refinements.map { case (keyElts, value) =>
-      s"  (${keyElts.map(_.getText).mkString(", ")}, ${value.getText}),"
+      s"  (${keyElts.map(_.getText).mkString(", ")}, ${value.getText})"
     }
     val kwargExpr = psiElementGenerator.createKeywordArgument(languageLevel,
       kwargName,
@@ -79,12 +79,12 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
             }
             case None => () => {
               val insertTuple = psiElementGenerator.createExpressionFromText(languageLevel,
-                s"(${keyElts.map(_.getText).mkString(", ")}, ${value.getText}),") // note, trailing comma
+                s"(${keyElts.map(_.getText).mkString(", ")}, ${value.getText})")
               // for some reason, PyElementGenerator.getInstance(project).createNewLine inserts two spaces
-              val inserted = valueList.add(insertTuple).asInstanceOf[PyTupleExpression]
+              val inserted = valueList.add(insertTuple).asInstanceOf[PyExpression]
               // can't do valueList.addBefore, since that does a check for PyExpr, which whitespace is not
               inserted.addBefore(newline, inserted.getFirstChild)
-              Seq(inserted.getElements.last)  // for whatever reason the tuple throws an error when navigating to
+              Seq(inserted)
             }
           }
         }

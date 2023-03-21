@@ -91,8 +91,9 @@ class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu
     val insertAction = new InsertRefinementAction(project, topClass)
       .createInsertRefinements(result.searchRefinements).exceptError
     () => { // TODO standardized continuation?
-      val inserted = insertAction().head
-      InsertAction.navigateToEnd(inserted)
+      val inserted = insertAction()
+      InsertAction.navigateToEnd(inserted.head)
+      InsertAction.selectAndNavigate(inserted)
     }
   }, s"Insert refinements"))
 }

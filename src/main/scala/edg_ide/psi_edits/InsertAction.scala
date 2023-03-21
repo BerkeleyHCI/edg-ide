@@ -1,18 +1,19 @@
 package edg_ide.psi_edits
 
 import com.intellij.lang.LanguageNamesValidation
+import com.intellij.openapi.editor.CaretState
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatementList}
-
 import edg.util.Errorable
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits._
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
-import scala.jdk.CollectionConverters.ListHasAsScala
+
+import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 import scala.reflect.ClassTag
 
 
@@ -84,6 +85,26 @@ object InsertAction {
     new OpenFileDescriptor(element.getProject, element.getContainingFile.getVirtualFile,
       element.getTextRange.getEndOffset)
         .navigate(true)
+  }
+
+  def selectAndNavigate(elements: Seq[PsiElement]): Unit = {
+    // TODO a proof of concept, should be cleaned up and use live templates instead of a caret selection
+    if (elements.isEmpty) {
+      return
+    }
+    val exampleElement = elements.head
+    val project = exampleElement.getProject
+    val fileEditor = FileEditorManager.getInstance(project).getSelectedEditor(exampleElement.getContainingFile.getVirtualFile)
+    val editor = fileEditor match {
+      case editor: TextEditor => editor.getEditor
+      case _ => return
+    }
+    val carets = elements.map { element =>
+      val startPos = editor.offsetToLogicalPosition(element.getTextRange.getStartOffset)
+      val endPos = editor.offsetToLogicalPosition(element.getTextRange.getEndOffset)
+      new CaretState(endPos, startPos, endPos)
+    }.toList
+    editor.getCaretModel.setCaretsAndSelections(carets.asJava)
   }
 
   def findInsertionPoints(container: PyClass, validFunctions: Seq[String]): Errorable[Seq[PyFunction]] = exceptable {
