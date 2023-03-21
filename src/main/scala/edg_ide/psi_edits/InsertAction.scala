@@ -13,7 +13,6 @@ import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits._
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
-import java.util
 import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 import scala.reflect.ClassTag
 
