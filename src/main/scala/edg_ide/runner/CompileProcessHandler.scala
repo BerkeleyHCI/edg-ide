@@ -17,7 +17,7 @@ import edg.compiler._
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.{ElkEdgirGraphUtils, HierarchyGraphElk}
-import edg_ide.ui.{BlockVisualizerService, EdgCompilerService, Instrumentation}
+import edg_ide.ui.{BlockVisualizerService, EdgCompilerService, EdgSettingsState, Instrumentation}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
 import edgir.elem.elem
@@ -202,14 +202,13 @@ trait HasConsoleStages {
       }
     } catch {
       case e: Exception if !e.isInstanceOf[InterruptedException] =>
+        if (EdgSettingsState.getInstance().showIdeErrors) {
+          val sw = new StringWriter
+          val pw = new PrintWriter(sw)
+          e.printStackTrace(pw)
+          console.print(sw.toString, ConsoleViewContentType.ERROR_OUTPUT)
+        }
         console.print(s"Failed: $name: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
-        // By default, the stack trace isn't printed, since most of the internal details
-        // (stack trace elements) aren't relevant for end users
-        // TODO this should be plumbed to a toggle
-        // val sw = new StringWriter
-        // val pw = new PrintWriter(sw)
-        // e.printStackTrace(pw)
-        // console.print(sw.toString, ConsoleViewContentType.ERROR_OUTPUT)
         default
     }
   }
