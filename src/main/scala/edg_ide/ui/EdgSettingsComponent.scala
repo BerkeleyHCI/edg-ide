@@ -40,7 +40,7 @@ class EdgSettingsComponent {
   showInternalBlocksHelp.setEnabled(false)
 
   val showIdeErrors = new JCheckBox()
-  val showIdeErrorsHelp = new JBLabel("Show detailed IDE internal errors. " +
+  val showIdeErrorsHelp = new JBLabel("Show detailed IDE internal errors in the run console. " +
     "This is generally only useful for developing the IDE itself and may add excessive clutter for HDL work.")
   showIdeErrorsHelp.setEnabled(false)
 
