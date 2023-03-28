@@ -39,6 +39,11 @@ class EdgSettingsComponent {
     "IDE restart may be required to take effect.")
   showInternalBlocksHelp.setEnabled(false)
 
+  val showIdeErrors = new JCheckBox()
+  val showIdeErrorsHelp = new JBLabel("Show detailed IDE internal errors. " +
+    "This is generally only useful for developing the IDE itself and may add excessive clutter for HDL work.")
+  showIdeErrorsHelp.setEnabled(false)
+
   val versionLabel = new JBLabel(s"Version ${BuildInfo.version}, built at ${BuildInfo.builtAtString}, " +
       s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}")
   versionLabel.setEnabled(false)
@@ -52,6 +57,8 @@ class EdgSettingsComponent {
       .addComponent(showProvenStatusHelp)
       .addLabeledComponent(new JBLabel("Show Internal Blocks"), showInternalBlocks, false)
       .addComponent(showInternalBlocksHelp)
+      .addLabeledComponent(new JBLabel("Show IDE Errors"), showIdeErrors, false)
+      .addComponent(showIdeErrorsHelp)
       .addComponentFillVertically(new JPanel(), 0)
       .addComponent(versionLabel)
       .getPanel
@@ -71,7 +78,8 @@ class EdgSettingsConfigurable extends Configurable {
     !settings.kicadDirectories.sameElements(component.kicadDirectoryText.getText.split(";")) ||
         settings.persistBlockCache != component.persistBlockCache.isSelected ||
         settings.showProvenStatus != component.showProvenStatus.isSelected ||
-        settings.showInternalBlocks != component.showInternalBlocks.isSelected
+        settings.showInternalBlocks != component.showInternalBlocks.isSelected ||
+        settings.showIdeErrors != component.showIdeErrors.isSelected
   }
 
   override def apply(): Unit = {
@@ -80,6 +88,7 @@ class EdgSettingsConfigurable extends Configurable {
     settings.persistBlockCache = component.persistBlockCache.isSelected
     settings.showProvenStatus = component.showProvenStatus.isSelected
     settings.showInternalBlocks = component.showInternalBlocks.isSelected
+    settings.showIdeErrors = component.showIdeErrors.isSelected
   }
 
   override def reset(): Unit = {
@@ -88,5 +97,6 @@ class EdgSettingsConfigurable extends Configurable {
     component.persistBlockCache.setSelected(settings.persistBlockCache)
     component.showProvenStatus.setSelected(settings.showProvenStatus)
     component.showInternalBlocks.setSelected(settings.showInternalBlocks)
+    component.showIdeErrors.setSelected(settings.showIdeErrors)
   }
 }

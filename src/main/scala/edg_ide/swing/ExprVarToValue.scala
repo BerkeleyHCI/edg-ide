@@ -10,9 +10,9 @@ object ExprVarToValue {
 
 class ExprVarToValue(compiler: Compiler, designPath: DesignPath) extends ExprToString() {
   override def mapRef(path: ref.LocalPath): String = {
-    val value = compiler.getParamValue((designPath ++ path).asIndirect)
+    val value = compiler.getParamValue(designPath.asIndirect ++ path)
         .map(ParamToUnitsStringUtil.toString)
         .getOrElse("unknown")
-    s"${(designPath ++ path).asIndirect} = ${value}"
+    s"${designPath.asIndirect ++ path} = $value"
   }
 }
