@@ -53,7 +53,7 @@ object InsertFootprintAction {
                                 continuation: PsiElement => Unit): Errorable[() => Unit] = exceptable {
     // Check for general sanity
     val after = InsertAction.getCaretAtFileOfType(
-      container.getContainingFile, classOf[PyStatementList], project, requireClass = false).exceptError
+      container.getContainingFile, classOf[PyStatementList], project).exceptError
     val containingPsiFunction = PsiTreeUtil.getParentOfType(after, classOf[PyFunction])
         .exceptNull(s"not in a function in ${after.getContainingFile.getName}")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
