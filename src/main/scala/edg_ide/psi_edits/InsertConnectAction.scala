@@ -137,7 +137,10 @@ object InsertConnectAction {
                               allPortPairs: Seq[(String, String)], portPairs: Seq[(String, String)],
                               actionName: String, project: Project,
                               continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
-    val containingPsiCall = within match {
+    val containingPsiCall = (within match {  // first extract the statement if needed
+      case within: PyExpressionStatement => within.getExpression
+      case within => within
+    }) match {
       case within: PyCallExpression => within
       case within => PsiTreeUtil.getParentOfType(within, classOf[PyCallExpression])
           .exceptNull(s"not in an call in ${within.getContainingFile.getName}")
