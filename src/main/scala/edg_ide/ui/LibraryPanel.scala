@@ -50,7 +50,7 @@ class BlockRootPopupMenu(project: Project) extends JPopupMenu {
     InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
       classOf[PsiFile], project).exceptError
   }
-  val defineClassAtEndAction: Errorable[() => Unit] = exceptable {
+  val defineClassAction: Errorable[() => Unit] = exceptable {
     val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.HierarchyBlock.Block", project)
         .exceptError
     DefineBlockAction.createDefineBlockFlow(
@@ -60,13 +60,13 @@ class BlockRootPopupMenu(project: Project) extends JPopupMenu {
       project, createBlockContinuation).exceptError
   }
   private val defineFileLine = exceptable {
-    defineClassAtEndAction.exceptError
+    defineClassAction.exceptError
     PsiUtils.fileNextLineOf(defineClassAfter.exceptError, project).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
-  private val createClassAtEndItem = ContextMenuUtils.MenuItemFromErrorable(
-    defineClassAtEndAction, s"Define new subclass at $contextPyName caret$defineFileLine")
-  add(createClassAtEndItem)
+  private val defineClassItem = ContextMenuUtils.MenuItemFromErrorable(
+    defineClassAction, s"Define new subclass$defineFileLine")
+  add(defineClassItem)
 }
 
 
@@ -100,36 +100,30 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     }
   }
 
-  val caretInsertAction: Errorable[() => Unit] = exceptable {
-    InsertBlockAction.createInsertBlockFlow(caretPsiElement.exceptError, blockPyClass.exceptError,
-        s"Insert $blockTypeName at $contextPyName caret",
-        project, insertContinuation).exceptError
-  }
-  private val caretFileLine = exceptable {
-    caretInsertAction.exceptError
-    PsiUtils.fileNextLineOf(caretPsiElement.exceptError, project).exceptError
+  // TODO avoid eagerly evaluating all possibilities, if the first ones succeed
+  val insertLocations = Seq(  // all potential insert locations sorted by desirability
+    caretPsiElement.toOption.map(Seq(_)),
+    exceptable {
+      InsertAction.findInsertionElements(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
+    }.toOption
+  ).flatten.flatten
+
+  val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
+    exceptable {
+      val insertBlockFlow = InsertBlockAction.createInsertBlockFlow(insertPsiElement, blockPyClass.exceptError,
+        s"Insert $blockTypeName", project, insertContinuation)
+      (insertPsiElement, insertBlockFlow.exceptError)
+    }.toOption
+  }.headOption, "no valid locations")
+
+  private val insertFileLine = exceptable {
+    PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
-  private val caretInsertItem = ContextMenuUtils.MenuItemFromErrorable(
-    caretInsertAction, s"Insert at $contextPyName caret$caretFileLine")
-  add(caretInsertItem)
+  private val insertItem = ContextMenuUtils.MenuItemFromErrorable(
+    insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+  add(insertItem)
 
-  private val insertionPairs = exceptable {
-    InsertAction.findInsertionPoints(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES).exceptError
-        .map { fn =>
-          val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project)
-              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-          val label = s"Insert at ${contextPyName}.${fn.getName}$fileLine"
-          val action = InsertBlockAction.createInsertBlockFlow(fn.getStatementList.getStatements.last, blockPyClass.exceptError,
-            s"Insert $blockTypeName at $contextPyName.${fn.getName}",
-            project, insertContinuation)
-          (label, action)
-        } .collect {
-          case (fn, Errorable.Success(action)) => (fn, action)
-        }.exceptEmpty("no insertion points")
-  }
-  ContextMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
-      .foreach(add)
   addSeparator()
 
   // Refinements action
@@ -195,7 +189,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
       classOf[PsiFile], project).exceptError
   }
-  val defineClassAtEndAction: Errorable[() => Unit] = exceptable {
+  val defineClassAction: Errorable[() => Unit] = exceptable {
     DefineBlockAction.createDefineBlockFlow(
       defineClassAfter.exceptError,
       blockPyClass.exceptError,
@@ -203,13 +197,13 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
       project, createBlockContinuation).exceptError
   }
   private val defineFileLine = exceptable {
-    defineClassAtEndAction.exceptError
+    defineClassAction.exceptError
     PsiUtils.fileNextLineOf(defineClassAfter.exceptError, project).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
-  private val createClassAtEndItem = ContextMenuUtils.MenuItemFromErrorable(
-    defineClassAtEndAction, s"Define new subclass at $contextPyName caret$defineFileLine")
-  add(createClassAtEndItem)
+  private val createClassItem = ContextMenuUtils.MenuItemFromErrorable(
+    defineClassAction, s"Define new subclass$defineFileLine")
+  add(createClassItem)
   addSeparator()
 
   // Navigation actions
@@ -258,38 +252,30 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
     }
   }
 
-  val caretInsertAction: Errorable[() => Unit] = exceptable {
-    requireExcept(contextPath != DesignPath(), "can't insert port at design top")
-    InsertPortAction.createInsertPortFlow(caretPsiElement.exceptError, portPyClass.exceptError,
-      s"Insert $portTypeName at $contextPyName caret",
-      project, insertContinuation).exceptError
-  }
-  private val caretFileLine = exceptable {
-    caretInsertAction.exceptError
-    PsiUtils.fileNextLineOf(caretPsiElement.exceptError, project).exceptError
+  val insertLocations = Seq(
+    caretPsiElement.toOption.map(Seq(_)),
+    exceptable {
+      InsertAction.findInsertionElements(contextPyClass.exceptError, InsertPortAction.VALID_FUNCTION_NAME)
+    }.toOption
+  ).flatten.flatten
+
+  val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
+    exceptable {
+      requireExcept(contextPath != DesignPath(), "can't insert port at design top")  // TODO propagate error message
+      val insertPortFlow = InsertPortAction.createInsertPortFlow(insertPsiElement, portPyClass.exceptError,
+        s"Insert $portTypeName at $contextPyName caret", project, insertContinuation)
+      (insertPsiElement, insertPortFlow.exceptError)
+    }.toOption
+  }.headOption, "no valid locations")
+
+  private val insertFileLine = exceptable {
+    PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
-  private val caretInsertItem = ContextMenuUtils.MenuItemFromErrorable(
-    caretInsertAction, s"Insert at $contextPyName caret$caretFileLine")
-  add(caretInsertItem)
+  private val insertItem = ContextMenuUtils.MenuItemFromErrorable(
+    insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+  add(insertItem)
 
-  private val insertionPairs = exceptable {
-    requireExcept(contextPath != DesignPath(), "can't insert port at design top")
-    InsertAction.findInsertionPoints(contextPyClass.exceptError, Seq(InsertPortAction.VALID_FUNCTION_NAME)).exceptError
-        .map { fn =>
-          val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, project)
-              .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-          val label = s"Insert at ${contextPyName}.${fn.getName}$fileLine"
-          val action = InsertPortAction.createInsertPortFlow(fn.getStatementList.getStatements.last, portPyClass.exceptError,
-            s"Insert $portTypeName at $contextPyName.${fn.getName}",
-            project, insertContinuation)
-          (label, action)
-        } .collect {
-      case (fn, Errorable.Success(action)) => (fn, action)
-    }.exceptEmpty("no insertion points")
-  }
-  ContextMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert into $contextPyName")
-      .foreach(add)
   addSeparator()
 
   // Navigation actions
@@ -496,7 +482,7 @@ class LibraryPanel(project: Project) extends JPanel {
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryBlockPopupMenu(selected.path, project).caretInsertAction.exceptError) ()
+              (new LibraryBlockPopupMenu(selected.path, project).insertAction.exceptError._2) ()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
@@ -507,7 +493,7 @@ class LibraryPanel(project: Project) extends JPanel {
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryPortPopupMenu(selected.path, project).caretInsertAction.exceptError) ()
+              (new LibraryPortPopupMenu(selected.path, project).insertAction.exceptError._2) ()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu

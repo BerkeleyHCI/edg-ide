@@ -15,7 +15,8 @@ import java.util.concurrent.Callable
 
 
 object InsertBlockAction {
-  val VALID_FUNCTION_NAMES = Seq("__init__", "contents")  // TODO support generators
+  // sorted by preference
+  val VALID_FUNCTION_NAMES = Seq("contents", "__init__")  // TODO support generators
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
   /** Creates an action to insert a block of type libClass after some PSI element after.

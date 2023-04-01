@@ -27,6 +27,8 @@ object InsertAction {
   // Returns the PSI element at (or immediately before) the caret at level within the containerPsiType.
   // This traverses up the PSI tree to get the element directly above containerPsiType,
   // or fails if there is no containing containerPsiType.
+  // TODO this does the wrong thing if at the beginning of containerPsiType, eg right at first line of a statement-list
+  // TODO this needs a return type that supports the first element
   def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project)
                                            (implicit tag: ClassTag[T]): Errorable[PsiElement] = exceptable {
     val editors = FileEditorManager.getInstance(project).getSelectedEditors
@@ -93,6 +95,15 @@ object InsertAction {
     editor.getCaretModel.setCaretsAndSelections(carets.asJava)
   }
 
+  // Returns valid insertion points for a HDL line - the last element of the specified functions within some class.
+  // Returns the same format as getCaretAtFileOfType
+  def findInsertionElements(container: PyClass, validFunctions: Seq[String]): Seq[PsiElement] = {
+    container.getMethods.toSeq.collect {
+      case method if validFunctions.contains(method.getName) => method.getStatementList.getStatements.lastOption
+    }.flatten
+  }
+
+  // TODO deprcated, use the above instead
   def findInsertionPoints(container: PyClass, validFunctions: Seq[String]): Errorable[Seq[PyFunction]] = exceptable {
     val methods = container.getMethods.toSeq.collect {
       case method if validFunctions.contains(method.getName) => method
