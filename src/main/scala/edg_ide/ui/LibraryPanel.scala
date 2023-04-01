@@ -255,7 +255,7 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
   val insertLocations = Seq(
     caretPsiElement.toOption.map(Seq(_)),
     exceptable {
-      InsertAction.findInsertionElements(contextPyClass.exceptError, InsertPortAction.VALID_FUNCTION_NAME)
+      InsertAction.findInsertionElements(contextPyClass.exceptError, Seq(InsertPortAction.VALID_FUNCTION_NAME))
     }.toOption
   ).flatten.flatten
 
