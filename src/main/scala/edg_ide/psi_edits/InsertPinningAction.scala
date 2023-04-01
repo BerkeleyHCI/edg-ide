@@ -59,7 +59,7 @@ object InsertPinningAction {
     // TODO Dedup w/ InsertFootprintAction?
     val blockClass = DesignAnalysisUtils.pyClassOf(block.getSelfClass, project).exceptError
     val after = InsertAction.getCaretAtFileOfType(
-      blockClass.getContainingFile, classOf[PyStatementList], project, requireClass = false).exceptError
+      blockClass.getContainingFile, classOf[PyStatementList], project).exceptError
     val containingPsiFunction = PsiTreeUtil.getParentOfType(after, classOf[PyFunction])
         .exceptNull(s"not in a function in ${after.getContainingFile.getName}")
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])

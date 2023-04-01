@@ -24,14 +24,15 @@ object InsertAction {
     DesignAnalysisUtils.pyClassOf(contextBlock.getSelfClass, project).exceptError
   }
 
-  def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project,
-                                            requireClass: Boolean=true)
+  // Returns the PSI element at (or immediately before) the caret at level within the containerPsiType.
+  // This traverses up the PSI tree to get the element directly above containerPsiType,
+  // or fails if there is no containing containerPsiType.
+  def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project)
                                            (implicit tag: ClassTag[T]): Errorable[PsiElement] = exceptable {
     val editors = FileEditorManager.getInstance(project).getSelectedEditors
-        .filter { editor => editor.getFile == file.getVirtualFile }
-    requireExcept(editors.length > 0, s"no editors for ${file.getName} open")
-    requireExcept(editors.length == 1, s"multiple editors for ${file.getName} open")
-    val editor = editors.head.instanceOfExcept[TextEditor]("not a text editor")
+        .filter { editor => editor.getFile == file.getVirtualFile }.toSeq
+    val editor = editors.onlyExcept(s"not exactly one editor open for ${file.getName}")
+        .instanceOfExcept[TextEditor]("not a text editor")
     val caretOffset = editor.getEditor.getCaretModel.getOffset
     val element = file.findElementAt(caretOffset).exceptNull(s"invalid caret position in ${file.getName}")
 
@@ -39,31 +40,16 @@ object InsertAction {
     def prevElementOf(element: PsiElement): PsiElement = {
       if (element.getTextRange.getStartOffset == caretOffset) {  // caret at beginning of element, so take the previous
         val prev = PsiTreeUtil.prevLeaf(element)
-        if (prev == null) {
-          val parent = element.getParent
-          // can only traverse up to parent if the parent also begins at the caret
-          prevElementOf(parent)
-        } else {
-          prevElementOf(prev)  // may still need to go up
-        }
-      } else if (element.getTextRange.getEndOffset == caretOffset) {  // caret at end of element, try to go up
-        val parent = element.getParent
-        if (parent.getTextRange.getEndOffset == caretOffset &&
-            !containerPsiType.isAssignableFrom(parent.getClass)) {  // can go up if parent at boundary, but don't go above a statement list
-          prevElementOf(parent)
-        } else {  // otherwise, this is it
-          element
-        }
+        prevElementOf(prev.exceptNull("no element before caret"))
       } else {
-        element
+        if (containerPsiType.isAssignableFrom(element.getParent.getClass)) {
+          element
+        } else {
+          prevElementOf(element.getParent.exceptNull(s"not in a ${containerPsiType.getSimpleName}"))
+        }
       }
     }
-
-    val prev = prevElementOf(element)
-    if (requireClass) {
-      prev.getParent.instanceOfExcept[T](s"caret not in a ${containerPsiType.getSimpleName}") // sanity check
-    }
-    prev
+    prevElementOf(element)
   }
 
   /** Returns the PSI element immediately before the cursor of a given file.
