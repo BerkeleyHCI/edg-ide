@@ -236,7 +236,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
     PsiUtils.fileLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val appendConnectItem = ContextMenuUtils.MenuItemFromErrorable(
-    appendConnectAction, s"Append connect$appendConnectCaretFileLine")
+    appendConnectAction, s"Append connect into $contextPyName$appendConnectCaretFileLine")
   add(appendConnectItem)
 
   private val initialPortPair = pathToPairs(action.getInitialPort)
@@ -274,7 +274,7 @@ class ConnectPopup(interface: ToolInterface, action: ConnectToolAction,
     PsiUtils.fileNextLineOf(caretPsiElement.exceptError, interface.getProject).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val insertConnectItem = ContextMenuUtils.MenuItemFromErrorable(
-    insertConnectAction, s"Insert connect$insertConnectCaretFileLine")
+    insertConnectAction, s"Insert connect into $contextPyName$insertConnectCaretFileLine")
   add(insertConnectItem)
 
   private val insertionPairs = exceptable {
