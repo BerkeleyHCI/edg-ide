@@ -102,11 +102,6 @@ object CompilerErrorNodeBase {
           new CompilerErrorDetailNode("Link elements", linkElements.toStringValue),
           new CompilerErrorDetailNode(f"Block port elements @ $blockPortPath", blockPortElements.toStringValue)
         ))
-
-      case CompilerError.EmptyRange(param, root, constrName, value) =>
-        (s"Empty range", s"$param", Seq(
-          new CompilerErrorDetailNode(ExprToString(value), s"$root:$constrName")
-        ))
     }
 
     override lazy val children: Seq[CompilerErrorNodeBase] = all._3
