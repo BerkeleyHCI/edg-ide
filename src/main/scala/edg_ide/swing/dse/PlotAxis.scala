@@ -35,6 +35,10 @@ object PlotAxis {
           Some((lower - mid) / mid * 100)
         case _ => None // including case where it crosses zero, and tolerance is undefined
       }),
+      new DseConfigParamAxis(config, " (span)", {
+        case RangeValue(lower, upper) => Some(upper - lower)
+        case _ => None
+      }),
     )
     case config => Seq(new DseConfigOrdinalAxis(config))
   }
@@ -68,6 +72,10 @@ object PlotAxis {
           val mid = (lower + upper) / 2
           Some((lower - mid) / mid * 100)
         case _ => None  // including case where it crosses zero, and tolerance is undefined
+      }),
+      new DseObjectiveParamAxis(objective, " (span)", {
+        case RangeValue(lower, upper) => Some(upper - lower)
+        case _ => None
       }),
     )
     case objective: DseObjectiveParameter =>
