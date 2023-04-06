@@ -17,7 +17,7 @@ import edg.compiler._
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.{ElkEdgirGraphUtils, HierarchyGraphElk}
-import edg_ide.ui.{BlockVisualizerService, EdgCompilerService}
+import edg_ide.ui.{BlockVisualizerService, EdgCompilerService, EdgSettingsState}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
 import edg_ide.util.exceptable
 import edgir.elem.elem
@@ -167,11 +167,21 @@ trait HasConsoleStages {
   /** Logging and status wrappers for running a stage that returns some value.
     * Exceptions are not caught and propagated up.
     * The stage function returns both a type and a message (can be empty) that is printed to the console.
+    *
+    * If a progress fraction is specified, the progress indicator is set to it, otherwise it is set indeterminate.
     */
-  protected def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator)
+  protected def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator,
+                                             progressFrac: Option[Float] = None)
                                           (fn: => (ReturnType, String)): ReturnType = {
+    if (Thread.interrupted()) throw new InterruptedException  // TODO cleaner way to stop compile process?
     indicator.setText(f"EDG compiling: $name")
-    indicator.setIndeterminate(true)
+    progressFrac match {
+      case None => indicator.setIndeterminate(true)
+      case Some(progressFrac) =>
+        indicator.setFraction(progressFrac)
+        indicator.setIndeterminate(false)
+    }
+
     val ((fnResult, fnResultStr), fnTime) = timeExec {
       fn
     }
@@ -183,31 +193,33 @@ trait HasConsoleStages {
   /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console.
     * If the function fails, a specified default is returned.
     */
-  protected def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator)
-                                          (fn: => (ReturnType, String)): ReturnType = {
+  protected def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator,
+                                             progressFrac: Option[Float] = None)
+                                            (fn: => (ReturnType, String)): ReturnType = {
     try {
-      runRequiredStage(name, indicator) {
+      runRequiredStage(name, indicator, progressFrac) {
         fn
       }
     } catch {
-      case e: Exception =>
+      case e: Exception if !e.isInstanceOf[InterruptedException] =>
+        if (EdgSettingsState.getInstance().showIdeErrors) {
+          val sw = new StringWriter
+          val pw = new PrintWriter(sw)
+          e.printStackTrace(pw)
+          console.print(sw.toString, ConsoleViewContentType.ERROR_OUTPUT)
+        }
         console.print(s"Failed: $name: $e\n", ConsoleViewContentType.ERROR_OUTPUT)
-        // By default, the stack trace isn't printed, since most of the internal details
-        // (stack trace elements) aren't relevant for end users
-        // TODO this should be plumbed to a toggle
-        // val sw = new StringWriter
-        // val pw = new PrintWriter(sw)
-        // e.printStackTrace(pw)
-        // console.print(sw.toString, ConsoleViewContentType.ERROR_OUTPUT)
         default
     }
   }
 
   /** Wrapper around runFailableStage for fns that don't return anything.
+    *
+    * Because for some reason overloaded alternatives can't all have defaults, this needs a different name.
     */
-  protected def runFailableStage(name: String, indicator: ProgressIndicator)
-                              (fn: => String): Unit = {
-    runFailableStage[Unit](name, (), indicator) {
+  protected def runFailableStageUnit(name: String, indicator: ProgressIndicator, progressFrac: Option[Float] = None)
+                                    (fn: => String): Unit = {
+    runFailableStage[Unit](name, (), indicator, progressFrac) {
       ((), fn)
     }
   }
@@ -238,6 +250,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    BlockVisualizerService(project).setDesignStale()
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
@@ -256,7 +269,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
-        runFailableStage("discard stale", indicator) {
+        runFailableStageUnit("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
           if (discarded.nonEmpty) {
             val discardedNames = discarded.toSeq.map { _.toSimpleString }.sorted
@@ -268,13 +281,12 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         // this is mainly here to provide an index of library elements for the part browser
         // this can be skipped - library elements can be built dynamically as they are used during compile
-        runFailableStage("rebuild libraries", indicator) {
+        runFailableStageUnit("rebuild libraries", indicator, Some(0.0f)) {
           def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
             // this also includes requests that hit cache
             indicator.setFraction(index.toFloat / total)
           }
 
-          indicator.setIndeterminate(false)
           val designModule = options.designName.split('.').init.mkString(".")
           val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, Some(rebuildProgressFn)).get
           f"${indexed.size} elements"
@@ -295,7 +307,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           (errors, f"${errors.length} errors")
         }
 
-        runFailableStage("refdes", indicator) {
+        runFailableStageUnit("refdes", indicator) {
           val refdes = pythonInterface.get.runRefinementPass(
             ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
             compiled, compiler.getAllSolved
@@ -304,24 +316,14 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           f"${refdes.size} components"
         }
 
-        runFailableStage("update visualization", indicator) {
+        runFailableStageUnit("update visualization", indicator) {
           BlockVisualizerService(project).setDesignTop(compiled, compiler, refinements, errors)
           BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
           ""
         }
 
-        if (options.pdfFile.nonEmpty) {
-          runFailableStage("generate PDF", indicator) {
-            PDFGeneratorUtil.generate(compiled.getContents, mappers=Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
-            f"wrote ${options.pdfFile}"
-          }
-        } else {
-          console.print(s"Skip generating PDF, no PDF file specified in run options\n",
-            ConsoleViewContentType.ERROR_OUTPUT)
-        }
-
         if (options.netlistFile.nonEmpty) {
-          runFailableStage("generate netlist", indicator) {
+          runFailableStageUnit("generate netlist", indicator) {
             val netlist = pythonInterface.get.runBackend(
               ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
               compiled, compiler.getAllSolved,
@@ -336,11 +338,11 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         } else {
           console.print(s"Skip generating netlist, no netlist file specified in run options\n",
-            ConsoleViewContentType.ERROR_OUTPUT)
+            ConsoleViewContentType.LOG_INFO_OUTPUT)
         }
 
         if (options.bomFile.nonEmpty) {
-          runFailableStage("generate BOM", indicator) {
+          runFailableStageUnit("generate BOM", indicator) {
             val bom = pythonInterface.get.runBackend(
               ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
               compiled, compiler.getAllSolved,
@@ -355,7 +357,14 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
         } else {
           console.print(s"Skip generating BOM, no BOM file specified in run options\n",
-            ConsoleViewContentType.ERROR_OUTPUT)
+            ConsoleViewContentType.LOG_INFO_OUTPUT)
+        }
+
+        if (options.pdfFile.nonEmpty) {
+          runFailableStageUnit("generate PDF", indicator) {
+            PDFGeneratorUtil.generate(compiled.getContents, mappers = Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
+            f"wrote ${options.pdfFile}"
+          }
         }
       }
       exitCode = pythonInterface.get.shutdown()

@@ -26,7 +26,7 @@ abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: Cla
     case null =>
       logger.error(s"isLeaf got node of unexpected null")
       true
-    case None =>
+    case _ =>
       logger.error(s"isLeaf got node of unexpected type ${node.getClass}")
       true
   }

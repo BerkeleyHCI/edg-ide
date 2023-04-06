@@ -33,9 +33,23 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
 
 
   // Defines the root node
-  override lazy val children = informationalHeader ++ results.groupedResults.map { resultsSet =>
-    new ResultSetNode(resultsSet)
+  override lazy val children = {
+    informationalHeader ++ results.groupedResults.sortBy { resultsSet =>
+      val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
+      (idealErrors.isEmpty, otherErrors.isEmpty) match {
+        case (true, true) => 0  // non-error points prioritized
+        case (_, true) => 1 // ideal points next
+        case _ => 2 // error points last
+      }
+    }.map { resultsSet =>
+      if (resultsSet.length == 1) {
+        new ResultNode(resultsSet.head, true)
+      } else {
+        new ResultSetNode(resultsSet)
+      }
+    }
   }
+
   override val config = "" // empty, since the root node is hidden
   override def getColumns(index: Int): String = ""
 
@@ -49,7 +63,8 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
       ""
     }
     override val config = f"${setMembers.length} points" + errString
-    override lazy val children = setMembers.map(result => new ResultNode(result))
+    // internal objectives not shown to avoid visual clutter
+    override lazy val children = setMembers.map(result => new ResultNode(result, false))
     override def getColumns(index: Int): String = objectiveByColumn.get(index) match {
       case Some(objective) => exampleResult.objectives.get(objective) match {
         case Some(value) => DseConfigElement.valueToString(value)
@@ -59,10 +74,23 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     }
   }
 
-  class ResultNode(val result: DseResult) extends DseResultNodeBase {
+  class ResultNode(val result: DseResult, showObjectives: Boolean) extends DseResultNodeBase {
     override val config = f"${result.index}: ${DseConfigElement.configMapToString(result.config)}"
-    override def getColumns(index: Int): String = ""
     override val children: Seq[DseResultNodeBase] = Seq()
+
+    override def getColumns(index: Int): String = {
+      if (showObjectives) {
+        objectiveByColumn.get(index) match {
+          case Some(objective) => result.objectives.get(objective) match {
+            case Some(value) => DseConfigElement.valueToString(value)
+            case _ => "(unknown)"
+          }
+          case _ => "???"
+        }
+      } else {
+        ""
+      }
+    }
   }
 
   class InformationalNode(text: String) extends DseResultNodeBase {

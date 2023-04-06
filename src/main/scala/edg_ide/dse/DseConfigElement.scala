@@ -7,13 +7,14 @@ import edg.wir.{DesignPath, Refinements}
 import edg_ide.ui.ParamToUnitsStringUtil
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptBoolean, ExceptErrorable, ExceptOption, ExceptSeq}
 import edg_ide.util.IterableExtensions.IterableExtension
-import edg_ide.util.{exceptable, requireExcept}
+import edg_ide.util.{SiPrefixUtil, exceptable, requireExcept}
 import edgir.ref.ref
 
 import scala.collection.{SeqMap, mutable}
 
 
 object DseConfigElement {
+  // TODO this is still used for objective functions, which should define a objective-specific valueToString
   def valueToString(value: Any): String = value match {
     case value: ref.LibraryPath => value.toSimpleString
     case value: ExprValue => ParamToUnitsStringUtil.toString(value)
@@ -23,7 +24,7 @@ object DseConfigElement {
 
   def configMapToString(configMap: SeqMap[DseConfigElement, Any]): String = {
     configMap.map { case (config, value) =>
-      f"${config.configToString} -> ${valueToString(value)}"
+      f"${config.configToString} -> ${config.valueToString(value)}"
     }.mkString(", ")
   }
 }
@@ -89,6 +90,33 @@ object DseParameterSearch {
     comps.toSeq
   }
 
+  def stringToRange(str: String): Errorable[RangeValue] = exceptable {
+    str.strip() match {
+      case s"($minStr,$maxStr)" =>
+        val min = SiPrefixUtil.stringToFloat(minStr.strip()).mapErr(err => f"bad lower: $err").exceptError
+        val max = SiPrefixUtil.stringToFloat(maxStr.strip()).mapErr(err => f"bad upper: $err").exceptError
+        requireExcept(min <= max, f"lower > upper")
+        RangeValue(min, max)
+      case s"$centerStr±$tolStr" =>
+        val center = if (centerStr.isEmpty) {
+          0
+        } else {
+          SiPrefixUtil.stringToFloat(centerStr.strip()).mapErr(err => f"bad center: $err").exceptError
+        }
+        val halfSpan = tolStr match {
+          case s"$pctStr%" =>
+            pctStr.toFloatOption.exceptNone(f"bad percent '$pctStr") / 100 * center
+          case s"${ppmStr}ppm" =>
+            ppmStr.toFloatOption.exceptNone(f"bad ppm '$ppmStr") / 1e6 * center
+          case s"$absStr" =>
+            absStr.toFloatOption.exceptNone(f"bad tolerance '$absStr")
+        }
+        RangeValue(center - math.abs(halfSpan).toFloat, center + math.abs(halfSpan).toFloat)
+      case str =>
+        exceptable.fail(s"bad range format '$str'")
+    }
+  }
+
   // Splits a list of strings, ignoring commas within quotes
   def splitString(str: String): Errorable[Seq[String]] = exceptable {
     val builder = new mutable.StringBuilder()
@@ -106,8 +134,9 @@ object DseParameterSearch {
       } else if (char == '"') {
         if (inQuotes) {
           mustEnd = true
-        } else {
-          builder.isEmpty.exceptFalse("unexpected open quote, may only be at start of element or escaped")
+        } else {  // if have unescaped quotes, they must start the string
+          builder.toString().strip().isEmpty.exceptFalse("unexpected open quote, may only be at start of element or escaped")
+          builder.clear()
         }
         inQuotes = !inQuotes
       } else if (char == ',' && !inQuotes) {
@@ -124,15 +153,19 @@ object DseParameterSearch {
     comps.append(builder.toString())
     comps.toSeq
   }
-
-  protected lazy val rangeParseRegex = raw"^\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*$$".r
 }
 
 
 sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: Serializable =>
   def values: Seq[ExprValue]
 
-  override def valueToString(value: Any): String = value.asInstanceOf[ExprValue].toStringValue
+  override def valueToString(value: Any): String = value match {
+    case value: FloatValue => ParamToUnitsStringUtil.toString(value)
+    case value: RangeValue => ParamToUnitsStringUtil.toString(value)
+    case value: ExprValue => value.toStringValue
+    case _ => value.toString
+  }
+
 
   // Returns the values as a string, that will parse back with valuesStringToConfig.
   // This contains special-case code to handle the TextValue case
@@ -140,13 +173,11 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
     values.map {
       case TextValue(str) =>
         val escaped = str.replace("\\", "\\\\").replace("\"", "\\\"")
-        if (escaped.contains(',')) {
-          f"\"$escaped\""
-        } else {
-          escaped
-        }
+        f"\"$escaped\""  // always wrap in quotes, so we can insert a space after the commas separating elements
+      case value: FloatValue => ParamToUnitsStringUtil.toString(value)
+      case value: RangeValue => ParamToUnitsStringUtil.toString(value)
       case value => value.toStringValue
-    }.mkString(",")
+    }.mkString(", ")
   }
 
   // Parses a string specification of values into a new DseParameterSearch (of the same path and type).
@@ -166,7 +197,8 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
         }
       case v if v == classOf[FloatValue] =>
         str.split(',').toSeq.zipWithIndex.map { case (str, index) =>
-          FloatValue(str.strip().toFloatOption.exceptNone(f"invalid value ${index + 1} '$str': not a float"))
+          FloatValue(SiPrefixUtil.stringToFloat(str.strip()).mapErr(err => f"invalid value ${index + 1} '$str': $err")
+              .exceptError)
         }
       case v if v == classOf[TextValue] =>
         DseParameterSearch.splitString(str).exceptError.map {
@@ -174,15 +206,7 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
         }
       case v if v == classOf[RangeValue] =>
         DseParameterSearch.splitRange(str).zipWithIndex.map { case (str: String, index) =>
-          val patMatch = DseParameterSearch.rangeParseRegex.findAllMatchIn(str).toSeq
-              .onlyExcept(f"invalid value ${index + 1} '$str': not a range: bad format")
-          requireExcept(patMatch.groupCount == 2, f"invalid value ${index + 1} '$str': not a range: bad format")
-          val min = patMatch.group(1).toFloatOption
-              .exceptNone(f"invalid value ${index + 1} '$str': not a range: invalid min")
-          val max = patMatch.group(2).toFloatOption
-              .exceptNone(f"invalid value ${index + 1} '$str': not a range: invalid max")
-          requireExcept(min <= max, f"invalid value ${index + 1}: '$str': lower > upper")
-          RangeValue(min, max)
+          DseParameterSearch.stringToRange(str).mapErr(err => f"invalid value ${index + 1} '$str': $err").exceptError
         }
       case v =>
         exceptable.fail(f"unknown type of value $v")

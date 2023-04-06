@@ -60,8 +60,8 @@ class BlockVisualizerService(project: Project) extends
     visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors, namePrefix))
   }
 
-  def clearDesign(): Unit = {
-    visualizerPanelOption.foreach(_.clearDesign())
+  def setDesignStale(): Unit = {
+    visualizerPanelOption.foreach(_.setDesignStale())
   }
 
   def getDesign: Option[schema.Design] = {

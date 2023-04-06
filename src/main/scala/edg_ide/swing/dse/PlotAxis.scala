@@ -1,7 +1,7 @@
 package edg_ide.swing.dse
 
-import edg.compiler.{ExprValue, FloatValue, IntValue, RangeType, RangeValue}
-import edg_ide.dse.{DseConfigElement, DseObjective, DseObjectiveFootprintArea, DseObjectiveFootprintCount, DseObjectiveParameter, DseParameterSearch, DseResult}
+import edg.compiler._
+import edg_ide.dse._
 
 
 object PlotAxis {
@@ -25,15 +25,28 @@ object PlotAxis {
       new DseConfigParamAxis(config, " (max)", {
         case RangeValue(lower, upper) => Some(upper)
         case _ => None
-      })
+      }),
+      new DseConfigParamAxis(config, " (tol)", {
+        case RangeValue(lower, upper) if lower > 0 & upper > 0 =>
+          val mid = (lower + upper) / 2
+          Some((upper - mid) / mid * 100)
+        case RangeValue(lower, upper) if lower < 0 & upper < 0 =>
+          val mid = (lower + upper) / 2
+          Some((lower - mid) / mid * 100)
+        case _ => None // including case where it crosses zero, and tolerance is undefined
+      }),
+      new DseConfigParamAxis(config, " (span)", {
+        case RangeValue(lower, upper) => Some(upper - lower)
+        case _ => None
+      }),
     )
     case config => Seq(new DseConfigOrdinalAxis(config))
   }
 
   // creates plot axes for an objective function
   def fromObjective(objective: DseObjective): Seq[PlotAxis] = objective match {
-    case objective: DseObjectiveFootprintArea => Seq(new DseObjectiveAxis(objective))
-    case objective: DseObjectiveFootprintCount => Seq(new DseObjectiveAxis(objective))
+    case objective: DseFloatObjective => Seq(new DseObjectiveAxis(objective))
+    case objective: DseIntObjective => Seq(new DseObjectiveAxis(objective))
     case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
       Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
     case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
@@ -50,7 +63,20 @@ object PlotAxis {
       new DseObjectiveParamAxis(objective, " (max)", {
         case RangeValue(lower, upper) => Some(upper)
         case _ => None
-      })
+      }),
+      new DseObjectiveParamAxis(objective, " (tol)", {
+        case RangeValue(lower, upper) if lower > 0 & upper > 0 =>
+          val mid = (lower + upper) / 2
+          Some((upper - mid) / mid * 100)
+        case RangeValue(lower, upper) if lower < 0 & upper < 0 =>
+          val mid = (lower + upper) / 2
+          Some((lower - mid) / mid * 100)
+        case _ => None  // including case where it crosses zero, and tolerance is undefined
+      }),
+      new DseObjectiveParamAxis(objective, " (span)", {
+        case RangeValue(lower, upper) => Some(upper - lower)
+        case _ => None
+      }),
     )
     case objective: DseObjectiveParameter =>
       Seq(new DseObjectiveParamOrdinalAxis(objective))
@@ -142,7 +168,17 @@ class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
     val values = results.map { result =>
       result.config.get(config).map(config.valueToString)
     }
-    val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+
+    val distinctValues = values.flatten.distinct
+    val presort = (config match {  // sorted by input space
+      case config: DseRefinementElement[Any] => config.getValues.map { case (value, refinements) =>
+        config.valueToString(value)
+      }
+      case _ => Seq()
+    }).filter(distinctValues.contains(_))
+    val postsort = distinctValues.filter(!presort.contains(_)).sorted  // anything else in actual results
+
+    val stringToPos = (presort ++ postsort).zipWithIndex.map { case (str, index) => (str, index.toFloat) }
     val axis = stringToPos.map { case (str, index) => (index, str) }
 
     val stringToPosMap = stringToPos.toMap

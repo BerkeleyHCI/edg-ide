@@ -16,7 +16,13 @@ import javax.swing.tree._
 class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem.HierarchyBlock) {
   import edgir.elem.elem.BlockLike
 
-  lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs.map { case (name, subblock) =>
+  lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs.filter { case (name, subblock) =>
+    if (!EdgSettingsState.getInstance().showInternalBlocks) {
+      !(name.startsWith("(bridge)") || name.startsWith("(adapter)") || name.startsWith("(not_connected)"))
+    } else {
+      true
+    }
+  }.map { case (name, subblock) =>
     (name, subblock.`type`)
   }.collect {
     case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(project, path + name, subblock)

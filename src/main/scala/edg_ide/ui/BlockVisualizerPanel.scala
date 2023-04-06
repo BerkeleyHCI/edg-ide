@@ -5,14 +5,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
-import com.intellij.ui.{JBIntSpinner, JBSplitter, TreeTableSpeedSearch}
+import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemModifier
 import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
-import edg_ide.build.BuildInfo
 import edg_ide.edgir_graph._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
@@ -26,13 +25,13 @@ import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
-import java.awt.event.{MouseAdapter, MouseEvent}
+import java.awt.event.{ComponentAdapter, ComponentEvent, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
-import javax.swing.event.{ChangeEvent, ChangeListener, TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
-import javax.swing.{JLabel, JPanel, TransferHandler}
+import javax.swing._
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
@@ -128,7 +127,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     override def endTool(): Unit = {
       activeTool = defaultTool
       activeTool.init()
-      setStatus("Ready")
+      setStatus("")
     }
   }
 
@@ -177,28 +176,17 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI Components
   //
-  private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
+  private val mainSplitter = new JBSplitter(true, 0.5f, 0.05f, 0.95f)
 
   // GUI: Top half (status and block visualization)
   //
-  private val visualizationPanel = new JPanel(new GridBagLayout())
+  private val visualizationPanel = new JLayeredPane()
   mainSplitter.setFirstComponent(visualizationPanel)
 
-  private val status = new JLabel(s"Ready " +
-      s"(version ${BuildInfo.version} built at ${BuildInfo.builtAtString}, " +
-      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion})"
-  )
-  visualizationPanel.add(status, Gbc(0, 0, GridBagConstraints.HORIZONTAL))
-
-  // TODO max value based on depth of tree?
-  private val depthSpinner = new JBIntSpinner(1, 1, 8)
-  depthSpinner.addChangeListener(new ChangeListener {
-    override def stateChanged(e: ChangeEvent): Unit = {
-      updateDisplay()
-    }
-  })
-  // TODO update visualization on change?
-  visualizationPanel.add(depthSpinner, Gbc(2, 0))
+  private val status = new JLabel("")
+  status.setHorizontalAlignment(SwingConstants.LEFT)
+  status.setVerticalAlignment(SwingConstants.TOP)
+  visualizationPanel.add(status, Integer.valueOf(2))
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
@@ -225,12 +213,21 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
   graph.addMouseListener(graphScrollPane.makeMouseAdapter)
   graph.addMouseMotionListener(graphScrollPane.makeMouseAdapter)
-  visualizationPanel.add(graphScrollPane, Gbc(0, 1, GridBagConstraints.BOTH, xsize=3))
+  visualizationPanel.add(graphScrollPane, Integer.valueOf(1))
+
+  visualizationPanel.addComponentListener(new ComponentAdapter() {
+    override def componentResized(e: ComponentEvent): Unit = {
+      status.setSize(visualizationPanel.getSize)  // explicit size required for JLayeredPane which has null layout
+      graphScrollPane.setSize(visualizationPanel.getSize)
+      visualizationPanel.revalidate()
+      visualizationPanel.repaint()
+    }
+  });
 
   // GUI: Bottom half (design tree and task tabs)
   //
-  private val dseSplitter = new JBSplitter(true, 0.66f, 0.1f, 0.9f)
-  private val bottomSplitter = new JBSplitter(false, 0.33f, 0.1f, 0.9f)
+  private val dseSplitter = new JBSplitter(true, 0.66f, 0.05f, 0.95f)
+  private val bottomSplitter = new JBSplitter(false, 0.33f, 0.05f, 0.95f)
   mainSplitter.setSecondComponent(bottomSplitter)
 
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
@@ -241,13 +238,16 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
       ApplicationManager.getApplication.invokeLater(() => {
         if (dseConfigSelected) {
-          mainSplitter.setSecondComponent(dseSplitter)
-          dseSplitter.setFirstComponent(bottomSplitter)
+          remove(mainSplitter)
+          dseSplitter.setFirstComponent(mainSplitter)
+          add(dseSplitter)
         } else {
+          remove(dseSplitter)
           dseSplitter.setFirstComponent(null)
-          mainSplitter.setSecondComponent(bottomSplitter)
+          add(mainSplitter)
         }
       })
+      revalidate()
     }
   }, 333, 333, TimeUnit.MILLISECONDS) // seems flakey without initial delay
 
@@ -274,6 +274,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   })
   designTree.setShowColumns(true)
+
+  private val designTreeTreeRenderer = designTree.getTree.getCellRenderer
+  private val designTreeTableRenderer = designTree.getDefaultRenderer(classOf[Object])
 
   private val designTreeScrollPane = new JBScrollPane(designTree)
   bottomSplitter.setFirstComponent(designTreeScrollPane)
@@ -388,28 +391,23 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
     TreeTableUtils.updateModel(designTree, designTreeModel)
     designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
+    designTree.setTreeCellRenderer(designTreeTreeRenderer)
+    designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
 
     // Also update the active detail panel
     selectPath(selectionPath)
+    detailPanel.setStale(false)
 
     updateDisplay()
   }
 
-  /** Clears the existing design
+  /** Sets the entire design as stale, eg if a recompile is running. Cleared with any variation of setDesign.
     */
-  def clearDesign(): Unit = {
-    this.refinements = edgrpc.Refinements()
-    setDesign(schema.Design(), new Compiler(schema.Design(), EdgCompilerService(project).pyLib))
-    tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors")
-    errorPanel.setErrors(Seq(), compiler)
-
-    ApplicationManager.getApplication.invokeLater(() => {
-      toolWindow.setTitle("")
-    })
-
-    if (activeTool != defaultTool) { // revert to the default tool
-      toolInterface.endTool() // TODO should we also preserve state like selected?
-    }
+  def setDesignStale(): Unit = {
+    designTree.setTreeCellRenderer(new StaleTreeRenderer)
+    designTree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    errorPanel.setStale()
+    detailPanel.setStale(true)
   }
 
   /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
@@ -423,7 +421,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
       val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
       val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(
-        block, blockPath, depthSpinner.getNumber,
+        block, blockPath, 1,
         // note, adding port side constraints with hierarchy seems to break ELK
         Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
           ElkEdgirGraphUtils.DesignPathMapper)
@@ -502,7 +500,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Configuration State
   //
   def saveState(state: BlockVisualizerServiceState): Unit = {
-    state.depthSpinner = depthSpinner.getNumber
     state.panelMainSplitterPos = mainSplitter.getProportion
     state.panelBottomSplitterPos = bottomSplitter.getProportion
     state.panelTabIndex = tabbedPane.getSelectedIndex
@@ -514,7 +511,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   def loadState(state: BlockVisualizerServiceState): Unit = {
-    depthSpinner.setNumber(state.depthSpinner)
     mainSplitter.setProportion(state.panelMainSplitterPos)
     bottomSplitter.setProportion(state.panelBottomSplitterPos)
     tabbedPane.setSelectedIndex(state.panelTabIndex)
@@ -605,6 +601,8 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
+  private val treeTreeRenderer = tree.getTree.getCellRenderer
+  private val treeTableRenderer = tree.getDefaultRenderer(classOf[Object])
 
   setLayout(new BorderLayout())
   add(treeScrollPane)
@@ -613,6 +611,13 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   //
   def setErrors(errs: Seq[CompilerError], compiler: Compiler): Unit = {
     TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
+    tree.setTreeCellRenderer(treeTreeRenderer)
+    tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+  }
+
+  def setStale(): Unit = {
+    tree.setTreeCellRenderer(new StaleTreeRenderer)
+    tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
   }
 
   // Configuration State

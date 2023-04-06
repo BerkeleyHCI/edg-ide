@@ -25,7 +25,7 @@ trait ProvenTreeTableMixin extends TreeTable {
     super.setModel(treeTableModel)
     getColumnModel.getColumns.asScala.foreach { column =>  // must support the case where the column isn't shown
       if (column.getIdentifier == "Proven") {
-        column.setPreferredWidth(32)
+        column.setMaxWidth(48)
       }
     }
   }
@@ -37,7 +37,7 @@ class ProvenTableRenderer extends DefaultTableCellRenderer {
     val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
     value match {
       case cell: BlockProven =>
-        component.setForeground(ProvenStatus.colorOf(cell.records.getLatestStatus))
+        component.setForeground(ProvenStatus.colorOf(cell.records.latestStatus))
       case _ =>
     }
     component

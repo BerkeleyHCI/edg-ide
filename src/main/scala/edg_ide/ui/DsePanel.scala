@@ -17,7 +17,7 @@ import edg_ide.ui.dse.{DseBasePlot, DseParallelPlotPanel, DseScatterPlotPanel}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
-import java.awt.event.{MouseAdapter, MouseEvent}
+import java.awt.event.{KeyEvent, KeyListener, MouseAdapter, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
@@ -42,10 +42,9 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
     val originalSearchConfigs = dseConfig.options.searchConfigs
-    val found = originalSearchConfigs.find(searchConfig == _).exceptNone("search config not in config")
     () => {
-      dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != found)
-      DseService(project).onSearchConfigChanged(dseConfig)
+      dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != searchConfig)
+      DseService(project).onSearchConfigChanged(dseConfig, false)
     }
   }, s"Delete"))
 
@@ -57,7 +56,7 @@ class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project)
           val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
           val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
           dseConfig.options.searchConfigs = newSearchConfigs
-          DseService(project).onSearchConfigChanged(dseConfig)
+          DseService(project).onSearchConfigChanged(dseConfig, false)
         }
     }), s"Edit"))
 }
@@ -69,16 +68,19 @@ class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends J
     val originalObjectives = dseConfig.options.objectives
     () => {
       dseConfig.options.objectives = originalObjectives.filter(_ != objective)
-      DseService(project).onObjectiveConfigChanged(dseConfig)
+      DseService(project).onObjectiveConfigChanged(dseConfig, false)
     }
   }, s"Delete"))
 }
 
 
 class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu {
+  add(new JLabel(s"Point ${result.index}"))
   result.config.foreach { case (config, configValue) =>
-    add(new JLabel(s"Point ${result.index}"))
     add(new JLabel(s"${config.configToString} = ${config.valueToString(configValue)}"))
+  }
+  result.objectives.foreach { case (objective, objectiveValue) =>
+    add(new JLabel(s"${objective.objectiveToString} = ${DseConfigElement.valueToString(objectiveValue)}"))
   }
   addSeparator()
 
@@ -89,8 +91,9 @@ class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu
     val insertAction = new InsertRefinementAction(project, topClass)
       .createInsertRefinements(result.searchRefinements).exceptError
     () => { // TODO standardized continuation?
-      val inserted = insertAction().head
-      InsertAction.navigateToEnd(inserted)
+      val inserted = insertAction()
+      InsertAction.navigateToEnd(inserted.head)
+      InsertAction.selectAndNavigate(inserted)
     }
   }, s"Insert refinements"))
 }
@@ -138,7 +141,8 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Top plot
   def plotOnClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
-    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight in tree
+    // note: some platforms register drag-release as 0 clicks
+    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount <= 1) { // single click, highlight in tree
       resultsTree.clearSelection()
 
       val treeRoot = resultsTree.getTableModel.asInstanceOf[DseResultTreeTableModel].rootNode
@@ -197,7 +201,7 @@ class DsePanel(project: Project) extends JPanel {
   mainSplitter.setFirstComponent(scatterPlot)
 
   // GUI: Bottom tabs
-
+  //
   private val tabbedPane = new JBTabbedPane()
   mainSplitter.setSecondComponent(tabbedPane)
 
@@ -219,6 +223,29 @@ class DsePanel(project: Project) extends JPanel {
             new DseObjectivePopupMenu(node.config, project).show(e.getComponent, e.getX, e.getY)
           }
         case _ =>  // any other type ignored
+      }
+    }
+  })
+  configTree.addKeyListener(new KeyListener {
+    override def keyTyped(keyEvent: KeyEvent): Unit = {}
+    override def keyReleased(keyEvent: KeyEvent): Unit = {}
+    override def keyPressed(keyEvent: KeyEvent): Unit = {
+      if (keyEvent.getKeyCode == KeyEvent.VK_DELETE) {
+        Option(configTree.getTree.getSelectionPath).getOrElse(return).getLastPathComponent match {
+          case node: DseConfigTreeNode.DseSearchConfigNode =>
+            DseService(project).getRunConfiguration.foreach { dseConfig =>
+              val originalSearchConfigs = dseConfig.options.searchConfigs
+              dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != node.config)
+              DseService(project).onSearchConfigChanged(dseConfig, false)
+            }
+          case node: DseConfigTreeNode.DseObjectiveNode =>
+            DseService(project).getRunConfiguration.foreach { dseConfig =>
+              val originalObjectives = dseConfig.options.objectives
+              dseConfig.options.objectives = originalObjectives.filter(_ != node.config)
+              DseService(project).onSearchConfigChanged(dseConfig, false)
+            }
+          case _ => // ignored
+        }
       }
     }
   })
@@ -275,9 +302,7 @@ class DsePanel(project: Project) extends JPanel {
     allPlots.foreach{_.setResults(combinedResults, search, objectives)}
   }
 
-  def focusConfigSearch(): Unit = {
-    tabbedPane.setSelectedIndex(kTabConfig)
-
+  def focusConfigSearch(scrollToLast: Boolean): Unit = {
     // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
     // tries (and fails) to expand a node with no children (yet)
     // TODO this is kind of ugly
@@ -285,12 +310,15 @@ class DsePanel(project: Project) extends JPanel {
       val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
       val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.searchConfigNode)
       configTree.getTree.expandPath(nodePath)
+      if (scrollToLast) {
+        val lastNodePath = nodePath.pathByAddingChild(treeRoot.searchConfigNode.children.last)
+        configTree.scrollRectToVisible(configTree.getTree.getPathBounds(lastNodePath))
+      }
+      tabbedPane.setSelectedIndex(kTabConfig)
     })
   }
 
-  def focusConfigObjective(): Unit = {
-    tabbedPane.setSelectedIndex(kTabConfig)
-
+  def focusConfigObjective(scrollToLast: Boolean): Unit = {
     // this makes the expansion fire AFTER the model is set (on the UI thread too), otherwise it
     // tries (and fails) to expand a node with no children (yet)
     // TODO this is kind of ugly
@@ -298,6 +326,11 @@ class DsePanel(project: Project) extends JPanel {
       val treeRoot = configTree.getTableModel.asInstanceOf[DseConfigTreeTableModel].rootNode
       val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.objectivesNode)
       configTree.getTree.expandPath(nodePath)
+      if (scrollToLast) {
+        val lastNodePath = nodePath.pathByAddingChild(treeRoot.objectivesNode.children.last)
+        configTree.scrollRectToVisible(configTree.getTree.getPathBounds(lastNodePath))
+      }
+      tabbedPane.setSelectedIndex(kTabConfig)
     })
   }
 

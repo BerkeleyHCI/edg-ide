@@ -110,6 +110,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     runThread = Some(Thread.currentThread())
     startNotify()
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+    BlockVisualizerService(project).setDesignStale()
 
     // the UI update is in a thread so it doesn't block the main search loop
     val uiUpdater = new SingleThreadRunner()
@@ -136,13 +137,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
-    var pythonInterface: Option[PythonInterface] = None
+    var pythonInterfaceOption: Option[PythonInterface] = None
+
     var exitCode: Int = -1
     def forwardProcessOutput(): Unit = {
-      pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processOutputStream) { data =>
+      pythonInterfaceOption.foreach { pyIf => StreamUtils.forAvailable(pyIf.processOutputStream) { data =>
         console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
       }}
-      pythonInterface.foreach { pyIf => StreamUtils.forAvailable(pyIf.processErrorStream) { data =>
+      pythonInterfaceOption.foreach { pyIf => StreamUtils.forAvailable(pyIf.processErrorStream) { data =>
         console.print(new String(data), ConsoleViewContentType.ERROR_OUTPUT)
       }}
     }
@@ -153,22 +155,20 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       ).get
       console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT)
-      pythonInterface = Some(new LoggingPythonInterface(
-        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile,
-        pythonCommand,
-        console))
 
-      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
-        BlockVisualizerService(project).clearDesign()
+      val pythonInterface = new LoggingPythonInterface(
+        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile, pythonCommand, console)
+      pythonInterfaceOption = Some(pythonInterface)
 
+      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
         // compared to the single design compiler the debug info is a lot sparser here
-        runFailableStage("discard stale", indicator) {
+        runFailableStageUnit("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
           s"${discarded.size} library elements"
         }
 
         // (re)build all libraries so interactive tooling depending on this can still work
-        runFailableStage("rebuild libraries", indicator) {
+        runFailableStageUnit("rebuild libraries", indicator) {
           val designModule = options.designName.split('.').init.mkString(".")
           val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, None).get
           f"${indexed.size} elements"
@@ -187,14 +187,12 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         }
 
         val results = mutable.ListBuffer[DseResult]()
-        runFailableStage("search", indicator) {
+        runFailableStageUnit("search", indicator, Some(0.0f)) {
           var index: Int = 0
           val searchGenerator = new DseSearchGenerator(options.searchConfigs)
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
             val (baseCompilerOpt, partialCompile, pointValues, searchRefinements, incrRefinements, completedFraction) = nextPoint.get
-            indicator.setIndeterminate(false)
-            indicator.setFraction(completedFraction)
 
             val compiler = baseCompilerOpt match {
               case Some(baseCompiler) => baseCompiler.fork(
@@ -203,7 +201,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 refinements = refinements ++ incrRefinements, partial = partialCompile)
             }
 
-            runFailableStage(s"point $index", indicator) {
+            runFailableStageUnit(s"point $index", indicator, Some(completedFraction)) {
               val (compiled, compileTime) = timeExec {
                 compiler.compile()
               }
@@ -213,7 +211,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                     new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
 
                 val objectiveValues = SeqMap.from(options.objectives.map { objective =>
-                  objective -> objective.calculate(compiled, compiler)
+                  objective -> objective.calculate(compiled, compiler, pythonInterface, project)
                 })
 
                 val result = DseResult(index, pointValues,
@@ -245,9 +243,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           s"${results.length} configurations"
         }
 
-        runFailableStage("update visualization", indicator) {
+        runFailableStageUnit("update visualization", indicator) {
           uiUpdater.join()  // wait for pending UI updates to finish before updating to final value
           DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, false, false)
+          BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
           if (options.searchConfigs.isEmpty && results.length == 1) {
             val result = results.head
@@ -263,7 +262,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       }
     } catch {
       case e: Throwable =>
-        pythonInterface.foreach { pyIf => exitCode = pyIf.shutdown() }
+        pythonInterfaceOption.foreach { pyIf => exitCode = pyIf.shutdown() }
         forwardProcessOutput()  // dump remaining process output first
 
         console.print(s"Compiler internal error: ${e.toString}\n", ConsoleViewContentType.ERROR_OUTPUT)
@@ -273,7 +272,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     }
 
     csvFile.foreach { case csvFile =>
-      runFailableStage("closing CSV", indicator) {
+      runFailableStageUnit("closing CSV", indicator) {
         csvFile.close()
         f"closed ${options.resultCsvFile}"
       }
