@@ -15,7 +15,7 @@ import edgir.schema.schema
 import edgir.schema.schema.Design
 
 import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
@@ -121,6 +121,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     // Open a CSV file (if desired) and write result rows as they are computed.
     // This is done first to empty out the result file, if one already exists.
     val csvFile = if (options.resultCsvFile.nonEmpty) {
+      Files.createDirectories(Paths.get(options.resultCsvFile).getParent)
       DseCsvWriter(new FileWriter(options.resultCsvFile), options.searchConfigs, options.objectives) match {
         case Some(csv) =>
           console.print(s"Opening results CSV at ${options.resultCsvFile}\n",
