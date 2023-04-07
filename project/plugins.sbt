@@ -1,7 +1,7 @@
 logLevel := Level.Warn
 
-addSbtPlugin("org.jetbrains" % "sbt-ide-settings" % "1.0.0")
-addSbtPlugin("org.jetbrains" % "sbt-idea-plugin" % "3.14.3")
+addSbtPlugin("org.jetbrains.scala" % "sbt-ide-settings" % "1.1.1")
+addSbtPlugin("org.jetbrains" % "sbt-idea-plugin" % "3.18.3")
 
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.6")
 libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.11"
