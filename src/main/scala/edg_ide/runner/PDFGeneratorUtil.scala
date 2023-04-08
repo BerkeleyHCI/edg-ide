@@ -10,32 +10,63 @@ import edg.wir.DesignPath
 import edg_ide.edgir_graph.HierarchyGraphElk.PropertyMapper
 import edg_ide.edgir_graph.{EdgeWrapper, HierarchyGraphElk, NodeDataWrapper, PortWrapper}
 import edg_ide.swing.blocks.ElkNodePainter
+import edgir.ref.ref
+import edgir.ref.ref.LibraryPath
 
 import java.awt.Color
 import java.io.{FileNotFoundException, FileOutputStream, IOException}
-
+import scala.collection.mutable
 
 object PDFGeneratorUtil{
 
   private def generatePageSize(node: ElkNode): (Float, Float) = {
-    val width = node.getWidth.toFloat + 2 * ElkNodePainter.margin.toFloat
-    val height = node.getHeight.toFloat + 2 * ElkNodePainter.margin.toFloat
+    /*
+    Note for future development:
+      If infinite loop occurs when printing texts, check that the page size is large enough such
+      the printed text will be within the margins. This is due to a bug in the API
+    */
+    val width = node.getWidth.toFloat + 2.5f * ElkNodePainter.margin.toFloat
+    val height = node.getHeight.toFloat + 2.5f * ElkNodePainter.margin.toFloat
     (width, height)
+  }
+
+  def getDuplicationList(block: HierarchyBlock, path: DesignPath = DesignPath(),
+                         dupList: mutable.Map[LibraryPath, Set[DesignPath]]): Unit ={
+
+    val className = block.getSelfClass
+//    println(className.toSimpleString)
+    dupList.getOrElseUpdate(className, Set(path)) match {
+      case existingSet: Set[DesignPath] => dupList(className) = existingSet + path
+    }
+
+    block.blocks.asPairs.map {
+      case (name, subblock) => (name, subblock.`type`)
+    }.collect {
+      case (name, BlockLike.Type.Hierarchy(subblock)) =>  (path + name, subblock)
+    }.foreach {
+      case (path, subblock) => getDuplicationList(subblock, path, dupList)
+    }
   }
 
   def generate(content: HierarchyBlock,
                mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
                fileName: String): Unit = {
+    val dupList = mutable.Map[LibraryPath, Set[DesignPath]]()
+    getDuplicationList(content, dupList = dupList)
+//    println("Duplication List:")
+//    dupList.foreach { case (key, value) =>
+//      println(s"$key: $value")
+//    }
+
     try {
       val document = new Document()
       val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
       val footer = new HeaderFooter(true)
-      // TODO: Fix/figure out why footer breaks code
-//      footer.setBorder(Rectangle.NO_BORDER)
-//      footer.setAlignment(Element.ALIGN_RIGHT)
-//      document.setFooter(footer)
+      footer.setBorder(Rectangle.NO_BORDER)
+      footer.setAlignment(Element.ALIGN_RIGHT)
+      document.setFooter(footer)
 
-      def printNode(node: ElkNode, path: String): Unit = {
+      def printNode(node: ElkNode): Unit = {
         val (width, height) = generatePageSize(node)
         document.setPageSize(new Rectangle(width, height))
 
@@ -56,33 +87,26 @@ object PDFGeneratorUtil{
         graphics.dispose()
       }
 
-      var blockPages: Map[String, List[Int]] = Map()
-      var pageNo = 0
-
       def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
-        pageNo += 1
-        val className = block.getSelfClass.toSimpleString
-        println("#####" + className + "#####")
-
-        blockPages = blockPages + (className -> (blockPages.getOrElse(className, List.empty[Int]) :+ pageNo))
-        if (!blockPages.contains(className)) {
-          println("new classname")
-        }
         val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
-        printNode(node, path.toString)
+        printNode(node)
 
         block.blocks.asPairs.map {
           case (name, subblock) => (name, subblock.`type`)
         }.collect {
-          case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock)
+          case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock, subblock.getSelfClass)
         }.foreach {
-          case (path, subblock) => printNextHierarchyLevel(subblock, path)
+          case (path, subblock, className) => {
+//            println(s"Printing ${className}")
+//            println(s"Printing ${dupList.getOrElse(className, Set.empty).head}")
+            if (path.toString == dupList.getOrElse(className, Set.empty).head.toString) {
+              printNextHierarchyLevel(subblock, path)
+            }
+          }
         }
       }
 
       printNextHierarchyLevel(content)
-
-      println(blockPages.toString())
       document.close()
     } catch {
       case e: FileNotFoundException => println(s"Couldn't find ${fileName}.")
