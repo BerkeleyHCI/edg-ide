@@ -1,7 +1,7 @@
 package edg_ide.runner
 
-import com.lowagie.text.{Document, Element, HeaderFooter, Rectangle}
-import com.lowagie.text.pdf.PdfWriter
+import com.lowagie.text.{Document, Element, HeaderFooter, Paragraph, Rectangle}
+import com.lowagie.text.pdf.{ColumnText, PdfPCell, PdfPTable, PdfWriter}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil.BlockProtoToSeqMap
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
@@ -10,7 +10,6 @@ import edg.wir.DesignPath
 import edg_ide.edgir_graph.HierarchyGraphElk.PropertyMapper
 import edg_ide.edgir_graph.{EdgeWrapper, HierarchyGraphElk, NodeDataWrapper, PortWrapper}
 import edg_ide.swing.blocks.ElkNodePainter
-import edgir.ref.ref
 import edgir.ref.ref.LibraryPath
 
 import java.awt.Color
@@ -51,6 +50,8 @@ object PDFGeneratorUtil{
   def generate(content: HierarchyBlock,
                mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
                fileName: String): Unit = {
+
+    val TABLE_ROW_HEIGHT = 20f
     val dupList = mutable.Map[LibraryPath, Set[DesignPath]]()
     getDuplicationList(content, dupList = dupList)
 //    println("Duplication List:")
@@ -66,9 +67,15 @@ object PDFGeneratorUtil{
       footer.setAlignment(Element.ALIGN_RIGHT)
       document.setFooter(footer)
 
-      def printNode(node: ElkNode): Unit = {
+      def printNode(node: ElkNode, className: LibraryPath): Unit = {
+        val dupSet = dupList.getOrElse(className, Set.empty)
         val (width, height) = generatePageSize(node)
-        document.setPageSize(new Rectangle(width, height))
+        val adjustedHeight = if(dupSet.size == 1) {
+          height
+        } else {
+          TABLE_ROW_HEIGHT * dupSet.size + height + ElkNodePainter.margin
+        }
+        document.setPageSize(new Rectangle(width, adjustedHeight))
 
         /*
         Metadata for the Footer does not align the page number correctly if
@@ -81,15 +88,35 @@ object PDFGeneratorUtil{
         }
 
         val cb = writer.getDirectContent
-        val graphics = cb.createGraphics(width, height)
+        val graphics = cb.createGraphics(width, adjustedHeight)
         val painter = new ElkNodePainter(node)
         painter.paintComponent(graphics, Color.white)
         graphics.dispose()
+
+        if(dupSet.size > 1) {
+          val table = new PdfPTable(2)
+
+          val message = new Paragraph(s"${className.toSimpleString} is also used at the following:")
+          val title = new PdfPCell(message)
+          title.setBorder(Rectangle.NO_BORDER)
+          title.setColspan(2)
+          table.addCell(title)
+
+          dupSet.foreach { path =>
+            val cell = new PdfPCell(new Paragraph(path.toString))
+            table.addCell(cell)
+            val cell2 = new PdfPCell(new Paragraph(s"Link to parent ${path.toString}"))
+            table.addCell(cell2)
+          }
+          val tableY = adjustedHeight - height + ElkNodePainter.margin
+          table.setTotalWidth(width - 2 * ElkNodePainter.margin)
+          table.writeSelectedRows(0, -1, ElkNodePainter.margin, tableY, writer.getDirectContent())
+        }
       }
 
       def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
         val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
-        printNode(node)
+        printNode(node, block.getSelfClass)
 
         block.blocks.asPairs.map {
           case (name, subblock) => (name, subblock.`type`)
@@ -98,8 +125,8 @@ object PDFGeneratorUtil{
         }.foreach {
           case (path, subblock, className) => {
 //            println(s"Printing ${className}")
-//            println(s"Printing ${dupList.getOrElse(className, Set.empty).head}")
-            if (path.toString == dupList.getOrElse(className, Set.empty).head.toString) {
+            println(s"Printing ${dupList.getOrElse(className, Set.empty).head}")
+            if (path == dupList.getOrElse(className, Set.empty).head) {
               printNextHierarchyLevel(subblock, path)
             }
           }
