@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.openapi.application.{ModalityState, ReadAction}
+import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile}
@@ -20,7 +20,7 @@ import edg_ide.edgir_graph._
 import edg_ide.psi_edits._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edgir.elem.elem
@@ -565,9 +565,11 @@ class LibraryPanel(project: Project) extends JPanel {
   def setLibrary(library: wir.Library): Unit = {
     this.library = library
     this.libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, this.library))
-    TreeTableUtils.updateModel(libraryTree, this.libraryTreeModel)
-    updateFilter()
-    libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+    ApplicationManager.getApplication.invokeLater(() => {
+      TreeTableUtils.updateModel(libraryTree, this.libraryTreeModel)
+      updateFilter()
+      libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+    })
   }
 
   // Configuration State

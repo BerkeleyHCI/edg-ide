@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.execution.RunManager
 import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
@@ -13,6 +14,7 @@ import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.edgir_graph._
+import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
 import edg_ide.ui.tools.{BaseTool, DefaultTool, ToolInterface}
@@ -233,7 +235,13 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
   private var dsePanelShown = false
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val dseConfigSelected = DseService(project).getRunConfiguration.isDefined
+    // can't use DseService(project) here since this keeps getting called after the panel closes
+    // and creates an error
+    // TODO: properly stop the recurring event when this panel is closed?
+    val dseConfigSelected = Option(RunManager.getInstance(project).getSelectedConfiguration)
+        .map(_.getConfiguration)
+        .collect { case config: DseRunConfiguration => config }
+        .isDefined
     if (dsePanelShown != dseConfigSelected) {
       dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
       ApplicationManager.getApplication.invokeLater(() => {
@@ -367,10 +375,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
                    errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
     this.refinements = refinements  // must be updated before updateDisplay called in setDesign
     setDesign(design, compiler)
-    tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
-    errorPanel.setErrors(errors, compiler)
 
     ApplicationManager.getApplication.invokeLater(() => {
+      tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
+      errorPanel.setErrors(errors, compiler)
+
       toolWindow.setTitle(namePrefix.getOrElse("") + design.getContents.getSelfClass.toSimpleString)
     })
 
@@ -388,11 +397,13 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.compiler = compiler
 
     // Update the design tree first, in case graph layout fails
-    designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
-    TreeTableUtils.updateModel(designTree, designTreeModel)
-    designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
-    designTree.setTreeCellRenderer(designTreeTreeRenderer)
-    designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
+      TreeTableUtils.updateModel(designTree, designTreeModel)
+      designTree.getTree.addTreeSelectionListener(designTreeListener) // this seems to get overridden when the model is updated
+      designTree.setTreeCellRenderer(designTreeTreeRenderer)
+      designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
+    })
 
     // Also update the active detail panel
     selectPath(selectionPath)
@@ -404,8 +415,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   /** Sets the entire design as stale, eg if a recompile is running. Cleared with any variation of setDesign.
     */
   def setDesignStale(): Unit = {
-    designTree.setTreeCellRenderer(new StaleTreeRenderer)
-    designTree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      designTree.setTreeCellRenderer(new StaleTreeRenderer)
+      designTree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    })
     errorPanel.setStale()
     detailPanel.setStale(true)
   }
@@ -594,6 +607,7 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   }
 }
 
+
 class ErrorPanel(compiler: Compiler) extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
   private val customTableHeader = new CustomTooltipTableHeader(tree.getColumnModel())
@@ -610,14 +624,18 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   // Actions
   //
   def setErrors(errs: Seq[CompilerError], compiler: Compiler): Unit = {
-    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
-    tree.setTreeCellRenderer(treeTreeRenderer)
-    tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
+      tree.setTreeCellRenderer(treeTreeRenderer)
+      tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+    })
   }
 
   def setStale(): Unit = {
-    tree.setTreeCellRenderer(new StaleTreeRenderer)
-    tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      tree.setTreeCellRenderer(new StaleTreeRenderer)
+      tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    })
   }
 
   // Configuration State

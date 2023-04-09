@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
@@ -138,17 +139,21 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   // Actions
   //
   def setLoaded(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler): Unit = {
-    TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
+    ApplicationManager.getApplication.invokeLater(() => {
+      TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
+    })
   }
 
   def setStale(stale: Boolean): Unit = {
-    if (stale) {
-      tree.setTreeCellRenderer(new StaleTreeRenderer)
-      tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
-    } else {
-      tree.setTreeCellRenderer(treeTreeRenderer)
-      tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
-    }
+    ApplicationManager.getApplication.invokeLater(() => {
+      if (stale) {
+        tree.setTreeCellRenderer(new StaleTreeRenderer)
+        tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+      } else {
+        tree.setTreeCellRenderer(treeTreeRenderer)
+        tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+      }
+    })
   }
 
   // Configuration State

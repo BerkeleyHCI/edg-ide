@@ -26,7 +26,7 @@ import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io._
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters.MapHasAsJava
 
 
@@ -331,6 +331,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
             ).mapErr(msg => s"while netlisting: $msg").get
             require(netlist.size == 1)
 
+            Files.createDirectories(Paths.get(options.netlistFile).getParent)
             val writer = new FileWriter(options.netlistFile)
             writer.write(netlist.head._2)
             writer.close()
@@ -350,6 +351,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
             ).mapErr(msg => s"while generating bom: $msg").get
             require(bom.size == 1)
 
+            Files.createDirectories(Paths.get(options.bomFile).getParent)
             val writer = new FileWriter(options.bomFile)
             writer.write(bom.head._2)
             writer.close()
@@ -362,6 +364,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.pdfFile.nonEmpty) {
           runFailableStageUnit("generate PDF", indicator) {
+            Files.createDirectories(Paths.get(options.pdfFile).getParent)
             PDFGeneratorUtil.generate(compiled.getContents, mappers = Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
             f"wrote ${options.pdfFile}"
           }
