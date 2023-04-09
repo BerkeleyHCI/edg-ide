@@ -367,10 +367,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
                    errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
     this.refinements = refinements  // must be updated before updateDisplay called in setDesign
     setDesign(design, compiler)
-    tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
-    errorPanel.setErrors(errors, compiler)
 
     ApplicationManager.getApplication.invokeLater(() => {
+      tabbedPane.setTitleAt(TAB_INDEX_ERRORS, s"Errors (${errors.length})")
+      errorPanel.setErrors(errors, compiler)
+
       toolWindow.setTitle(namePrefix.getOrElse("") + design.getContents.getSelfClass.toSimpleString)
     })
 
@@ -388,11 +389,13 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     this.compiler = compiler
 
     // Update the design tree first, in case graph layout fails
-    designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
-    TreeTableUtils.updateModel(designTree, designTreeModel)
-    designTree.getTree.addTreeSelectionListener(designTreeListener)  // this seems to get overridden when the model is updated
-    designTree.setTreeCellRenderer(designTreeTreeRenderer)
-    designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
+      TreeTableUtils.updateModel(designTree, designTreeModel)
+      designTree.getTree.addTreeSelectionListener(designTreeListener) // this seems to get overridden when the model is updated
+      designTree.setTreeCellRenderer(designTreeTreeRenderer)
+      designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
+    })
 
     // Also update the active detail panel
     selectPath(selectionPath)
@@ -404,8 +407,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   /** Sets the entire design as stale, eg if a recompile is running. Cleared with any variation of setDesign.
     */
   def setDesignStale(): Unit = {
-    designTree.setTreeCellRenderer(new StaleTreeRenderer)
-    designTree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      designTree.setTreeCellRenderer(new StaleTreeRenderer)
+      designTree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    })
     errorPanel.setStale()
     detailPanel.setStale(true)
   }
@@ -594,6 +599,7 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   }
 }
 
+
 class ErrorPanel(compiler: Compiler) extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
   private val customTableHeader = new CustomTooltipTableHeader(tree.getColumnModel())
@@ -610,14 +616,18 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   // Actions
   //
   def setErrors(errs: Seq[CompilerError], compiler: Compiler): Unit = {
-    TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
-    tree.setTreeCellRenderer(treeTreeRenderer)
-    tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      TreeTableUtils.updateModel(tree, new CompilerErrorTreeTableModel(errs, compiler))
+      tree.setTreeCellRenderer(treeTreeRenderer)
+      tree.setDefaultRenderer(classOf[Object], treeTableRenderer)
+    })
   }
 
   def setStale(): Unit = {
-    tree.setTreeCellRenderer(new StaleTreeRenderer)
-    tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    ApplicationManager.getApplication.invokeLater(() => {
+      tree.setTreeCellRenderer(new StaleTreeRenderer)
+      tree.setDefaultRenderer(classOf[Object], new StaleTableRenderer)
+    })
   }
 
   // Configuration State
