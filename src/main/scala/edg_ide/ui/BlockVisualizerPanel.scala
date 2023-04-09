@@ -1,5 +1,6 @@
 package edg_ide.ui
 
+import com.intellij.execution.RunManager
 import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
@@ -13,6 +14,7 @@ import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.edgir_graph._
+import edg_ide.runner.DseRunConfiguration
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
 import edg_ide.ui.tools.{BaseTool, DefaultTool, ToolInterface}
@@ -233,7 +235,13 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
   private var dsePanelShown = false
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val dseConfigSelected = DseService(project).getRunConfiguration.isDefined
+    // can't use DseService(project) here since this keeps getting called after the panel closes
+    // and creates an error
+    // TODO: properly stop the recurring event when this panel is closed?
+    val dseConfigSelected = Option(RunManager.getInstance(project).getSelectedConfiguration)
+        .map(_.getConfiguration)
+        .collect { case config: DseRunConfiguration => config }
+        .isDefined
     if (dsePanelShown != dseConfigSelected) {
       dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
       ApplicationManager.getApplication.invokeLater(() => {

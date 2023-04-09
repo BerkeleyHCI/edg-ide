@@ -29,7 +29,7 @@ object InsertRefinementAction {
 class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   val psiElementGenerator = PyElementGenerator.getInstance(project)
   val languageLevel = LanguageLevel.forElement(insertIntoClass)
-  val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
+  val newline = PsiParserFacade.getInstance(project).createWhiteSpaceFromText("\n")
 
   // Must be called within writeCommandAction
   // Inserts the refinement kwarg and value into the target PyArgumentList
