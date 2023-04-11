@@ -4,6 +4,7 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, TextValue}
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
 import edg_ide.util.EdgirAnalysisUtils
+import edgir.elem.elem
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import scala.jdk.CollectionConverters._
@@ -39,7 +40,8 @@ object ElkEdgirGraphUtils {
     override def getUpperBound: Comparable[_ >: String] = null
   }
 
-  // Adds an optional title to nodes, here defaulting to the refdes (if applicable) and node name.
+  // Adds an optional title to nodes, here defaulting to the refdes (if applicable) and node name
+  // and the [] suffix to port array
   class TitleMapper(compiler: Compiler)
       extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
     type PropertyType = String
@@ -52,7 +54,7 @@ object ElkEdgirGraphUtils {
         }.flatMap { case (innerPath, innerBlock) =>
           compiler.getParamValue((innerPath + "fp_refdes").asIndirect)
         } match {
-          case Some(TextValue(refdes)) => Some(f"${node.path.lastString}, $refdes")
+          case Some(TextValue(refdes)) => Some(f"${path.lastString}, $refdes")
           case _ => None
         }
         Some(refdesStringMaybe.getOrElse(node.path.lastString))
@@ -61,7 +63,13 @@ object ElkEdgirGraphUtils {
 
     // port name not supported, since ports are not hierarchical (can't just use the last path component)
     // and we don't have a link to the block (so can't do a path subtraction to get the port subpath)
-    override def portConv(port: PortWrapper): Option[String] = None
+    override def portConv(port: PortWrapper): Option[String] = port match {
+      case PortWrapper(path, port) =>
+        port.is match {
+          case elem.PortLike.Is.Array(_) => Some(path.lastString + "[]")
+          case _ => None
+        }
+    }
 
     // edge labels don't currently exist
     override def edgeConv(edge: EdgeWrapper): Option[String] = None
