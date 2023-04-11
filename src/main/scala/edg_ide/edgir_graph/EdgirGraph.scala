@@ -155,7 +155,7 @@ object EdgirGraph {
     }
   }
 
-  // Cerates a EdgirPort from an IR PortLike
+  // Creates a EdgirPort from an IR PortLike
   def portLikeToPort(path: DesignPath, portLike: elem.PortLike): EdgirPort = {
     EdgirPort(PortWrapper(path, portLike))
   }
@@ -163,19 +163,11 @@ object EdgirGraph {
   // Creates EdgirPorts from an IR PortLike, expanding arrays
   def expandPortsWithNames(path: DesignPath, name: Seq[String], portLike: elem.PortLike): Seq[(Seq[String], EdgirPort)] = {
    portLike.is match {
-     case (_: elem.PortLike.Is.Port | _: elem.PortLike.Is.Bundle | _: elem.PortLike.Is.LibElem) =>
+     case _: elem.PortLike.Is.Port | _: elem.PortLike.Is.Bundle =>
        Seq(name -> portLikeToPort(path, portLike))
-     case elem.PortLike.Is.Array(portArray) =>
-       portArray.contains match {
-        case elem.PortArray.Contains.Ports(portArray) =>
-          // create an entry for the array itself
-          Seq((name :+ "[]") -> portLikeToPort(path, portLike)) ++
-              portArray.ports.asPairs.flatMap { case (eltName, eltPort) =>
-                expandPortsWithNames(path + eltName, name :+ eltName, eltPort)
-              }.toSeq
-        case elem.PortArray.Contains.Empty =>
-          Seq(name -> portLikeToPort(path, portLike))
-      }
+     case elem.PortLike.Is.Array(portArray) =>  // create an entry for the array itself
+       // TODO option to create a port for each array elt?
+       Seq(name -> portLikeToPort(path, portLike))
      case _ =>  // every other case, make a "port"
        Seq(name -> portLikeToPort(path, portLike))
    }
