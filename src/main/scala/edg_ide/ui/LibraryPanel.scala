@@ -35,41 +35,6 @@ import javax.swing.event._
 import javax.swing.tree.TreePath
 
 
-class BlockRootPopupMenu(project: Project) extends JPopupMenu {
-  private val contextPyClass = InsertAction.getPyClassOfContext(project)
-  private val contextPyName = contextPyClass.mapToString(_.getName)
-
-  add(new JLabel(s"Blocks"))
-  addSeparator()
-
-  // Create new block actions
-  private def createBlockContinuation(name: String, added: PsiElement): Unit = {
-    InsertAction.navigateToEnd(added)
-  }
-  val defineClassAfter = exceptable {
-    InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
-      classOf[PsiFile], project).exceptError
-  }
-  val defineClassAction: Errorable[() => Unit] = exceptable {
-    val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.HierarchyBlock.Block", project)
-        .exceptError
-    DefineBlockAction.createDefineBlockFlow(
-      defineClassAfter.exceptError,
-      blockClass,
-      s"Define new Block",
-      project, createBlockContinuation).exceptError
-  }
-  private val defineFileLine = exceptable {
-    defineClassAction.exceptError
-    PsiUtils.fileNextLineOf(defineClassAfter.exceptError, project).exceptError
-  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-
-  private val defineClassItem = ContextMenuUtils.MenuItemFromErrorable(
-    defineClassAction, s"Define new subclass$defineFileLine")
-  add(defineClassItem)
-}
-
-
 class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extends JPopupMenu {
   val blockTypeName = blockType.toSimpleString
   add(new JLabel(s"Library Block: $blockTypeName"))
@@ -179,31 +144,6 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   }
   private val selectedClassName = selectedPathLibraryClass.map(_._2.toSimpleString).toOption.getOrElse("of selection")
   add(ContextMenuUtils.MenuItemFromErrorable(insertClassRefinementAction, s"Refine class $selectedClassName to $blockTypeName"))
-  addSeparator()
-
-  // Create new block actions
-  private def createBlockContinuation(name: String, added: PsiElement): Unit = {
-    InsertAction.navigateToEnd(added)
-  }
-  val defineClassAfter = exceptable {
-    InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
-      classOf[PsiFile], project).exceptError
-  }
-  val defineClassAction: Errorable[() => Unit] = exceptable {
-    DefineBlockAction.createDefineBlockFlow(
-      defineClassAfter.exceptError,
-      blockPyClass.exceptError,
-      s"Define new subclass of $blockTypeName",
-      project, createBlockContinuation).exceptError
-  }
-  private val defineFileLine = exceptable {
-    defineClassAction.exceptError
-    PsiUtils.fileNextLineOf(defineClassAfter.exceptError, project).exceptError
-  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-
-  private val createClassItem = ContextMenuUtils.MenuItemFromErrorable(
-    defineClassAction, s"Define new subclass$defineFileLine")
-  add(createClassItem)
   addSeparator()
 
   // Navigation actions
@@ -498,12 +438,6 @@ class LibraryPanel(project: Project) extends JPanel {
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
             new LibraryPortPopupMenu(selected.path, project).show(e.getComponent, e.getX, e.getY)
-          }
-
-        case selected: EdgirLibraryNode#BlockRootNode => // action for root block
-          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
-            // right click context menu
-            new BlockRootPopupMenu(project).show(e.getComponent, e.getX, e.getY)
           }
 
         case _ => return  // any other type ignored
