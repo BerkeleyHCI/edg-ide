@@ -36,21 +36,22 @@ trait CollapseNodeTransform {
     // TODO maybe be smarter about this?
 
     val fixedSources = if (collapsedBlockSources.isEmpty) {
-      collapsedBlockTargets
+      collapsedBlockTargets.map(_._1)
     } else {
-      collapsedBlockSources
-    }
+      collapsedBlockSources.map(_._1)
+    }.distinct
     val fixedTargets = if (collapsedBlockTargets.isEmpty) {
-      collapsedBlockSources
+      collapsedBlockSources.map(_._1)
     } else {
-      collapsedBlockTargets
-    }
+      collapsedBlockTargets.map(_._1)
+    }.distinct
 
     val crossSourceTarget =
       fixedSources.flatMap(source =>
         fixedTargets.collect{case target if source != target =>
           (source, target)})
-    val newEdges = crossSourceTarget.map { case ((sourcePath, _), (targetPath, _)) =>
+
+    val newEdges = crossSourceTarget.map { case (sourcePath, targetPath) =>
       EdgirGraph.EdgirEdge(edgeFn(collapsedEdgesData),
         source=sourcePath, target=targetPath)
     }
