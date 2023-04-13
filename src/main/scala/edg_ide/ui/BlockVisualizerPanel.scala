@@ -28,12 +28,13 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.{ComponentAdapter, ComponentEvent, MouseAdapter, MouseEvent}
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.{BorderLayout, Color, Component, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
-import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}
+import javax.swing.event.{HyperlinkEvent, HyperlinkListener, TreeSelectionEvent, TreeSelectionListener}
 import javax.swing.tree.TreePath
 import javax.swing._
+import javax.swing.table.TableCellRenderer
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
@@ -607,16 +608,40 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   }
 }
 
+class ErrorNodeEditorPane extends JEditorPane with TableCellRenderer {
+  setContentType("text/html")
+
+  override def addHyperlinkListener(listener: HyperlinkListener): Unit = super.addHyperlinkListener(listener)
+
+  override def getTableCellRendererComponent(table: JTable, styledString: AnyRef,
+                                             isSelected: Boolean, hasFocus: Boolean,
+                                             row: Int, column: Int): Component = {
+    val styledText = styledString.asInstanceOf[String]
+    setText(styledText)
+    if (isSelected) {
+      setBackground(getSelectionColor)
+    } else {
+      setBackground(Color.WHITE)
+    }
+    this
+  }
+}
 
 class ErrorPanel(compiler: Compiler) extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
-  private val customTableHeader = new CustomTooltipTableHeader(tree.getColumnModel())
+  private val customTableHeader = new CustomTooltipTableHeader(tree.getColumnModel)
   tree.setTableHeader(customTableHeader)
   tree.setShowColumns(true)
   tree.setRootVisible(false)
   private val treeScrollPane = new JBScrollPane(tree)
   private val treeTreeRenderer = tree.getTree.getCellRenderer
-  private val treeTableRenderer = tree.getDefaultRenderer(classOf[Object])
+  private val treeTableRenderer = new ErrorNodeEditorPane()
+
+  treeTableRenderer.addHyperlinkListener(new HyperlinkListener {
+    override def hyperlinkUpdate(e: HyperlinkEvent): Unit = {
+      println(e.getURL)
+    }
+  })
 
   setLayout(new BorderLayout())
   add(treeScrollPane)
