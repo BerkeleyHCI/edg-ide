@@ -328,7 +328,7 @@ sealed trait AppendConnectAction extends ConnectToolAction
 
 object ConnectToolAction {
   case class None(focusPath: DesignPath, initialPort: DesignPath) extends ConnectToolAction {
-    override def getDesc: String = s"No connect action"
+    override def getDesc: String = s"Connect to $initialPort"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
 

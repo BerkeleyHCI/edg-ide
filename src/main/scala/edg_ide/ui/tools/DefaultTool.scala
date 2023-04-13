@@ -3,13 +3,12 @@ package edg_ide.ui.tools
 import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.AppExecutorUtil
-import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg_ide.dse._
-import edg_ide.ui.{BlockVisualizerService, ContextMenuUtils, DseService, PopupUtils}
+import edg_ide.ui.{ContextMenuUtils, DseService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
@@ -20,7 +19,6 @@ import edgir.schema.schema
 import java.awt.event.MouseEvent
 import java.util.concurrent.Callable
 import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
-import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 trait NavigationPopupMenu extends JPopupMenu {
