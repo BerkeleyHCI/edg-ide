@@ -1,6 +1,6 @@
 package edg_ide.runner
 
-import com.lowagie.text.{Document, Element, HeaderFooter, Paragraph, Rectangle}
+import com.lowagie.text.{Anchor, Document, Element, HeaderFooter, Paragraph, Phrase, Rectangle}
 import com.lowagie.text.pdf.{ColumnText, PdfPCell, PdfPTable, PdfWriter}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil.BlockProtoToSeqMap
@@ -54,20 +54,20 @@ object PDFGeneratorUtil{
     val TABLE_ROW_HEIGHT = 20f
     val dupList = mutable.Map[LibraryPath, Set[DesignPath]]()
     getDuplicationList(content, dupList = dupList)
-//    println("Duplication List:")
-//    dupList.foreach { case (key, value) =>
-//      println(s"$key: $value")
-//    }
+    println("Duplication List:")
+    dupList.foreach { case (key, value) =>
+      println(s"$key: $value")
+    }
 
     try {
       val document = new Document()
       val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
-      val footer = new HeaderFooter(true)
-      footer.setBorder(Rectangle.NO_BORDER)
-      footer.setAlignment(Element.ALIGN_RIGHT)
-      document.setFooter(footer)
+//      val footer = new HeaderFooter(true)
+//      footer.setBorder(Rectangle.NO_BORDER)
+//      footer.setAlignment(Element.ALIGN_RIGHT)
+//      document.setFooter(footer)
 
-      def printNode(node: ElkNode, className: LibraryPath): Unit = {
+      def printNode(node: ElkNode, className: LibraryPath, path: DesignPath): Unit = {
         val dupSet = dupList.getOrElse(className, Set.empty)
         val (width, height) = generatePageSize(node)
         val adjustedHeight = if(dupSet.size == 1) {
@@ -77,6 +77,14 @@ object PDFGeneratorUtil{
         }
         document.setPageSize(new Rectangle(width, adjustedHeight))
 
+        val targetAnchor = new Anchor(path.toString)
+        targetAnchor.setName(path.toString)
+        val footerPhrase = new Phrase("Design Path: ")
+        footerPhrase.add(targetAnchor)
+        val pageFooter = new HeaderFooter(footerPhrase,true)
+        pageFooter.setBorder(Rectangle.NO_BORDER)
+        pageFooter.setAlignment(Element.ALIGN_RIGHT)
+        document.setFooter(pageFooter)
         /*
         Metadata for the Footer does not align the page number correctly if
         document.open() is called before document.setPageSize() was executed
@@ -87,36 +95,52 @@ object PDFGeneratorUtil{
           document.newPage
         }
 
+        // Prints out name of the component
+//        val componentName = new Paragraph(path.toString)
+//        document.add(componentName)
+
         val cb = writer.getDirectContent
         val graphics = cb.createGraphics(width, adjustedHeight)
         val painter = new ElkNodePainter(node)
         painter.paintComponent(graphics, Color.white)
         graphics.dispose()
 
+        // Prints out table if there are multiple usages of the same component
         if(dupSet.size > 1) {
-          val table = new PdfPTable(2)
+          val table = new PdfPTable(1)
 
           val message = new Paragraph(s"${className.toSimpleString} is also used at the following:")
           val title = new PdfPCell(message)
           title.setBorder(Rectangle.NO_BORDER)
-          title.setColspan(2)
+//          title.setColspan(2)
           table.addCell(title)
 
           dupSet.foreach { path =>
-            val cell = new PdfPCell(new Paragraph(path.toString))
+            val cellContent = new Paragraph
+            val parentAnchor = new Anchor(path.toString)
+            val parentPath = path.toString
+            if (parentPath.contains('.')) {
+              parentAnchor.setReference(s"#${parentPath.substring(0, parentPath.lastIndexOf('.'))}")
+            } else {
+              // need to see if this else case is needed???
+              // TODO: consider the case when the parentPath is empty (i.e. the root block)
+              parentAnchor.setReference(s"#${DesignPath().toString}")
+            }
+            cellContent.add(parentAnchor)
+            val cell = new PdfPCell(cellContent)
             table.addCell(cell)
-            val cell2 = new PdfPCell(new Paragraph(s"Link to parent ${path.toString}"))
-            table.addCell(cell2)
+//            val cell2 = new PdfPCell(new Paragraph(s"Link to parent ${path.toString}"))
+//            table.addCell(cell2)
           }
           val tableY = adjustedHeight - height + ElkNodePainter.margin
           table.setTotalWidth(width - 2 * ElkNodePainter.margin)
-          table.writeSelectedRows(0, -1, ElkNodePainter.margin, tableY, writer.getDirectContent())
+          table.writeSelectedRows(0, -1, ElkNodePainter.margin.toFloat, tableY, writer.getDirectContent())
         }
       }
 
       def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
         val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
-        printNode(node, block.getSelfClass)
+        printNode(node, block.getSelfClass, path)
 
         block.blocks.asPairs.map {
           case (name, subblock) => (name, subblock.`type`)
