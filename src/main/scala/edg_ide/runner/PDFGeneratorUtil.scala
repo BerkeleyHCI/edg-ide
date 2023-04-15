@@ -28,11 +28,13 @@ object PDFGeneratorUtil{
   final val font = new Font(Font.HELVETICA, 12f, Font.UNDERLINE, Color.BLUE)
   final val TABLE_ROW_HEIGHT = 23f
 
+
   private def generatePageSize(node: ElkNode): (Float, Float) = {
     val width = node.getWidth.toFloat + 2.5f * ElkNodePainter.margin.toFloat
     val height = node.getHeight.toFloat + 2.5f * ElkNodePainter.margin.toFloat
     (width, height)
   }
+
 
   def getDuplicationList(block: HierarchyBlock, path: DesignPath = DesignPath(),
                          dupList: mutable.Map[LibraryPath, Set[DesignPath]]): Unit ={
@@ -51,6 +53,7 @@ object PDFGeneratorUtil{
     }
   }
 
+
   def generate(content: HierarchyBlock,
                mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
                fileName: String): Unit = {
@@ -61,6 +64,7 @@ object PDFGeneratorUtil{
     try {
       val document = new Document()
       val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
+
 
       def printNode(node: ElkNode, className: LibraryPath, path: DesignPath): Unit = {
         val dupSet = dupList.getOrElse(className, Set.empty)
@@ -130,6 +134,7 @@ object PDFGeneratorUtil{
           table.writeSelectedRows(0, -1, ElkNodePainter.margin.toFloat, tableY, writer.getDirectContent())
         }
       }
+
 
       def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
         val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
