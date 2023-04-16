@@ -146,7 +146,7 @@ object PDFGeneratorUtil{
           case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock, subblock.getSelfClass)
         }.foreach {
           case (path, subblock, className) => {
-            if (path == dupList.getOrElse(className, Set.empty).head) {
+            if (dupList.getOrElse(className, Set.empty).headOption.contains(path)) {
               printNextHierarchyLevel(subblock, path)
             }
           }
