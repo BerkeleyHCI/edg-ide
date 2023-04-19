@@ -75,7 +75,7 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 
 
 // a PythonInterface that uses the on-event hooks to log to the console
-class LoggingPythonInterface(serverFile: File, pythonInterpreter: String, console: ConsoleView)
+class LoggingPythonInterface(serverFile: Option[File], pythonInterpreter: String, console: ConsoleView)
     extends PythonInterface(serverFile, pythonInterpreter) {
   def forwardProcessOutput(): Unit = {
     StreamUtils.forAvailable(processOutputStream) { data =>
