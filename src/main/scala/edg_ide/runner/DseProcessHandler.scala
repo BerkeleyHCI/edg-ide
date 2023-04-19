@@ -157,8 +157,11 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT)
 
-      val pythonInterface = new LoggingPythonInterface(
-        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile, pythonCommand, console)
+      val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
+      hdlServerOption.foreach { _ =>
+        console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+      }
+      val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonCommand, console)
       pythonInterfaceOption = Some(pythonInterface)
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
