@@ -118,7 +118,7 @@ object CompilerErrorNodeBase {
         case None => ""
       }
 
-      s"<html><a href='some data'>" + indirectDesignPath + "</a>" + " : " + "<a href='some other data'>" + constrName + "</a>"+ "</html>"
+      s"<html><a href=\"https://www.google.com\">" + indirectDesignPath + s"</a>" + s" : " + s"<a href=\"https://www.google.com\">" + constrName + s"</a>"+ s"</html>"
     }
     override def toString: String = all._1
   }

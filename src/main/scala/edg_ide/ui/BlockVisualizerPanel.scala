@@ -610,6 +610,7 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
 
 class ErrorNodeEditorPane extends JEditorPane with TableCellRenderer {
   setContentType("text/html")
+  setEditable(false)
 
   override def addHyperlinkListener(listener: HyperlinkListener): Unit = super.addHyperlinkListener(listener)
 
@@ -617,12 +618,7 @@ class ErrorNodeEditorPane extends JEditorPane with TableCellRenderer {
                                              isSelected: Boolean, hasFocus: Boolean,
                                              row: Int, column: Int): Component = {
     val styledText = styledString.asInstanceOf[String]
-    setText(styledText)
-    if (isSelected) {
-      setBackground(getSelectionColor)
-    } else {
-      setBackground(Color.WHITE)
-    }
+    setText(SwingHtmlUtil.wrapInHtml(styledText, this.getFont))
     this
   }
 }
@@ -637,8 +633,11 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
   private val treeTreeRenderer = tree.getTree.getCellRenderer
   private val treeTableRenderer = new ErrorNodeEditorPane()
 
+  treeTableRenderer.setEditable(false)
   treeTableRenderer.addHyperlinkListener(new HyperlinkListener {
+    println("clik")
     override def hyperlinkUpdate(e: HyperlinkEvent): Unit = {
+      println("clik2")
       println(e.getURL)
     }
   })
