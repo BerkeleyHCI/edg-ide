@@ -1,17 +1,13 @@
 package edg_ide.swing
 
 import com.intellij.icons.AllIcons
-import com.intellij.ui.JBColor
-import com.intellij.ui.treeStructure.treetable.{TreeTable, TreeTableCellRenderer, TreeTableTree}
-import edg_ide.proven.ProvenStatus
-import icons.PlatformDebuggerImplIcons
+import com.intellij.ui.render.LabelBasedRenderer
 
 import java.awt.Component
-import javax.swing.table.{DefaultTableCellRenderer, TableCellRenderer}
-import javax.swing.{JTable, JTree}
-import javax.swing.tree.DefaultTreeCellRenderer
+import javax.swing.JTree
 
-class EdgirLibraryTreeRenderer extends DefaultTreeCellRenderer {
+
+class EdgirLibraryTreeRenderer extends LabelBasedRenderer.Tree {
   override def getTreeCellRendererComponent(tree: JTree, value: Any, sel: Boolean, expanded: Boolean, leaf: Boolean,
                                             row: Int, hasFocus: Boolean): Component = {
     val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
