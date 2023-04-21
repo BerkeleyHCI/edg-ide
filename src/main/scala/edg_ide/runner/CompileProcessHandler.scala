@@ -27,7 +27,7 @@ import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io._
 import java.nio.file.{Files, Paths}
-import scala.jdk.CollectionConverters.MapHasAsJava
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava}
 
 
 // a dummy-ish provider for PythonRunParams to get the Python interpreter executable
@@ -75,8 +75,9 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 
 
 // a PythonInterface that uses the on-event hooks to log to the console
-class LoggingPythonInterface(serverFile: Option[File], pythonInterpreter: String, console: ConsoleView)
-    extends PythonInterface(serverFile, pythonInterpreter) {
+class LoggingPythonInterface(serverFile: Option[File], pythonPaths: Seq[String], pythonInterpreter: String,
+                             console: ConsoleView)
+    extends PythonInterface(serverFile, pythonPaths, pythonInterpreter) {
   def forwardProcessOutput(): Unit = {
     StreamUtils.forAvailable(processOutputStream) { data =>
       console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
@@ -141,9 +142,10 @@ class LoggingPythonInterface(serverFile: Option[File], pythonInterpreter: String
 }
 
 object CompileProcessHandler {
-  // Returns the Python SDK and interpreter executable from the SDK for the Python class associated with the design
+  // Returns the interpreter executable from the SDK, Python paths, and the SDK name,
+  // for the Python class associated with the design
   def getPythonInterpreter(project: Project, designName: String):
-      Errorable[(String, String)] = exceptable {
+      Errorable[(String, Seq[String], String)] = exceptable {
     ReadAction.compute(() => {
       val pyPsi = PyPsiFacade.getInstance(project)
       val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
@@ -156,7 +158,8 @@ object CompileProcessHandler {
         pyClass.getContainingFile.getVirtualFile.getPath, sdk.getHomePath, module.getName)
       val pythonCommand = PythonCommandLineState.getInterpreterPath(project, runParams)
           .exceptNull("can't get interpreter path")
-      (pythonCommand, sdk.getName)
+      val pythonPaths = PythonCommandLineState.collectPythonPath(module)
+      (pythonCommand, pythonPaths.asScala.toSeq, sdk.getName)
     })
   }
 }
@@ -258,16 +261,17 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     var exitCode: Int = -1
 
     try {
-      val (pythonCommand, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName).mapErr(
-        msg => s"while getting Python interpreter path: $msg"
-      ).get
+      val (pythonCommand, pythonPaths, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName)
+        .mapErr(
+          msg => s"while getting Python interpreter path: $msg"
+        ).get
       console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT)
       val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
       hdlServerOption.foreach { _ =>
         console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
       }
-      pythonInterface = Some(new LoggingPythonInterface(hdlServerOption, pythonCommand, console))
+      pythonInterface = Some(new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console))
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
         runFailableStageUnit("discard stale", indicator) {
