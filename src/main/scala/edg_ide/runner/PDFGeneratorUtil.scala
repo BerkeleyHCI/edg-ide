@@ -24,14 +24,14 @@ object PDFGeneratorUtil{
       page size is large enough/page margin is small enough so that header/footer content do not exceed
       the available space in the document.
    */
-  final val PAGE_MARGIN = 15
+  final val PAGE_MARGIN = 16f
   final val font = new Font(Font.HELVETICA, 12f, Font.UNDERLINE, Color.BLUE)
   final val TABLE_ROW_HEIGHT = 23f
 
 
   private def generatePageSize(node: ElkNode): (Float, Float) = {
-    val width = node.getWidth.toFloat + 2.5f * ElkNodePainter.margin.toFloat
-    val height = node.getHeight.toFloat + 2.5f * ElkNodePainter.margin.toFloat
+    val width = node.getWidth.toFloat + 2f * ElkNodePainter.margin.toFloat + 1.5f * PAGE_MARGIN
+    val height = node.getHeight.toFloat + 2f * ElkNodePainter.margin.toFloat + 1.5f * PAGE_MARGIN
     (width, height)
   }
 
@@ -80,7 +80,7 @@ object PDFGeneratorUtil{
         // Sets the header and footer of each page. Target of the component target link is set as the header.
         val targetAnchor = new Anchor(path.toString)
         targetAnchor.setName(path.toString)
-        val headerPhrase = new Phrase("Design Path: ")
+        val headerPhrase = new Phrase
         headerPhrase.add(targetAnchor)
         val pageHeader = new HeaderFooter(headerPhrase,false)
         pageHeader.setAlignment(Element.ALIGN_LEFT)
@@ -117,14 +117,49 @@ object PDFGeneratorUtil{
           table.addCell(title)
 
           dupSet.foreach { path =>
-            val parentAnchor = new Anchor
-            val (parent, current) = path.split
-            parentAnchor.setReference(s"#${parent.toString}")
-            parentAnchor.add(new Phrase(s"${parent.toString}", font))
-            parentAnchor.add(new Phrase(s".${current.toString}"))
-
             val cellContent = new Paragraph
-            cellContent.add(parentAnchor)
+
+            val (parent, current) = path.split
+            if (parent.toString == "(root)") {
+              val parentAnchor = new Anchor
+              parentAnchor.setReference(s"#${parent.toString}")
+              parentAnchor.add(new Phrase(s"${parent.toString}", font))
+              parentAnchor.add(new Phrase(s".${current.toString}"))
+              cellContent.add(parentAnchor)
+              println("root is the only parent")
+            } else {
+              var prevString = ""
+              path.toString.split('.').foreach { string =>
+                val anchor = new Anchor
+
+                if(prevString == "") {
+                  anchor.setReference(s"#${string}")
+                  anchor.add(new Phrase(s"${string}", font))
+                } else {
+                  anchor.setReference(s"#${prevString}.${string}")
+                  anchor.add(new Phrase(s".${string}", font))
+                }
+                cellContent.add(anchor)
+                prevString = prevString + "." + string
+              }
+            }
+
+//            var prevString = "(root)"
+//            path.toString.split('.').foreach { string =>
+//              val anchor = new Anchor
+//              anchor.setReference(s"#${prevString}.${string}")
+//              println(s"#${prevString}.${string}")
+//              anchor.add(new Phrase(s".${string}", font))
+//              prevString = prevString + "." + string
+//              cellContent.add(anchor)
+//            }
+//            val parentAnchor = new Anchor
+//            val (parent, current) = path.split
+//            parentAnchor.setReference(s"#${parent.toString}")
+//            parentAnchor.add(new Phrase(s"${parent.toString}", font))
+//            parentAnchor.add(new Phrase(s".${current.toString}"))
+//
+//            cellContent.add(parentAnchor)
             val cell = new PdfPCell(cellContent)
             cell.setFixedHeight(TABLE_ROW_HEIGHT)
             table.addCell(cell)
