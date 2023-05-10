@@ -115,7 +115,7 @@ object InsertPinningAction {
               .getElements.head
 
           // for some reason, PyElementGenerator.getInstance(project).createNewLine inserts two spaces
-          val newline = PsiParserFacade.SERVICE.getInstance(project).createWhiteSpaceFromText("\n")
+          val newline = PsiParserFacade.getInstance(project).createWhiteSpaceFromText("\n")
 
           writeCommandAction(project).withName(s"Set pin $pin in ${blockClass.getName}").compute(() => {
             // and apparently PyDictLiteral doesn't have an .addArgument like PyArgumentList

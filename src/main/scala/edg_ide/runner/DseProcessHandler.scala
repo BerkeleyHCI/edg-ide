@@ -14,8 +14,8 @@ import edg_ide.ui.{BlockVisualizerService, DseService, EdgCompilerService}
 import edgir.schema.schema
 import edgir.schema.schema.Design
 
-import java.io.{FileWriter, OutputStream, PrintWriter, StringWriter}
-import java.nio.file.Paths
+import java.io.{File, FileWriter, OutputStream, PrintWriter, StringWriter}
+import java.nio.file.{Files, Paths}
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
@@ -121,6 +121,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     // Open a CSV file (if desired) and write result rows as they are computed.
     // This is done first to empty out the result file, if one already exists.
     val csvFile = if (options.resultCsvFile.nonEmpty) {
+      Files.createDirectories(Paths.get(options.resultCsvFile).getParent)
       DseCsvWriter(new FileWriter(options.resultCsvFile), options.searchConfigs, options.objectives) match {
         case Some(csv) =>
           console.print(s"Opening results CSV at ${options.resultCsvFile}\n",
@@ -150,14 +151,18 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     }
 
     try {
-      val (pythonCommand, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName).mapErr(
-        msg => s"while getting Python interpreter path: $msg"
-      ).get
+      val (pythonCommand, pythonPaths, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName)
+        .mapErr(
+          msg => s"while getting Python interpreter path: $msg"
+        ).get
       console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT)
 
-      val pythonInterface = new LoggingPythonInterface(
-        Paths.get(project.getBasePath).resolve("HdlInterfaceService.py").toFile, pythonCommand, console)
+      val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
+      hdlServerOption.foreach { _ =>
+        console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+      }
+      val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console)
       pythonInterfaceOption = Some(pythonInterface)
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
