@@ -4,8 +4,9 @@ import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
 import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
-import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
+import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.rename.inplace.InplaceRefactoring
@@ -62,17 +63,55 @@ object InsertBlockAction {
     }
     val manager = TemplateManager.getInstance(project)
 
-    val builder = new TemplateBuilderImpl(after)
-    builder.replaceElement(after, "after")
-//    val template = builder.buildTemplate()
 
-    val template: Template = manager.createTemplate("", "")
-    template.addTextSegment("ducks")
-    template.addVariableSegment("Variable")
-    template.addTextSegment("ducks2")
+    val containingPsiList = after.getParent
+        .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
+    val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
+        .exceptNull(s"not in a function in ${containingPsiList.getContainingFile.getName}")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
+        .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
+
+    val languageLevel = LanguageLevel.forElement(after)
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+    val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
+        .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
+        .head.getName
+    val newAssign = psiElementGenerator.createFromText(languageLevel,
+      classOf[PyAssignmentStatement], s"$selfName.block = $selfName.Block(${libClass.getName}())")
+
+
+    val builder = new TemplateBuilderImpl(after)
+    val afterText = after.getText
+    val afterRange = TextRange.create(0, afterText.length)
+    builder.replaceElement(newAssign, afterRange, "after")
+//    builder.setSelection(after)
+
+    val template = builder.buildTemplate()
+
+//    val template: Template = manager.createTemplate("", "")
+//    template.addTextSegment("ducks")
+////    template.addSelectionStartVariable()
+////    template.addTextSegment("selection1")
+////    template.addSelectionEndVariable()
+////    template.addTextSegment("quacks")
+////    template.addVariable("name", "dv", "dv", false)
+//
+//    template.setToIndent(false)
+//    template.setToReformat(false)
 
     def run: Unit = {
-      println(f"start template nSegments=${template.getSegmentsCount}")
+      println(f"after=${after.getText}")
+      println(f"start template nSegments=${template.getSegmentsCount}  text=${template.getTemplateText}")
+      template.getVariables.forEach { variable =>
+        println(f"variable $variable")
+      }
+      for (i <- 0 until template.getSegmentsCount) {
+        println(f"seg $i name=${template.getSegmentName(i)} off=${template.getSegmentOffset(i)}")
+      }
+
+      editor.getCaretModel.moveToOffset(after.getTextRange.getStartOffset)
+      new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, after.getTextRange.getStartOffset)
+          .navigate(true)  // sets focus on the text editor so the user can type into the template
       manager.startTemplate(editor, template, new TemplateListener)
     }
 
