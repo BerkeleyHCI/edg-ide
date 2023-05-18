@@ -8,6 +8,7 @@ import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.refactoring.rename.inplace.InplaceRefactoring
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi._
 import edg.util.Errorable
@@ -59,13 +60,20 @@ object InsertBlockAction {
       case editor: TextEditor => editor.getEditor
       case _ => throw new IllegalArgumentException()
     }
+    val manager = TemplateManager.getInstance(project)
 
     val builder = new TemplateBuilderImpl(after)
-    val template = builder.buildTemplate()
-    TemplateManager.getInstance(project).startTemplate(editor, template, new TemplateListener)
+    builder.replaceElement(after, "after")
+//    val template = builder.buildTemplate()
+
+    val template: Template = manager.createTemplate("", "")
+    template.addTextSegment("ducks")
+    template.addVariableSegment("Variable")
+    template.addTextSegment("ducks2")
 
     def run: Unit = {
-
+      println(f"start template nSegments=${template.getSegmentsCount}")
+      manager.startTemplate(editor, template, new TemplateListener)
     }
 
     () => run
