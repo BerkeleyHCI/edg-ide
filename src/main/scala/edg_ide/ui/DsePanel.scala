@@ -104,10 +104,12 @@ class DsePanel(project: Project) extends JPanel {
 
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    val newConfig = DseService(project).getRunConfiguration
-    if (newConfig != displayedConfig) {
-      displayedConfig = newConfig
-      onConfigUpdate()
+    DseService.option(project).map { dseService =>  // option avoids an exception on shutdown, after it's been disposed
+      val newConfig = dseService.getRunConfiguration
+      if (newConfig != displayedConfig) {
+        displayedConfig = newConfig
+        onConfigUpdate()
+      }
     }
   }, 333, 333, TimeUnit.MILLISECONDS)  // seems flakey without initial delay
 
