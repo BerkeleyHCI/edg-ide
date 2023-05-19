@@ -31,19 +31,18 @@ object InsertBlockAction {
   val VALID_FUNCTION_NAMES = Seq("contents", "__init__")  // TODO support generators
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
-  private class TemplateListener(project: Project, editor: Editor, highlighters: Seq[RangeHighlighter]) extends TemplateEditingAdapter {
+  private class TemplateListener(project: Project, editor: Editor, newAssign: PsiElement, highlighters: Seq[RangeHighlighter]) extends TemplateEditingAdapter {
     override def beforeTemplateFinished(state: TemplateState, template: Template): Unit = {
       println(f"TemplateListener::beforeTemplateFinished")
       super.beforeTemplateFinished(state, template)
     }
     override def templateFinished(template: Template, brokenOff: Boolean): Unit = {
       println(f"TemplateListener::templateFinished($brokenOff)")
-      highlighters.foreach { highlighter =>
-        HighlightManager.getInstance(project).removeSegmentHighlighter(editor, highlighter)
-      }
-
-
       super.templateFinished(template, brokenOff)
+      if (brokenOff) {
+        templateAnyCancelled(template)
+      }
+      templateEnded(template)
     }
 
     override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
@@ -59,6 +58,20 @@ object InsertBlockAction {
     override def templateCancelled(template: Template): Unit = {
       println(f"TemplateListener::templateCancelled")
       super.templateCancelled(template)
+      templateAnyCancelled(template)
+      templateEnded(template)
+    }
+
+    // Called when the template is cancelled (broken off or "cancelled")
+    def templateAnyCancelled(template: Template): Unit = {
+      newAssign.delete()  // THIS IS BROKEN
+    }
+
+    // Called when the template is ended for any reason (finished or cancelled)
+    def templateEnded(template: Template): Unit = {
+      highlighters.foreach { highlighter =>
+        HighlightManager.getInstance(project).removeSegmentHighlighter(editor, highlighter)
+      }
     }
   }
 
@@ -96,6 +109,10 @@ object InsertBlockAction {
         val newAssign = containingPsiList.addAfter(assignAst, after).asInstanceOf[PyAssignmentStatement]
         val assignTarget = newAssign.getTargets.head.asInstanceOf[PyTargetExpression]  // the self.x
 
+        val highlighters = new java.util.ArrayList[RangeHighlighter]()
+        HighlightManager.getInstance(project).addRangeHighlight(editor,
+          newAssign.getTextRange.getStartOffset, newAssign.getTextRange.getEndOffset,
+          EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT, false, highlighters)
 
 //        PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument)
 
@@ -113,13 +130,9 @@ object InsertBlockAction {
 
         new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, newAssign.getTextRange.getStartOffset)
             .navigate(true) // sets focus on the text editor so the user can type into the template
-        editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
+        editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)  // needed so the template is placed at the right location
 
-        val highlighters = new java.util.ArrayList[RangeHighlighter]()
-        HighlightManager.getInstance(project).addOccurrenceHighlights(editor,
-          Seq(newAssign.asInstanceOf[PsiElement]).toArray, EditorColors.SEARCH_RESULT_ATTRIBUTES, false, highlighters)
-
-        manager.startTemplate(editor, template, new TemplateListener(project, editor, highlighters.toSeq))
+        manager.startTemplate(editor, template, new TemplateListener(project, editor, newAssign, highlighters.toSeq))
 
         newAssign
       })
