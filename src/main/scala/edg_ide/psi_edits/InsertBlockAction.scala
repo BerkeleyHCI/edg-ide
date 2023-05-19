@@ -31,7 +31,7 @@ object InsertBlockAction {
   val VALID_FUNCTION_NAMES = Seq("contents", "__init__")  // TODO support generators
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
-  private class TemplateListener(project: Project, editor: Editor, newAssign: PsiElement, highlighters: Seq[RangeHighlighter]) extends TemplateEditingAdapter {
+  private class TemplateListener(project: Project, editor: Editor, containingList: PyStatementList, newAssignIndex: Int, highlighters: Seq[RangeHighlighter]) extends TemplateEditingAdapter {
     override def beforeTemplateFinished(state: TemplateState, template: Template): Unit = {
       println(f"TemplateListener::beforeTemplateFinished")
       super.beforeTemplateFinished(state, template)
@@ -64,7 +64,11 @@ object InsertBlockAction {
 
     // Called when the template is cancelled (broken off or "cancelled")
     def templateAnyCancelled(template: Template): Unit = {
-      newAssign.delete()  // THIS IS BROKEN
+      val assignCandidate = containingList.getStatements()(newAssignIndex)
+      require(assignCandidate.isInstanceOf[PyAssignmentStatement])
+      writeCommandAction(project).withName("TODO cancel").compute(() => {
+        assignCandidate.delete()
+      })
     }
 
     // Called when the template is ended for any reason (finished or cancelled)
@@ -107,6 +111,7 @@ object InsertBlockAction {
     def run: Unit = {
       val newAssign = writeCommandAction(project).withName(actionName).compute(() => {
         val newAssign = containingPsiList.addAfter(assignAst, after).asInstanceOf[PyAssignmentStatement]
+        val newAssignIndex = containingPsiList.getStatements.indexOf(newAssign)
         // getReference is the self.thing
         val assignName = newAssign.getTargets.head.asInstanceOf[PyTargetExpression].getReference
 
@@ -134,7 +139,7 @@ object InsertBlockAction {
             .navigate(true) // sets focus on the text editor so the user can type into the template
         editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)  // needed so the template is placed at the right location
 
-        manager.startTemplate(editor, template, new TemplateListener(project, editor, newAssign, highlighters.toSeq))
+        manager.startTemplate(editor, template, new TemplateListener(project, editor, containingPsiList, newAssignIndex, highlighters.toSeq))
 
         newAssign
       })
