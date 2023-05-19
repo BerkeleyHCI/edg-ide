@@ -79,42 +79,28 @@ object InsertBlockAction {
     val assignAst = psiElementGenerator.createFromText(languageLevel,
       classOf[PyAssignmentStatement], s"$selfName.block = $selfName.Block(${libClass.getName}())")
 
-//    val template: Template = manager.createTemplate("", "")
-//    template.addTextSegment("ducks")
-////    template.addSelectionStartVariable()
-////    template.addTextSegment("selection1")
-////    template.addSelectionEndVariable()
-////    template.addTextSegment("quacks")
-////    template.addVariable("name", "dv", "dv", false)
-//
-//    template.setToIndent(false)
-//    template.setToReformat(false)
-
     def run: Unit = {
       val newAssign = writeCommandAction(project).withName(actionName).compute(() => {
         val newAssign = containingPsiList.addAfter(assignAst, after)
-        PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument)
-        newAssign
-      })
+//        PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument)
 
-      ApplicationManager.getApplication.runWriteAction(new Runnable {
-        override def run(): Unit = {
-          val builder = new TemplateBuilderImpl(containingPsiList)
-          val assignText = newAssign.getText
-          //        val assignRange = TextRange.create(0, assignText.length)
-          builder.replaceElement(newAssign, "kAssignName", new ConstantNode(newAssign.getText), true)
-          //    builder.setSelection(after)
-          builder.setEndVariableAfter(newAssign)
+        val builder = new TemplateBuilderImpl(containingPsiList)
+        val assignText = newAssign.getText
+        //        val assignRange = TextRange.create(0, assignText.length)
+        builder.replaceElement(newAssign, "kAssignName", new ConstantNode(newAssign.getText), true)
+        //    builder.setSelection(after)
+        builder.setEndVariableAfter(newAssign)
 
-          val template = builder.buildInlineTemplate()  // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
+        val template = builder.buildInlineTemplate() // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
 
-          new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, newAssign.getTextRange.getStartOffset)
+        new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, newAssign.getTextRange.getStartOffset)
             .navigate(true) // sets focus on the text editor so the user can type into the template
-          editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
-          manager.startTemplate(editor, template, new TemplateListener)
+        editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
 
-          newAssign
-        }
+        PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
+        manager.startTemplate(editor, template, new TemplateListener)
+
+        newAssign
       })
 
     }
