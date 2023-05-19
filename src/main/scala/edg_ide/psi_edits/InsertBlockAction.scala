@@ -91,13 +91,14 @@ object InsertBlockAction {
         //    builder.setSelection(after)
         builder.setEndVariableAfter(newAssign)
 
+        PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
+
         val template = builder.buildInlineTemplate() // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
 
         new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, newAssign.getTextRange.getStartOffset)
             .navigate(true) // sets focus on the text editor so the user can type into the template
         editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
 
-        PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
         manager.startTemplate(editor, template, new TemplateListener)
 
         newAssign
