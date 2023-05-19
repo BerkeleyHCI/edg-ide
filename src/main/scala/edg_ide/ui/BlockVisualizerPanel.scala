@@ -237,8 +237,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
     // can't use DseService(project) here since this keeps getting called after the panel closes
     // and creates an error
-    // TODO: properly stop the recurring event when this panel is closed?
-    val dseConfigSelected = Option(RunManager.getInstance(project).getSelectedConfiguration)
+    // the outer Option(...) wrapper prevents an error on shutdown after RunManager has been disposed
+    val dseConfigSelected = Option(RunManager.getInstanceIfCreated(project)).map(_.getSelectedConfiguration)
         .map(_.getConfiguration)
         .collect { case config: DseRunConfiguration => config }
         .isDefined
