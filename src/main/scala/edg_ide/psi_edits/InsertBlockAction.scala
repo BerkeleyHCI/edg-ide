@@ -94,32 +94,28 @@ object InsertBlockAction {
       val newAssign = writeCommandAction(project).withName(actionName).compute(() => {
         val newAssign = containingPsiList.addAfter(assignAst, after)
         PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument)
-
-        val builder = new TemplateBuilderImpl(containingPsiList)
-        val assignText = newAssign.getText
-        //        val assignRange = TextRange.create(0, assignText.length)
-        builder.replaceElement(newAssign, "kAssignName", new ConstantNode(newAssign.getText), true)
-        //    builder.setSelection(after)
-        builder.setEndVariableAfter(newAssign)
-
-        val template = builder.buildInlineTemplate()
-        println(f"after=${after.getText}")
-        println(f"start template nSegments=${template.getSegmentsCount}  text=${template.getTemplateText}")
-        template.getVariables.forEach { variable =>
-          println(f"variable $variable")
-        }
-        for (i <- 0 until template.getSegmentsCount) {
-          println(f"seg $i name=${template.getSegmentName(i)} off=${template.getSegmentOffset(i)}")
-        }
-
-        new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, newAssign.getTextRange.getStartOffset)
-          .navigate(true) // sets focus on the text editor so the user can type into the template
-        editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
-        manager.startTemplate(editor, template, new TemplateListener)
-
         newAssign
       })
 
+      ApplicationManager.getApplication.runWriteAction(new Runnable {
+        override def run(): Unit = {
+          val builder = new TemplateBuilderImpl(containingPsiList)
+          val assignText = newAssign.getText
+          //        val assignRange = TextRange.create(0, assignText.length)
+          builder.replaceElement(newAssign, "kAssignName", new ConstantNode(newAssign.getText), true)
+          //    builder.setSelection(after)
+          builder.setEndVariableAfter(newAssign)
+
+          val template = builder.buildInlineTemplate()  // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
+
+          new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, newAssign.getTextRange.getStartOffset)
+            .navigate(true) // sets focus on the text editor so the user can type into the template
+          editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
+          manager.startTemplate(editor, template, new TemplateListener)
+
+          newAssign
+        }
+      })
 
     }
 
