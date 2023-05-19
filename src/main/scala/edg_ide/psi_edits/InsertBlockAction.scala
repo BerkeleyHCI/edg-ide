@@ -82,16 +82,18 @@ object InsertBlockAction {
     def run: Unit = {
       val newAssign = writeCommandAction(project).withName(actionName).compute(() => {
         val newAssign = containingPsiList.addAfter(assignAst, after).asInstanceOf[PyAssignmentStatement]
-        val assignTarget = newAssign.getTargets.head.asInstanceOf[PyTargetExpression]  // the self.[x]
+        val assignTarget = newAssign.getTargets.head.asInstanceOf[PyTargetExpression]  // the self.x
+
 
 //        PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument)
 
         val builder = new TemplateBuilderImpl(containingPsiList)
         val assignText = newAssign.getText
         //        val assignRange = TextRange.create(0, assignText.length)
-        builder.replaceElement(assignTarget, "kAssignName", new ConstantNode("quack"), true)
+        builder.replaceElement(assignTarget, "kAssignName", new ConstantNode("self.quack"), true)
         //    builder.setSelection(after)
-        builder.setEndVariableAfter(assignTarget)
+        builder.replaceElement(newAssign.getAssignedValue, "kAssignTarget", new ConstantNode(newAssign.getAssignedValue.getText), true)
+        builder.setEndVariableAfter(newAssign.getAssignedValue)
 
         PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
 
