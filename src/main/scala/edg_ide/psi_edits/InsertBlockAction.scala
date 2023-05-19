@@ -107,8 +107,10 @@ object InsertBlockAction {
     def run: Unit = {
       val newAssign = writeCommandAction(project).withName(actionName).compute(() => {
         val newAssign = containingPsiList.addAfter(assignAst, after).asInstanceOf[PyAssignmentStatement]
-        val assignTarget = newAssign.getTargets.head.asInstanceOf[PyTargetExpression]  // the self.x
+        // getReference is the self.thing
+        val assignName = newAssign.getTargets.head.asInstanceOf[PyTargetExpression].getReference
 
+        // these must be constructed before template creation, other template creation messes up the locations
         val highlighters = new java.util.ArrayList[RangeHighlighter]()
         HighlightManager.getInstance(project).addRangeHighlight(editor,
           newAssign.getTextRange.getStartOffset, newAssign.getTextRange.getEndOffset,
@@ -119,7 +121,7 @@ object InsertBlockAction {
         val builder = new TemplateBuilderImpl(containingPsiList)
         val assignText = newAssign.getText
         //        val assignRange = TextRange.create(0, assignText.length)
-        builder.replaceElement(assignTarget, "kAssignName", new ConstantNode("self.quack"), true)
+        builder.replaceElement(assignName, "kAssignName", new ConstantNode("quack"), true)
         //    builder.setSelection(after)
         builder.replaceElement(newAssign.getAssignedValue, "kAssignTarget", new ConstantNode(newAssign.getAssignedValue.getText), true)
         builder.setEndVariableAfter(newAssign.getAssignedValue)
