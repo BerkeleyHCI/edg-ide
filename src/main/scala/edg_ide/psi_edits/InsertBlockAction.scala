@@ -1,9 +1,13 @@
 package edg_ide.psi_edits
 
+import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
 import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
 import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.colors.EditorColors
+import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
@@ -16,7 +20,10 @@ import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
+import java.util
 import java.util.concurrent.Callable
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
+import scala.collection.mutable
 
 
 object InsertBlockAction {
@@ -24,13 +31,18 @@ object InsertBlockAction {
   val VALID_FUNCTION_NAMES = Seq("contents", "__init__")  // TODO support generators
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
-  private class TemplateListener extends TemplateEditingAdapter {
+  private class TemplateListener(project: Project, editor: Editor, highlighters: Seq[RangeHighlighter]) extends TemplateEditingAdapter {
     override def beforeTemplateFinished(state: TemplateState, template: Template): Unit = {
       println(f"TemplateListener::beforeTemplateFinished")
       super.beforeTemplateFinished(state, template)
     }
     override def templateFinished(template: Template, brokenOff: Boolean): Unit = {
       println(f"TemplateListener::templateFinished($brokenOff)")
+      highlighters.foreach { highlighter =>
+        HighlightManager.getInstance(project).removeSegmentHighlighter(editor, highlighter)
+      }
+
+
       super.templateFinished(template, brokenOff)
     }
 
@@ -103,7 +115,11 @@ object InsertBlockAction {
             .navigate(true) // sets focus on the text editor so the user can type into the template
         editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
 
-        manager.startTemplate(editor, template, new TemplateListener)
+        val highlighters = new java.util.ArrayList[RangeHighlighter]()
+        HighlightManager.getInstance(project).addOccurrenceHighlights(editor,
+          Seq(newAssign.asInstanceOf[PsiElement]).toArray, EditorColors.SEARCH_RESULT_ATTRIBUTES, false, highlighters)
+
+        manager.startTemplate(editor, template, new TemplateListener(project, editor, highlighters.toSeq))
 
         newAssign
       })
