@@ -1,13 +1,13 @@
 package edg_ide.psi_edits
 
-import com.intellij.codeInsight.template.impl.TemplateState
+import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
 import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
-import com.intellij.openapi.application.{ModalityState, ReadAction}
+import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiDocumentManager, PsiElement}
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.rename.inplace.InplaceRefactoring
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -76,17 +76,8 @@ object InsertBlockAction {
     val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
         .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
         .head.getName
-    val newAssign = psiElementGenerator.createFromText(languageLevel,
+    val assignAst = psiElementGenerator.createFromText(languageLevel,
       classOf[PyAssignmentStatement], s"$selfName.block = $selfName.Block(${libClass.getName}())")
-
-
-    val builder = new TemplateBuilderImpl(after)
-    val afterText = after.getText
-    val afterRange = TextRange.create(0, afterText.length)
-    builder.replaceElement(newAssign, afterRange, "after")
-//    builder.setSelection(after)
-
-    val template = builder.buildTemplate()
 
 //    val template: Template = manager.createTemplate("", "")
 //    template.addTextSegment("ducks")
@@ -100,6 +91,20 @@ object InsertBlockAction {
 //    template.setToReformat(false)
 
     def run: Unit = {
+      val newAssign = writeCommandAction(project).withName(actionName).compute(() => {
+        val newAssign = containingPsiList.addAfter(assignAst, after)
+        PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument)
+
+        newAssign
+      })
+
+      val builder = new TemplateBuilderImpl(containingPsiList)
+      val assignText = newAssign.getText
+      //        val assignRange = TextRange.create(0, assignText.length)
+      builder.replaceElement(newAssign, "kAssignName", new ConstantNode(newAssign.getText), true)
+      //    builder.setSelection(after)
+
+      val template = builder.buildTemplate()
       println(f"after=${after.getText}")
       println(f"start template nSegments=${template.getSegmentsCount}  text=${template.getTemplateText}")
       template.getVariables.forEach { variable =>
@@ -109,10 +114,11 @@ object InsertBlockAction {
         println(f"seg $i name=${template.getSegmentName(i)} off=${template.getSegmentOffset(i)}")
       }
 
-      editor.getCaretModel.moveToOffset(after.getTextRange.getStartOffset)
-      new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, after.getTextRange.getStartOffset)
-          .navigate(true)  // sets focus on the text editor so the user can type into the template
-      manager.startTemplate(editor, template, new TemplateListener)
+      new OpenFileDescriptor(project, after.getContainingFile.getVirtualFile, newAssign.getTextRange.getStartOffset)
+        .navigate(true) // sets focus on the text editor so the user can type into the template
+      editor.getCaretModel.moveToOffset(containingPsiList.getTextOffset)
+      manager.startTemplate(editor, template)
+//      manager.startTemplate(editor, template, new TemplateListener)
     }
 
     () => run
