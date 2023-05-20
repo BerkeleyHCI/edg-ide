@@ -1,5 +1,6 @@
 package edg_ide.psi_edits
 
+import com.intellij.openapi.editor.event.{EditorMouseAdapter, EditorMouseEvent, EditorMouseListener}
 import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
@@ -78,10 +79,19 @@ object InsertBlockAction {
         newVariable
       }
 
-      new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, newAssign, IndexedSeq(
-        new InsertionLiveTemplate.Reference[PyAssignmentStatement]("name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
-          InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)))) ++ templateVars
+      val templateState = new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, newAssign,
+        IndexedSeq(
+          new InsertionLiveTemplate.Reference[PyAssignmentStatement](
+            "name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
+            InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)))
+        ) ++ templateVars
       ).run()
+      editor.addEditorMouseListener(new EditorMouseListener {
+        override def mouseClicked (event: EditorMouseEvent): Unit = {
+          println(event.getOffset)
+          templateState.gotoEnd(true)
+        }
+      })
     }
     () => insertBlockFlow
   }

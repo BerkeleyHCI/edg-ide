@@ -191,7 +191,8 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     popup
   }
 
-  def run(): Unit = {
+  // starts this template and returns the TemplateState
+  def run(): TemplateState = {
     writeCommandAction(project).withName(actionName).compute(() => {
       val containingList = after.getParent.asInstanceOf[PyStatementList]
       val newStmt = containingList.addAfter(newSubtree, after).asInstanceOf[TreeType]
@@ -236,6 +237,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
         tooltip, highlighters.asScala)
       val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
       templateState.addTemplateStateListener(templateListener)
+      templateState
     })
   }
 }
