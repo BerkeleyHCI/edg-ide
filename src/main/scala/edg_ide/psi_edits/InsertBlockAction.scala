@@ -71,7 +71,7 @@ object InsertBlockAction {
           (psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "..."),
               new InsertionLiveTemplate.Variable[PyAssignmentStatement](f"$paramName (optional)",
                 psi => argListExtractor(psi).getArguments()(newArgIndex).asInstanceOf[PyKeywordArgument].getValueExpression,
-                defaultValue=Some(""))
+                defaultValue = Some(""))
           )
         }
         newArgList.addArgument(newArg)
@@ -83,7 +83,8 @@ object InsertBlockAction {
         IndexedSeq(
           new InsertionLiveTemplate.Reference[PyAssignmentStatement](
             "name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
-            InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)))
+            InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
+            defaultValue = Some(""))
         ) ++ templateVars
       ).run()
       editor.addEditorMouseListener(new EditorMouseListener {
