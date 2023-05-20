@@ -52,6 +52,8 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
       // called when the selected template variable is changed (on tab/enter-cycling)
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
+      // TODO do optional validation
+      // templateState.previousTab()
     }
 
     override def waitingForInput(template: Template): Unit = {
@@ -139,10 +141,11 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
 
       // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
       val template = builder.buildInlineTemplate()
-
-      TemplateManager.getInstance(project).startTemplate(editor, template, new TemplateListener(
+      val templateListener = new TemplateListener(
         project, editor, containingList, newStmtIndex,
-        tooltip, highlighters.asScala))
+        tooltip, highlighters.asScala)
+      val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
+      templateState.addTemplateStateListener(templateListener)
     })
   }
 }
