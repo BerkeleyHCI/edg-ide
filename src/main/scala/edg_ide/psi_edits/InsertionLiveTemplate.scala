@@ -63,8 +63,8 @@ object InsertionLiveTemplate {
   def validatePythonName(name: String, templateState: TemplateState, pyClass: Option[PyClass]): Option[String] = {
     val existingNames = pyClass match {
       case Some(pyClass) =>
-        val templateRange = templateState.getSegmentRange(0).union(
-          templateState.getSegmentRange(templateState.getSegmentsCount - 1))
+        val templateRange = new TextRange(templateState.getExpressionContextForSegment(0).getTemplateStartOffset,
+          templateState.getExpressionContextForSegment(0).getTemplateEndOffset)
         pyClass.getInstanceAttributes.asScala.filter(psi =>
           !templateRange.contains(psi.getTextRange)
         ).map(_.getName).toSet
@@ -126,7 +126,11 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       currentTooltip.closeOk(null)
       validationError match {
         case Some(err) =>  // TODO: this does nothing when the template is finishing
-          templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
+          if (newIndex > oldIndex) {
+            templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
+          } else {
+            templateState.nextTab()
+          }
           currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
         case None =>
           if (newIndex >= 0) {
@@ -143,7 +147,6 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     override def templateCancelled(template: Template): Unit = {
       // this is called only when making an edit outside the current templated item
       // this does NOT get called when escaping during a template (instead, templateFinished is called with brokenOff=true)
-      println(f"TemplateListener::templateCancelled")
       super.templateCancelled(template)
       //      templateAnyCancelled(template)
       templateEnded(template)
