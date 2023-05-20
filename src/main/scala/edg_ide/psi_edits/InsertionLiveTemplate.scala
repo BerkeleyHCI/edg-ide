@@ -87,6 +87,8 @@ object InsertionLiveTemplate {
 class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: Editor, actionName: String,
                             after: PsiElement, newSubtree: TreeType,
                             variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType, PsiElement]]) {
+  private val kHelpTooltip = "[Enter] next; [Esc] end"
+
   private class TemplateListener(project: Project, editor: Editor,
                                  containingList: PyStatementList, newAssignIndex: Int,
                                  tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
@@ -119,8 +121,9 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
         validationError match {
           case Some(err) =>
             templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
-            currentTooltip = createTemplateTooltip(err, editor, true)
-          case None => // ignored
+            currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
+          case None =>
+            currentTooltip = createTemplateTooltip(variables(newIndex).name, editor)
         }
       }
     }
@@ -192,7 +195,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
           .navigate(true) // sets focus on the text editor so the user can type into the template
       editor.getCaretModel.moveToOffset(newStmt.getTextOffset) // needed so the template is placed at the right location
 
-      val tooltip = createTemplateTooltip("this is a tooltip", editor)
+      val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
 
       val builder = new TemplateBuilderImpl(newStmt)
       val variablePsis = variables.map { variable =>
