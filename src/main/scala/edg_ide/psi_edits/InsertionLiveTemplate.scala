@@ -117,6 +117,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       templateEnded(template)
     }
 
+    private var lastChangeWasRevert = false
     override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
       // called when the selected template variable is changed (on tab/enter-cycling)
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
@@ -126,6 +127,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       currentTooltip.closeOk(null)
       validationError match {
         case Some(err) =>  // TODO: this does nothing when the template is finishing
+          lastChangeWasRevert = true  // avoid showing popup when this is called again from previousTab()
           if (newIndex > oldIndex) {
             templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
           } else {
@@ -133,9 +135,10 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
           }
           currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
         case None =>
-          if (newIndex >= 0) {
+          if (newIndex >= 0 && !lastChangeWasRevert) {
             currentTooltip = createTemplateTooltip(variables(newIndex).name, editor)
           }
+          lastChangeWasRevert = false
       }
     }
 
