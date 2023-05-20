@@ -52,6 +52,10 @@ object InsertionLiveTemplate {
 
   // utility method to get the set of attributes (taken names) in a class
   def getClassAttributeNames(pyClass: PyClass): Set[String] = {
+    pyClass.getInstanceAttributes.asScala.foreach {attr =>
+      println(f"${attr.getName} <= (${attr.getTextOffset}, ${attr.getParent}) $attr")
+    }
+
     pyClass.getInstanceAttributes.asScala.map(_.getName).toSet
   }
 
@@ -104,7 +108,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
       // called when the selected template variable is changed (on tab/enter-cycling)
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
-      if (oldIndex >= 0 && oldIndex < variables.length) {  // validate if in range
+      if (newIndex >= 0) {  // newIndex=-1 when finishing, and variables are invalid
         val oldVariable = variables(oldIndex)
         val oldVariableValue = templateState.getCurrentExpressionContext.getVariableValue(oldVariable.name).getText
         val validationError = oldVariable.validate(oldVariableValue)
