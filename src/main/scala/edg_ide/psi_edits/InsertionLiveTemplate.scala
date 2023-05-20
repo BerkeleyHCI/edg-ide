@@ -21,11 +21,11 @@ import javax.swing.JEditorPane
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
-trait InsertionLiveTemplateVariable[TreeType <: PsiElement, ElementType <: PsiElement] {
+trait InsertionLiveTemplateVariable[TreeType <: PsiElement] {
   def name: String
 
   // extract this variable's segment given the full sub-tree for the segment
-  def extract(tree: TreeType): ElementType
+  def extract(tree: TreeType): PsiElement
 
   // whether to take the reference of the extracted variable's element, or use the full element
   def isReference: Boolean = false
@@ -33,22 +33,29 @@ trait InsertionLiveTemplateVariable[TreeType <: PsiElement, ElementType <: PsiEl
   // validates the current segment, returning None for no errors, or Some(msg) if there is an error
   // and preventing further progress
   def validate(contents: String, templateState: TemplateState): Option[String] = None
+
+  // sets the default text value for this variable
+  def getDefaultValue(variablePsi: PsiElement): String
 }
 
 object InsertionLiveTemplate {
-  class Variable[TreeType <: PsiElement, ElementType <: PsiElement](
-      val name: String, extractor: TreeType => ElementType,
-      validator: (String, TemplateState) => Option[String] = (_, _) => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
-    override def extract(tree: TreeType): ElementType = extractor(tree)
+  class Variable[TreeType <: PsiElement](
+      val name: String, extractor: TreeType => PsiElement,
+      validator: (String, TemplateState) => Option[String] = (_, _) => None,
+      defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable[TreeType] {
+    override def extract(tree: TreeType): PsiElement = extractor(tree)
     override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
+    override def getDefaultValue(variablePsi: PsiElement): String = defaultValue.getOrElse(variablePsi.getText)
   }
 
-  class Reference[TreeType <: PsiElement, ElementType <: PsiElement](
-      val name: String, extractor: TreeType => ElementType,
-      validator: (String, TemplateState) => Option[String] = (_, _) => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
-    override def extract(tree: TreeType): ElementType = extractor(tree)
+  class Reference[TreeType <: PsiElement](
+      val name: String, extractor: TreeType => PsiElement,
+      validator: (String, TemplateState) => Option[String] = (_, _) => None,
+      defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable[TreeType] {
+    override def extract(tree: TreeType): PsiElement = extractor(tree)
     override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
     override def isReference: Boolean = true
+    override def getDefaultValue(variablePsi: PsiElement): String = defaultValue.getOrElse(variablePsi.getReference.getCanonicalText)
   }
 
   // utility validator for Python names, that also checks for name collisions (if class passed in; ignoring the
@@ -86,7 +93,7 @@ object InsertionLiveTemplate {
   */
 class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: Editor, actionName: String,
                             after: PsiElement, newSubtree: TreeType,
-                            variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType, PsiElement]]) {
+                            variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType]]) {
   private val kHelpTooltip = "[Enter] next; [Esc] end"
 
   private class TemplateListener(project: Project, editor: Editor,
@@ -202,10 +209,10 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
         val variablePsi = variable.extract(newStmt)
         if (!variable.isReference) {
           builder.replaceElement(variablePsi, variable.name,
-            new ConstantNode(variablePsi.getText), true)
+            new ConstantNode(variable.getDefaultValue(variablePsi)), true)
         } else {
           builder.replaceElement(variablePsi.getReference, variable.name,
-            new ConstantNode(variablePsi.getReference.getCanonicalText), true)
+            new ConstantNode(variable.getDefaultValue(variablePsi)), true)
         }
         variablePsi
       }

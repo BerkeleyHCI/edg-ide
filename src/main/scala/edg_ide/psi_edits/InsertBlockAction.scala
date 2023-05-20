@@ -43,41 +43,40 @@ object InsertBlockAction {
           .head.getName
       val newAssign = psiElementGenerator.createFromText(languageLevel,
         classOf[PyAssignmentStatement], s"$selfName.name = $selfName.Block(${libClass.getName}())")
+      val argListExtractor = (x: PyAssignmentStatement) => x.getAssignedValue.asInstanceOf[PyCallExpression]
+          .getArgument(0, classOf[PyCallExpression])
+          .getArgumentList
+      val newArgList = argListExtractor(newAssign)
 
       val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
       val allParams = initParams._1 ++ initParams._2
 
-      // TODO move into DesignAnalysisUtils
-      val kwArgs = allParams.flatMap { initParam =>
-        // Only create default values for required arguments, ignoring defaults
-        // TODO: better detection of "required" args
+      val templateVars = allParams.map { initParam =>
+        val newArgIndex = newArgList.getArguments.length
         val defaultValue = initParam.getDefaultValue
-        if (defaultValue == null
-            || defaultValue.textMatches("RangeExpr()") || defaultValue.textMatches("FloatExpr()")
-            || defaultValue.textMatches("IntExpr()") || defaultValue.textMatches("BoolExpr()")
-            || defaultValue.textMatches("StringExpr()")) {
-          val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
-            initParam.getName, "...")
 
-          if (defaultValue != null) {
-            kwArg.getValueExpression.replace(defaultValue)
-          }
-          Some(kwArg)
-        } else {
-          None
+        val (newArg, newVariable) = if (defaultValue == null) {  // required argument, needs ellipsis
+          (psiElementGenerator.createEllipsis(),
+              new InsertionLiveTemplate.Variable[PyAssignmentStatement](initParam.getName(),
+                psi => argListExtractor(psi).getArguments()(newArgIndex))
+          )
+        } else {  // optional argument
+          // ellipsis is generated in the AST to give the thing a handle, the template replaces it with an empty
+          (psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "..."),
+              new InsertionLiveTemplate.Variable[PyAssignmentStatement](f"${initParam.getName()} (optional)",
+                psi => argListExtractor(psi).getArguments()(newArgIndex).asInstanceOf[PyKeywordArgument].getValueExpression,
+                defaultValue=Some(""))
+          )
         }
-      }
-      kwArgs.foreach { kwArg =>
-        newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
-            .getArgument(0, classOf[PyCallExpression])
-            .getArgumentList.addArgument(kwArg)
+        newArgList.addArgument(newArg)
+
+        newVariable
       }
 
       new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, newAssign, IndexedSeq(
-        new InsertionLiveTemplate.Reference("name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
-          InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass))),
-        new InsertionLiveTemplate.Variable("assign", psi => psi.getAssignedValue)
-      )).run()
+        new InsertionLiveTemplate.Reference[PyAssignmentStatement]("name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
+          InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)))) ++ templateVars
+      ).run()
     }
     () => insertBlockFlow
   }
