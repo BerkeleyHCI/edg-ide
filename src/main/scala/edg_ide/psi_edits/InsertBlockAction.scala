@@ -46,9 +46,12 @@ object InsertBlockAction {
     val assignAst = psiElementGenerator.createFromText(languageLevel,
       classOf[PyAssignmentStatement], s"$selfName.block = $selfName.Block(${libClass.getName}())")
 
-    () => new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, assignAst, Seq(
-      ("assign name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression], true),
-      ("assign target", psi => psi.getAssignedValue, false),
+
+
+    () => new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, assignAst, IndexedSeq(
+      new InsertionLiveTemplate.Reference("name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
+        InsertionLiveTemplate.validatePythonName(_, InsertionLiveTemplate.getClassAttributeNames(containingPsiClass))),
+      new InsertionLiveTemplate.Variable("assign", psi => psi.getAssignedValue)
     )).run()
 
 //    val containingPsiList = after.getParent

@@ -3,6 +3,7 @@ package edg_ide.psi_edits
 import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
 import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
+import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
@@ -12,10 +13,59 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
 
 import javax.swing.JEditorPane
 import scala.jdk.CollectionConverters.CollectionHasAsScala
+
+
+trait InsertionLiveTemplateVariable[TreeType <: PsiElement, ElementType <: PsiElement] {
+  def name: String
+
+  // extract this variable's segment given the full sub-tree for the segment
+  def extract(tree: TreeType): ElementType
+
+  // whether to take the reference of the extracted variable's element, or use the full element
+  def isReference: Boolean = false
+
+  // validates the current segment, returning None for no errors, or Some(msg) if there is an error
+  // and preventing further progress
+  def validate(contents: String): Option[String] = None
+}
+
+object InsertionLiveTemplate {
+  class Variable[TreeType <: PsiElement, ElementType <: PsiElement](
+      val name: String, extractor: TreeType => ElementType,
+      validator: String => Option[String] = _ => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
+    override def extract(tree: TreeType): ElementType = extractor(tree)
+    override def validate(contents: String): Option[String] = validator(contents)
+  }
+
+  class Reference[TreeType <: PsiElement, ElementType <: PsiElement](
+      val name: String, extractor: TreeType => ElementType,
+      validator: String => Option[String] = _ => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
+    override def extract(tree: TreeType): ElementType = extractor(tree)
+    override def validate(contents: String): Option[String] = validator(contents)
+    override def isReference: Boolean = true
+  }
+
+  // utility method to get the set of attributes (taken names) in a class
+  def getClassAttributeNames(pyClass: PyClass): Set[String] = {
+    pyClass.getInstanceAttributes.asScala.map(_.getName).toSet
+  }
+
+  // utility validator for Python names, that also checks for name collisions (if existing names passed in)
+  def validatePythonName(name: String, existingNames: Set[String] = Set()): Option[String] = {
+    if (!LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)) {
+      Some("not a valid name")
+    } else if (existingNames.contains(name)) {
+      Some("name already used")
+    } else {
+      None
+    }
+  }
+}
 
 
 /** Utilities for insertion live templates.
@@ -29,10 +79,12 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
   */
 class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: Editor, actionName: String,
                             after: PsiElement, newSubtree: TreeType,
-                            variables: Seq[(String, TreeType => PsiElement, Boolean)]) {
+                            variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType, PsiElement]]) {
   private class TemplateListener(project: Project, editor: Editor,
                                  containingList: PyStatementList, newAssignIndex: Int,
                                  tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
+    private var currentTooltip = tooltip
+
     override def beforeTemplateFinished(state: TemplateState, template: Template): Unit = {
       super.beforeTemplateFinished(state, template)
     }
@@ -52,8 +104,18 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
       // called when the selected template variable is changed (on tab/enter-cycling)
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
-      // TODO do optional validation
-      // templateState.previousTab()
+      if (oldIndex >= 0 && oldIndex < variables.length) {  // validate if in range
+        val oldVariable = variables(oldIndex)
+        val oldVariableValue = templateState.getCurrentExpressionContext.getVariableValue(oldVariable.name).getText
+        val validationError = oldVariable.validate(oldVariableValue)
+        currentTooltip.closeOk(null)
+        validationError match {
+          case Some(err) =>
+            templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
+            currentTooltip = createTemplateTooltip(err, editor, true)
+          case None => // ignored
+        }
+      }
     }
 
     override def waitingForInput(template: Template): Unit = {
@@ -81,17 +143,20 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
 
     // internal API, called when the template is ended for any reason (successful or not)
     def templateEnded(template: Template): Unit = {
-      tooltip.closeOk(null)
+      currentTooltip.closeOk(null)
       highlighters.foreach { highlighter =>
         HighlightManager.getInstance(project).removeSegmentHighlighter(editor, highlighter)
       }
     }
   }
 
-  private def createTemplateTooltip(message: String, editor: Editor): JBPopup = {
+  private def createTemplateTooltip(message: String, editor: Editor, isError: Boolean = false): JBPopup = {
     var hintHeight: Int = 0
 
-    val validationInfo = new ValidationInfo(message, null).asWarning()
+    var validationInfo = new ValidationInfo(message, null)
+    if (!isError) {
+      validationInfo = validationInfo.asWarning()
+    }
     val popupBuilder = ComponentValidator.createPopupBuilder(
       validationInfo,
       (editorPane: JEditorPane) => {
@@ -123,12 +188,14 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       val tooltip = createTemplateTooltip("this is a tooltip", editor)
 
       val builder = new TemplateBuilderImpl(newStmt)
-      val variablePsis = variables.map { case (variableName, variablePsiExtractor, isReference) =>
-        val variablePsi = variablePsiExtractor(newStmt)
-        if (!isReference) {
-          builder.replaceElement(variablePsi, variableName, new ConstantNode(variablePsi.getText), true)
+      val variablePsis = variables.map { variable =>
+        val variablePsi = variable.extract(newStmt)
+        if (!variable.isReference) {
+          builder.replaceElement(variablePsi, variable.name,
+            new ConstantNode(variablePsi.getText), true)
         } else {
-          builder.replaceElement(variablePsi.getReference, variableName, new ConstantNode(variablePsi.getReference.getCanonicalText), true)
+          builder.replaceElement(variablePsi.getReference, variable.name,
+            new ConstantNode(variablePsi.getReference.getCanonicalText), true)
         }
         variablePsi
       }
