@@ -12,6 +12,7 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
@@ -31,36 +32,38 @@ trait InsertionLiveTemplateVariable[TreeType <: PsiElement, ElementType <: PsiEl
 
   // validates the current segment, returning None for no errors, or Some(msg) if there is an error
   // and preventing further progress
-  def validate(contents: String): Option[String] = None
+  def validate(contents: String, templateState: TemplateState): Option[String] = None
 }
 
 object InsertionLiveTemplate {
   class Variable[TreeType <: PsiElement, ElementType <: PsiElement](
       val name: String, extractor: TreeType => ElementType,
-      validator: String => Option[String] = _ => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
+      validator: (String, TemplateState) => Option[String] = (_, _) => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
     override def extract(tree: TreeType): ElementType = extractor(tree)
-    override def validate(contents: String): Option[String] = validator(contents)
+    override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
   }
 
   class Reference[TreeType <: PsiElement, ElementType <: PsiElement](
       val name: String, extractor: TreeType => ElementType,
-      validator: String => Option[String] = _ => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
+      validator: (String, TemplateState) => Option[String] = (_, _) => None) extends InsertionLiveTemplateVariable[TreeType, ElementType] {
     override def extract(tree: TreeType): ElementType = extractor(tree)
-    override def validate(contents: String): Option[String] = validator(contents)
+    override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
     override def isReference: Boolean = true
   }
 
-  // utility method to get the set of attributes (taken names) in a class
-  def getClassAttributeNames(pyClass: PyClass): Set[String] = {
-    pyClass.getInstanceAttributes.asScala.foreach {attr =>
-      println(f"${attr.getName} <= (${attr.getTextOffset}, ${attr.getParent}) $attr")
+  // utility validator for Python names, that also checks for name collisions (if class passed in; ignoring the
+  // current template being edited)
+  def validatePythonName(name: String, templateState: TemplateState, pyClass: Option[PyClass]): Option[String] = {
+    val existingNames = pyClass match {
+      case Some(pyClass) =>
+        val templateRange = new TextRange(templateState.getCurrentExpressionContext.getTemplateStartOffset,
+          templateState.getCurrentExpressionContext.getTemplateEndOffset)
+        pyClass.getInstanceAttributes.asScala.filter(psi =>
+          !templateRange.contains(psi.getTextRange)
+        ).map(_.getName).toSet
+      case None => Set[String]()
     }
 
-    pyClass.getInstanceAttributes.asScala.map(_.getName).toSet
-  }
-
-  // utility validator for Python names, that also checks for name collisions (if existing names passed in)
-  def validatePythonName(name: String, existingNames: Set[String] = Set()): Option[String] = {
     if (!LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)) {
       Some("not a valid name")
     } else if (existingNames.contains(name)) {
@@ -111,7 +114,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       if (newIndex >= 0) {  // newIndex=-1 when finishing, and variables are invalid
         val oldVariable = variables(oldIndex)
         val oldVariableValue = templateState.getCurrentExpressionContext.getVariableValue(oldVariable.name).getText
-        val validationError = oldVariable.validate(oldVariableValue)
+        val validationError = oldVariable.validate(oldVariableValue, templateState)
         currentTooltip.closeOk(null)
         validationError match {
           case Some(err) =>

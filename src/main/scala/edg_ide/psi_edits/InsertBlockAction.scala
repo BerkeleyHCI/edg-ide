@@ -50,7 +50,7 @@ object InsertBlockAction {
 
     () => new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, assignAst, IndexedSeq(
       new InsertionLiveTemplate.Reference("name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
-        InsertionLiveTemplate.validatePythonName(_, InsertionLiveTemplate.getClassAttributeNames(containingPsiClass))),
+        InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass))),
       new InsertionLiveTemplate.Variable("assign", psi => psi.getAssignedValue)
     )).run()
 
