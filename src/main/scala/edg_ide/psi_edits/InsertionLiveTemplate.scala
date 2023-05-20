@@ -63,8 +63,8 @@ object InsertionLiveTemplate {
   def validatePythonName(name: String, templateState: TemplateState, pyClass: Option[PyClass]): Option[String] = {
     val existingNames = pyClass match {
       case Some(pyClass) =>
-        val templateRange = new TextRange(templateState.getCurrentExpressionContext.getTemplateStartOffset,
-          templateState.getCurrentExpressionContext.getTemplateEndOffset)
+        val templateRange = templateState.getSegmentRange(0).union(
+          templateState.getSegmentRange(templateState.getSegmentsCount - 1))
         pyClass.getInstanceAttributes.asScala.filter(psi =>
           !templateRange.contains(psi.getTextRange)
         ).map(_.getName).toSet
@@ -120,18 +120,18 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
       // called when the selected template variable is changed (on tab/enter-cycling)
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
-      if (newIndex >= 0) {  // newIndex=-1 when finishing, and variables are invalid
-        val oldVariable = variables(oldIndex)
-        val oldVariableValue = templateState.getCurrentExpressionContext.getVariableValue(oldVariable.name).getText
-        val validationError = oldVariable.validate(oldVariableValue, templateState)
-        currentTooltip.closeOk(null)
-        validationError match {
-          case Some(err) =>
-            templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
-            currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
-          case None =>
+      val oldVariable = variables(oldIndex)
+      val oldVariableValue = templateState.getVariableValue(oldVariable.name).getText
+      val validationError = oldVariable.validate(oldVariableValue, templateState)
+      currentTooltip.closeOk(null)
+      validationError match {
+        case Some(err) =>  // TODO: this does nothing when the template is finishing
+          templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
+          currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
+        case None =>
+          if (newIndex >= 0) {
             currentTooltip = createTemplateTooltip(variables(newIndex).name, editor)
-        }
+          }
       }
     }
 
