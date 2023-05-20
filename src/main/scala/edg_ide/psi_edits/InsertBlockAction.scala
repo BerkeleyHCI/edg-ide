@@ -55,15 +55,20 @@ object InsertBlockAction {
         val newArgIndex = newArgList.getArguments.length
         val defaultValue = initParam.getDefaultValue
 
+        val paramName = initParam.getName() + (Option(initParam.getAnnotationValue) match {
+          case Some(typed) => f": $typed"
+          case None => ""
+        })
+
         val (newArg, newVariable) = if (defaultValue == null) {  // required argument, needs ellipsis
           (psiElementGenerator.createEllipsis(),
-              new InsertionLiveTemplate.Variable[PyAssignmentStatement](initParam.getName(),
+              new InsertionLiveTemplate.Variable[PyAssignmentStatement](paramName,
                 psi => argListExtractor(psi).getArguments()(newArgIndex))
           )
         } else {  // optional argument
           // ellipsis is generated in the AST to give the thing a handle, the template replaces it with an empty
           (psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "..."),
-              new InsertionLiveTemplate.Variable[PyAssignmentStatement](f"${initParam.getName()} (optional)",
+              new InsertionLiveTemplate.Variable[PyAssignmentStatement](f"$paramName (optional)",
                 psi => argListExtractor(psi).getArguments()(newArgIndex).asInstanceOf[PyKeywordArgument].getValueExpression,
                 defaultValue=Some(""))
           )
