@@ -159,6 +159,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
 
     override def templateCancelled(template: Template): Unit = {
       // this is called only when making an edit outside the current templated item
+      //   including backspacing past the beginning of the item, or editing a different templated item
       // this is called BEFORE currentVariableChanged
       // this does NOT get called when escaping during a template (instead, templateFinished is called with brokenOff=true)
       super.templateCancelled(template)
