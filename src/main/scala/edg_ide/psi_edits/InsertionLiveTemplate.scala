@@ -17,7 +17,6 @@ import com.intellij.psi.{PsiDocumentManager, PsiElement}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
 
-import javax.swing.JEditorPane
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
@@ -96,13 +95,19 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
                             variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType]]) {
   private val kHelpTooltip = "[Enter] next; [Esc] end"
 
+  // hooks to be overridden in subclasses
+  // this is called when the template finishes (either cycling past last variable, or esc-ing out, but not
+  // making edits outside), state reflects the post-completion state
+  protected def onTemplateCompleted(state: TemplateState, brokenOff: Boolean): Unit = { }
+
   private class TemplateListener(project: Project, editor: Editor,
-                                 containingList: PyStatementList, newAssignIndex: Int,
                                  tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
+    private var finishedTemplateState: Option[TemplateState] = None
 
     override def beforeTemplateFinished(state: TemplateState, template: Template): Unit = {
       super.beforeTemplateFinished(state, template)
+      finishedTemplateState = Some(state)  // save the state for when we have brokenOff
     }
 
     override def templateFinished(template: Template, brokenOff: Boolean): Unit = {
@@ -112,6 +117,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       // this does NOT get called when making an edit outside the template (instead, templateCancelled is called)
       super.templateFinished(template, brokenOff)
       templateEnded(template)
+      onTemplateCompleted(finishedTemplateState.get, brokenOff)
     }
 
     private var lastChangeWasRevert = false
@@ -232,7 +238,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
       val template = builder.buildInlineTemplate()
       val templateListener = new TemplateListener(
-        project, editor, containingList, newStmtIndex,
+        project, editor,
         tooltip, highlighters.asScala)
       val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
       templateState.addTemplateStateListener(templateListener)

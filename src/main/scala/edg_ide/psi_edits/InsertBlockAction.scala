@@ -1,9 +1,11 @@
 package edg_ide.psi_edits
 
+import com.intellij.codeInsight.template.impl.TemplateState
+import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseAdapter, EditorMouseEvent, EditorMouseListener}
 import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi._
 import edg.util.Errorable
@@ -86,7 +88,35 @@ object InsertBlockAction {
             InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
             defaultValue = Some(""))
         ) ++ templateVars
-      ).run()
+      ) {
+        override def onTemplateCompleted(state: TemplateState, brokenOff: Boolean): Unit = {
+          super.onTemplateCompleted(state, brokenOff)
+          var templateElem = state.getExpressionContextForSegment(0).getPsiElementAtStartOffset
+          while (templateElem.isInstanceOf[PsiWhiteSpace]) {  // this includes inserted whitespace before the statement
+            templateElem = templateElem.getNextSibling
+          }
+          val templateStmt = templateElem.asInstanceOf[PyAssignmentStatement]
+          val insertedName = state.getVariableValue("name").getText
+
+          if (insertedName.isEmpty && brokenOff) {  // canceled by esc
+            writeCommandAction(project).withName(s"cancel $actionName").compute(() => {
+              templateStmt.delete()
+            })
+          } else {
+            val args = templateStmt.getAssignedValue.asInstanceOf[PyCallExpression]  // the self.Block(...) call
+                .getArgument(0, classOf[PyCallExpression])  // the object instantiation
+                .getArgumentList  // args to the object instantiation
+            val deleteArgs = args.getArguments.flatMap { // remove empty kwargs
+              case arg: PyKeywordArgument => if (arg.getValueExpression == null) Some(arg) else None
+              case _ => None // ignored
+            }
+            writeCommandAction(project).withName(s"clean $actionName").compute(() => {
+              deleteArgs.foreach(_.delete())
+            })
+            continuation(insertedName, templateStmt)
+          }
+        }
+      }.run()
 
       editor.addEditorMouseListener(new EditorMouseListener {
         override def mouseClicked (event: EditorMouseEvent): Unit = {
