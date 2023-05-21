@@ -111,9 +111,6 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       // - escape (brokenOff=true)
       // this does NOT get called when making an edit outside the template (instead, templateCancelled is called)
       super.templateFinished(template, brokenOff)
-      if (brokenOff) {
-        templateAnyCancelled(template)
-      }
       templateEnded(template)
     }
 
@@ -121,24 +118,36 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
       // called when the selected template variable is changed (on tab/enter-cycling)
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
-      val oldVariable = variables(oldIndex)
-      val oldVariableValue = templateState.getVariableValue(oldVariable.name).getText
-      val validationError = oldVariable.validate(oldVariableValue, templateState)
-      currentTooltip.closeOk(null)
-      validationError match {
-        case Some(err) =>  // TODO: this does nothing when the template is finishing
-          lastChangeWasRevert = true  // avoid showing popup when this is called again from previousTab()
-          if (newIndex > oldIndex) {
-            templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
-          } else {
-            templateState.nextTab()
-          }
-          currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
-        case None =>
-          if (newIndex >= 0 && !lastChangeWasRevert) {
-            currentTooltip = createTemplateTooltip(variables(newIndex).name, editor)
-          }
-          lastChangeWasRevert = false
+      var variableReverted = false
+
+      if (oldIndex < variables.length) {
+        val oldVariable = variables(oldIndex)
+        val oldVariableValue = templateState.getVariableValue(oldVariable.name).getText
+        val validationError = oldVariable.validate(oldVariableValue, templateState)
+        currentTooltip.closeOk(null)
+        validationError match {
+          case Some(err) =>  // TODO: this does nothing when the template is finishing
+            lastChangeWasRevert = true  // avoid showing popup when this is called again from previousTab()
+            variableReverted = true
+            if (newIndex > oldIndex) {
+              templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
+            } else {
+              templateState.nextTab()
+            }
+            currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
+          case None =>  // ignored
+        }
+      }
+
+      if (!variableReverted) {
+        if (newIndex >= 0 && newIndex < variables.length && !lastChangeWasRevert) {
+          currentTooltip = createTemplateTooltip(variables(newIndex).name, editor)
+        }
+        lastChangeWasRevert = false
+
+        if (newIndex == variables.length) { // bypass guard
+          templateState.gotoEnd(false)
+        }
       }
     }
 
@@ -151,17 +160,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       // this is called only when making an edit outside the current templated item
       // this does NOT get called when escaping during a template (instead, templateFinished is called with brokenOff=true)
       super.templateCancelled(template)
-      //      templateAnyCancelled(template)
       templateEnded(template)
-    }
-
-    // Called when the template is cancelled (broken off or "cancelled")
-    def templateAnyCancelled(template: Template): Unit = {
-      val assignCandidate = containingList.getStatements()(newAssignIndex)
-      require(assignCandidate.isInstanceOf[PyAssignmentStatement])
-      writeCommandAction(project).withName("TODO cancel").compute(() => {
-        assignCandidate.delete()
-      })
     }
 
     // internal API, called when the template is ended for any reason (successful or not)
@@ -223,9 +222,11 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
         }
         variablePsi
       }
-      variablePsis.lastOption.foreach { lastVariablePsi =>
-        builder.setEndVariableAfter(newStmt.getLastChild)
-      }
+      // this guard variable allows validation on the last element by preventing the template from ending
+      val endRelativeOffset = newStmt.getTextRange.getEndOffset - newStmt.getTextRange.getStartOffset
+      builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset),
+        "")
+      builder.setEndVariableAfter(newStmt.getLastChild)
 
       // must be called before building the template
       PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
