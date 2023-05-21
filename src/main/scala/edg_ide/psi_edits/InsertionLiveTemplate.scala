@@ -120,7 +120,8 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
       var variableReverted = false
 
-      if (oldIndex < variables.length) {
+      // don't validate when newIndex = -1, that indicates the template has ended and nothing here matters
+      if (oldIndex < variables.length && newIndex >= 0) {
         val oldVariable = variables(oldIndex)
         val oldVariableValue = templateState.getVariableValue(oldVariable.name).getText
         val validationError = oldVariable.validate(oldVariableValue, templateState)
@@ -158,6 +159,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
 
     override def templateCancelled(template: Template): Unit = {
       // this is called only when making an edit outside the current templated item
+      // this is called BEFORE currentVariableChanged
       // this does NOT get called when escaping during a template (instead, templateFinished is called with brokenOff=true)
       super.templateCancelled(template)
       templateEnded(template)
