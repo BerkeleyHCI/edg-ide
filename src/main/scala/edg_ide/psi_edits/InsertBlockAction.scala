@@ -87,6 +87,7 @@ object InsertBlockAction {
             defaultValue = Some(""))
         ) ++ templateVars
       ).run()
+
       editor.addEditorMouseListener(new EditorMouseListener {
         override def mouseClicked (event: EditorMouseEvent): Unit = {
           println(event.getOffset)

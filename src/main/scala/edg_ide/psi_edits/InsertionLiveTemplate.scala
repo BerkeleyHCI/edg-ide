@@ -176,17 +176,12 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
   }
 
   private def createTemplateTooltip(message: String, editor: Editor, isError: Boolean = false): JBPopup = {
-    var hintHeight: Int = 0
-
     var validationInfo = new ValidationInfo(message, null)
     if (!isError) {
       validationInfo = validationInfo.asWarning()
     }
     val popupBuilder = ComponentValidator.createPopupBuilder(
-      validationInfo,
-      (editorPane: JEditorPane) => {
-        hintHeight = editorPane.getPreferredSize.height
-      }
+      validationInfo, _ => ()
     ).setCancelKeyEnabled(false)  // otherwise this eats the cancel keypress for the live template
     val popup = popupBuilder.createPopup()
     popup.showInBestPositionFor(editor)
