@@ -283,6 +283,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       }
     }
 
+    console.print(s"Done\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     terminatedNotify(exitCode)
   }
 }
