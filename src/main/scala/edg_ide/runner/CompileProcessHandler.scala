@@ -389,6 +389,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         console.print(s"Compiler internal error, compilation stopped:\n", ConsoleViewContentType.ERROR_OUTPUT)
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
+
+    console.print(s"Done\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     terminatedNotify(exitCode)
   }
 }

@@ -238,7 +238,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     // can't use DseService(project) here since this keeps getting called after the panel closes
     // and creates an error
     // the outer Option(...) wrapper prevents an error on shutdown after RunManager has been disposed
-    val dseConfigSelected = Option(RunManager.getInstanceIfCreated(project)).map(_.getSelectedConfiguration)
+    val dseConfigSelected = Option(RunManager.getInstanceIfCreated(project))
+        .flatMap(manager => Option(manager.getSelectedConfiguration))
         .map(_.getConfiguration)
         .collect { case config: DseRunConfiguration => config }
         .isDefined
