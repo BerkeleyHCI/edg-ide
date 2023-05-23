@@ -80,7 +80,7 @@ object InsertionLiveTemplate {
     }
   }
 
-  // deletes the template text, ending the template (if action) by cancellation.
+  // deletes the template text, ending the template by cancellation.
   def deleteTemplate(templateState: TemplateState): Unit = {
     val templateExpression = templateState.getExpressionContextForSegment(0)
     val templateEndOffset = templateExpression.getTemplateEndOffset
