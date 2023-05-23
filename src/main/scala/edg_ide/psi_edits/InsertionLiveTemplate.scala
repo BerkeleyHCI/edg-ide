@@ -13,10 +13,11 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.openapi.util.TextRange
-import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiFile, PsiWhiteSpace}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
@@ -76,6 +77,31 @@ object InsertionLiveTemplate {
       Some("name already used")
     } else {
       None
+    }
+  }
+
+  // deletes the template text, ending the template (if action) by cancellation.
+  def deleteTemplate(templateState: TemplateState): Unit = {
+    val templateExpression = templateState.getExpressionContextForSegment(0)
+    val templateEndOffset = templateExpression.getTemplateEndOffset
+    var templateElem = templateExpression.getPsiElementAtStartOffset
+
+    // separate the traversal from deletion, so the end offsets are stable as we build the deletion list
+    val deleteElems = mutable.ListBuffer[PsiElement]()
+    while (templateElem != null && templateElem.getTextOffset <= templateEndOffset) {
+      if (templateElem.getTextRange.getEndOffset <= templateExpression.getTemplateEndOffset) {
+        deleteElems.append(templateElem)
+        templateElem = templateElem.getNextSibling
+      } else {  // otherwise recurse into element to get a partial range
+        templateElem = templateElem.getFirstChild
+      }
+    }
+
+    // delete the PSI elements, this also cancels the template (as if the user typed outside the template)
+    deleteElems.foreach { deleteElem =>
+      if (deleteElem.isValid) {  // guard in case the element changed from a prior deletion
+        deleteElem.delete()
+      }
     }
   }
 }

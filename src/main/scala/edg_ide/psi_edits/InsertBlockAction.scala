@@ -131,15 +131,9 @@ object InsertBlockAction {
           if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
             return  // ignore clicks within the template
           }
-//          templateState.gotoEnd(true)
-          var templateElem = templateState.getExpressionContextForSegment(0).getPsiElementAtStartOffset
-          while (templateElem.isInstanceOf[PsiWhiteSpace]) { // this includes inserted whitespace before the statement
-            templateElem = templateElem.getNextSibling
-          }
-          val templateStmt = templateElem.asInstanceOf[PyAssignmentStatement]
+
           writeCommandAction(project).withName(s"clean $actionName").compute(() => {
-            // this also cancels the template without firing the completed actions
-            templateStmt.delete()
+            InsertionLiveTemplate.deleteTemplate(templateState)
           })
         }
       }
