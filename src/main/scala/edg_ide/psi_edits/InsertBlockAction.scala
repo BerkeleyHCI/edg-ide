@@ -1,5 +1,6 @@
 package edg_ide.psi_edits
 
+import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseAdapter, EditorMouseEvent, EditorMouseListener}
@@ -118,12 +119,31 @@ object InsertBlockAction {
         }
       }.run()
 
-      editor.addEditorMouseListener(new EditorMouseListener {
-        override def mouseClicked (event: EditorMouseEvent): Unit = {
-          println(event.getOffset)
-          templateState.gotoEnd(true)
+      var movingTemplateListener: EditorMouseListener = null
+      movingTemplateListener = new EditorMouseListener {
+        override def mouseClicked(event: EditorMouseEvent): Unit = {
+          if (templateState.isFinished) {
+            editor.removeEditorMouseListener(movingTemplateListener)
+            return
+          }
+          val offset = event.getOffset
+          val expressionContext = templateState.getExpressionContextForSegment(0)
+          if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
+            return  // ignore clicks within the template
+          }
+//          templateState.gotoEnd(true)
+          var templateElem = templateState.getExpressionContextForSegment(0).getPsiElementAtStartOffset
+          while (templateElem.isInstanceOf[PsiWhiteSpace]) { // this includes inserted whitespace before the statement
+            templateElem = templateElem.getNextSibling
+          }
+          val templateStmt = templateElem.asInstanceOf[PyAssignmentStatement]
+          writeCommandAction(project).withName(s"clean $actionName").compute(() => {
+            // this also cancels the template without firing the completed actions
+            templateStmt.delete()
+          })
         }
-      })
+      }
+      editor.addEditorMouseListener(movingTemplateListener)
     }
     () => insertBlockFlow
   }
