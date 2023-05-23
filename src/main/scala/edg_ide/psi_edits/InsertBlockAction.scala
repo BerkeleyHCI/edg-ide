@@ -13,6 +13,8 @@ import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
+import java.awt.event.MouseEvent
+
 
 object InsertBlockAction {
   // sorted by preference
@@ -92,29 +94,35 @@ object InsertBlockAction {
       ) {
         override def onTemplateCompleted(state: TemplateState, brokenOff: Boolean): Unit = {
           super.onTemplateCompleted(state, brokenOff)
-          var templateElem = state.getExpressionContextForSegment(0).getPsiElementAtStartOffset
-          while (templateElem.isInstanceOf[PsiWhiteSpace]) {  // this includes inserted whitespace before the statement
-            templateElem = templateElem.getNextSibling
-          }
-          val templateStmt = templateElem.asInstanceOf[PyAssignmentStatement]
           val insertedName = state.getVariableValue("name").getText
 
           if (insertedName.isEmpty && brokenOff) {  // canceled by esc
             writeCommandAction(project).withName(s"cancel $actionName").compute(() => {
-              templateStmt.delete()
+              InsertionLiveTemplate.deleteTemplate(state)
             })
           } else {
-            val args = templateStmt.getAssignedValue.asInstanceOf[PyCallExpression]  // the self.Block(...) call
-                .getArgument(0, classOf[PyCallExpression])  // the object instantiation
-                .getArgumentList  // args to the object instantiation
-            val deleteArgs = args.getArguments.flatMap { // remove empty kwargs
-              case arg: PyKeywordArgument => if (arg.getValueExpression == null) Some(arg) else None
-              case _ => None // ignored
+            var templateElem = state.getExpressionContextForSegment(0).getPsiElementAtStartOffset
+            while (templateElem.isInstanceOf[PsiWhiteSpace]) { // ignore inserted whitespace before the statement
+              templateElem = templateElem.getNextSibling
             }
-            writeCommandAction(project).withName(s"clean $actionName").compute(() => {
-              deleteArgs.foreach(_.delete())
-            })
-            continuation(insertedName, templateStmt)
+            try {
+              val templateStmt = templateElem match {
+                case stmt: PyAssignmentStatement => stmt
+                case _ => return // can't reformat
+              }
+              val args = templateStmt.getAssignedValue.asInstanceOf[PyCallExpression] // the self.Block(...) call
+                  .getArgument(0, classOf[PyCallExpression]) // the object instantiation
+                  .getArgumentList // args to the object instantiation
+              val deleteArgs = args.getArguments.flatMap { // remove empty kwargs
+                case arg: PyKeywordArgument => if (arg.getValueExpression == null) Some(arg) else None
+                case _ => None // ignored
+              }
+              writeCommandAction(project).withName(s"clean $actionName").compute(() => {
+                deleteArgs.foreach(_.delete())
+              })
+            }
+
+            continuation(insertedName, templateElem)
           }
         }
       }.run()
@@ -126,11 +134,15 @@ object InsertBlockAction {
             editor.removeEditorMouseListener(movingTemplateListener)
             return
           }
+          if (!event.getMouseEvent.isAltDown) {  // only move on mod+click, to allow copy-paste flows
+            return
+          }
           val offset = event.getOffset
           val expressionContext = templateState.getExpressionContextForSegment(0)
           if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
             return  // ignore clicks within the template
           }
+          event.consume()
 
           writeCommandAction(project).withName(s"clean $actionName").compute(() => {
             InsertionLiveTemplate.deleteTemplate(templateState)
