@@ -12,6 +12,7 @@ import scala.collection.mutable
 /** Wrapper around a Template that allows the template to move by user clicks  */
 abstract class MovableLiveTemplate(actionName: String) {
   protected var currentTemplateState: Option[TemplateState] = None
+  protected var movingTemplateListener: Option[EditorMouseListener] = None
   protected val templateStateListeners = mutable.ListBuffer[TemplateEditingAdapter]()
 
   // given the PSI element at the current caret,
@@ -25,30 +26,30 @@ abstract class MovableLiveTemplate(actionName: String) {
     val editor = templateState.getEditor
     currentTemplateState = Some(templateState)
 
-    var movingTemplateListener: EditorMouseListener = null
-    movingTemplateListener = new EditorMouseListener {
-      override def mouseClicked(event: EditorMouseEvent): Unit = {
-        if (templateState.isFinished) {
-          editor.removeEditorMouseListener(movingTemplateListener)
-          return
-        }
-        if (!event.getMouseEvent.isAltDown) { // only move on mod+click, to allow copy-paste flows
-          return
-        }
-        val offset = event.getOffset
-        val expressionContext = templateState.getExpressionContextForSegment(0)
-        if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
-          return // ignore clicks within the template
-        }
-        event.consume()
+    if (movingTemplateListener.isEmpty) {
+      movingTemplateListener = Some(new EditorMouseListener {
+        override def mouseClicked(event: EditorMouseEvent): Unit = {
+          if (templateState.isFinished) {
+            editor.removeEditorMouseListener(movingTemplateListener.get)
+            return
+          }
+          if (!event.getMouseEvent.isAltDown) { // only move on mod+click, to allow copy-paste flows
+            return
+          }
+          val offset = event.getOffset
+          val expressionContext = templateState.getExpressionContextForSegment(0)
+          if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
+            return // ignore clicks within the template
+          }
+          event.consume()
 
-        writeCommandAction(editor.getProject).withName(s"move $actionName").compute(() => {
-          InsertionLiveTemplate.deleteTemplate(templateState)
-        })
-      }
+          writeCommandAction(editor.getProject).withName(s"move $actionName").compute(() => {
+            InsertionLiveTemplate.deleteTemplate(templateState)
+          })
+        }
+      })
+      editor.addEditorMouseListener(movingTemplateListener.get)
     }
-    editor.addEditorMouseListener(movingTemplateListener)
-    // since the Template and TemplateState may change as it moves, it is not returned since it's not stable
   }
 
   // Adds a template state listener, installed into the current template (if active) and into
