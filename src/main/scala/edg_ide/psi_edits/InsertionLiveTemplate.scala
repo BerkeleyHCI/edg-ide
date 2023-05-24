@@ -8,11 +8,11 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
-import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.intellij.util.ui.UIUtil
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
 
@@ -121,7 +121,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](after: PsiElement, newSubtr
                             variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType]]) {
   private val kHelpTooltip = "[Enter] next; [Esc] end"
 
-  private class TemplateListener(project: Project, editor: Editor,
+  private class TemplateListener(editor: Editor,
                                  tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
 
@@ -185,7 +185,7 @@ class InsertionLiveTemplate[TreeType <: PyStatement](after: PsiElement, newSubtr
     def templateEnded(template: Template): Unit = {
       currentTooltip.closeOk(null)
       highlighters.foreach { highlighter =>
-        HighlightManager.getInstance(project).removeSegmentHighlighter(editor, highlighter)
+        HighlightManager.getInstance(editor.getProject).removeSegmentHighlighter(editor, highlighter)
       }
     }
   }
@@ -243,14 +243,14 @@ class InsertionLiveTemplate[TreeType <: PyStatement](after: PsiElement, newSubtr
     // must be called before building the template
     PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
 
-    // TODO this is broken!
+    // if the editor just started, it isn't marked as showing and the tooltip creation crashes
+    // TODO the positioning is still off, but at least it doesn't crash
+    UIUtil.markAsShowing(editor.getContentComponent, true)
     val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
 
     // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
     val template = builder.buildInlineTemplate()
-    val templateListener = new TemplateListener(
-      project, editor,
-      tooltip, highlighters.asScala)
+    val templateListener = new TemplateListener(editor, tooltip, highlighters.asScala)
     val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
     // note, waitingForInput won't get called since the listener seems to be attached afterwards
     templateState.addTemplateStateListener(templateListener)
