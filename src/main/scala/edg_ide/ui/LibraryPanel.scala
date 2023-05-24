@@ -101,27 +101,19 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   }
 
   // TODO avoid eagerly evaluating all possibilities, if the first ones succeed
-  val insertLocations = Seq(  // all potential insert locations sorted by desirability
-    caretPsiElement.toOption.map(Seq(_)),
-    exceptable {
-      InsertAction.findInsertionElements(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
-    }.toOption
-  ).flatten.flatten
+//  val insertLocations = Seq(  // all potential insert locations sorted by desirability
+//    caretPsiElement.toOption.map(Seq(_)),
+//    exceptable {
+//      InsertAction.findInsertionElements(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
+//    }.toOption
+//  ).flatten.flatten
 
-  val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
-    exceptable {
-      val insertBlockFlow = InsertBlockAction.createInsertBlockFlow(insertPsiElement, blockPyClass.exceptError,
-        s"Insert $blockTypeName", project, insertContinuation)
-      (insertPsiElement, insertBlockFlow.exceptError)
-    }.toOption
-  }.headOption, "no valid locations")
+  val insertAction: Errorable[() => Unit] = exceptable {
+    InsertBlockAction.createInsertBlockFlow(contextPyClass.exceptError, blockPyClass.exceptError,
+      s"Insert $blockTypeName", project, insertContinuation).exceptError
+  }
 
-  private val insertFileLine = exceptable {
-    PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
-  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-
-  private val insertItem = ContextMenuUtils.MenuItemFromErrorable(
-    insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+  private val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
   add(insertItem)
 
   addSeparator()
@@ -482,7 +474,7 @@ class LibraryPanel(project: Project) extends JPanel {
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryBlockPopupMenu(selected.path, project).insertAction.exceptError._2) ()
+              (new LibraryBlockPopupMenu(selected.path, project).insertAction.exceptError) ()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu

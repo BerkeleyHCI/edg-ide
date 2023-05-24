@@ -18,11 +18,11 @@ abstract class MovableLiveTemplate(actionName: String) {
   // given the PSI element at the current caret,
   // inserts the new element for this template and returns the inserted element
   // implement me
-  def startTemplate(caretElt: PsiElement): TemplateState
+  def startTemplate(caretEltOpt: Option[PsiElement]): TemplateState
 
   // starts the movable live template, given the PSI element at the current caret
-  def run(caretElt: PsiElement): Unit = {
-    val templateState = startTemplate(caretElt)
+  def run(caretEltOpt: Option[PsiElement]): Unit = {
+    val templateState = startTemplate(caretEltOpt)
     val editor = templateState.getEditor
     currentTemplateState = Some(templateState)
 

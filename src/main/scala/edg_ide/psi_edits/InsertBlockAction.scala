@@ -10,7 +10,7 @@ import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi._
 import edg.util.Errorable
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
 
@@ -23,10 +23,10 @@ object InsertBlockAction {
   /** Creates an action to insert a block of type libClass after some PSI element after.
     * Validation is performed before the action is generated, though the action itself may also return an error.
     */
-  def createInsertBlockFlow(after: PsiElement, libClass: PyClass, actionName: String,
+  def createInsertBlockFlow(contextClass: PyClass, libClass: PyClass, actionName: String,
                             project: Project,
                             continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
-    val fileEditor = FileEditorManager.getInstance(project).getSelectedEditor(after.getContainingFile.getVirtualFile)
+    val fileEditor = FileEditorManager.getInstance(project).getSelectedEditor(contextClass.getContainingFile.getVirtualFile)
     val editor = fileEditor match {
       case editor: TextEditor => editor.getEditor
       case _ => throw new IllegalArgumentException()
@@ -36,16 +36,16 @@ object InsertBlockAction {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
     // given some caret position, returns the best insertion position
-    def getInsertionContainerAfter(caretElt: PsiElement): (PsiElement, PsiElement) = {
+    def getInsertionContainerAfter(caretEltOpt: Option[PsiElement]): (PsiElement, PsiElement) = {
       val caretAfter = exceptable {
+        val caretElt = caretEltOpt.exceptNone("caret not in class")
         val containingPsiList = caretElt.getParent
             .instanceOfExcept[PyStatementList](s"caret not in a statement-list")
         val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
             .exceptNull(s"caret not in a function")
         val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
             .exceptNull(s"caret not in a class")
-        // TODO validate insert-into, though it's not libClass, need arg for insertIntoClass
-//        requireExcept(containingPsiClass == libClass, s"caret not in class of type ${libClass.getName}")
+        requireExcept(containingPsiClass == contextClass, s"caret not in class of type ${libClass.getName}")
         caretElt
       }.toOption.orElse {
         val candidates = InsertAction.findInsertionElements(libClass, InsertBlockAction.VALID_FUNCTION_NAMES)
@@ -55,8 +55,8 @@ object InsertBlockAction {
     }
 
     val movableLiveTemplate = new MovableLiveTemplate(actionName) {
-      override def startTemplate(caretElt: PsiElement): TemplateState = {
-        val (insertContainer, insertAfter) = getInsertionContainerAfter(caretElt)
+      override def startTemplate(caretEltOpt: Option[PsiElement]): TemplateState = {
+        val (insertContainer, insertAfter) = getInsertionContainerAfter(caretEltOpt)
         val containingPsiFunction = PsiTreeUtil.getParentOfType(insertContainer, classOf[PyFunction])
         val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
         val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
@@ -106,7 +106,7 @@ object InsertBlockAction {
           newVariable
         }
 
-        new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, newAssign,
+        new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, insertAfter, newAssign,
           IndexedSeq(nameVar) ++ templateVars
         ).run()
       }
@@ -149,8 +149,9 @@ object InsertBlockAction {
       }
     })
 
+    val caretElt = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
     def insertBlockFlow: Unit = {
-      movableLiveTemplate.run(after)
+      movableLiveTemplate.run(caretElt)
     }
     () => insertBlockFlow
   }
