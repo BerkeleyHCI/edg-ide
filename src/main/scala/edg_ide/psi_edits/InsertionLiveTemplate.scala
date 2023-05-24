@@ -7,7 +7,7 @@ import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.markup.RangeHighlighter
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
@@ -117,20 +117,13 @@ object InsertionLiveTemplate {
   *                  and function from the inserted subtree to the PSI element to be highlighted
   *                  and boolean of whether it is a reference
   */
-class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: Editor, after: PsiElement,
-                            newSubtree: TreeType,
+class InsertionLiveTemplate[TreeType <: PyStatement](after: PsiElement, newSubtree: TreeType,
                             variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType]]) {
   private val kHelpTooltip = "[Enter] next; [Esc] end"
 
   private class TemplateListener(project: Project, editor: Editor,
                                  tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
-    private var finishedTemplateState: Option[TemplateState] = None
-
-    override def beforeTemplateFinished(state: TemplateState, template: Template): Unit = {
-      super.beforeTemplateFinished(state, template)
-      finishedTemplateState = Some(state)  // save the state for when we have brokenOff
-    }
 
     override def templateFinished(template: Template, brokenOff: Boolean): Unit = {
       // this is called when:
@@ -179,11 +172,6 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       }
     }
 
-    override def waitingForInput(template: Template): Unit = {
-      // called when the template starts
-      super.waitingForInput(template)
-    }
-
     override def templateCancelled(template: Template): Unit = {
       // this is called only when making an edit outside the current templated item
       //   including backspacing past the beginning of the item, or editing a different templated item
@@ -218,8 +206,15 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
   // starts this template and returns the TemplateState
   // must run in a write command action
   def run(): TemplateState = {
+    val project = after.getProject
     val container = after.getParent
     val newStmt = container.addAfter(newSubtree, after).asInstanceOf[TreeType]
+
+    // opens / sets the focus onto the relevant text editor, so the user can start typing
+    val fileDescriptor = new OpenFileDescriptor(project, container.getContainingFile.getVirtualFile,
+      newStmt.getTextRange.getStartOffset)
+    val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
+    editor.getCaretModel.moveToOffset(newStmt.getTextOffset) // needed so the template is placed at the right location
 
     // these must be constructed before template creation, other template creation messes up the locations
     val highlighters = new java.util.ArrayList[RangeHighlighter]()
@@ -227,12 +222,6 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     HighlightManager.getInstance(project).addOccurrenceHighlight(editor,
       newStmt.getTextRange.getStartOffset, newStmt.getTextRange.getEndOffset,
       EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT, 0, highlighters)
-
-    new OpenFileDescriptor(project, container.getContainingFile.getVirtualFile, newStmt.getTextRange.getStartOffset)
-        .navigate(true) // sets focus on the text editor so the user can type into the template
-    editor.getCaretModel.moveToOffset(newStmt.getTextOffset) // needed so the template is placed at the right location
-
-    val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
 
     val builder = new TemplateBuilderImpl(newStmt)
     variables.foreach { variable =>
@@ -254,12 +243,16 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     // must be called before building the template
     PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
 
+    // TODO this is broken!
+    val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
+
     // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
     val template = builder.buildInlineTemplate()
     val templateListener = new TemplateListener(
       project, editor,
       tooltip, highlighters.asScala)
     val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
+    // note, waitingForInput won't get called since the listener seems to be attached afterwards
     templateState.addTemplateStateListener(templateListener)
     templateState
   }

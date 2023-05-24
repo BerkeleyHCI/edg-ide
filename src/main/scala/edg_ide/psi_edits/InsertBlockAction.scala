@@ -26,12 +26,6 @@ object InsertBlockAction {
   def createInsertBlockFlow(contextClass: PyClass, libClass: PyClass, actionName: String,
                             project: Project,
                             continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
-    val fileEditor = FileEditorManager.getInstance(project).getSelectedEditor(contextClass.getContainingFile.getVirtualFile)
-    val editor = fileEditor match {
-      case editor: TextEditor => editor.getEditor
-      case _ => throw new IllegalArgumentException()
-    }
-
     val languageLevel = LanguageLevel.forElement(libClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
@@ -102,7 +96,7 @@ object InsertBlockAction {
           newVariable
         }
 
-        new InsertionLiveTemplate[PyAssignmentStatement](project, editor, insertAfter, newAssign,
+        new InsertionLiveTemplate[PyAssignmentStatement](insertAfter, newAssign,
           IndexedSeq(nameVar) ++ templateVars
         ).run()
       }
