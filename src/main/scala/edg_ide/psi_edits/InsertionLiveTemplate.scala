@@ -81,7 +81,6 @@ object InsertionLiveTemplate {
 
   // deletes the template text, ending the template by cancellation.
   def deleteTemplate(templateState: TemplateState): Unit = {
-    println(f"deleteTemplate")
     val templateExpression = templateState.getExpressionContextForSegment(0)
     val templateEndOffset = templateExpression.getTemplateEndOffset
     var templateElem = templateExpression.getPsiElementAtStartOffset
@@ -90,7 +89,8 @@ object InsertionLiveTemplate {
     val deleteElems = mutable.ListBuffer[PsiElement]()
     while (templateElem != null && templateElem.getTextOffset <= templateEndOffset) {
       if (templateElem.getTextRange.getStartOffset < templateExpression.getTemplateStartOffset) {
-        templateElem = templateElem.getNextSibling  // ignore elements before start
+        // getPsiElementAtStartOffset may return a non-contained element if the template is empty
+        templateElem = templateElem.getNextSibling
       } else if (templateElem.getTextRange.getEndOffset <= templateExpression.getTemplateEndOffset) {
         deleteElems.append(templateElem)
         templateElem = templateElem.getNextSibling

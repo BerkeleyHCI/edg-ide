@@ -36,28 +36,24 @@ object InsertBlockAction {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
     // given some caret position, returns the best insertion position
-    def getInsertionContainerAfter(caretEltOpt: Option[PsiElement]): (PsiElement, PsiElement) = {
-      val caretAfter = exceptable {
-        val caretElt = caretEltOpt.exceptNone("caret not in class")
-        val containingPsiList = caretElt.getParent
-            .instanceOfExcept[PyStatementList](s"caret not in a statement-list")
-        val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
-            .exceptNull(s"caret not in a function")
-        val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
+    def getInsertionAfter(caretEltOpt: Option[PsiElement]): PsiElement = {
+      exceptable {
+        val caretElt = caretEltOpt.exceptNone("no elt at caret")
+        val caretStatement = InsertAction.snapEltOfType[PyStatement](caretElt).get
+        val containingPsiClass = PsiTreeUtil.getParentOfType(caretStatement, classOf[PyClass])
             .exceptNull(s"caret not in a class")
         requireExcept(containingPsiClass == contextClass, s"caret not in class of type ${libClass.getName}")
-        caretElt
+        caretStatement
       }.toOption.orElse({
         val candidates = InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES)
         candidates.headOption
-      }).get
-      (PsiTreeUtil.getParentOfType(caretAfter, classOf[PyStatementList]), caretAfter)
+      }).get  // TODO insert contents() if needed
     }
 
     val movableLiveTemplate = new MovableLiveTemplate(project, actionName) {
       override def startTemplate(caretEltOpt: Option[PsiElement]): TemplateState = {
-        val (insertContainer, insertAfter) = getInsertionContainerAfter(caretEltOpt)
-        val containingPsiFunction = PsiTreeUtil.getParentOfType(insertContainer, classOf[PyFunction])
+        val insertAfter = getInsertionAfter(caretEltOpt)
+        val containingPsiFunction = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
         val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
         val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
             .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
@@ -114,8 +110,6 @@ object InsertBlockAction {
 
     movableLiveTemplate.addTemplateStateListener(new TemplateFinishedListener {
       override def templateFinished(state: TemplateState, brokenOff: Boolean): Unit = {
-        super.templateFinished(state, brokenOff)
-
         val insertedName = state.getVariableValue("name").getText
         if (insertedName.isEmpty && brokenOff) { // canceled by esc
           writeCommandAction(project).withName(s"cancel $actionName").compute(() => {

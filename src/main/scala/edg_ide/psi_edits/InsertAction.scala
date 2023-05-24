@@ -5,7 +5,7 @@ import com.intellij.openapi.editor.CaretState
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.psi.{PsiElement, PsiFile}
+import com.intellij.psi.{PsiElement, PsiFile, PsiWhiteSpace}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatementList}
 import edg.util.Errorable
@@ -52,6 +52,17 @@ object InsertAction {
       }
     }
     prevElementOf(element)
+  }
+
+  // Given a PSI element, returns the parent (or self) of type T.
+  // Snaps to the prior element if in whitespace or in-between elements.
+  def snapEltOfType[PsiType <: PsiElement](elt: PsiElement)(implicit tag: ClassTag[PsiType]): Errorable[PsiType] = {
+    elt match {
+      case elt: PsiWhiteSpace => snapEltOfType[PsiType](elt.getPrevSibling)
+      case elt: PsiType => Errorable.Success(elt)
+      case null => Errorable.Error(s"element not in a ${tag.getClass.getName}")
+      case elt => snapEltOfType[PsiType](elt.getParent)
+    }
   }
 
   /** Returns the PSI element immediately before the cursor of a given file.

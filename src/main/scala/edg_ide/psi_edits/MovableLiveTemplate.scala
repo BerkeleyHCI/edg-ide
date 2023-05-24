@@ -38,11 +38,11 @@ abstract class MovableLiveTemplate(project: Project, actionName: String) {
       event.consume()
 
       val project = templateState.getProject
+      val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(event.getEditor.getDocument)
+      val caretElement = psiFile.findElementAt(offset) // get the caret element before modifying the AST
       writeCommandAction(project).withName(s"move $actionName").compute(() => {
         InsertionLiveTemplate.deleteTemplate(templateState) // also cancels the currently active template
-        templateState.update()
-        val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(event.getEditor.getDocument)
-        val caretElement = psiFile.findElementAt(offset)
+        templateState.update
         run(Some(caretElement))
       })
     }
