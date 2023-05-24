@@ -25,6 +25,9 @@ abstract class MovableLiveTemplate(actionName: String) {
     val templateState = startTemplate(caretEltOpt)
     val editor = templateState.getEditor
     currentTemplateState = Some(templateState)
+    templateStateListeners.foreach { listener =>
+      templateState.addTemplateStateListener(listener)
+    }
 
     if (movingTemplateListener.isEmpty) {
       movingTemplateListener = Some(new EditorMouseListener {

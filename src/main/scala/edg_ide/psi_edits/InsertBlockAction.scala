@@ -47,10 +47,10 @@ object InsertBlockAction {
             .exceptNull(s"caret not in a class")
         requireExcept(containingPsiClass == contextClass, s"caret not in class of type ${libClass.getName}")
         caretElt
-      }.toOption.orElse {
-        val candidates = InsertAction.findInsertionElements(libClass, InsertBlockAction.VALID_FUNCTION_NAMES)
+      }.toOption.orElse({
+        val candidates = InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES)
         candidates.headOption
-      }.get
+      }).get
       (PsiTreeUtil.getParentOfType(caretAfter, classOf[PyStatementList]), caretAfter)
     }
 
@@ -117,7 +117,6 @@ object InsertBlockAction {
         super.templateFinished(state, brokenOff)
 
         val insertedName = state.getVariableValue("name").getText
-
         if (insertedName.isEmpty && brokenOff) { // canceled by esc
           writeCommandAction(project).withName(s"cancel $actionName").compute(() => {
             InsertionLiveTemplate.deleteTemplate(state)
