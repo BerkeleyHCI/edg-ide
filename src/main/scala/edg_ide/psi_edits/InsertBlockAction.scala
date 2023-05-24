@@ -13,8 +13,6 @@ import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
-import java.awt.event.MouseEvent
-
 
 object InsertBlockAction {
   // sorted by preference
@@ -57,6 +55,12 @@ object InsertBlockAction {
       val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
       val allParams = initParams._1 ++ initParams._2
 
+      val nameVar = new InsertionLiveTemplate.Reference[PyAssignmentStatement](
+        "name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
+        InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
+        defaultValue = Some("")
+      )
+
       val templateVars = allParams.map { initParam =>
         val newArgIndex = newArgList.getArguments.length
         val defaultValue = initParam.getDefaultValue
@@ -85,18 +89,16 @@ object InsertBlockAction {
       }
 
       val templateState = new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, after, newAssign,
-        IndexedSeq(
-          new InsertionLiveTemplate.Reference[PyAssignmentStatement](
-            "name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
-            InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
-            defaultValue = Some(""))
-        ) ++ templateVars
-      ) {
-        override def onTemplateCompleted(state: TemplateState, brokenOff: Boolean): Unit = {
-          super.onTemplateCompleted(state, brokenOff)
+        IndexedSeq(nameVar) ++ templateVars
+      ).run()
+
+      val templateFinishedCleanup = new TemplateFinishedListener {
+        override def templateFinished(state: TemplateState, brokenOff: Boolean): Unit = {
+          super.templateFinished(state, brokenOff)
+
           val insertedName = state.getVariableValue("name").getText
 
-          if (insertedName.isEmpty && brokenOff) {  // canceled by esc
+          if (insertedName.isEmpty && brokenOff) { // canceled by esc
             writeCommandAction(project).withName(s"cancel $actionName").compute(() => {
               InsertionLiveTemplate.deleteTemplate(state)
             })
@@ -120,36 +122,14 @@ object InsertBlockAction {
               writeCommandAction(project).withName(s"clean $actionName").compute(() => {
                 deleteArgs.foreach(_.delete())
               })
+            } finally {
+              continuation(insertedName, templateElem)
             }
-
-            continuation(insertedName, templateElem)
           }
-        }
-      }.run()
-
-      var movingTemplateListener: EditorMouseListener = null
-      movingTemplateListener = new EditorMouseListener {
-        override def mouseClicked(event: EditorMouseEvent): Unit = {
-          if (templateState.isFinished) {
-            editor.removeEditorMouseListener(movingTemplateListener)
-            return
-          }
-          if (!event.getMouseEvent.isAltDown) {  // only move on mod+click, to allow copy-paste flows
-            return
-          }
-          val offset = event.getOffset
-          val expressionContext = templateState.getExpressionContextForSegment(0)
-          if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
-            return  // ignore clicks within the template
-          }
-          event.consume()
-
-          writeCommandAction(project).withName(s"clean $actionName").compute(() => {
-            InsertionLiveTemplate.deleteTemplate(templateState)
-          })
         }
       }
-      editor.addEditorMouseListener(movingTemplateListener)
+      templateState.addTemplateStateListener(templateFinishedCleanup)
+
     }
     () => insertBlockFlow
   }

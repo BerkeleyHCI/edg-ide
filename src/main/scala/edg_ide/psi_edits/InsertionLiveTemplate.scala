@@ -121,11 +121,6 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
                             variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType]]) {
   private val kHelpTooltip = "[Enter] next; [Esc] end"
 
-  // hooks to be overridden in subclasses
-  // this is called when the template finishes (either cycling past last variable, or esc-ing out, but not
-  // making edits outside), state reflects the post-completion state
-  protected def onTemplateCompleted(state: TemplateState, brokenOff: Boolean): Unit = { }
-
   private class TemplateListener(project: Project, editor: Editor,
                                  tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
@@ -143,7 +138,6 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
       // this does NOT get called when making an edit outside the template (instead, templateCancelled is called)
       super.templateFinished(template, brokenOff)
       templateEnded(template)
-      onTemplateCompleted(finishedTemplateState.get, brokenOff)
     }
 
     private var lastChangeWasRevert = false
@@ -225,7 +219,6 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
     writeCommandAction(project).withName(actionName).compute(() => {
       val containingList = after.getParent.asInstanceOf[PyStatementList]
       val newStmt = containingList.addAfter(newSubtree, after).asInstanceOf[TreeType]
-      val newStmtIndex = containingList.getStatements.indexOf(newStmt)
 
       // these must be constructed before template creation, other template creation messes up the locations
       val highlighters = new java.util.ArrayList[RangeHighlighter]()
