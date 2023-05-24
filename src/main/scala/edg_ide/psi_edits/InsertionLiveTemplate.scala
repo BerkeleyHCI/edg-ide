@@ -4,7 +4,6 @@ import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
 import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
 import com.intellij.lang.LanguageNamesValidation
-import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.markup.RangeHighlighter
@@ -13,7 +12,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.openapi.util.TextRange
-import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiFile, PsiWhiteSpace}
+import com.intellij.psi.{PsiDocumentManager, PsiElement}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
 
@@ -82,6 +81,7 @@ object InsertionLiveTemplate {
 
   // deletes the template text, ending the template by cancellation.
   def deleteTemplate(templateState: TemplateState): Unit = {
+    println(f"deleteTemplate")
     val templateExpression = templateState.getExpressionContextForSegment(0)
     val templateEndOffset = templateExpression.getTemplateEndOffset
     var templateElem = templateExpression.getPsiElementAtStartOffset
@@ -89,7 +89,9 @@ object InsertionLiveTemplate {
     // separate the traversal from deletion, so the end offsets are stable as we build the deletion list
     val deleteElems = mutable.ListBuffer[PsiElement]()
     while (templateElem != null && templateElem.getTextOffset <= templateEndOffset) {
-      if (templateElem.getTextRange.getEndOffset <= templateExpression.getTemplateEndOffset) {
+      if (templateElem.getTextRange.getStartOffset < templateExpression.getTemplateStartOffset) {
+        templateElem = templateElem.getNextSibling  // ignore elements before start
+      } else if (templateElem.getTextRange.getEndOffset <= templateExpression.getTemplateEndOffset) {
         deleteElems.append(templateElem)
         templateElem = templateElem.getNextSibling
       } else {  // otherwise recurse into element to get a partial range
@@ -109,15 +111,14 @@ object InsertionLiveTemplate {
 
 /** Utilities for insertion live templates.
   *
-  * @param actionName name of the insertion action, for undo
   * @param after insertion location, after this element
   * @param newSubtree new subtree to be inserted
   * @param variables list of variables for the live template, each specified as a name
   *                  and function from the inserted subtree to the PSI element to be highlighted
   *                  and boolean of whether it is a reference
   */
-class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: Editor, actionName: String,
-                            after: PsiElement, newSubtree: TreeType,
+class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: Editor, after: PsiElement,
+                            newSubtree: TreeType,
                             variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType]]) {
   private val kHelpTooltip = "[Enter] next; [Esc] end"
 
@@ -215,53 +216,51 @@ class InsertionLiveTemplate[TreeType <: PyStatement](project: Project, editor: E
   }
 
   // starts this template and returns the TemplateState
+  // must run in a write command action
   def run(): TemplateState = {
-    writeCommandAction(project).withName(actionName).compute(() => {
-      val containingList = after.getParent.asInstanceOf[PyStatementList]
-      val newStmt = containingList.addAfter(newSubtree, after).asInstanceOf[TreeType]
+    val container = after.getParent
+    val newStmt = container.addAfter(newSubtree, after).asInstanceOf[TreeType]
 
-      // these must be constructed before template creation, other template creation messes up the locations
-      val highlighters = new java.util.ArrayList[RangeHighlighter]()
-      // flags = 0 means ignore esc, otherwise it eats the esc keypress
-      HighlightManager.getInstance(project).addOccurrenceHighlight(editor,
-        newStmt.getTextRange.getStartOffset, newStmt.getTextRange.getEndOffset,
-        EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT, 0, highlighters)
+    // these must be constructed before template creation, other template creation messes up the locations
+    val highlighters = new java.util.ArrayList[RangeHighlighter]()
+    // flags = 0 means ignore esc, otherwise it eats the esc keypress
+    HighlightManager.getInstance(project).addOccurrenceHighlight(editor,
+      newStmt.getTextRange.getStartOffset, newStmt.getTextRange.getEndOffset,
+      EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT, 0, highlighters)
 
-      new OpenFileDescriptor(project, containingList.getContainingFile.getVirtualFile, newStmt.getTextRange.getStartOffset)
-          .navigate(true) // sets focus on the text editor so the user can type into the template
-      editor.getCaretModel.moveToOffset(newStmt.getTextOffset) // needed so the template is placed at the right location
+    new OpenFileDescriptor(project, container.getContainingFile.getVirtualFile, newStmt.getTextRange.getStartOffset)
+        .navigate(true) // sets focus on the text editor so the user can type into the template
+    editor.getCaretModel.moveToOffset(newStmt.getTextOffset) // needed so the template is placed at the right location
 
-      val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
+    val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
 
-      val builder = new TemplateBuilderImpl(newStmt)
-      val variablePsis = variables.map { variable =>
-        val variablePsi = variable.extract(newStmt)
-        if (!variable.isReference) {
-          builder.replaceElement(variablePsi, variable.name,
-            new ConstantNode(variable.getDefaultValue(variablePsi)), true)
-        } else {
-          builder.replaceElement(variablePsi.getReference, variable.name,
-            new ConstantNode(variable.getDefaultValue(variablePsi)), true)
-        }
-        variablePsi
+    val builder = new TemplateBuilderImpl(newStmt)
+    variables.foreach { variable =>
+      val variablePsi = variable.extract(newStmt)
+      if (!variable.isReference) {
+        builder.replaceElement(variablePsi, variable.name,
+          new ConstantNode(variable.getDefaultValue(variablePsi)), true)
+      } else {
+        builder.replaceElement(variablePsi.getReference, variable.name,
+          new ConstantNode(variable.getDefaultValue(variablePsi)), true)
       }
-      // this guard variable allows validation on the last element by preventing the template from ending
-      val endRelativeOffset = newStmt.getTextRange.getEndOffset - newStmt.getTextRange.getStartOffset
-      builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset),
-        "")
-      builder.setEndVariableAfter(newStmt.getLastChild)
+    }
+    // this guard variable allows validation on the last element by preventing the template from ending
+    val endRelativeOffset = newStmt.getTextRange.getEndOffset - newStmt.getTextRange.getStartOffset
+    builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset),
+      "")
+    builder.setEndVariableAfter(newStmt.getLastChild)
 
-      // must be called before building the template
-      PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
+    // must be called before building the template
+    PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
 
-      // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
-      val template = builder.buildInlineTemplate()
-      val templateListener = new TemplateListener(
-        project, editor,
-        tooltip, highlighters.asScala)
-      val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
-      templateState.addTemplateStateListener(templateListener)
-      templateState
-    })
+    // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
+    val template = builder.buildInlineTemplate()
+    val templateListener = new TemplateListener(
+      project, editor,
+      tooltip, highlighters.asScala)
+    val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
+    templateState.addTemplateStateListener(templateListener)
+    templateState
   }
 }

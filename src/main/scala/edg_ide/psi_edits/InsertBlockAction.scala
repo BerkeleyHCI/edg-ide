@@ -54,7 +54,7 @@ object InsertBlockAction {
       (PsiTreeUtil.getParentOfType(caretAfter, classOf[PyStatementList]), caretAfter)
     }
 
-    val movableLiveTemplate = new MovableLiveTemplate(actionName) {
+    val movableLiveTemplate = new MovableLiveTemplate(project, actionName) {
       override def startTemplate(caretEltOpt: Option[PsiElement]): TemplateState = {
         val (insertContainer, insertAfter) = getInsertionContainerAfter(caretEltOpt)
         val containingPsiFunction = PsiTreeUtil.getParentOfType(insertContainer, classOf[PyFunction])
@@ -106,7 +106,7 @@ object InsertBlockAction {
           newVariable
         }
 
-        new InsertionLiveTemplate[PyAssignmentStatement](project, editor, actionName, insertAfter, newAssign,
+        new InsertionLiveTemplate[PyAssignmentStatement](project, editor, insertAfter, newAssign,
           IndexedSeq(nameVar) ++ templateVars
         ).run()
       }
@@ -150,7 +150,9 @@ object InsertBlockAction {
 
     val caretElt = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
     def insertBlockFlow: Unit = {
-      movableLiveTemplate.run(caretElt)
+      writeCommandAction(project).withName(s"$actionName").compute(() => {
+        movableLiveTemplate.run(caretElt)
+      })
     }
     () => insertBlockFlow
   }

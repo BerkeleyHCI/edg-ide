@@ -4,13 +4,14 @@ import com.intellij.codeInsight.template.TemplateEditingAdapter
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
-import com.intellij.psi.PsiElement
+import com.intellij.openapi.project.Project
+import com.intellij.psi.{PsiDocumentManager, PsiElement}
 
 import scala.collection.mutable
 
 
 /** Wrapper around a Template that allows the template to move by user clicks  */
-abstract class MovableLiveTemplate(actionName: String) {
+abstract class MovableLiveTemplate(project: Project, actionName: String) {
   protected var currentTemplateState: Option[TemplateState] = None
   protected var movingTemplateListener: Option[EditorMouseListener] = None
   protected val templateStateListeners = mutable.ListBuffer[TemplateEditingAdapter]()
@@ -20,39 +21,44 @@ abstract class MovableLiveTemplate(actionName: String) {
   // implement me
   def startTemplate(caretEltOpt: Option[PsiElement]): TemplateState
 
+  class MovingMouseListener(templateState: TemplateState) extends EditorMouseListener {
+    override def mouseClicked(event: EditorMouseEvent): Unit = {
+      if (!event.getMouseEvent.isAltDown) { // only move on mod+click, to allow copy-paste flows
+        return
+      }
+      if (templateState.isFinished) {
+        event.getEditor.removeEditorMouseListener(this)
+        return
+      }
+      val offset = event.getOffset
+      val expressionContext = templateState.getExpressionContextForSegment(0)
+      if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
+        return // ignore clicks within the template
+      }
+      event.consume()
+
+      val project = templateState.getProject
+      writeCommandAction(project).withName(s"move $actionName").compute(() => {
+        InsertionLiveTemplate.deleteTemplate(templateState) // also cancels the currently active template
+        templateState.update()
+        val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(event.getEditor.getDocument)
+        val caretElement = psiFile.findElementAt(offset)
+        run(Some(caretElement))
+      })
+    }
+  }
+
   // starts the movable live template, given the PSI element at the current caret
+  // must be called within a writeCommandAction
   def run(caretEltOpt: Option[PsiElement]): Unit = {
     val templateState = startTemplate(caretEltOpt)
-    val editor = templateState.getEditor
     currentTemplateState = Some(templateState)
-    templateStateListeners.foreach { listener =>
-      templateState.addTemplateStateListener(listener)
-    }
+    templateStateListeners.foreach(templateState.addTemplateStateListener(_))
 
-    if (movingTemplateListener.isEmpty) {
-      movingTemplateListener = Some(new EditorMouseListener {
-        override def mouseClicked(event: EditorMouseEvent): Unit = {
-          if (templateState.isFinished) {
-            editor.removeEditorMouseListener(movingTemplateListener.get)
-            return
-          }
-          if (!event.getMouseEvent.isAltDown) { // only move on mod+click, to allow copy-paste flows
-            return
-          }
-          val offset = event.getOffset
-          val expressionContext = templateState.getExpressionContextForSegment(0)
-          if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
-            return // ignore clicks within the template
-          }
-          event.consume()
-
-          writeCommandAction(editor.getProject).withName(s"move $actionName").compute(() => {
-            InsertionLiveTemplate.deleteTemplate(templateState)
-          })
-        }
-      })
-      editor.addEditorMouseListener(movingTemplateListener.get)
-    }
+    val editor = templateState.getEditor
+    movingTemplateListener.foreach(editor.removeEditorMouseListener)
+    movingTemplateListener = Some(new MovingMouseListener(templateState))
+    editor.addEditorMouseListener(movingTemplateListener.get)
   }
 
   // Adds a template state listener, installed into the current template (if active) and into
