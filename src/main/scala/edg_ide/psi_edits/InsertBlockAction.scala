@@ -11,7 +11,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi._
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable}
+import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
 
 object InsertBlockAction {
@@ -32,16 +32,35 @@ object InsertBlockAction {
       case _ => throw new IllegalArgumentException()
     }
 
-    val containingPsiList = after.getParent
-        .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
-    val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
-        .exceptNull(s"not in a function in ${containingPsiList.getContainingFile.getName}")
-    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
-        .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
+    // given some caret position, returns the best insertion position
+    def getInsertionContainerAfter(caretElt: PsiElement): (PsiElement, PsiElement) = {
+      val caretAfter = exceptable {
+        val containingPsiList = caretElt.getParent
+            .instanceOfExcept[PyStatementList](s"caret not in a statement-list")
+        val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
+            .exceptNull(s"caret not in a function")
+        val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
+            .exceptNull(s"caret not in a class")
+        requireExcept(containingPsiClass == libClass, s"caret not in class of type ${libClass.getName}")
+        caretElt
+      }.toOption.orElse {
+        val candidates = InsertAction.findInsertionElements(libClass, InsertBlockAction.VALID_FUNCTION_NAMES)
+        candidates.headOption
+      }.get
+      (PsiTreeUtil.getParentOfType(caretAfter, classOf[PyStatementList]), caretAfter)
+    }
+
+    val languageLevel = LanguageLevel.forElement(after)
+    val psiElementGenerator = PyElementGenerator.getInstance(project)
+
+    val moving = new MovableLiveTemplate(editor) {
+      override def startTemplate(caretElt: PsiElement): TemplateState = {
+        val (insertContainer, insertAfter) = getInsertionContainerAfter(caretElt)
+
+      }
+    }
 
     def insertBlockFlow: Unit = {
-      val languageLevel = LanguageLevel.forElement(after)
-      val psiElementGenerator = PyElementGenerator.getInstance(project)
       val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
           .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
           .head.getName

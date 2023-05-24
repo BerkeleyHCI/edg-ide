@@ -3,7 +3,6 @@ package edg_ide.psi_edits
 import com.intellij.codeInsight.template.TemplateEditingAdapter
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
 import com.intellij.psi.PsiElement
 
@@ -11,7 +10,7 @@ import scala.collection.mutable
 
 
 /** Wrapper around a Template that allows the template to move by user clicks  */
-abstract class MovableLiveTemplate(editor: Editor, actionName: String) {
+abstract class MovableLiveTemplate(actionName: String) {
   protected var currentTemplateState: Option[TemplateState] = None
   protected val templateStateListeners = mutable.ListBuffer[TemplateEditingAdapter]()
 
@@ -23,6 +22,7 @@ abstract class MovableLiveTemplate(editor: Editor, actionName: String) {
   // starts the movable live template, given the PSI element at the current caret
   def run(caretElt: PsiElement): Unit = {
     val templateState = startTemplate(caretElt)
+    val editor = templateState.getEditor
     currentTemplateState = Some(templateState)
 
     var movingTemplateListener: EditorMouseListener = null
