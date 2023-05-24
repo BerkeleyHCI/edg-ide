@@ -10,6 +10,8 @@ import com.intellij.codeInsight.template.impl.TemplateState
 class TemplateFinishedListener() extends TemplateEditingAdapter {
   private var finishedTemplateState: Option[TemplateState] = None
 
+  // Called when the template finishes, whether by completion or esc-ing.
+  // NOT called when the template is cancelled, by the user editing outside the template.
   def templateFinished(state: TemplateState, brokenOff: Boolean): Unit = { }
 
   override final def beforeTemplateFinished(state: TemplateState, template: Template): Unit = {

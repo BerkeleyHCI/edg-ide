@@ -20,11 +20,6 @@ abstract class MovableLiveTemplate(editor: Editor, actionName: String) {
   // implement me
   def startTemplate(caretElt: PsiElement): TemplateState
 
-  // optional hook for when the template completes
-  // not called when the template moves, or when the template is cancelled by the user
-  def onTemplateCompleted(state: TemplateState, brokenOff: Boolean): Unit = {
-  }
-
   // starts the movable live template, given the PSI element at the current caret
   def run(caretElt: PsiElement): Unit = {
     val templateState = startTemplate(caretElt)
