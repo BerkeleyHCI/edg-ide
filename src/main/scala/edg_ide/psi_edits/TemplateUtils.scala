@@ -29,13 +29,12 @@ object TemplateUtils {
       }
     }
 
-    // delete the PSI elements, which also ends the template
     deleteElems.foreach { deleteElem =>
       if (deleteElem.isValid) { // guard in case the element changed from a prior deletion
         deleteElem.delete()
       }
     }
-    templateState.update()
+    templateState.update()  // update to end the template
   }
 }
 

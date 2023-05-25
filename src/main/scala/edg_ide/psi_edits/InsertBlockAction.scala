@@ -20,7 +20,6 @@ object InsertBlockAction {
   val VALID_FUNCTION_NAMES = Seq("contents", "__init__")  // TODO support generators
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
-
   /** Creates an action to insert a block of type libClass after some PSI element after.
     * Validation is performed before the action is generated, though the action itself may also return an error.
     */
@@ -87,7 +86,6 @@ object InsertBlockAction {
   }
 
   /** Creates an action to start a live template to insert a block.
-    * @return
     */
   def createTemplateBlock(contextClass: PyClass, libClass: PyClass, actionName: String,
                           project: Project,
@@ -96,11 +94,13 @@ object InsertBlockAction {
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
     // given some caret position, returns the best insertion position
-    def getInsertionAfter(caretEltOpt: Option[PsiElement]): PsiElement = {
-      exceptable {
+    def getInsertionElt(caretEltOpt: Option[PsiElement]): PsiElement = {
+      exceptable {  // TODO better propagation of error messages
         val caretElt = caretEltOpt.exceptNone("no elt at caret")
-        val caretStatement = InsertAction.snapEltOfType[PyStatement](caretElt).get
-        val containingPsiClass = PsiTreeUtil.getParentOfType(caretStatement, classOf[PyClass])
+        val caretStatement = InsertAction.snapInsertionEltOfType[PyStatement](caretElt).get
+        val containingPsiFn = PsiTreeUtil.getParentOfType(caretStatement, classOf[PyFunction])
+          .exceptNull(s"caret not in a function")
+        val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
             .exceptNull(s"caret not in a class")
         requireExcept(containingPsiClass == contextClass, s"caret not in class of type ${libClass.getName}")
         caretStatement
@@ -112,22 +112,21 @@ object InsertBlockAction {
 
     val movableLiveTemplate = new MovableLiveTemplate(actionName) {
       override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
-        val insertAfter = getInsertionAfter(caretEltOpt)
-        val containingPsiFunction = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
-        val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
-        val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
-            .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
+        val insertAfter = getInsertionElt(caretEltOpt)
+        val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
+        val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
+        val selfName = containingPsiFn.getParameterList.getParameters.toSeq
+            .exceptEmpty(s"function ${containingPsiFn.getName} has no self")
             .head.getName
 
         val newAssignTemplate = psiElementGenerator.createFromText(languageLevel,
           classOf[PyAssignmentStatement], s"$selfName.name = $selfName.Block(${libClass.getName}())")
         val containingStmtList = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyStatementList])
-        val newAssign = containingStmtList.addAfter(newAssignTemplate, insertAfter).asInstanceOf[PyAssignmentStatement]
 
-        val argListExtractor = (x: PyAssignmentStatement) => x.getAssignedValue.asInstanceOf[PyCallExpression]
-            .getArgument(0, classOf[PyCallExpression])
-            .getArgumentList
-        val newArgList = argListExtractor(newAssign)
+        val newAssign = containingStmtList.addAfter(newAssignTemplate, insertAfter).asInstanceOf[PyAssignmentStatement]
+        val newArgList = newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
+          .getArgument(0, classOf[PyCallExpression])
+          .getArgumentList
 
         val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
         val allParams = initParams._1 ++ initParams._2
@@ -165,11 +164,11 @@ object InsertBlockAction {
       override def templateFinished(state: TemplateState, brokenOff: Boolean): Unit = {
         val expr = state.getExpressionContextForSegment(0)
         if (expr.getTemplateEndOffset <= expr.getTemplateStartOffset) {
-          return  // if template was deleted, including through moving the template
+          return  // ignored if template was deleted, including through moving the template
         }
 
         val insertedName = state.getVariableValue("name").getText
-        if (insertedName.isEmpty && brokenOff) { // canceled by esc
+        if (insertedName.isEmpty && brokenOff) { // canceled by esc while name is empty
           writeCommandAction(project).withName(s"cancel $actionName").compute(() => {
             TemplateUtils.deleteTemplate(state)
           })
@@ -179,13 +178,10 @@ object InsertBlockAction {
             templateElem = templateElem.getNextSibling
           }
           try {
-            val templateStmt = templateElem match {
-              case stmt: PyAssignmentStatement => stmt
-              case _ => return // can't reformat
-            }
-            val args = templateStmt.getAssignedValue.asInstanceOf[PyCallExpression] // the self.Block(...) call
-                .getArgument(0, classOf[PyCallExpression]) // the object instantiation
-                .getArgumentList // args to the object instantiation
+            val args = templateElem.asInstanceOf[PyAssignmentStatement]
+              .getAssignedValue.asInstanceOf[PyCallExpression] // the self.Block(...) call
+              .getArgument(0, classOf[PyCallExpression]) // the object instantiation
+              .getArgumentList // args to the object instantiation
             val deleteArgs = args.getArguments.flatMap { // remove empty kwargs
               case arg: PyKeywordArgument => if (arg.getValueExpression == null) Some(arg) else None
               case _ => None // ignored

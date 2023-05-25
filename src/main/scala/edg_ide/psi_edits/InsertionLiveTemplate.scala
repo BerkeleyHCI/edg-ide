@@ -199,8 +199,7 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     }
     // this guard variable allows validation on the last element by preventing the template from ending
     val endRelativeOffset = elt.getTextRange.getEndOffset - elt.getTextRange.getStartOffset
-    builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset),
-      "")
+    builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset), "")
     builder.setEndVariableAfter(elt.getLastChild)
 
     // must be called before building the template

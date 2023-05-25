@@ -54,14 +54,15 @@ object InsertAction {
     prevElementOf(element)
   }
 
-  // Given a PSI element, returns the parent (or self) of type T.
-  // Snaps to the prior element if in whitespace or in-between elements.
-  def snapEltOfType[PsiType <: PsiElement](elt: PsiElement)(implicit tag: ClassTag[PsiType]): Errorable[PsiType] = {
+  // Given a PSI element, returns the insertion point element of type PsiType.
+  // Snaps to previous if in whitespace, otherwise returns a parent of type PsiType
+  def snapInsertionEltOfType[PsiType <: PsiElement](elt: PsiElement)
+                                                   (implicit tag: ClassTag[PsiType]): Errorable[PsiType] = {
     elt match {
-      case elt: PsiWhiteSpace => snapEltOfType[PsiType](elt.getPrevSibling)
+      case elt: PsiWhiteSpace => snapInsertionEltOfType[PsiType](elt.getPrevSibling)
       case elt: PsiType => Errorable.Success(elt)
       case null => Errorable.Error(s"element not in a ${tag.getClass.getName}")
-      case elt => snapEltOfType[PsiType](elt.getParent)
+      case elt => snapInsertionEltOfType[PsiType](elt.getParent)
     }
   }
 
