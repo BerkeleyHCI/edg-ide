@@ -131,7 +131,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(
       insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
 
-    (insertAction, insertItem)
+    (insertAction.map(_._2), insertItem)
   }
 
   add(insertItem)
