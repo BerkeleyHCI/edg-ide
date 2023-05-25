@@ -20,11 +20,11 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
-trait InsertionLiveTemplateVariable[TreeType <: PsiElement] {
+trait InsertionLiveTemplateVariable {
   def name: String
 
-  // extract this variable's segment given the full sub-tree for the segment
-  def extract(tree: TreeType): PsiElement
+  // returns this variable's segment
+  def elt: PsiElement
 
   // whether to take the reference of the extracted variable's element, or use the full element
   def isReference: Boolean = false
@@ -34,27 +34,23 @@ trait InsertionLiveTemplateVariable[TreeType <: PsiElement] {
   def validate(contents: String, templateState: TemplateState): Option[String] = None
 
   // sets the default text value for this variable
-  def getDefaultValue(variablePsi: PsiElement): String
+  def getDefaultValue: String
 }
 
 object InsertionLiveTemplate {
-  class Variable[TreeType <: PsiElement](
-      val name: String, extractor: TreeType => PsiElement,
-      validator: (String, TemplateState) => Option[String] = (_, _) => None,
-      defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable[TreeType] {
-    override def extract(tree: TreeType): PsiElement = extractor(tree)
+  class Variable(val name: String, val elt: PsiElement,
+                 validator: (String, TemplateState) => Option[String] = (_, _) => None,
+                 defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable {
     override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
-    override def getDefaultValue(variablePsi: PsiElement): String = defaultValue.getOrElse(variablePsi.getText)
+    override def getDefaultValue: String = defaultValue.getOrElse(elt.getText)
   }
 
-  class Reference[TreeType <: PsiElement](
-      val name: String, extractor: TreeType => PsiElement,
-      validator: (String, TemplateState) => Option[String] = (_, _) => None,
-      defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable[TreeType] {
-    override def extract(tree: TreeType): PsiElement = extractor(tree)
+  class Reference(val name: String, val elt: PsiElement,
+                  validator: (String, TemplateState) => Option[String] = (_, _) => None,
+                  defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable {
     override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
     override def isReference: Boolean = true
-    override def getDefaultValue(variablePsi: PsiElement): String = defaultValue.getOrElse(variablePsi.getReference.getCanonicalText)
+    override def getDefaultValue: String = defaultValue.getOrElse(elt.getReference.getCanonicalText)
   }
 
   // utility validator for Python names, that also checks for name collisions (if class passed in; ignoring the
@@ -111,14 +107,10 @@ object InsertionLiveTemplate {
 
 /** Utilities for insertion live templates.
   *
-  * @param after insertion location, after this element
-  * @param newSubtree new subtree to be inserted
-  * @param variables list of variables for the live template, each specified as a name
-  *                  and function from the inserted subtree to the PSI element to be highlighted
-  *                  and boolean of whether it is a reference
+  * @param elt existing PsiElement to instantiate the template around
+  * @param variables list of variables for the live template, see variable definition
   */
-class InsertionLiveTemplate[TreeType <: PyStatement](after: PsiElement, newSubtree: TreeType,
-                            variables: IndexedSeq[InsertionLiveTemplateVariable[TreeType]]) {
+class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLiveTemplateVariable]) {
   private val kHelpTooltip = "[Enter] next; [Esc] end"
 
   private class TemplateListener(editor: Editor,
@@ -206,39 +198,36 @@ class InsertionLiveTemplate[TreeType <: PyStatement](after: PsiElement, newSubtr
   // starts this template and returns the TemplateState
   // must run in a write command action
   def run(): TemplateState = {
-    val project = after.getProject
-    val container = after.getParent
-    val newStmt = container.addAfter(newSubtree, after).asInstanceOf[TreeType]
+    val project = elt.getProject
 
     // opens / sets the focus onto the relevant text editor, so the user can start typing
-    val fileDescriptor = new OpenFileDescriptor(project, container.getContainingFile.getVirtualFile,
-      newStmt.getTextRange.getStartOffset)
+    val fileDescriptor = new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile,
+      elt.getTextRange.getStartOffset)
     val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
-    editor.getCaretModel.moveToOffset(newStmt.getTextOffset) // needed so the template is placed at the right location
+    editor.getCaretModel.moveToOffset(elt.getTextOffset) // needed so the template is placed at the right location
 
     // these must be constructed before template creation, other template creation messes up the locations
     val highlighters = new java.util.ArrayList[RangeHighlighter]()
     // flags = 0 means ignore esc, otherwise it eats the esc keypress
     HighlightManager.getInstance(project).addOccurrenceHighlight(editor,
-      newStmt.getTextRange.getStartOffset, newStmt.getTextRange.getEndOffset,
+      elt.getTextRange.getStartOffset, elt.getTextRange.getEndOffset,
       EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT, 0, highlighters)
 
-    val builder = new TemplateBuilderImpl(newStmt)
+    val builder = new TemplateBuilderImpl(elt)
     variables.foreach { variable =>
-      val variablePsi = variable.extract(newStmt)
       if (!variable.isReference) {
-        builder.replaceElement(variablePsi, variable.name,
-          new ConstantNode(variable.getDefaultValue(variablePsi)), true)
+        builder.replaceElement(variable.elt, variable.name,
+          new ConstantNode(variable.getDefaultValue), true)
       } else {
-        builder.replaceElement(variablePsi.getReference, variable.name,
-          new ConstantNode(variable.getDefaultValue(variablePsi)), true)
+        builder.replaceElement(variable.elt.getReference, variable.name,
+          new ConstantNode(variable.getDefaultValue), true)
       }
     }
     // this guard variable allows validation on the last element by preventing the template from ending
-    val endRelativeOffset = newStmt.getTextRange.getEndOffset - newStmt.getTextRange.getStartOffset
+    val endRelativeOffset = elt.getTextRange.getEndOffset - elt.getTextRange.getStartOffset
     builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset),
       "")
-    builder.setEndVariableAfter(newStmt.getLastChild)
+    builder.setEndVariableAfter(elt.getLastChild)
 
     // must be called before building the template
     PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)

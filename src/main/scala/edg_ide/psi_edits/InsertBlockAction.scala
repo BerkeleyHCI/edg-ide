@@ -44,8 +44,8 @@ object InsertBlockAction {
       }).get  // TODO insert contents() if needed
     }
 
-    val movableLiveTemplate = new MovableLiveTemplate(project, actionName) {
-      override def startTemplate(caretEltOpt: Option[PsiElement]): TemplateState = {
+    val movableLiveTemplate = new MovableLiveTemplate(actionName) {
+      override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
         val insertAfter = getInsertionAfter(caretEltOpt)
         val containingPsiFunction = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
         val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
@@ -53,8 +53,11 @@ object InsertBlockAction {
             .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
             .head.getName
 
-        val newAssign = psiElementGenerator.createFromText(languageLevel,
+        val newAssignTemplate = psiElementGenerator.createFromText(languageLevel,
           classOf[PyAssignmentStatement], s"$selfName.name = $selfName.Block(${libClass.getName}())")
+        val containingStmtList = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyStatementList])
+        val newAssign = containingStmtList.addAfter(newAssignTemplate, insertAfter).asInstanceOf[PyAssignmentStatement]
+
         val argListExtractor = (x: PyAssignmentStatement) => x.getAssignedValue.asInstanceOf[PyCallExpression]
             .getArgument(0, classOf[PyCallExpression])
             .getArgumentList
@@ -63,42 +66,33 @@ object InsertBlockAction {
         val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
         val allParams = initParams._1 ++ initParams._2
 
-        val nameVar = new InsertionLiveTemplate.Reference[PyAssignmentStatement](
-          "name", psi => psi.getTargets.head.asInstanceOf[PyTargetExpression],
+        val nameTemplateVar = new InsertionLiveTemplate.Reference(
+          "name", newAssign.getTargets.head.asInstanceOf[PyTargetExpression],
           InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
           defaultValue = Some("")
         )
 
-        val templateVars = allParams.map { initParam =>
-          val newArgIndex = newArgList.getArguments.length
-          val defaultValue = initParam.getDefaultValue
-
+        val argTemplateVars = allParams.map { initParam =>
           val paramName = initParam.getName() + (Option(initParam.getAnnotationValue) match {
             case Some(typed) => f": $typed"
             case None => ""
           })
 
-          val (newArg, newVariable) = if (defaultValue == null) { // required argument, needs ellipsis
-            (psiElementGenerator.createEllipsis(),
-                new InsertionLiveTemplate.Variable[PyAssignmentStatement](paramName,
-                  psi => argListExtractor(psi).getArguments()(newArgIndex))
-            )
+          if (initParam.getDefaultValue == null) { // required argument, needs ellipsis
+            val newArg = psiElementGenerator.createEllipsis()
+            newArgList.addArgument(newArg)
+            new InsertionLiveTemplate.Variable(paramName, newArg)
           } else { // optional argument
             // ellipsis is generated in the AST to give the thing a handle, the template replaces it with an empty
-            (psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "..."),
-                new InsertionLiveTemplate.Variable[PyAssignmentStatement](f"$paramName (optional)",
-                  psi => argListExtractor(psi).getArguments()(newArgIndex).asInstanceOf[PyKeywordArgument].getValueExpression,
-                  defaultValue = Some(""))
-            )
+            val newKwarg = psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "...")
+            newArgList.addArgument(newKwarg)
+            new InsertionLiveTemplate.Variable(f"$paramName (optional)",
+              newKwarg.getValueExpression,
+              defaultValue = Some(""))
           }
-          newArgList.addArgument(newArg)
-
-          newVariable
         }
 
-        new InsertionLiveTemplate[PyAssignmentStatement](insertAfter, newAssign,
-          IndexedSeq(nameVar) ++ templateVars
-        ).run()
+        new InsertionLiveTemplate(newAssign, IndexedSeq(nameTemplateVar) ++ argTemplateVars)
       }
     }
 

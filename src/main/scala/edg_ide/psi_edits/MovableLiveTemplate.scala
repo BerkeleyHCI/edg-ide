@@ -4,22 +4,23 @@ import com.intellij.codeInsight.template.TemplateEditingAdapter
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
-import com.intellij.openapi.project.Project
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.jetbrains.python.psi.PyStatement
 
 import scala.collection.mutable
 
 
 /** Wrapper around a Template that allows the template to move by user clicks  */
-abstract class MovableLiveTemplate(project: Project, actionName: String) {
+abstract class MovableLiveTemplate(actionName: String) {
   protected var currentTemplateState: Option[TemplateState] = None
   protected var movingTemplateListener: Option[EditorMouseListener] = None
   protected val templateStateListeners = mutable.ListBuffer[TemplateEditingAdapter]()
 
   // given the PSI element at the current caret,
   // inserts the new element for this template and returns the inserted element
+  // this is run in the same writeCommandAction as the template creation
   // implement me
-  def startTemplate(caretEltOpt: Option[PsiElement]): TemplateState
+  def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate
 
   class MovingMouseListener(templateState: TemplateState) extends EditorMouseListener {
     override def mouseClicked(event: EditorMouseEvent): Unit = {
@@ -51,7 +52,7 @@ abstract class MovableLiveTemplate(project: Project, actionName: String) {
   // starts the movable live template, given the PSI element at the current caret
   // must be called within a writeCommandAction
   def run(caretEltOpt: Option[PsiElement]): Unit = {
-    val templateState = startTemplate(caretEltOpt)
+    val templateState = startTemplate(caretEltOpt).run()
     currentTemplateState = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
 
