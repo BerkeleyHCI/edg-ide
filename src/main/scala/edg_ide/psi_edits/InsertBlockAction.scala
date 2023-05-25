@@ -98,6 +98,11 @@ object InsertBlockAction {
 
     movableLiveTemplate.addTemplateStateListener(new TemplateFinishedListener {
       override def templateFinished(state: TemplateState, brokenOff: Boolean): Unit = {
+        val expr = state.getExpressionContextForSegment(0)
+        if (expr.getTemplateEndOffset <= expr.getTemplateStartOffset) {
+          return  // if template was deleted, including through moving the template
+        }
+
         val insertedName = state.getVariableValue("name").getText
         if (insertedName.isEmpty && brokenOff) { // canceled by esc
           writeCommandAction(project).withName(s"cancel $actionName").compute(() => {

@@ -75,7 +75,7 @@ object InsertionLiveTemplate {
     }
   }
 
-  // deletes the template text, ending the template by cancellation.
+  // deletes the template text, ending the template
   def deleteTemplate(templateState: TemplateState): Unit = {
     val templateExpression = templateState.getExpressionContextForSegment(0)
     val templateEndOffset = templateExpression.getTemplateEndOffset
@@ -95,7 +95,7 @@ object InsertionLiveTemplate {
       }
     }
 
-    // delete the PSI elements, this also cancels the template (as if the user typed outside the template)
+    // delete the PSI elements, which also ends the template
     deleteElems.foreach { deleteElem =>
       if (deleteElem.isValid) {  // guard in case the element changed from a prior deletion
         deleteElem.delete()
