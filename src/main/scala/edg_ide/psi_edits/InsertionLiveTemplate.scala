@@ -188,7 +188,7 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
       val variableValue = overrideTemplateVarValues match {
         case Some(overrideTemplateVarValues) if overrideTemplateVarValues.length > variableIndex =>
           overrideTemplateVarValues(variableIndex)
-        case None => variable.getDefaultValue
+        case _ => variable.getDefaultValue
       }
       val variableExpr = new ConstantNode(variableValue)
       if (!variable.isReference) {
