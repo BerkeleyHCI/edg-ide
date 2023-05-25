@@ -197,7 +197,7 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
 
   // starts this template and returns the TemplateState
   // must run in a write command action
-  def run(): TemplateState = {
+  def run(overrideTemplateVarValues: Option[Seq[String]] = None): TemplateState = {
     val project = elt.getProject
 
     // opens / sets the focus onto the relevant text editor, so the user can start typing
@@ -214,13 +214,17 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
       EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT, 0, highlighters)
 
     val builder = new TemplateBuilderImpl(elt)
-    variables.foreach { variable =>
+    variables.zipWithIndex.foreach { case (variable, variableIndex) =>
+      val variableValue = overrideTemplateVarValues match {
+        case Some(overrideTemplateVarValues) if overrideTemplateVarValues.length > variableIndex =>
+          overrideTemplateVarValues(variableIndex)
+        case None => variable.getDefaultValue
+      }
+      val variableExpr = new ConstantNode(variableValue)
       if (!variable.isReference) {
-        builder.replaceElement(variable.elt, variable.name,
-          new ConstantNode(variable.getDefaultValue), true)
+        builder.replaceElement(variable.elt, variable.name, variableExpr, true)
       } else {
-        builder.replaceElement(variable.elt.getReference, variable.name,
-          new ConstantNode(variable.getDefaultValue), true)
+        builder.replaceElement(variable.elt.getReference, variable.name, variableExpr, true)
       }
     }
     // this guard variable allows validation on the last element by preventing the template from ending

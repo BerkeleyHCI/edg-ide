@@ -79,15 +79,14 @@ object InsertBlockAction {
           })
 
           if (initParam.getDefaultValue == null) { // required argument, needs ellipsis
-            val newArg = psiElementGenerator.createEllipsis()
-            newArgList.addArgument(newArg)
-            new InsertionLiveTemplate.Variable(paramName, newArg)
+            newArgList.addArgument(psiElementGenerator.createEllipsis())
+            new InsertionLiveTemplate.Variable(paramName, newArgList.getArguments.last)
           } else { // optional argument
             // ellipsis is generated in the AST to give the thing a handle, the template replaces it with an empty
-            val newKwarg = psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "...")
-            newArgList.addArgument(newKwarg)
+            newArgList.addArgument(
+              psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "..."))
             new InsertionLiveTemplate.Variable(f"$paramName (optional)",
-              newKwarg.getValueExpression,
+              newArgList.getArguments.last.asInstanceOf[PyKeywordArgument].getValueExpression,
               defaultValue = Some(""))
           }
         }
