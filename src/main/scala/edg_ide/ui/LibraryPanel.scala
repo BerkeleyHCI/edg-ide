@@ -465,6 +465,8 @@ class LibraryPanel(project: Project) extends JPanel {
     }
   }
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+  libraryTree.getTree.expandPath( // expand the blocks node by default
+    new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head))
 
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
@@ -556,11 +558,13 @@ class LibraryPanel(project: Project) extends JPanel {
   //
   def setLibrary(library: wir.Library): Unit = {
     this.library = library
-    this.libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, this.library))
+    libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, this.library))
     ApplicationManager.getApplication.invokeLater(() => {
-      TreeTableUtils.updateModel(libraryTree, this.libraryTreeModel)
+      TreeTableUtils.updateModel(libraryTree, libraryTreeModel)
       updateFilter()
       libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+      libraryTree.getTree.expandPath(  // TODO - this is a hack because restoring prev expanded doesn't work
+        new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head))
     })
   }
 
