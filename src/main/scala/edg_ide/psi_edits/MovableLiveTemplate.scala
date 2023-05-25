@@ -50,8 +50,7 @@ abstract class MovableLiveTemplate(actionName: String) {
       }.toSeq
 
       writeCommandAction(project).withName(s"move $actionName").compute(() => {
-        InsertionLiveTemplate.deleteTemplate(templateState)
-        templateState.update()  // triggers the template completion
+        TemplateUtils.deleteTemplate(templateState)
         run(Some(caretElement), Some((templatePos, templateValues)))
       })
     }

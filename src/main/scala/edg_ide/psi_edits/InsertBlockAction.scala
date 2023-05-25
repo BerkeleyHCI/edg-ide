@@ -1,17 +1,18 @@
 package edg_ide.psi_edits
 
-import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.codeInsight.template.impl.TemplateState
+import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
-import com.intellij.openapi.editor.event.{EditorMouseAdapter, EditorMouseEvent, EditorMouseListener}
-import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
 import com.intellij.openapi.project.Project
-import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.{PsiElement, PsiWhiteSpace}
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi._
 import edg.util.Errorable
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+
+import java.util.concurrent.Callable
 
 
 object InsertBlockAction {
@@ -23,9 +24,74 @@ object InsertBlockAction {
   /** Creates an action to insert a block of type libClass after some PSI element after.
     * Validation is performed before the action is generated, though the action itself may also return an error.
     */
-  def createInsertBlockFlow(contextClass: PyClass, libClass: PyClass, actionName: String,
+  def createInsertBlockFlow(after: PsiElement, libClass: PyClass, actionName: String,
                             project: Project,
                             continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
+    val containingPsiList = after.getParent
+        .instanceOfExcept[PyStatementList](s"invalid position for insertion in ${after.getContainingFile.getName}")
+    val containingPsiFunction = PsiTreeUtil.getParentOfType(containingPsiList, classOf[PyFunction])
+        .exceptNull(s"not in a function in ${containingPsiList.getContainingFile.getName}")
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFunction, classOf[PyClass])
+        .exceptNull(s"not in a class in ${containingPsiFunction.getContainingFile.getName}")
+
+    def insertBlockFlow: Unit = {
+      InsertAction.createClassMemberNameEntryPopup("Block Name", containingPsiClass, project) { name => exceptable {
+        ReadAction.nonBlocking((() => {  // analyses happen in the background to avoid slow ops in UI thread
+          val languageLevel = LanguageLevel.forElement(after)
+          val psiElementGenerator = PyElementGenerator.getInstance(project)
+          val selfName = containingPsiFunction.getParameterList.getParameters.toSeq
+              .exceptEmpty(s"function ${containingPsiFunction.getName} has no self")
+              .head.getName
+          val newAssign = psiElementGenerator.createFromText(languageLevel,
+            classOf[PyAssignmentStatement], s"$selfName.$name = $selfName.Block(${libClass.getName}())")
+
+          val initParams = DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
+          val allParams = initParams._1 ++ initParams._2
+
+          // TODO move into DesignAnalysisUtils
+          val kwArgs = allParams.flatMap { initParam =>
+            // Only create default values for required arguments, ignoring defaults
+            // TODO: better detection of "required" args
+            val defaultValue = initParam.getDefaultValue
+            if (defaultValue == null
+                || defaultValue.textMatches("RangeExpr()") || defaultValue.textMatches("FloatExpr()")
+                || defaultValue.textMatches("IntExpr()") || defaultValue.textMatches("BoolExpr()")
+                || defaultValue.textMatches("StringExpr()")) {
+              val kwArg = psiElementGenerator.createKeywordArgument(languageLevel,
+                initParam.getName, "...")
+
+              if (defaultValue != null) {
+                kwArg.getValueExpression.replace(defaultValue)
+              }
+              Some(kwArg)
+            } else {
+              None
+            }
+          }
+          kwArgs.foreach { kwArg =>
+            newAssign.getAssignedValue.asInstanceOf[PyCallExpression]
+                .getArgument(0, classOf[PyCallExpression])
+                .getArgumentList.addArgument(kwArg)
+          }
+
+          newAssign
+        }): Callable[PyAssignmentStatement]).finishOnUiThread(ModalityState.defaultModalityState(), newAssign => {
+          val added = writeCommandAction(project).withName(actionName).compute(() => {
+            containingPsiList.addAfter(newAssign, after)
+          })
+          continuation(name, added)
+        }).submit(AppExecutorUtil.getAppExecutorService)
+      }}
+    }
+    () => insertBlockFlow
+  }
+  
+  /** Creates an action to start a live template to insert a block.
+    * @return
+    */
+  def createTemplateBlock(contextClass: PyClass, libClass: PyClass, actionName: String,
+                          project: Project,
+                          continuation: (String, PsiElement) => Unit): Errorable[() => Unit] = exceptable {
     val languageLevel = LanguageLevel.forElement(libClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
@@ -105,7 +171,7 @@ object InsertBlockAction {
         val insertedName = state.getVariableValue("name").getText
         if (insertedName.isEmpty && brokenOff) { // canceled by esc
           writeCommandAction(project).withName(s"cancel $actionName").compute(() => {
-            InsertionLiveTemplate.deleteTemplate(state)
+            TemplateUtils.deleteTemplate(state)
           })
         } else {
           var templateElem = state.getExpressionContextForSegment(0).getPsiElementAtStartOffset

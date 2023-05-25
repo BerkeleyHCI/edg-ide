@@ -100,20 +100,41 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     }
   }
 
-  // TODO avoid eagerly evaluating all possibilities, if the first ones succeed
-//  val insertLocations = Seq(  // all potential insert locations sorted by desirability
-//    caretPsiElement.toOption.map(Seq(_)),
-//    exceptable {
-//      InsertAction.findInsertionElements(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
-//    }.toOption
-//  ).flatten.flatten
+  val (insertAction, insertItem) = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
+    val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
+    (insertAction, insertItem)
+  } else {
+    // TODO avoid eagerly evaluating all possibilities, if the first ones succeed
+    val insertLocations = Seq( // all potential insert locations sorted by desirability
+      caretPsiElement.toOption.map(Seq(_)),
+      exceptable {
+        InsertAction.findInsertionElements(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
+      }.toOption
+    ).flatten.flatten
 
-  val insertAction: Errorable[() => Unit] = exceptable {
-    InsertBlockAction.createInsertBlockFlow(contextPyClass.exceptError, blockPyClass.exceptError,
-      s"Insert $blockTypeName", project, insertContinuation).exceptError
+    val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
+      exceptable {
+        val insertBlockFlow = InsertBlockAction.createInsertBlockFlow(insertPsiElement, blockPyClass.exceptError,
+          s"Insert $blockTypeName", project, insertContinuation)
+        (insertPsiElement, insertBlockFlow.exceptError)
+      }.toOption
+    }.headOption, "no valid locations")
+
+    val insertFileLine = exceptable {
+      PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
+    }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+
+    val insertItem = ContextMenuUtils.MenuItemFromErrorable(
+      insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+
+    val insertAction: Errorable[() => Unit] = exceptable {
+      InsertBlockAction.createTemplateBlock(contextPyClass.exceptError, blockPyClass.exceptError,
+        s"Insert $blockTypeName", project, insertContinuation).exceptError
+    }
+
+    (insertAction, insertItem)
   }
 
-  private val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
   add(insertItem)
 
   addSeparator()
