@@ -5,7 +5,6 @@ import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
 import com.intellij.psi.{PsiDocumentManager, PsiElement}
-import com.jetbrains.python.psi.PyStatement
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
@@ -13,6 +12,8 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /** Wrapper around a Template that allows the template to move by user clicks  */
 abstract class MovableLiveTemplate(actionName: String) {
+  private val kHelpTooltip = "[Enter] next; [Esc] end; [Alt+click] move"
+
   protected var currentTemplateState: Option[TemplateState] = None
   protected var movingTemplateListener: Option[EditorMouseListener] = None
   protected val templateStateListeners = mutable.ListBuffer[TemplateEditingAdapter]()
@@ -57,11 +58,15 @@ abstract class MovableLiveTemplate(actionName: String) {
 
   // starts the movable live template, given the PSI element at the current caret
   // must be called within a writeCommandAction
-  def run(caretEltOpt: Option[PsiElement], templateVarValues: Option[(Int, Seq[String])] = None): Unit = {
-    val templateState = startTemplate(caretEltOpt).run(templateVarValues.map(_._2))
+  def run(caretEltOpt: Option[PsiElement], priorTemplateValues: Option[(Int, Seq[String])] = None): Unit = {
+    val tooltipString = priorTemplateValues match {
+      case Some(_) => None  // tooltip only shows on initial template insertion, not on moves
+      case None => Some(kHelpTooltip)
+    }
+    val templateState = startTemplate(caretEltOpt).run(tooltipString, priorTemplateValues.map(_._2))
     currentTemplateState = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
-    templateVarValues.foreach { case (templatePos, _) =>  // advance to the previous variable position
+    priorTemplateValues.foreach { case (templatePos, _) =>  // advance to the previous variable position
       (0 until templatePos).foreach { i =>
         templateState.nextTab()
       }

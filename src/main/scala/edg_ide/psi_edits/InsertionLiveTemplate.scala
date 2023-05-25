@@ -111,8 +111,6 @@ object InsertionLiveTemplate {
   * @param variables list of variables for the live template, see variable definition
   */
 class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLiveTemplateVariable]) {
-  private val kHelpTooltip = "[Enter] next; [Esc] end"
-
   private class TemplateListener(editor: Editor,
                                  tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
@@ -197,7 +195,7 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
 
   // starts this template and returns the TemplateState
   // must run in a write command action
-  def run(overrideTemplateVarValues: Option[Seq[String]] = None): TemplateState = {
+  def run(initialTooltip: Option[String] = None, overrideTemplateVarValues: Option[Seq[String]] = None): TemplateState = {
     val project = elt.getProject
 
     // opens / sets the focus onto the relevant text editor, so the user can start typing
@@ -243,7 +241,11 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     // if the editor just started, it isn't marked as showing and the tooltip creation crashes
     // TODO the positioning is still off, but at least it doesn't crash
     UIUtil.markAsShowing(editor.getContentComponent, true)
-    val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
+    val tooltipString = initialTooltip match {
+      case Some(initialTooltip) => f"${variables.head.name} | $initialTooltip"
+      case None => f"${variables.head.name}"
+    }
+    val tooltip = createTemplateTooltip(tooltipString, editor)
 
     // note, waitingForInput won't get called since the listener seems to be attached afterwards
     val templateListener = new TemplateListener(editor, tooltip, highlighters.asScala)
