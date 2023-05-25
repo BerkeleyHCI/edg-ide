@@ -243,16 +243,17 @@ class InsertionLiveTemplate[TreeType <: PyStatement](after: PsiElement, newSubtr
     // must be called before building the template
     PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
 
+    // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
+    val template = builder.buildInlineTemplate()
+    val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
+
     // if the editor just started, it isn't marked as showing and the tooltip creation crashes
     // TODO the positioning is still off, but at least it doesn't crash
     UIUtil.markAsShowing(editor.getContentComponent, true)
     val tooltip = createTemplateTooltip(f"${variables.head.name} | $kHelpTooltip", editor)
 
-    // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
-    val template = builder.buildInlineTemplate()
-    val templateListener = new TemplateListener(editor, tooltip, highlighters.asScala)
-    val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
     // note, waitingForInput won't get called since the listener seems to be attached afterwards
+    val templateListener = new TemplateListener(editor, tooltip, highlighters.asScala)
     templateState.addTemplateStateListener(templateListener)
     templateState
   }
