@@ -101,6 +101,10 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   }
 
   val (insertAction, insertItem) = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
+    val insertAction: Errorable[() => Unit] = exceptable {
+      InsertBlockAction.createTemplateBlock(contextPyClass.exceptError, blockPyClass.exceptError,
+        s"Insert $blockTypeName", project, insertContinuation).exceptError
+    }
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
     (insertAction, insertItem)
   } else {
@@ -126,11 +130,6 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(
       insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
-
-    val insertAction: Errorable[() => Unit] = exceptable {
-      InsertBlockAction.createTemplateBlock(contextPyClass.exceptError, blockPyClass.exceptError,
-        s"Insert $blockTypeName", project, insertContinuation).exceptError
-    }
 
     (insertAction, insertItem)
   }

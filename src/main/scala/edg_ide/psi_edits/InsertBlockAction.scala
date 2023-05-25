@@ -85,7 +85,7 @@ object InsertBlockAction {
     }
     () => insertBlockFlow
   }
-  
+
   /** Creates an action to start a live template to insert a block.
     * @return
     */
