@@ -4,7 +4,7 @@ import com.intellij.codeInsight.template.TemplateEditingAdapter
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
-import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiWhiteSpace}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
@@ -42,7 +42,11 @@ abstract class MovableLiveTemplate(actionName: String) {
 
       val project = templateState.getProject
       val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(event.getEditor.getDocument)
-      val caretElement = psiFile.findElementAt(offset) // get the caret element before modifying the AST
+      val caretElement = psiFile.findElementAt(offset) match { // get the caret element before modifying the AST
+        // whitespace may be modified by the template delete and become invalid
+        case caretElement: PsiWhiteSpace => caretElement.getPrevSibling
+        case caretElement => caretElement
+      }
 
       val templatePos = templateState.getCurrentVariableNumber  // save template state before deleting the template
       val templateValues = templateState.getTemplate.getVariables.asScala.map { variable =>
