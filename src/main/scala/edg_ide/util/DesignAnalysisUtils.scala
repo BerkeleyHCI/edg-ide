@@ -358,12 +358,12 @@ object DesignAnalysisUtils {
         .flatMap { case expr: PyReferenceExpression => referenceToClass(expr) }
 
     val (defaults, others) = directSubclasses.flatMap { directSubclass =>
-        val directIfLibrary = if (Option(directSubclass.getDecoratorList).toSeq.flatMap(_.getDecorators.toSeq)
-            .exists(_.getName == "non_library")) {  // don't include non_library subclasses
-          Seq()
-        } else {
-          Seq(directSubclass)
-        }
+      val directIfLibrary = if (Option(directSubclass.getDecoratorList).toSeq.flatMap(_.getDecorators.toSeq)
+          .exists(_.getName == "non_library")) { // don't include non_library subclasses
+        Seq()
+      } else {
+        Seq(directSubclass)
+      }
       directIfLibrary ++ findOrderedSubclassesOf(directSubclass)
     }.distinct.partition(elt => defaultRefinements.contains(elt))
     defaults ++ others
