@@ -344,6 +344,7 @@ object DesignAnalysisUtils {
   /** Like PyClassInheritorsSearch.search, but returns subclasses depth-first order (roughly grouping similar results).
     * At each level, the default refinement (if provided) occurs first, with the rest sorted alphabetically by name
     * If a subclass occurs multiple times, only the first is kept.
+    * non_library elements are not includes, but their subclasses are included.
     */
   def findOrderedSubclassesOf(superclass: PyClass): Seq[PyClass] = {
     val directSubclasses = PyClassInheritorsSearch.search(superclass, false).findAll().asScala.toSeq
@@ -357,7 +358,13 @@ object DesignAnalysisUtils {
         .flatMap { case expr: PyReferenceExpression => referenceToClass(expr) }
 
     val (defaults, others) = directSubclasses.flatMap { directSubclass =>
-      directSubclass +: findOrderedSubclassesOf(directSubclass)
+        val directIfLibrary = if (Option(directSubclass.getDecoratorList).toSeq.flatMap(_.getDecorators.toSeq)
+            .exists(_.getName == "non_library")) {  // don't include non_library subclasses
+          Seq()
+        } else {
+          Seq(directSubclass)
+        }
+      directIfLibrary ++ findOrderedSubclassesOf(directSubclass)
     }.distinct.partition(elt => defaultRefinements.contains(elt))
     defaults ++ others
   }
