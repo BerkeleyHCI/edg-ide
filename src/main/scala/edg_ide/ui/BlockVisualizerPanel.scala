@@ -28,7 +28,7 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.{ComponentAdapter, ComponentEvent, MouseAdapter, MouseEvent}
-import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
+import java.awt.{BorderLayout, Dimension, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
 import javax.swing.event.{TreeSelectionEvent, TreeSelectionListener}

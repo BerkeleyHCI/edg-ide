@@ -17,7 +17,7 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, Exc
 import edg_ide.util.{DesignAnalysisUtils, exceptable, exceptionPopup}
 
 import java.awt.event.{KeyEvent, KeyListener, MouseAdapter, MouseEvent}
-import java.awt.{GridBagConstraints, GridBagLayout}
+import java.awt.{Dimension, GridBagConstraints, GridBagLayout}
 import java.util.concurrent.TimeUnit
 import javax.swing.tree.TreePath
 import javax.swing.{JLabel, JPanel, JPopupMenu, SwingUtilities}
@@ -139,6 +139,17 @@ class DsePanel(project: Project) extends JPanel {
 
   private val mainSplitter = new JBSplitter(true, 0.5f, 0.1f, 0.9f)
   add(mainSplitter, Gbc(0, 1, GridBagConstraints.BOTH))
+
+  var lastPlotSize = new Dimension(0 ,0)
+  AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
+    ApplicationManager.getApplication.invokeLater(() => {
+      val plotSize = mainSplitter.getFirstComponent.getSize()
+      if (lastPlotSize != plotSize) {
+        println(f"plot size changed: ${plotSize}")
+      }
+      lastPlotSize = plotSize
+    })
+  }, 333, 333, TimeUnit.MILLISECONDS)
 
   // GUI: Top plot
   def plotOnClick(e: MouseEvent, data: Seq[DseResult]): Unit = {
