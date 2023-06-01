@@ -24,16 +24,21 @@ object PDFGeneratorUtil{
       page size is large enough/page margin is small enough so that header/footer content do not exceed
       the available space in the document.
    */
-  private final val PAGE_MARGIN = 16f
-  private final val TABLE_ROW_HEIGHT = 23f
-  final val font = new Font(Font.HELVETICA, 12f, Font.UNDERLINE, Color.BLUE)
-  final val font_bold = new Font(Font.HELVETICA, 12f, Font.BOLD, Color.BLACK)
+  private final val kPageMargin = 16f
+  private final val kTableRowHeight = 23f
+  final val kLinkFont = new Font(Font.HELVETICA, 12f, Font.UNDERLINE, Color.BLUE)
+  final val kBoldFont = new Font(Font.HELVETICA, 12f, Font.BOLD, Color.BLACK)
 
 
-  private def generatePageSize(node: ElkNode): (Float, Float) = {
-    val width = node.getWidth.toFloat + 2f * ElkNodePainter.margin.toFloat + 1.5f * PAGE_MARGIN
-    val height = node.getHeight.toFloat + 2f * ElkNodePainter.margin.toFloat + 1.5f * PAGE_MARGIN
-    (width, height)
+  private def generatePageSize(node: ElkNode, tableRows: Int): (Float, Float) = {
+    val width = node.getWidth.toFloat + 2f * ElkNodePainter.margin.toFloat + 2f * kPageMargin
+    val height = node.getHeight.toFloat + 2f * ElkNodePainter.margin.toFloat + 2f * kPageMargin
+    val adjustedHeight = if (tableRows == 1) {
+      height
+    } else {
+      kTableRowHeight * tableRows + height + ElkNodePainter.margin
+    }
+    (width, adjustedHeight)
   }
 
   /*
@@ -71,17 +76,12 @@ object PDFGeneratorUtil{
 
     def printNode(node: ElkNode, className: LibraryPath, path: DesignPath): Unit = {
       val dupSet = dupList.getOrElse(className, Set.empty)
-      val (width, height) = generatePageSize(node)
-      val adjustedHeight = if(dupSet.size == 1) {
-        height
-      } else {
-        TABLE_ROW_HEIGHT * dupSet.size + height + ElkNodePainter.margin
-      }
-      document.setPageSize(new Rectangle(width, adjustedHeight))
-      document.setMargins(2*PAGE_MARGIN, 2*PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN)
+      val (width, height) = generatePageSize(node, tableRows = dupSet.size)
+      document.setPageSize(new Rectangle(width, height))
+      document.setMargins(2 * kPageMargin, 2 * kPageMargin, kPageMargin, kPageMargin)
 
       // Sets the header and footer of each page. Target of the component target link is set as the header.
-      val targetAnchor = new Anchor(path.toString, font_bold)
+      val targetAnchor = new Anchor(path.toString, kBoldFont)
       targetAnchor.setName(path.toString)
       val headerPhrase = new Phrase
       headerPhrase.add(targetAnchor)
@@ -105,7 +105,7 @@ object PDFGeneratorUtil{
       }
 
       val cb = writer.getDirectContent
-      val graphics = cb.createGraphics(width, adjustedHeight)
+      val graphics = cb.createGraphics(width, height)
       val painter = new ElkNodePainter(node)
       painter.paintComponent(graphics, Color.white)
       graphics.dispose()
@@ -125,7 +125,7 @@ object PDFGeneratorUtil{
           if (parent.toString == "(root)") {
             val parentAnchor = new Anchor
             parentAnchor.setReference(s"#${parent.toString}")
-            parentAnchor.add(new Phrase(s"${parent.toString}", font))
+            parentAnchor.add(new Phrase(s"${parent.toString}", kLinkFont))
             parentAnchor.add(new Phrase(s".${current}"))
             cellContent.add(parentAnchor)
           } else {
@@ -134,7 +134,7 @@ object PDFGeneratorUtil{
               val anchor = new Anchor
               if (prevStep == "") {
                 anchor.setReference(s"#${step}")
-                anchor.add(new Phrase(s"${step}", font))
+                anchor.add(new Phrase(s"${step}", kLinkFont))
                 prevStep = step
               } else {
                 if (step == dupPath.toString.split('.').last) {
@@ -143,7 +143,7 @@ object PDFGeneratorUtil{
                 else {
                   anchor.setReference(s"#${prevStep}.${step}")
                   anchor.add(new Phrase("."))
-                  anchor.add(new Phrase(s"${step}", font))
+                  anchor.add(new Phrase(s"${step}", kLinkFont))
                   prevStep = prevStep + "." + step
                 }
               }
@@ -151,11 +151,11 @@ object PDFGeneratorUtil{
             }
           }
           val cell = new PdfPCell(cellContent)
-          cell.setFixedHeight(TABLE_ROW_HEIGHT)
+          cell.setFixedHeight(kTableRowHeight)
           table.addCell(cell)
         }
 
-        val tableY = adjustedHeight - height + ElkNodePainter.margin
+        val tableY = kTableRowHeight * dupSet.size + 2 * ElkNodePainter.margin
         table.setTotalWidth(width - 2 * ElkNodePainter.margin)
         table.writeSelectedRows(0, -1, ElkNodePainter.margin.toFloat, tableY, writer.getDirectContent())
       }
