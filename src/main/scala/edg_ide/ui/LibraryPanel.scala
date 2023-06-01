@@ -100,28 +100,40 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     }
   }
 
-  // TODO avoid eagerly evaluating all possibilities, if the first ones succeed
-  val insertLocations = Seq(  // all potential insert locations sorted by desirability
-    caretPsiElement.toOption.map(Seq(_)),
-    exceptable {
-      InsertAction.findInsertionElements(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
-    }.toOption
-  ).flatten.flatten
+  val (insertAction, insertItem) = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
+    val insertAction: Errorable[() => Unit] = exceptable {
+      InsertBlockAction.createTemplateBlock(contextPyClass.exceptError, blockPyClass.exceptError,
+        s"Insert $blockTypeName", project, insertContinuation).exceptError
+    }
+    val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
+    (insertAction, insertItem)
+  } else {
+    // TODO avoid eagerly evaluating all possibilities, if the first ones succeed
+    val insertLocations = Seq( // all potential insert locations sorted by desirability
+      caretPsiElement.toOption.map(Seq(_)),
+      exceptable {
+        InsertAction.findInsertionElements(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
+      }.toOption
+    ).flatten.flatten
 
-  val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
-    exceptable {
-      val insertBlockFlow = InsertBlockAction.createInsertBlockFlow(insertPsiElement, blockPyClass.exceptError,
-        s"Insert $blockTypeName", project, insertContinuation)
-      (insertPsiElement, insertBlockFlow.exceptError)
-    }.toOption
-  }.headOption, "no valid locations")
+    val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
+      exceptable {
+        val insertBlockFlow = InsertBlockAction.createInsertBlockFlow(insertPsiElement, blockPyClass.exceptError,
+          s"Insert $blockTypeName", project, insertContinuation)
+        (insertPsiElement, insertBlockFlow.exceptError)
+      }.toOption
+    }.headOption, "no valid locations")
 
-  private val insertFileLine = exceptable {
-    PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
-  }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+    val insertFileLine = exceptable {
+      PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
+    }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
-  private val insertItem = ContextMenuUtils.MenuItemFromErrorable(
-    insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+    val insertItem = ContextMenuUtils.MenuItemFromErrorable(
+      insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+
+    (insertAction.map(_._2), insertItem)
+  }
+
   add(insertItem)
 
   addSeparator()
@@ -473,6 +485,8 @@ class LibraryPanel(project: Project) extends JPanel {
     }
   }
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+  libraryTree.getTree.expandPath( // expand the blocks node by default
+    new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head))
 
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
@@ -482,7 +496,7 @@ class LibraryPanel(project: Project) extends JPanel {
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryBlockPopupMenu(selected.path, project).insertAction.exceptError._2) ()
+              (new LibraryBlockPopupMenu(selected.path, project).insertAction.exceptError) ()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
@@ -564,11 +578,13 @@ class LibraryPanel(project: Project) extends JPanel {
   //
   def setLibrary(library: wir.Library): Unit = {
     this.library = library
-    this.libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, this.library))
+    libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, this.library))
     ApplicationManager.getApplication.invokeLater(() => {
-      TreeTableUtils.updateModel(libraryTree, this.libraryTreeModel)
+      TreeTableUtils.updateModel(libraryTree, libraryTreeModel)
       updateFilter()
       libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
+      libraryTree.getTree.expandPath(  // TODO - this is a hack because restoring prev expanded doesn't work
+        new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head))
     })
   }
 

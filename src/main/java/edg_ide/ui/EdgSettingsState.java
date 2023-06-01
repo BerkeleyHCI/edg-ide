@@ -19,6 +19,7 @@ public class EdgSettingsState implements PersistentStateComponent<EdgSettingsSta
     public boolean showProvenStatus = false;
     public boolean showInternalBlocks = false;
     public boolean showIdeErrors = false;
+    public boolean useInsertionLiveTemplates = false;
 
 
     public static EdgSettingsState getInstance() {

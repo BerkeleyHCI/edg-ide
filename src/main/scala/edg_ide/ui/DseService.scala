@@ -17,6 +17,10 @@ object DseService {
   def apply(project: Project): DseService = {
     project.getService(classOf[DseServiceWrapper]).asInstanceOf[DseService]
   }
+
+  def option(project: Project): Option[DseService] = {
+    Option(project.getServiceIfCreated(classOf[DseServiceWrapper])).map(_.asInstanceOf[DseService])
+  }
 }
 
 class DseService(project: Project) extends
