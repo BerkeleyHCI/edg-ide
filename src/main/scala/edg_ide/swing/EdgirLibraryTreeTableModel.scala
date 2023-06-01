@@ -158,7 +158,7 @@ class EdgirLibraryTreeTableModel(project: Project, library: edg.wir.Library)
     extends SeqTreeTableModel[EdgirLibraryNodeBase] {
   // Actual tree model implementation
   //
-  val rootNode: EdgirLibraryNodeBase = new EdgirLibraryNode(project, library)
+  val rootNode: EdgirLibraryNode = new EdgirLibraryNode(project, library)
   val COLUMNS = if (EdgSettingsState.getInstance().showProvenStatus) {
     Seq("Path", "Proven")
   } else {
@@ -167,7 +167,7 @@ class EdgirLibraryTreeTableModel(project: Project, library: edg.wir.Library)
 
   // TreeView abstract methods
   //
-  override def getRootNode: EdgirLibraryNodeBase = rootNode
+  override def getRootNode: EdgirLibraryNode = rootNode
 
   override def getNodeChildren(node: EdgirLibraryNodeBase): Seq[EdgirLibraryNodeBase] = node.children
 
