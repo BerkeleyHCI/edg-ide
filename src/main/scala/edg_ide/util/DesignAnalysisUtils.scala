@@ -357,7 +357,7 @@ object DesignAnalysisUtils {
         .map(_.getBody)
         .flatMap { case expr: PyReferenceExpression => referenceToClass(expr) }
 
-    val (defaults, others) = directSubclasses.flatMap { directSubclass =>
+    val allSubclasses = directSubclasses.flatMap { directSubclass =>
       val directIfLibrary = if (Option(directSubclass.getDecoratorList).toSeq.flatMap(_.getDecorators.toSeq)
           .exists(_.getName == "non_library")) { // don't include non_library subclasses
         Seq()
@@ -365,7 +365,22 @@ object DesignAnalysisUtils {
         Seq(directSubclass)
       }
       directIfLibrary ++ findOrderedSubclassesOf(directSubclass)
-    }.distinct.partition(elt => defaultRefinements.contains(elt))
+    }.distinct.filter(subclass =>
+      if (superclass.getName == "IoController") {
+        Seq("Stm32f103_48", "Rp2040", "Esp32_Wroom_32", "Esp32_Wrover_Dev").contains(subclass.getName)
+      } else if (superclass.getName == "LinearRegulator") {
+        Seq("Ld1117", "Lp5907").contains(subclass.getName)
+      } else if (superclass.getName == "BoostConverter") {
+        Seq("Ap3012").contains(subclass.getName)
+      } else if (superclass.getName == "BuckConverter") {
+        Seq("Ap3418").contains(subclass.getName)
+      } else {
+        true
+      }
+    )
+
+
+    val (defaults, others) = allSubclasses.partition(elt => defaultRefinements.contains(elt))
     defaults ++ others
   }
 }
