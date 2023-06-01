@@ -116,7 +116,8 @@ object HierarchyGraphElk {
 
     // Create ELK objects for members (blocks and ports)
     val myElkPorts = node.members.collect {
-      case (childName, childElt: HGraphPort[PortType]) =>
+      case (childName, childElt: HGraphPort[PortType])
+          if childName.last != "[]" || childName.head == "gpio" || childName.head == "adc" =>
         val childElkPort = addPort(elkNode, name)
         mappers.foreach { mapper =>
           mapper.portConv(childElt.data).foreach { mapperResult =>
@@ -125,7 +126,16 @@ object HierarchyGraphElk {
         }
 
         val title = Option(childElkPort.getProperty(TitleProperty)).getOrElse(childName.mkString("."))
-        ElkGraphUtil.createLabel(title, childElkPort)
+        if (title == "gnd") {
+          // ignore
+        } else if (title == "pwr_in") {
+          ElkGraphUtil.createLabel("in", childElkPort)
+        } else if (title == "pwr_out") {
+          ElkGraphUtil.createLabel("out", childElkPort)
+        } else {
+          ElkGraphUtil.createLabel(title, childElkPort)
+        }
+
         // TODO: currently only name label is displayed. Is there a sane way to display additional data?
         // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)
         childName -> childElkPort
