@@ -121,35 +121,28 @@ object PDFGeneratorUtil{
 
         dupSet.foreach { dupPath =>
           val cellContent = new Paragraph
-          val (parent, current) = dupPath.split
-          if (parent.toString == "(root)") {
-            val parentAnchor = new Anchor
-            parentAnchor.setReference(s"#${parent.toString}")
-            parentAnchor.add(new Phrase(s"${parent.toString}", kLinkFont))
-            parentAnchor.add(new Phrase(s".${current}"))
-            cellContent.add(parentAnchor)
-          } else {
-            var prevStep = ""
-            dupPath.toString.split('.').foreach { step =>
-              val anchor = new Anchor
-              if (prevStep == "") {
-                anchor.setReference(s"#${step}")
-                anchor.add(new Phrase(s"${step}", kLinkFont))
-                prevStep = step
-              } else {
-                if (step == dupPath.toString.split('.').last) {
-                  anchor.add(new Phrase(s".${step}"))
-                }
-                else {
-                  anchor.setReference(s"#${prevStep}.${step}")
-                  anchor.add(new Phrase("."))
-                  anchor.add(new Phrase(s"${step}", kLinkFont))
-                  prevStep = prevStep + "." + step
-                }
-              }
-              cellContent.add(anchor)
+          val lastElement = dupPath.lastString
+
+          def generateHyperlinkPathName(hyperlinkPath: DesignPath): Unit = {
+            val (parent, currentElement) = hyperlinkPath.split
+
+            if(parent != DesignPath()){
+              generateHyperlinkPathName(parent)
             }
+            val anchor = new Anchor
+            anchor.setReference(s"#${parent.toString}")
+            anchor.add(new Phrase(parent.lastString, kLinkFont))
+            anchor.add(new Phrase("."))
+
+            if(currentElement == lastElement){
+              anchor.add(new Phrase(currentElement))
+            }
+
+            cellContent.add(anchor)
           }
+
+          generateHyperlinkPathName(dupPath)
+
           val cell = new PdfPCell(cellContent)
           cell.setFixedHeight(kTableRowHeight)
           table.addCell(cell)
