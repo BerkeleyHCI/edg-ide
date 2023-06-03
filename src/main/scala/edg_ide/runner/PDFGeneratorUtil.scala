@@ -15,6 +15,7 @@ import edgir.ref.ref.LibraryPath
 import java.awt.Color
 import java.io.{FileNotFoundException, FileOutputStream, IOException}
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 object PDFGeneratorUtil{
 
@@ -45,22 +46,24 @@ object PDFGeneratorUtil{
     Generates a map of component class name to a set of DesignPath that uses the component.
     This is used to generate a table of components that are used multiple times in the design.
    */
-  def getDuplicationList(block: HierarchyBlock, path: DesignPath = DesignPath(),
-                          dupList: mutable.Map[LibraryPath, Set[DesignPath]] = mutable.Map()): Map[LibraryPath, Set[DesignPath]] = {
-    val className = block.getSelfClass
-    dupList.getOrElseUpdate(className, Set(path)) match {
-      case existingSet: Set[DesignPath] => dupList(className) = existingSet + path
+  def getDuplicationList(block: HierarchyBlock): Map[LibraryPath, List[DesignPath]] = {
+    val dupList = mutable.Map[LibraryPath, ListBuffer[DesignPath]]()
+
+    def traverseBlock(block: HierarchyBlock, path: DesignPath): Unit = {
+      val className = block.getSelfClass
+      dupList.getOrElseUpdate(className, ListBuffer()) += path
+
+      block.blocks.asPairs.map {
+        case (name, subblock) => (name, subblock.`type`)
+      }.collect {
+        case (name, BlockLike.Type.Hierarchy(subblock)) => (path + name, subblock)
+      }.foreach {
+        case (path, subblock) => traverseBlock(subblock, path)
+      }
     }
 
-    block.blocks.asPairs.map {
-      case (name, subblock) => (name, subblock.`type`)
-    }.collect {
-      case (name, BlockLike.Type.Hierarchy(subblock)) => (path + name, subblock)
-    }.foreach {
-      case (path, subblock) => getDuplicationList(subblock, path, dupList)
-    }
-
-    dupList.toMap
+    traverseBlock(block, DesignPath())
+    dupList.view.mapValues(_.toList).toMap
   }
 
 
