@@ -1,5 +1,6 @@
 package edg_ide.util.tests
 
+import edg.ElemBuilder.LibraryPath
 import edg.ExprBuilder.ValueExpr
 import edg.wir.ProtoUtil.{BlockSeqMapToProto, ConstraintSeqMapToProto, LinkSeqMapToProto, PortSeqMapToProto}
 import edg_ide.edgir_graph.tests.EdgirTestUtils
@@ -18,56 +19,69 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
   behavior of "PDFGeneratorUtil"
 
   it should "generate a working PDF file" in {
-
     val blockIr = elem.HierarchyBlock(
       blocks = SeqMap(
-        "source" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+        "R1" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-              selfClass=Some(EdgirTestUtils.Ports.PowerSource)
+              selfClass = Some(EdgirTestUtils.Ports.PowerSource)
             ))),
           ).toPb,
           blocks = SeqMap(
-            "inner_block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+            "inner_source_block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
               ports = SeqMap(
-                "inner_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
-                  selfClass=Some(EdgirTestUtils.Ports.PowerSource),
+                "inner_source_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+                  selfClass = Some(EdgirTestUtils.Ports.PowerSource),
                 ))),
               ).toPb,
+              selfClass = Some(LibraryPath("JlcResistor")),
             ))),
           ).toPb,
+          selfClass = Some(LibraryPath("electronics_lib.GenericResistor.GenericAxialResistor")),
         ))),
-        "sink" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+        "R2" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
           ports = SeqMap(
             "port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSink)
             ))),
           ).toPb,
+          blocks = SeqMap(
+            "inner_sink_block" -> elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(elem.HierarchyBlock(
+              ports = SeqMap(
+                "inner_sink_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+                  selfClass=Some(EdgirTestUtils.Ports.PowerSource),
+                ))),
+              ).toPb,
+              selfClass = Some(LibraryPath("JlcResistor")),
+            ))),
+          ).toPb,
+          selfClass = Some(LibraryPath("electronics_lib.GenericResistor.GenericAxialResistor")),
         ))),
       ).toPb,
       links = SeqMap(
         "link" -> elem.LinkLike(`type`=elem.LinkLike.Type.Link(elem.Link(
           selfClass=Some(EdgirTestUtils.Links.Power),
           ports = SeqMap(
-            "source" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+            "R1_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
-            "sink" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
+            "R2_port" -> elem.PortLike(is=elem.PortLike.Is.Port(elem.Port(
               selfClass=Some(EdgirTestUtils.Ports.PowerSource)
             ))),
           ).toPb,
         ))),
       ).toPb,
       constraints = SeqMap(
-        "connect_source" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
-          blockPort = Some(ValueExpr.Ref("source", "port")),
-          linkPort = Some(ValueExpr.Ref("link", "source"))
+        "connect_R1" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
+          blockPort = Some(ValueExpr.Ref("R1", "port")),
+          linkPort = Some(ValueExpr.Ref("link", "R1_port"))
         ))),
-        "connect_sink" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
-          blockPort = Some(ValueExpr.Ref("sink", "port")),
-          linkPort = Some(ValueExpr.Ref("link", "sink"))
+        "connect_R2" -> expr.ValueExpr(expr=expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(
+          blockPort = Some(ValueExpr.Ref("R2", "port")),
+          linkPort = Some(ValueExpr.Ref("link", "R2_port"))
         ))),
       ).toPb,
+      selfClass = Some(LibraryPath("ResistorChain")),
     )
 
     PDFGeneratorUtil.generate(blockIr, fileName="unit_test.pdf")
