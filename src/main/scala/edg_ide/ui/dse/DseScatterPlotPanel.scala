@@ -52,24 +52,24 @@ class DseScatterPlotPanel() extends DseBasePlot {
       DseScatterPlotPanel.this.onHoverChange(data.map(_.value))
     }
   }
-  add(scatterPlot, Gbc(0, 0, GridBagConstraints.BOTH, 5))
+  add(scatterPlot, Gbc(0, 0, GridBagConstraints.BOTH, 4))
 
   private val plotSwitchButton = new JButton()
-  plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
-  plotSwitchButton.setToolTipText("Switch plot type")
-  plotSwitchButton.addActionListener((actionEvent: ActionEvent) => onSwitchClick())
-  add(plotSwitchButton, Gbc(0, 1))
+//  plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
+//  plotSwitchButton.setToolTipText("Switch plot type")
+//  plotSwitchButton.addActionListener((actionEvent: ActionEvent) => onSwitchClick())
+//  add(plotSwitchButton, Gbc(0, 1))
 
   private val emptyAxis = new DummyAxis("Empty")
   private val ySelector = new ComboBox[PlotAxis]()
   ySelector.addItem(emptyAxis)  // don't need listener yet, does nothing
-  add(new JBLabel("Y ↑"), Gbc(1, 1))
-  add(ySelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
+  add(new JBLabel("Y ↑"), Gbc(0, 1))
+  add(ySelector, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private val xSelector = new ComboBox[PlotAxis]()
   xSelector.addItem(emptyAxis)  // don't need listener yet, does nothing
-  add(xSelector, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
-  add(new JBLabel("X →"), Gbc(4, 1))
+  add(xSelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
+  add(new JBLabel("X →"), Gbc(3, 1))
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
