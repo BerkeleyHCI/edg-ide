@@ -1,6 +1,8 @@
 package edg_ide.swing.dse
 
 import com.intellij.ui.JBColor
+import edg.compiler.FloatValue
+import edg_ide.ui.ParamToUnitsStringUtil
 
 import java.awt.Color
 import scala.collection.mutable
@@ -8,18 +10,18 @@ import scala.collection.mutable
 
 object JDsePlot {
   // GUI constants
-  private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
+  private val kDefaultRangeMarginFactor = 1.2f // factor to extend the default range by
 
   val kPointAlpha: Int = 191
   val kBackgroundBlend: Float = 0.25f
   val kBackgroundAlpha: Int = 127
 
-  val kPointSizePx: Int = 4 // diameter in px
-  val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
-  val kPointSelectedSizePx: Int = 6 // diameter in px
-  val kPointHoverOutlinePx: Int = 12 // diameter in px
-  val kLineHoverBackgroundPx: Int = 19 // width in px
-  val kLineHoverOutlinePx: Int = 9 // width in px
+  val kPointSizePx: Int = 12  // diameter in px
+  val kSnapDistancePx: Int = kPointSizePx * 3/2 // distance (radius) to snap for a click
+  val kPointSelectedSizePx: Int = kPointSizePx * 3/2 // diameter in px
+  val kPointHoverOutlinePx: Int = kPointSizePx * 3 // diameter in px
+  val kLineHoverBackgroundPx: Int = kPointSizePx * 5 // width in px
+  val kLineHoverOutlinePx: Int = kPointSizePx * 2 // width in px
   val kHoverOutlineColor: Color = JBColor.BLUE
   val kHoverOutlineBlend: Float = 0.5f
 
@@ -27,14 +29,18 @@ object JDsePlot {
 
   val kTickBrightness: Float = 0.25f
   val kTickSpacingIntervals: Seq[Int] = Seq(1, 2, 5)
-  val kMinTickSpacingPx: Int = 64 // min spacing between axis ticks, used to determine tick resolution
+  val kMinTickSpacingPx: Int = 96 // min spacing between axis ticks, used to determine tick resolution
   val kTickSizePx: Int = 4
 
   def defaultValuesRange(values: Seq[Float], factor: Float = kDefaultRangeMarginFactor): (Float, Float) = {
     val rangingValues = values.filter { value =>  // ignore invalid values for ranging
       value != Float.NegativeInfinity && value != Float.PositiveInfinity && value != Float.NaN
-    } :+ 0f
-    val range = (rangingValues.min, rangingValues.max) // 0 in case values is empty, and forces the scale to include 0
+    }
+    val range = if (rangingValues.nonEmpty) {
+      (rangingValues.min, rangingValues.max) // 0 in case values is empty, and forces the scale to include 0
+    } else {
+      (0f, 0f)
+    }
     val span = range._2 - range._1
     val expansion = if (span > 0) { // range units to expand on each side
       span * (factor - 1) / 2
@@ -82,7 +88,7 @@ object JDsePlot {
     var tickPos = (math.floor(range._1 / tickSpacing) * tickSpacing).toFloat
     val ticksBuilder = mutable.ArrayBuffer[(Float, String)]()
     while (tickPos <= range._2) {
-      ticksBuilder.append((tickPos, f"$tickPos%.02g"))
+      ticksBuilder.append((tickPos, ParamToUnitsStringUtil.toString(FloatValue(tickPos))))
       tickPos = (tickPos + tickSpacing).toFloat
     }
     ticksBuilder.toSeq

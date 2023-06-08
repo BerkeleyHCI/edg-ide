@@ -369,11 +369,11 @@ object DesignAnalysisUtils {
       if (superclass.getName == "IoController") {
         Seq("Stm32f103_48", "Rp2040", "Esp32_Wroom_32", "Esp32_Wrover_Dev").contains(subclass.getName)
       } else if (superclass.getName == "LinearRegulator") {
-        Seq("Ld1117", "Lp5907").contains(subclass.getName)
+        Seq("IdealLinearRegulator", "Ld1117", "Lp5907").contains(subclass.getName)
       } else if (superclass.getName == "BoostConverter") {
-        Seq("Ap3012").contains(subclass.getName)
+        Seq("IdealBoostConverter", "Ap3012").contains(subclass.getName)
       } else if (superclass.getName == "BuckConverter") {
-        Seq("Ap3418").contains(subclass.getName)
+        Seq("IdealBuckConverter", "Ap3418").contains(subclass.getName)
       } else {
         true
       }

@@ -19,12 +19,16 @@ import edgrpc.hdl.{hdl => edgrpc}
 
 import java.awt.BorderLayout
 import java.awt.event.{MouseAdapter, MouseEvent}
-import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
+import javax.swing.{JLabel, JPanel, JPopupMenu, SwingUtilities}
 
 
 class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, compiler: Compiler, project: Project) extends JPopupMenu {
   private val rootClass = design.getContents.getSelfClass
   private val rootPyClass = DesignAnalysisUtils.pyClassOf(rootClass, project)
+
+  val paramTypeName = compiler.getParamType(path).map(_.getSimpleName).getOrElse("Unknown")
+  add(new JLabel(s"$paramTypeName at $path"))
+  addSeparator()
 
   add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
     val value = compiler.getParamValue(path).exceptNone("no value")
