@@ -9,13 +9,12 @@ import edg_ide.ui.PopupUtils
 import java.awt.event.MouseEvent
 import scala.reflect.ClassTag
 
-
 class ExceptionNotifyException(val errMsg: String) extends Exception(errMsg)
 
-
 object exceptable {
-  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions.
-    * The result (or failure message) is returned as an Errorable.
+
+  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions. The result
+    * (or failure message) is returned as an Errorable.
     */
   def apply[T](fn: => T): Errorable[T] = {
     try {
@@ -30,10 +29,10 @@ object exceptable {
   }
 }
 
-
 object exceptionNotify {
-  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions.
-    * If any of those fail, terminates execution and displays the failure message.
+
+  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions. If any of
+    * those fail, terminates execution and displays the failure message.
     */
   def apply(notificationId: String, project: Project)(fn: => Unit): Unit = {
     apply(NotificationGroup.balloonGroup(notificationId), project)(fn)
@@ -49,10 +48,10 @@ object exceptionNotify {
   }
 }
 
-
 object exceptionPopup {
-  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions.
-    * If any of those fail, terminates execution and displays the failure message as a popup above the cursor.
+
+  /** Runs a block of code that may have requireExcept and fail-able ExceptionNotifyImplicits conversions. If any of
+    * those fail, terminates execution and displays the failure message as a popup above the cursor.
     */
   def apply(event: MouseEvent)(fn: => Unit): Unit = {
     try {
@@ -82,7 +81,6 @@ object exceptionPopup {
   }
 }
 
-
 object requireExcept {
   def apply(cond: Boolean, errMsg: => String): Unit = {
     if (!cond) {
@@ -91,8 +89,7 @@ object requireExcept {
   }
 }
 
-/** Implicit conversions that throw a ExceptionNotifyException on failure, to be used withing an
-  * exceptionNotify wrapper
+/** Implicit conversions that throw a ExceptionNotifyException on failure, to be used withing an exceptionNotify wrapper
   */
 object ExceptionNotifyImplicits {
   implicit class ExceptNotify[T](obj: T) {
@@ -113,7 +110,7 @@ object ExceptionNotifyImplicits {
     }
 
     def instanceOfExcept[V](errMsg: => String)(implicit tag: ClassTag[V]): V = obj match {
-        // Need the implicit tag so this generates a proper runtime check
+      // Need the implicit tag so this generates a proper runtime check
       case obj: V => obj
       case _ => exceptable.fail(errMsg)
     }

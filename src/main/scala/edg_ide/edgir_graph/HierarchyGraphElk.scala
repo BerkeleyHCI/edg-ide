@@ -18,10 +18,7 @@ import org.eclipse.elk.graph.util.ElkGraphUtil
 import java.util
 import scala.collection.SeqMap
 
-
-class HierarchyGraphElk {
-}
-
+class HierarchyGraphElk {}
 
 object HierarchyGraphElk {
   LayoutMetaDataService.getInstance.registerLayoutMetaDataProviders(new LayeredMetaDataProvider)
@@ -29,8 +26,7 @@ object HierarchyGraphElk {
 
   private val logger = Logger.getInstance(classOf[HierarchyGraphElk])
 
-  /**
-    * Creates a new ELK graph root node, preconfigured for hierarchy block layout
+  /** Creates a new ELK graph root node, preconfigured for hierarchy block layout
     */
   def makeGraphRoot(): ElkNode = {
     val root = ElkGraphUtil.createGraph()
@@ -41,8 +37,13 @@ object HierarchyGraphElk {
     root.setProperty(LayeredOptions.HIERARCHY_HANDLING, HierarchyHandling.INCLUDE_CHILDREN)
     root.setProperty(LayeredOptions.THOROUGHNESS, java.lang.Integer.valueOf(7))
 
-    root.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, util.EnumSet.of(
-      PortLabelPlacement.INSIDE, PortLabelPlacement.NEXT_TO_PORT_IF_POSSIBLE))
+    root.setProperty(
+      CoreOptions.PORT_LABELS_PLACEMENT,
+      util.EnumSet.of(
+        PortLabelPlacement.INSIDE,
+        PortLabelPlacement.NEXT_TO_PORT_IF_POSSIBLE
+      )
+    )
     root.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
 
     root
@@ -55,8 +56,13 @@ object HierarchyGraphElk {
     node.setIdentifier(name)
 
     // TODO: maybe the layout options should be elsewhere?
-    node.setProperty(CoreOptions.PORT_LABELS_PLACEMENT, util.EnumSet.of(
-      PortLabelPlacement.INSIDE, PortLabelPlacement.NEXT_TO_PORT_IF_POSSIBLE))
+    node.setProperty(
+      CoreOptions.PORT_LABELS_PLACEMENT,
+      util.EnumSet.of(
+        PortLabelPlacement.INSIDE,
+        PortLabelPlacement.NEXT_TO_PORT_IF_POSSIBLE
+      )
+    )
     node.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
     node.setProperty(CoreOptions.NODE_SIZE_MINIMUM, new KVector(200, 20))
 
@@ -67,7 +73,7 @@ object HierarchyGraphElk {
     val port = ElkGraphUtil.createPort(parent)
     port.setIdentifier(name)
 
-    port.setDimensions(10, 10)  // TODO make configurable?
+    port.setDimensions(10, 10) // TODO make configurable?
 
     port
   }
@@ -91,13 +97,14 @@ object HierarchyGraphElk {
     def edgeConv(edge: EdgeType): Option[PropertyType]
   }
 
-  /**
-    * Converts a HGraphNode to a ELK node, returning a map of its ports
+  /** Converts a HGraphNode to a ELK node, returning a map of its ports
     */
   def HGraphNodeToElkNode[NodeType, PortType, EdgeType](
-      node: HGraphNode[NodeType, PortType, EdgeType], name: String, parent: Option[ElkNode],
-      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq()):
-      (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
+      node: HGraphNode[NodeType, PortType, EdgeType],
+      name: String,
+      parent: Option[ElkNode],
+      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq()
+  ): (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
     val elkNode = parent match {
       case Some(parent) => addNode(parent, name)
       case None => makeGraphRoot()
@@ -110,9 +117,9 @@ object HierarchyGraphElk {
 
     val title = Option(elkNode.getProperty(TitleProperty)).getOrElse(name)
     ElkGraphUtil.createLabel(title, elkNode)
-        .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopLeft())
+      .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopLeft())
     ElkGraphUtil.createLabel(node.data.toString, elkNode)
-        .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.insideTopCenter())
+      .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.insideTopCenter())
 
     // Create ELK objects for members (blocks and ports)
     val myElkPorts = node.members.collect {
@@ -134,7 +141,8 @@ object HierarchyGraphElk {
     val myElkChildren = node.members.collect {
       // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
       case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
-        val (childElkNode, childConnectables) = HGraphNodeToElkNode(childElt, childName.mkString("."), Some(elkNode), mappers)
+        val (childElkNode, childConnectables) =
+          HGraphNodeToElkNode(childElt, childName.mkString("."), Some(elkNode), mappers)
         // Add the outer element into the inner namespace path
         childConnectables.map { case (childPath, childElk) =>
           childName ++ childPath -> childElk
@@ -142,7 +150,7 @@ object HierarchyGraphElk {
     }.flatten.toMap
 
     // Create edges
-    val myElkElements = myElkPorts ++ myElkChildren  // unify namespace, data structure should prevent conflicts
+    val myElkElements = myElkPorts ++ myElkChildren // unify namespace, data structure should prevent conflicts
     node.edges.foreach { edge =>
       (myElkElements.get(edge.source), myElkElements.get(edge.target)) match {
         case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
@@ -161,13 +169,14 @@ object HierarchyGraphElk {
     (elkNode, myElkPorts)
   }
 
-  /**
-    * Converts a HGraphNode to a ELK Node, and performs layout
+  /** Converts a HGraphNode to a ELK Node, and performs layout
     */
-  def HGraphNodeToElk[NodeType, PortType, EdgeType](node: HGraphNode[NodeType, PortType, EdgeType],
-                                                    topName: String,
-                                                    mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq(),
-                                                    makeRoot: Boolean = false): ElkNode = {
+  def HGraphNodeToElk[NodeType, PortType, EdgeType](
+      node: HGraphNode[NodeType, PortType, EdgeType],
+      topName: String,
+      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq(),
+      makeRoot: Boolean = false
+  ): ElkNode = {
     val root = if (makeRoot) {
       val root = makeGraphRoot()
       HGraphNodeToElkNode(node, topName, Some(root), mappers)
@@ -181,23 +190,34 @@ object HierarchyGraphElk {
     root
   }
 
-
-  def HBlockToElkNode(block: HierarchyBlock, blockPath: DesignPath = DesignPath(), depth: Int = 1,
-                       mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq()): ElkNode = {
+  def HBlockToElkNode(
+      block: HierarchyBlock,
+      blockPath: DesignPath = DesignPath(),
+      depth: Int = 1,
+      mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq()
+  ): ElkNode = {
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(blockPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-      4, Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink")))
+      4,
+      Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink"))
+    )
     val transformedGraph = highFanoutTransform(
       CollapseLinkTransform(CollapseBridgeTransform(
         InferEdgeDirectionTransform(SimplifyPortTransform(
-          PruneDepthTransform(edgirGraph, depth))))))
+          PruneDepthTransform(edgirGraph, depth)
+        ))
+      ))
+    )
 
-    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-      blockPath.lastString, mappers, blockPath != DesignPath())  // need to make a root so root doesn't have ports
+    val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(
+      transformedGraph,
+      blockPath.lastString,
+      mappers,
+      blockPath != DesignPath()
+    ) // need to make a root so root doesn't have ports
 
     layoutGraphRoot
   }
 }
-

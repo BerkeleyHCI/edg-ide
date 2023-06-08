@@ -9,15 +9,16 @@ import edg_ide.build.BuildInfo
 
 import javax.swing.{JCheckBox, JPanel}
 
-
 class EdgSettingsComponent {
   val kicadDirectoryText = new TextFieldWithBrowseButton()
   kicadDirectoryText.addBrowseFolderListener(
-    "Choose KiCad Footprint Directory", "", null,
+    "Choose KiCad Footprint Directory",
+    "",
+    null,
     FileChooserDescriptorFactory.createSingleFolderDescriptor()
   )
   val kicadDirectoryHelp = new JBLabel("Multiple footprint directories can be separated by semicolons (;). " +
-      "IDE restart may be required to take effect.")
+    "IDE restart may be required to take effect.")
   kicadDirectoryHelp.setEnabled(false)
 
   val persistBlockCache = new JCheckBox()
@@ -49,27 +50,26 @@ class EdgSettingsComponent {
   useInsertionLiveTemplatesHelp.setEnabled(false)
 
   val versionLabel = new JBLabel(s"Version ${BuildInfo.version}, built at ${BuildInfo.builtAtString}, " +
-      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}")
+    s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}")
   versionLabel.setEnabled(false)
 
   val mainPanel = FormBuilder.createFormBuilder()
-      .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
-      .addComponent(kicadDirectoryHelp)
-      .addLabeledComponent(new JBLabel("Persist Block Cache"), persistBlockCache, false)
-      .addComponent(persistBlockCacheHelp)
-      .addLabeledComponent(new JBLabel("Show Proven Status"), showProvenStatus, false)
-      .addComponent(showProvenStatusHelp)
-      .addLabeledComponent(new JBLabel("Show Internal Blocks"), showInternalBlocks, false)
-      .addComponent(showInternalBlocksHelp)
-      .addLabeledComponent(new JBLabel("Show IDE Errors"), showIdeErrors, false)
-      .addComponent(showIdeErrorsHelp)
-      .addLabeledComponent(new JBLabel("Use Insertion Live Templates"), useInsertionLiveTemplates, false)
-      .addComponent(useInsertionLiveTemplatesHelp)
-      .addComponentFillVertically(new JPanel(), 0)
-      .addComponent(versionLabel)
-      .getPanel
+    .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
+    .addComponent(kicadDirectoryHelp)
+    .addLabeledComponent(new JBLabel("Persist Block Cache"), persistBlockCache, false)
+    .addComponent(persistBlockCacheHelp)
+    .addLabeledComponent(new JBLabel("Show Proven Status"), showProvenStatus, false)
+    .addComponent(showProvenStatusHelp)
+    .addLabeledComponent(new JBLabel("Show Internal Blocks"), showInternalBlocks, false)
+    .addComponent(showInternalBlocksHelp)
+    .addLabeledComponent(new JBLabel("Show IDE Errors"), showIdeErrors, false)
+    .addComponent(showIdeErrorsHelp)
+    .addLabeledComponent(new JBLabel("Use Insertion Live Templates"), useInsertionLiveTemplates, false)
+    .addComponent(useInsertionLiveTemplatesHelp)
+    .addComponentFillVertically(new JPanel(), 0)
+    .addComponent(versionLabel)
+    .getPanel
 }
-
 
 // "controller" for settings
 class EdgSettingsConfigurable extends Configurable {
@@ -82,11 +82,11 @@ class EdgSettingsConfigurable extends Configurable {
   override def isModified: Boolean = {
     val settings = EdgSettingsState.getInstance()
     !settings.kicadDirectories.sameElements(component.kicadDirectoryText.getText.split(";")) ||
-        settings.persistBlockCache != component.persistBlockCache.isSelected ||
-        settings.showProvenStatus != component.showProvenStatus.isSelected ||
-        settings.showInternalBlocks != component.showInternalBlocks.isSelected ||
-        settings.showIdeErrors != component.showIdeErrors.isSelected ||
-        settings.useInsertionLiveTemplates != component.useInsertionLiveTemplates.isSelected
+    settings.persistBlockCache != component.persistBlockCache.isSelected ||
+    settings.showProvenStatus != component.showProvenStatus.isSelected ||
+    settings.showInternalBlocks != component.showInternalBlocks.isSelected ||
+    settings.showIdeErrors != component.showIdeErrors.isSelected ||
+    settings.useInsertionLiveTemplates != component.useInsertionLiveTemplates.isSelected
   }
 
   override def apply(): Unit = {

@@ -1,8 +1,6 @@
 package edg_ide.edgir_graph
 
-
-/**
-  * Simple transform that collapses all links
+/** Simple transform that collapses all links
   */
 object CollapseLinkTransform extends CollapseNodeTransform {
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
@@ -16,7 +14,7 @@ object CollapseLinkTransform extends CollapseNodeTransform {
       collapse(prevNode, linkName, _ => edgeData)
     }
 
-    val newNodeNewMembers = newNode.members.map {  // recurse into child nodes
+    val newNodeNewMembers = newNode.members.map { // recurse into child nodes
       case (name, member: EdgirGraph.EdgirNode) => name -> apply(member)
       case (name, member: EdgirGraph.EdgirPort) => name -> member
     }

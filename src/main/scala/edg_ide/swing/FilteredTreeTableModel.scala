@@ -5,24 +5,24 @@ import javax.swing.tree.TreePath
 import collection.mutable
 import scala.reflect.ClassTag
 
-
-/** A filtering layer around a TreeModel, that takes a filter function on node types,
-  * and displays only the filtered nodes, all their children (recursively), and all their parents.
+/** A filtering layer around a TreeModel, that takes a filter function on node types, and displays only the filtered
+  * nodes, all their children (recursively), and all their parents.
   *
   * Filtering happens on filter application, and traverses the entire tree, requiring N time.
   */
 class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeType])(implicit tag: ClassTag[NodeType])
     extends SeqTreeTableModel[NodeType] {
+
   /** Applies the filter on nodes. Computation happens immediately, traversing all nodes to rebuild the tree.
     */
   def setFilter(filter: NodeType => Boolean): Seq[TreePath] = {
     val (newFilteredChildren, filterMatchPaths) = computeFilteredChildren(filter)
     filteredChildren = newFilteredChildren
     listeners.foreach { listener =>
-        // TODO maybe be more accurate about tree ops to preserve tree state
+      // TODO maybe be more accurate about tree ops to preserve tree state
       listener.treeStructureChanged(
-        new TreeModelEvent(getRootNode.asInstanceOf[Object],
-          Array(getRootNode.asInstanceOf[Object])))
+        new TreeModelEvent(getRootNode.asInstanceOf[Object], Array(getRootNode.asInstanceOf[Object]))
+      )
     }
     filterMatchPaths
   }
@@ -30,7 +30,7 @@ class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeTy
   // TODO also listen to model events to update tree?
   // Computes filtered children, and returns paths to all children that match the filter
   private def computeFilteredChildren(filter: NodeType => Boolean): (Map[NodeType, Seq[NodeType]], Seq[TreePath]) = {
-    val treeBuilder = mutable.Map[NodeType, Seq[NodeType]]()  // TODO use identity map and eq
+    val treeBuilder = mutable.Map[NodeType, Seq[NodeType]]() // TODO use identity map and eq
     val filterMatchPaths = mutable.ListBuffer[TreePath]()
 
     // traverses a node (recursively), returning whether it (or its children) have passed the filter
@@ -39,7 +39,7 @@ class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeTy
       val originalChildren = model.getNodeChildren(node)
 
       val filterMatches = filter(node)
-      if (parentPassedFilter || filterMatches) {  // include the entire subtree
+      if (parentPassedFilter || filterMatches) { // include the entire subtree
         if (filterMatches) {
           filterMatchPaths += nodePath
         }
@@ -56,7 +56,7 @@ class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeTy
       } else {
         val filteredChildren = originalChildren.map { child =>
           (child, traverse(child, nodePath.pathByAddingChild(child), false))
-        } .collect { case (child, true) => child }
+        }.collect { case (child, true) => child }
 
         if (treeBuilder.contains(node)) {
           require(treeBuilder(node) == originalChildren, s"inconsistent reinsertion at $node")

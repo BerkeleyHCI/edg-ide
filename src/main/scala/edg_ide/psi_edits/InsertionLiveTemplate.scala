@@ -19,7 +19,6 @@ import com.jetbrains.python.psi._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-
 trait InsertionLiveTemplateVariable {
   def name: String
 
@@ -38,17 +37,25 @@ trait InsertionLiveTemplateVariable {
 }
 
 object InsertionLiveTemplate {
-  class Variable(val name: String, val elt: PsiElement,
-                 validator: (String, TemplateState) => Option[String] = (_, _) => None,
-                 defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable {
-    override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
+  class Variable(
+      val name: String,
+      val elt: PsiElement,
+      validator: (String, TemplateState) => Option[String] = (_, _) => None,
+      defaultValue: Option[String] = None
+  ) extends InsertionLiveTemplateVariable {
+    override def validate(contents: String, templateState: TemplateState): Option[String] =
+      validator(contents, templateState)
     override def getDefaultValue: String = defaultValue.getOrElse(elt.getText)
   }
 
-  class Reference(val name: String, val elt: PsiElement,
-                  validator: (String, TemplateState) => Option[String] = (_, _) => None,
-                  defaultValue: Option[String] = None) extends InsertionLiveTemplateVariable {
-    override def validate(contents: String, templateState: TemplateState): Option[String] = validator(contents, templateState)
+  class Reference(
+      val name: String,
+      val elt: PsiElement,
+      validator: (String, TemplateState) => Option[String] = (_, _) => None,
+      defaultValue: Option[String] = None
+  ) extends InsertionLiveTemplateVariable {
+    override def validate(contents: String, templateState: TemplateState): Option[String] =
+      validator(contents, templateState)
     override def isReference: Boolean = true
     override def getDefaultValue: String = defaultValue.getOrElse(elt.getReference.getCanonicalText)
   }
@@ -58,8 +65,10 @@ object InsertionLiveTemplate {
   def validatePythonName(name: String, templateState: TemplateState, pyClass: Option[PyClass]): Option[String] = {
     val existingNames = pyClass match {
       case Some(pyClass) =>
-        val templateRange = new TextRange(templateState.getExpressionContextForSegment(0).getTemplateStartOffset,
-          templateState.getExpressionContextForSegment(0).getTemplateEndOffset)
+        val templateRange = new TextRange(
+          templateState.getExpressionContextForSegment(0).getTemplateStartOffset,
+          templateState.getExpressionContextForSegment(0).getTemplateEndOffset
+        )
         pyClass.getInstanceAttributes.asScala.filter(psi =>
           !templateRange.contains(psi.getTextRange)
         ).map(_.getName).toSet
@@ -76,15 +85,16 @@ object InsertionLiveTemplate {
   }
 }
 
-
 /** Utilities for insertion live templates.
   *
-  * @param elt existing PsiElement to instantiate the template around
-  * @param variables list of variables for the live template, see variable definition
+  * @param elt
+  *   existing PsiElement to instantiate the template around
+  * @param variables
+  *   list of variables for the live template, see variable definition
   */
 class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLiveTemplateVariable]) {
-  private class TemplateListener(editor: Editor,
-                                 tooltip: JBPopup, highlighters: Iterable[RangeHighlighter]) extends TemplateEditingAdapter {
+  private class TemplateListener(editor: Editor, tooltip: JBPopup, highlighters: Iterable[RangeHighlighter])
+      extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
 
     override def templateFinished(template: Template, brokenOff: Boolean): Unit = {
@@ -97,7 +107,12 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     }
 
     private var lastChangeWasRevert = false
-    override def currentVariableChanged(templateState: TemplateState, template: Template, oldIndex: Int, newIndex: Int): Unit = {
+    override def currentVariableChanged(
+        templateState: TemplateState,
+        template: Template,
+        oldIndex: Int,
+        newIndex: Int
+    ): Unit = {
       // called when the selected template variable is changed (on tab/enter-cycling)
       super.currentVariableChanged(templateState, template, oldIndex, newIndex)
       var variableReverted = false
@@ -109,8 +124,8 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
         val validationError = oldVariable.validate(oldVariableValue, templateState)
         currentTooltip.closeOk(null)
         validationError match {
-          case Some(err) =>  // TODO: this does nothing when the template is finishing
-            lastChangeWasRevert = true  // avoid showing popup when this is called again from previousTab()
+          case Some(err) => // TODO: this does nothing when the template is finishing
+            lastChangeWasRevert = true // avoid showing popup when this is called again from previousTab()
             variableReverted = true
             if (newIndex > oldIndex) {
               templateState.previousTab() // must be before the tooltip, so the tooltip is placed correctly
@@ -118,7 +133,7 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
               templateState.nextTab()
             }
             currentTooltip = createTemplateTooltip(f"${oldVariable.name} | $err", editor, true)
-          case None =>  // ignored
+          case None => // ignored
         }
       }
 
@@ -158,8 +173,9 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
       validationInfo = validationInfo.asWarning()
     }
     val popupBuilder = ComponentValidator.createPopupBuilder(
-      validationInfo, _ => ()
-    ).setCancelKeyEnabled(false)  // otherwise this eats the cancel keypress for the live template
+      validationInfo,
+      _ => ()
+    ).setCancelKeyEnabled(false) // otherwise this eats the cancel keypress for the live template
     val popup = popupBuilder.createPopup()
     popup.showInBestPositionFor(editor)
     popup
@@ -167,21 +183,29 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
 
   // starts this template and returns the TemplateState
   // must run in a write command action
-  def run(initialTooltip: Option[String] = None, overrideTemplateVarValues: Option[Seq[String]] = None): TemplateState = {
+  def run(
+      initialTooltip: Option[String] = None,
+      overrideTemplateVarValues: Option[Seq[String]] = None
+  ): TemplateState = {
     val project = elt.getProject
 
     // opens / sets the focus onto the relevant text editor, so the user can start typing
-    val fileDescriptor = new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile,
-      elt.getTextRange.getStartOffset)
+    val fileDescriptor =
+      new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile, elt.getTextRange.getStartOffset)
     val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
     editor.getCaretModel.moveToOffset(elt.getTextOffset) // needed so the template is placed at the right location
 
     // these must be constructed before template creation, other template creation messes up the locations
     val highlighters = new java.util.ArrayList[RangeHighlighter]()
     // flags = 0 means ignore esc, otherwise it eats the esc keypress
-    HighlightManager.getInstance(project).addOccurrenceHighlight(editor,
-      elt.getTextRange.getStartOffset, elt.getTextRange.getEndOffset,
-      EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT, 0, highlighters)
+    HighlightManager.getInstance(project).addOccurrenceHighlight(
+      editor,
+      elt.getTextRange.getStartOffset,
+      elt.getTextRange.getEndOffset,
+      EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT,
+      0,
+      highlighters
+    )
 
     val builder = new TemplateBuilderImpl(elt)
     variables.zipWithIndex.foreach { case (variable, variableIndex) =>

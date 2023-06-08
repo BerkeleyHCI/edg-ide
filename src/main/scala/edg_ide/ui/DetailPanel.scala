@@ -21,21 +21,25 @@ import java.awt.BorderLayout
 import java.awt.event.{MouseAdapter, MouseEvent}
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 
-
-class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, compiler: Compiler, project: Project) extends JPopupMenu {
+class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, compiler: Compiler, project: Project)
+    extends JPopupMenu {
   private val rootClass = design.getContents.getSelfClass
   private val rootPyClass = DesignAnalysisUtils.pyClassOf(rootClass, project)
 
-  add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-    val value = compiler.getParamValue(path).exceptNone("no value")
-    val insertAction = new InsertRefinementAction(project, rootPyClass.exceptError).createInsertRefinements(new Refinements(
-      instanceValues = Map(DesignPath.fromIndirectOption(path).exceptNone("not a direct param") -> value)
-    )).exceptError
-    () => {
-      val inserted = insertAction().head
-      InsertAction.navigateToEnd(inserted)
-    }
-  }, s"Insert refinement"))
+  add(ContextMenuUtils.MenuItemFromErrorable(
+    exceptable {
+      val value = compiler.getParamValue(path).exceptNone("no value")
+      val insertAction =
+        new InsertRefinementAction(project, rootPyClass.exceptError).createInsertRefinements(new Refinements(
+          instanceValues = Map(DesignPath.fromIndirectOption(path).exceptNone("not a direct param") -> value)
+        )).exceptError
+      () => {
+        val inserted = insertAction().head
+        InsertAction.navigateToEnd(inserted)
+      }
+    },
+    s"Insert refinement"
+  ))
 
   // Determine the user-defined (pre-refinement) class for class-based refinements
   private val blockClassPostfix = exceptable {
@@ -59,59 +63,86 @@ class DetailParamPopupMenu(path: IndirectDesignPath, design: schema.Design, comp
     (paramDefiningClass, postfix)
   }
 
-  add(ContextMenuUtils.MenuItemNamedFromErrorable(exceptable {
-    val (paramDefiningClass, postfix) = paramDefiningClassPostfix.exceptError
-    val value = compiler.getParamValue(path).exceptNone("no value")
+  add(ContextMenuUtils.MenuItemNamedFromErrorable(
+    exceptable {
+      val (paramDefiningClass, postfix) = paramDefiningClassPostfix.exceptError
+      val value = compiler.getParamValue(path).exceptNone("no value")
 
-    val insertAction = new InsertRefinementAction(project, rootPyClass.exceptError).createInsertRefinements(new Refinements(
-      classValues = Map((paramDefiningClass, postfix) -> value)
-    )).exceptError
-    (() => {
-      val inserted = insertAction().head
-      InsertAction.navigateToEnd(inserted)
-    }, s"Insert refinement for all ${paramDefiningClass.toSimpleString}:${ExprToString(postfix)}")
-  }, s"Insert refinement for param-defining class"))
+      val insertAction =
+        new InsertRefinementAction(project, rootPyClass.exceptError).createInsertRefinements(new Refinements(
+          classValues = Map((paramDefiningClass, postfix) -> value)
+        )).exceptError
+      (
+        () => {
+          val inserted = insertAction().head
+          InsertAction.navigateToEnd(inserted)
+        },
+        s"Insert refinement for all ${paramDefiningClass.toSimpleString}:${ExprToString(postfix)}"
+      )
+    },
+    s"Insert refinement for param-defining class"
+  ))
 
   if (DseFeature.kEnabled) {
     addSeparator()
-    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct param")
-      val value = compiler.getParamValue(path).exceptNone("no value")
-      val baseConfig = DsePathParameterSearch(directPath, Seq(value))
-      DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
-        DseService(project).addSearchConfig(rootClass, newConfig, this)
-      }).exceptError
-    }, s"Search values"))
+    add(ContextMenuUtils.MenuItemFromErrorable(
+      exceptable {
+        val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct param")
+        val value = compiler.getParamValue(path).exceptNone("no value")
+        val baseConfig = DsePathParameterSearch(directPath, Seq(value))
+        DseSearchConfigPopupMenu.createParamSearchEditPopup(
+          baseConfig,
+          project,
+          { newConfig =>
+            DseService(project).addSearchConfig(rootClass, newConfig, this)
+          }
+        ).exceptError
+      },
+      s"Search values"
+    ))
 
-    add(ContextMenuUtils.MenuItemNamedFromErrorable(exceptable {
-      val (paramDefiningClass, postfix) = paramDefiningClassPostfix.exceptError
-      val value = compiler.getParamValue(path).exceptNone("no value")
-      val baseConfig = DseClassParameterSearch(paramDefiningClass, postfix, Seq(value))
-      (DseSearchConfigPopupMenu.createParamSearchEditPopup(baseConfig, project, { newConfig =>
-        DseService(project).addSearchConfig(rootClass, newConfig, this)
-      }).exceptError, s"Search values for all ${paramDefiningClass.toSimpleString}:${ExprToString(postfix)}")
-    }, s"Search values of param-defining class"))
+    add(ContextMenuUtils.MenuItemNamedFromErrorable(
+      exceptable {
+        val (paramDefiningClass, postfix) = paramDefiningClassPostfix.exceptError
+        val value = compiler.getParamValue(path).exceptNone("no value")
+        val baseConfig = DseClassParameterSearch(paramDefiningClass, postfix, Seq(value))
+        (
+          DseSearchConfigPopupMenu.createParamSearchEditPopup(
+            baseConfig,
+            project,
+            { newConfig =>
+              DseService(project).addSearchConfig(rootClass, newConfig, this)
+            }
+          ).exceptError,
+          s"Search values for all ${paramDefiningClass.toSimpleString}:${ExprToString(postfix)}"
+        )
+      },
+      s"Search values of param-defining class"
+    ))
 
     addSeparator()
-    add(ContextMenuUtils.MenuItemFromErrorable(exceptable {
-      val objective = compiler.getParamType(path) match {
-        case Some(paramType) => DseObjectiveParameter(path, paramType)
-        case _ => exceptable.fail(f"no parameter type at $path")
-      }
+    add(ContextMenuUtils.MenuItemFromErrorable(
+      exceptable {
+        val objective = compiler.getParamType(path) match {
+          case Some(paramType) => DseObjectiveParameter(path, paramType)
+          case _ => exceptable.fail(f"no parameter type at $path")
+        }
 
-      () => {
-        val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-        config.options.objectives = config.options.objectives :+ objective
-        DseService(project).onObjectiveConfigChanged(config, true)
-      }
-    }, "Add objective"))
+        () => {
+          val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+          config.options.objectives = config.options.objectives :+ objective
+          DseService(project).onObjectiveConfigChanged(config, true)
+        }
+      },
+      "Add objective"
+    ))
   }
 }
 
-
 // TODO: remove initCompiler, it's counterintuitive
 class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project) extends JPanel {
-  private val tree = new TreeTable(new ElementDetailTreeModel(initPath, schema.Design(), edgrpc.Refinements(), initCompiler))
+  private val tree =
+    new TreeTable(new ElementDetailTreeModel(initPath, schema.Design(), edgrpc.Refinements(), initCompiler))
   tree.setShowColumns(true)
   private val treeScrollPane = new JBScrollPane(tree)
   private val treeTreeRenderer = tree.getTree.getCellRenderer
@@ -122,12 +153,13 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
 
   private val treeMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
-      val selectedTreePath = TreeTableUtils.getPathForRowLocation(tree, e.getX, e.getY).getOrElse(return)
+      val selectedTreePath = TreeTableUtils.getPathForRowLocation(tree, e.getX, e.getY).getOrElse(return
+      )
       selectedTreePath.getLastPathComponent match {
         case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
-          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {  // right click context menu
+          if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click context menu
             new DetailParamPopupMenu(selected.path, selected.outer.root, selected.outer.compiler, project)
-                .show(e.getComponent, e.getX, e.getY)
+              .show(e.getComponent, e.getX, e.getY)
           }
 
         case _ => // any other type ignored
@@ -158,9 +190,7 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
 
   // Configuration State
   //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-  }
+  def saveState(state: BlockVisualizerServiceState): Unit = {}
 
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-  }
+  def loadState(state: BlockVisualizerServiceState): Unit = {}
 }

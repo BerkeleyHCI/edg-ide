@@ -13,41 +13,43 @@ import java.awt.event.MouseEvent
 import javax.swing.JEditorPane
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
-
 object PopupUtils {
   def createMenuPopup[T](title: String, elts: Seq[T], editor: Editor)(accept: T => Unit): Unit = {
     val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
-        .setTitle(title)
-        .setItemChosenCallback((t: T) => {
-          accept(t)
-        })
-        .createPopup()
+      .setTitle(title)
+      .setItemChosenCallback((t: T) => {
+        accept(t)
+      })
+      .createPopup()
     popup.showInBestPositionFor(editor)
   }
 
   // TODO unify & dedup!
   def createMenuPopup[T](title: String, elts: Seq[T], project: Project)(accept: T => Unit): Unit = {
     val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
-        .setTitle(title)
-        .setItemChosenCallback((t: T) => {
-          accept(t)
-        })
-        .createPopup()
+      .setTitle(title)
+      .setItemChosenCallback((t: T) => {
+        accept(t)
+      })
+      .createPopup()
     popup.showCenteredInCurrentWindow(project)
   }
 
   def createMenuPopup[T](title: String, elts: Seq[T], e: MouseEvent)(accept: T => Unit): Unit = {
     val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
-        .setTitle(title)
-        .setItemChosenCallback((t: T) => {
-          accept(t)
-        })
-        .createPopup()
+      .setTitle(title)
+      .setItemChosenCallback((t: T) => {
+        accept(t)
+      })
+      .createPopup()
     popup.showInScreenCoordinates(e.getComponent, new Point(e.getXOnScreen, e.getYOnScreen))
   }
 
-  def createStringEntryPopup(title: String, project: Project, initialValue: String = "")
-                            (accept: String => Errorable[Unit]): Unit = {
+  def createStringEntryPopup(
+      title: String,
+      project: Project,
+      initialValue: String = ""
+  )(accept: String => Errorable[Unit]): Unit = {
     val contentPanel = new NewItemSimplePopupPanel
     val nameField = contentPanel.getTextField
     nameField.setText(initialValue)
@@ -65,7 +67,7 @@ object PopupUtils {
   // creates an error popup without showing it
   private def createErrorPopupRaw(message: String, isWarning: Boolean): (JBPopup, Int) = {
     var hintHeight: Int = 0
-    var validationInfo = new ValidationInfo(message, null)  // TODO support component?
+    var validationInfo = new ValidationInfo(message, null) // TODO support component?
     if (isWarning) {
       validationInfo = validationInfo.asWarning()
     }
@@ -74,9 +76,9 @@ object PopupUtils {
       (editorPane: JEditorPane) => {
         hintHeight = editorPane.getPreferredSize.height
       }
-    )   .setCancelOnWindowDeactivation(false)
-        .setCancelOnClickOutside(true)
-        .addUserData("SIMPLE_WINDOW")
+    ).setCancelOnWindowDeactivation(false)
+      .setCancelOnClickOutside(true)
+      .addUserData("SIMPLE_WINDOW")
 
     (popupBuilder.createPopup, hintHeight)
   }
@@ -99,8 +101,10 @@ object PopupUtils {
 
   def createErrorPopup(message: String, e: MouseEvent): Unit = {
     val (popup, height) = createErrorPopupRaw(message, false)
-    popup.showInScreenCoordinates(e.getComponent,
-      new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - height))
+    popup.showInScreenCoordinates(
+      e.getComponent,
+      new Point(e.getXOnScreen, e.getYOnScreen - JBUIScale.scale(6) - height)
+    )
   }
 
   def createErrorPopup(message: String, editor: Editor): Unit = {

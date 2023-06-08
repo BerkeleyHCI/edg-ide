@@ -23,7 +23,6 @@ import org.jdom.Element
 import javax.swing.{Icon, JComponent, JLabel, JPanel, JTextField}
 import scala.collection.SeqMap
 
-
 // Run configuration for design space exploration (DSE) / search, which tries lots of variations
 // of a design and assesses tradeoffs and finds the pareto front.
 class DseRunConfigurationType extends ConfigurationType {
@@ -40,7 +39,6 @@ class DseRunConfigurationType extends ConfigurationType {
   }
 }
 
-
 class DseConfigurationFactory(confType: ConfigurationType) extends ConfigurationFactory(confType) {
   override def getId: String = getClass.getName
 
@@ -51,7 +49,6 @@ class DseConfigurationFactory(confType: ConfigurationType) extends Configuration
   override def getOptionsClass: Class[DseRunConfigurationOptions] = classOf[DseRunConfigurationOptions]
 }
 
-
 class DseRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var resultCsvFile: String = ""
@@ -59,7 +56,6 @@ class DseRunConfigurationOptions extends RunConfigurationOptions {
   var searchConfigs: Seq[DseConfigElement] = Seq()
   var objectives: Seq[DseObjective] = Seq()
 }
-
 
 class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name: String)
     extends RunConfigurationBase[DseRunConfigurationOptions](project, factory, name) {
@@ -94,13 +90,13 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
     options.resultCsvFile = JDOMExternalizerUtil.readField(element, kFieldResultCsvFile, "")
     Option(JDOMExternalizerUtil.readField(element, kFieldSearchConfigs))
-        .flatMap(ObjectSerializer.deserialize)
-        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseConfigElement])
-        .foreach(options.searchConfigs = _)  // only set if valid, otherwise leave as default
+      .flatMap(ObjectSerializer.deserialize)
+      .flatMap(ObjectSerializer.optionInstanceOfSeq[DseConfigElement])
+      .foreach(options.searchConfigs = _) // only set if valid, otherwise leave as default
     Option(JDOMExternalizerUtil.readField(element, kFieldObjectives))
-        .flatMap(ObjectSerializer.deserialize)
-        .flatMap(ObjectSerializer.optionInstanceOfSeq[DseObjective])
-        .foreach(options.objectives = _)  // only set if valid, otherwise leave as default
+      .flatMap(ObjectSerializer.deserialize)
+      .flatMap(ObjectSerializer.optionInstanceOfSeq[DseObjective])
+      .foreach(options.objectives = _) // only set if valid, otherwise leave as default
   }
   override def writeExternal(element: Element): Unit = {
     super.writeExternal(element)
@@ -111,20 +107,19 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
   }
 }
 
-
 class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   protected val designName = new JTextField()
   protected val resultCsvFile = new JTextField()
-  protected val searchConfigs = new JLabel()  // view only - set from DSE tab in BlockVisualizer panel
+  protected val searchConfigs = new JLabel() // view only - set from DSE tab in BlockVisualizer panel
   protected val objectives = new JLabel()
 
   protected val panel = FormBuilder.createFormBuilder()
-      .addLabeledComponent(new JBLabel("Design top name"), designName, false)
-      .addLabeledComponent(new JBLabel("Result CSV file"), resultCsvFile, false)
-      .addLabeledComponent(new JBLabel("Parameter search configs"), searchConfigs, false)
-      .addLabeledComponent(new JBLabel("Objective functions"), objectives, false)
-      .addComponentFillVertically(new JPanel(), 0)
-      .getPanel
+    .addLabeledComponent(new JBLabel("Design top name"), designName, false)
+    .addLabeledComponent(new JBLabel("Result CSV file"), resultCsvFile, false)
+    .addLabeledComponent(new JBLabel("Parameter search configs"), searchConfigs, false)
+    .addLabeledComponent(new JBLabel("Objective functions"), objectives, false)
+    .addComponentFillVertically(new JPanel(), 0)
+    .getPanel
 
   override def resetEditorFrom(s: DseRunConfiguration): Unit = {
     designName.setText(s.options.designName)

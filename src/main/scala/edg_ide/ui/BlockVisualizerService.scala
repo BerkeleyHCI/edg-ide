@@ -13,7 +13,6 @@ import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io.File
 
-
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
 // because IntelliJ doesn't seem to like the Scala class.
 object BlockVisualizerService {
@@ -22,8 +21,8 @@ object BlockVisualizerService {
   }
 }
 
-class BlockVisualizerService(project: Project) extends
-    PersistentStateComponent[BlockVisualizerServiceState] with Disposable {
+class BlockVisualizerService(project: Project) extends PersistentStateComponent[BlockVisualizerServiceState]
+    with Disposable {
   private var visualizerPanel: Option[BlockVisualizerPanel] = None
   private var initialState: Option[BlockVisualizerServiceState] = None
 
@@ -55,8 +54,13 @@ class BlockVisualizerService(project: Project) extends
     visualizerPanelOption.foreach(_.updateLibrary(library))
   }
 
-  def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
-                   errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
+  def setDesignTop(
+      design: schema.Design,
+      compiler: Compiler,
+      refinements: edgrpc.Refinements,
+      errors: Seq[CompilerError],
+      namePrefix: Option[String] = None
+  ): Unit = {
     visualizerPanelOption.foreach(_.setDesignTop(design, compiler, refinements, errors, namePrefix))
   }
 
@@ -68,13 +72,11 @@ class BlockVisualizerService(project: Project) extends
     visualizerPanelOption.map(_.getDesign)
   }
 
-
   // Proven feature
   //
   lazy val getProvenDatabase: ProvenDatabase = {
     ProvenDataReader.read(new File("src/main/resources/proven-designs/data.csv"))
   }
-
 
   // State management
   //
@@ -88,5 +90,5 @@ class BlockVisualizerService(project: Project) extends
     initialState = Some(state)
   }
 
-  override def dispose(): Unit = { }
+  override def dispose(): Unit = {}
 }

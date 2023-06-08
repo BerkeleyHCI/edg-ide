@@ -12,11 +12,11 @@ import java.awt.event._
 import java.awt.{GridBagConstraints, GridBagLayout}
 import javax.swing.{JButton, JPanel}
 
-
 class DseParallelPlotPanel() extends DseBasePlot {
   // Data State
-  private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
-  private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
+  private var combinedResults = new CombinedDseResultSet(Seq()) // reflects the data points
+  private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) =
+    (Seq(), Seq()) // reflects the widget display
 
   val thisLayout = new GridBagLayout
   setLayout(thisLayout)
@@ -43,7 +43,7 @@ class DseParallelPlotPanel() extends DseBasePlot {
   private val deleteAxis = new DummyAxis("Delete")
 
   private var axisSelectors: Seq[ComboBox[PlotAxis]] = Seq(new ComboBox[PlotAxis]())
-  axisSelectors.head.addItem(emptyAxis)  // don't need listener yet, does nothing
+  axisSelectors.head.addItem(emptyAxis) // don't need listener yet, does nothing
   add(axisSelectors.head, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
 
   private val axisAddButton = new JButton()
@@ -62,8 +62,8 @@ class DseParallelPlotPanel() extends DseBasePlot {
 
         // update all the axes to populate the menu items
         val (search, objectives) = displayAxisSelector
-        updateAxisSelectors(search, objectives, true)  // TODO doesn't need to be rewrapped in invokeLater
-        updatePlot()  // TODO doesn't need to be rewrapped in invokeLater
+        updateAxisSelectors(search, objectives, true) // TODO doesn't need to be rewrapped in invokeLater
+        updatePlot() // TODO doesn't need to be rewrapped in invokeLater
       })
     }
   })
@@ -73,7 +73,10 @@ class DseParallelPlotPanel() extends DseBasePlot {
     val flatResults = combinedResults.groupedResults.flatten
     val (pointsByAxis, axisByAxis) = axisSelectors.zipWithIndex.map { case (axisSelector, index) =>
       val (points, axis) = axisSelector.getItem.resultsToValuesAxis(flatResults)
-      require(flatResults.size == points.size, s"Axis ${index} points mismatch, got ${points.size} expected ${flatResults.size}")
+      require(
+        flatResults.size == points.size,
+        s"Axis ${index} points mismatch, got ${points.size} expected ${flatResults.size}"
+      )
       (points, axis)
     }.unzip
 
@@ -89,8 +92,13 @@ class DseParallelPlotPanel() extends DseBasePlot {
         pointsByAxis(axisIndex)(dataIndex)
       }
 
-      new parallelPlot.Data(result, axisValues, zOrder, color,
-        Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont)))
+      new parallelPlot.Data(
+        result,
+        axisValues,
+        zOrder,
+        color,
+        Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+      )
     }
 
     ApplicationManager.getApplication.invokeLater(() => {
@@ -98,10 +106,13 @@ class DseParallelPlotPanel() extends DseBasePlot {
     })
   }
 
-  private def updateAxisSelectors(search: Seq[DseConfigElement], objectives: Seq[DseObjective],
-                                  forced: Boolean = false): Unit = {
+  private def updateAxisSelectors(
+      search: Seq[DseConfigElement],
+      objectives: Seq[DseObjective],
+      forced: Boolean = false
+  ): Unit = {
     if ((search, objectives) == displayAxisSelector && !forced) {
-      return  // nothing needs to be done
+      return // nothing needs to be done
     }
     displayAxisSelector = (search, objectives)
 
@@ -116,7 +127,7 @@ class DseParallelPlotPanel() extends DseBasePlot {
         items.foreach { item =>
           axisSelector.addItem(item)
         }
-        if (axisSelectors.length > 1) {  // don't allow only axis to be deleted
+        if (axisSelectors.length > 1) { // don't allow only axis to be deleted
           axisSelector.addItem(deleteAxis)
         }
         axisSelector.addItemListener(axisSelectorListener)
@@ -149,14 +160,17 @@ class DseParallelPlotPanel() extends DseBasePlot {
           }
           revalidate()
 
-          updatePlot()  // TODO doesn't need to be wrapped in invokeLater
+          updatePlot() // TODO doesn't need to be wrapped in invokeLater
         })
       }
     }
   }
 
-  override def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
-                 objectives: Seq[DseObjective]): Unit = {
+  override def setResults(
+      combinedResults: CombinedDseResultSet,
+      search: Seq[DseConfigElement],
+      objectives: Seq[DseObjective]
+  ): Unit = {
     updateAxisSelectors(search, objectives)
 
     this.combinedResults = combinedResults

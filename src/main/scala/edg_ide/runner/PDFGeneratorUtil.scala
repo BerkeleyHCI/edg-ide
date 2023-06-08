@@ -13,8 +13,7 @@ import edg_ide.swing.blocks.ElkNodePainter
 import java.awt.Color
 import java.io.{FileNotFoundException, FileOutputStream, IOException}
 
-
-object PDFGeneratorUtil{
+object PDFGeneratorUtil {
 
   private def generatePageSize(node: ElkNode): (Float, Float) = {
     val width = node.getWidth.toFloat + 2 * ElkNodePainter.margin.toFloat
@@ -22,9 +21,11 @@ object PDFGeneratorUtil{
     (width, height)
   }
 
-  def generate(content: HierarchyBlock,
-               mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
-               fileName: String): Unit = {
+  def generate(
+      content: HierarchyBlock,
+      mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
+      fileName: String
+  ): Unit = {
     try {
       val document = new Document()
       val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
@@ -55,7 +56,7 @@ object PDFGeneratorUtil{
       }
 
       def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
-        val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers=mappers)
+        val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
         printNode(node)
 
         block.blocks.asPairs.map {

@@ -9,8 +9,7 @@ import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiWhiteSpace}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-
-/** Wrapper around a Template that allows the template to move by user clicks  */
+/** Wrapper around a Template that allows the template to move by user clicks */
 abstract class MovableLiveTemplate(actionName: String) {
   private val kHelpTooltip = "[Enter] next; [Esc] end; [Alt+click] move"
 
@@ -48,7 +47,7 @@ abstract class MovableLiveTemplate(actionName: String) {
         case caretElement => caretElement
       }
 
-      val templatePos = templateState.getCurrentVariableNumber  // save template state before deleting the template
+      val templatePos = templateState.getCurrentVariableNumber // save template state before deleting the template
       val templateValues = templateState.getTemplate.getVariables.asScala.map { variable =>
         templateState.getVariableValue(variable.getName).getText
       }.toSeq
@@ -64,13 +63,13 @@ abstract class MovableLiveTemplate(actionName: String) {
   // must be called within a writeCommandAction
   def run(caretEltOpt: Option[PsiElement], priorTemplateValues: Option[(Int, Seq[String])] = None): Unit = {
     val tooltipString = priorTemplateValues match {
-      case Some(_) => None  // tooltip only shows on initial template insertion, not on moves
+      case Some(_) => None // tooltip only shows on initial template insertion, not on moves
       case None => Some(kHelpTooltip)
     }
     val templateState = startTemplate(caretEltOpt).run(tooltipString, priorTemplateValues.map(_._2))
     currentTemplateState = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
-    priorTemplateValues.foreach { case (templatePos, _) =>  // advance to the previous variable position
+    priorTemplateValues.foreach { case (templatePos, _) => // advance to the previous variable position
       (0 until templatePos).foreach { i =>
         templateState.nextTab()
       }

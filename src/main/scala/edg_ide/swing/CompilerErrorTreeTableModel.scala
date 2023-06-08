@@ -10,7 +10,6 @@ import javax.swing.event.TreeModelListener
 import javax.swing.table.{JTableHeader, TableColumnModel}
 import javax.swing.tree.TreePath
 
-
 trait CompilerErrorNodeBase {
   val children: Seq[CompilerErrorNodeBase]
   def getColumns(index: Int): String
@@ -51,10 +50,14 @@ object CompilerErrorNodeBase {
       case CompilerError.Unelaborated(ElaborateRecord.ParamValue(path), deps) =>
         ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath, root), deps) =>
-        (s"Unelaborated Connect", root.toString, Seq(
-          new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
-          new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString),
-        ) ++ deps.toSeq.map(elaborateRecordToDetailNode))
+        (
+          s"Unelaborated Connect",
+          root.toString,
+          Seq(
+            new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
+            new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString),
+          ) ++ deps.toSeq.map(elaborateRecordToDetailNode)
+        )
       case CompilerError.Unelaborated(unelaborated, deps) =>
         (s"Unknown unelaborated $unelaborated", "", deps.toSeq.map(elaborateRecordToDetailNode))
 
@@ -66,42 +69,71 @@ object CompilerErrorNodeBase {
       case CompilerError.UndefinedPortArray(path, portType) =>
         (s"Undefined port array", path.toString, Seq())
       case CompilerError.LibraryError(path, target, err) =>
-        (s"Library error, ${target.toSimpleString}", path.toString,
-            err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
+        (
+          s"Library error, ${target.toSimpleString}",
+          path.toString,
+          err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, ""))
+        )
       case CompilerError.GeneratorError(path, target, err) =>
-        (s"Generator error, ${target.toSimpleString}", path.toString,
-            err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, "")))
+        (
+          s"Generator error, ${target.toSimpleString}",
+          path.toString,
+          err.split('\n').toSeq.map(new CompilerErrorDetailNode(_, ""))
+        )
       case CompilerError.RefinementSubclassError(path, refinedLibrary, designLibrary) =>
-        (s"Refinement class ${refinedLibrary.toSimpleString} " +
+        (
+          s"Refinement class ${refinedLibrary.toSimpleString} " +
             s"not a subclass of design class ${designLibrary.toSimpleString}",
-            path.toString, Seq())
+          path.toString,
+          Seq()
+        )
 
       case CompilerError.OverAssign(target, causes) =>
-        ("Conflicting assign", target.toString,
-            causes.map {
-              case CompilerError.OverAssignCause.Assign(target, root, constrName, value) =>
-                new CompilerErrorDetailNode(s"$target ⇐ ${ExprToString(value)}", s"$root:$constrName")
-              case CompilerError.OverAssignCause.Equal(target, source) =>
-                new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
-            })
+        (
+          "Conflicting assign",
+          target.toString,
+          causes.map {
+            case CompilerError.OverAssignCause.Assign(target, root, constrName, value) =>
+              new CompilerErrorDetailNode(s"$target ⇐ ${ExprToString(value)}", s"$root:$constrName")
+            case CompilerError.OverAssignCause.Equal(target, source) =>
+              new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
+          }
+        )
       case CompilerError.AbstractBlock(path, blockType) =>
         (s"Abstract block, ${blockType.toSimpleString}", path.toString, Seq())
       case CompilerError.FailedAssertion(root, constrName, value, result, compiler) => {
-        (s"Failed assertion", s"$root:$constrName", Seq(
-          new CompilerErrorDetailNode(ExprVarToValue(value, compiler, root), result.toStringValue)
-        ))
+        (
+          s"Failed assertion",
+          s"$root:$constrName",
+          Seq(
+            new CompilerErrorDetailNode(ExprVarToValue(value, compiler, root), result.toStringValue)
+          )
+        )
       }
       case CompilerError.MissingAssertion(root, constrName, value, missing) =>
-        (s"Missing assertion", s"$root:$constrName", missing.toSeq.map { param =>
-          new CompilerErrorDetailNode("Missing param", param.toString)
-        })
+        (
+          s"Missing assertion",
+          s"$root:$constrName",
+          missing.toSeq.map { param =>
+            new CompilerErrorDetailNode("Missing param", param.toString)
+          }
+        )
 
-      case CompilerError.InconsistentLinkArrayElements(root, linkPath, linkElements,
-                                                       blockPortPath, blockPortElements) =>
-        (s"Inconsistent link array elements", s"$linkPath", Seq(
-          new CompilerErrorDetailNode("Link elements", linkElements.toStringValue),
-          new CompilerErrorDetailNode(f"Block port elements @ $blockPortPath", blockPortElements.toStringValue)
-        ))
+      case CompilerError.InconsistentLinkArrayElements(
+          root,
+          linkPath,
+          linkElements,
+          blockPortPath,
+          blockPortElements
+        ) =>
+        (
+          s"Inconsistent link array elements",
+          s"$linkPath",
+          Seq(
+            new CompilerErrorDetailNode("Link elements", linkElements.toStringValue),
+            new CompilerErrorDetailNode(f"Block port elements @ $blockPortPath", blockPortElements.toStringValue)
+          )
+        )
     }
 
     override lazy val children: Seq[CompilerErrorNodeBase] = all._3
@@ -126,7 +158,8 @@ class CustomTooltipTableHeader(columnModel: TableColumnModel) extends JTableHead
   }
 }
 
-class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) extends SeqTreeTableModel[CompilerErrorNodeBase] {
+class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler)
+    extends SeqTreeTableModel[CompilerErrorNodeBase] {
   val rootNode: CompilerErrorNodeBase = new CompilerErrorNodeBase.CompilerErrorTopNode(errs, compiler)
   val COLUMNS = Seq("Error", "Path ⓘ")
 
@@ -158,5 +191,5 @@ class CompilerErrorTreeTableModel(errs: Seq[CompilerError], compiler: Compiler) 
   override def isNodeCellEditable(node: CompilerErrorNodeBase, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: CompilerErrorNodeBase, column: Int): Unit = {}
 
-  def setTree(tree: JTree): Unit = { }  // tree updates ignored
+  def setTree(tree: JTree): Unit = {} // tree updates ignored
 }

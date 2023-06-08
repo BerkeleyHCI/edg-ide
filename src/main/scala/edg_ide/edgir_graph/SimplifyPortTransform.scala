@@ -4,15 +4,11 @@ import com.intellij.openapi.diagnostic.Logger
 
 import scala.collection.SeqMap
 
-
-class SimplifyPortTransform {  // dummy class for logger
+class SimplifyPortTransform { // dummy class for logger
 }
 
-
-/**
-  * An HGraph transform that finds edge port references that don't exist as ports, and drops path components
-  * until they are resolvable.
-  * Logs an error if it's dropped all the way to an empty path, in which case the edge is discarded.
+/** An HGraph transform that finds edge port references that don't exist as ports, and drops path components until they
+  * are resolvable. Logs an error if it's dropped all the way to an empty path, in which case the edge is discarded.
   */
 object SimplifyPortTransform {
   val logger = Logger.getInstance(classOf[SimplifyPortTransform])
@@ -21,10 +17,10 @@ object SimplifyPortTransform {
     portPath match {
       case Seq() => None
       case portPath => parent.members.get(portPath) match {
-        case Some(_: EdgirGraph.EdgirPort) => Some(portPath)
-        case Some(node: EdgirGraph.EdgirNode) => simplify(portPathTail, Seq(), node).map(portPath ++ _)
-        case _ => simplify(portPath.init, portPath.last +: portPathTail, parent)
-      }
+          case Some(_: EdgirGraph.EdgirPort) => Some(portPath)
+          case Some(node: EdgirGraph.EdgirNode) => simplify(portPathTail, Seq(), node).map(portPath ++ _)
+          case _ => simplify(portPath.init, portPath.last +: portPathTail, parent)
+        }
     }
   }
 
@@ -34,8 +30,8 @@ object SimplifyPortTransform {
       val targetSimplified = simplify(edge.target, Seq(), node)
       (sourceSimplified, targetSimplified) match {
         case (Some(sourceSimplified), Some(targetSimplified)) => Some(
-          EdgirGraph.EdgirEdge(edge.data, sourceSimplified, targetSimplified)
-        )
+            EdgirGraph.EdgirEdge(edge.data, sourceSimplified, targetSimplified)
+          )
         case (None, None) =>
           logger.warn(s"unknown source ${edge.source} and target ${edge.target}, discarding edge")
           None

@@ -11,7 +11,6 @@ import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.{DefaultTreeCellRenderer, TreePath}
 
-
 trait DseResultNodeBase {
   val children: Seq[DseResultNodeBase]
   val config: String
@@ -31,13 +30,12 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     index + 1 -> objective
   }.toMap
 
-
   // Defines the root node
   override lazy val children = {
     informationalHeader ++ results.groupedResults.sortBy { resultsSet =>
       val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
       (idealErrors.isEmpty, otherErrors.isEmpty) match {
-        case (true, true) => 0  // non-error points prioritized
+        case (true, true) => 0 // non-error points prioritized
         case (_, true) => 1 // ideal points next
         case _ => 2 // error points last
       }
@@ -53,7 +51,6 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
   override val config = "" // empty, since the root node is hidden
   override def getColumns(index: Int): String = ""
 
-
   // Displays a set of equivalent results, useful for deduplicating similar results
   class ResultSetNode(val setMembers: Seq[DseResult]) extends DseResultNodeBase {
     private val exampleResult = setMembers.head
@@ -67,9 +64,9 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     override lazy val children = setMembers.map(result => new ResultNode(result, false))
     override def getColumns(index: Int): String = objectiveByColumn.get(index) match {
       case Some(objective) => exampleResult.objectives.get(objective) match {
-        case Some(value) => DseConfigElement.valueToString(value)
-        case _ => "(unknown)"
-      }
+          case Some(value) => DseConfigElement.valueToString(value)
+          case _ => "(unknown)"
+        }
       case _ => "???"
     }
   }
@@ -82,9 +79,9 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
       if (showObjectives) {
         objectiveByColumn.get(index) match {
           case Some(objective) => result.objectives.get(objective) match {
-            case Some(value) => DseConfigElement.valueToString(value)
-            case _ => "(unknown)"
-          }
+              case Some(value) => DseConfigElement.valueToString(value)
+              case _ => "(unknown)"
+            }
           case _ => "???"
         }
       } else {
@@ -99,7 +96,6 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     override val children: Seq[DseResultNodeBase] = Seq()
   }
 }
-
 
 class DseResultTreeTableModel(results: CombinedDseResultSet, objectives: Seq[DseObjective], inProgress: Boolean)
     extends SeqTreeTableModel[DseResultNodeBase] {
@@ -135,9 +131,8 @@ class DseResultTreeTableModel(results: CombinedDseResultSet, objectives: Seq[Dse
   override def isNodeCellEditable(node: DseResultNodeBase, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: DseResultNodeBase, column: Int): Unit = {}
 
-  def setTree(tree: JTree): Unit = { }  // tree updates ignored
+  def setTree(tree: JTree): Unit = {} // tree updates ignored
 }
-
 
 // TODO maybe this should go elsewhere? but nothing else uses ideal errors
 // TODO Maybe this should be shared with the block diagram renderer?
@@ -155,8 +150,15 @@ object DseResultModel {
 }
 
 class DseResultTreeRenderer extends DefaultTreeCellRenderer {
-  override def getTreeCellRendererComponent(tree: JTree, value: Any, sel: Boolean, expanded: Boolean, leaf: Boolean,
-                                            row: Int, hasFocus: Boolean): Component = {
+  override def getTreeCellRendererComponent(
+      tree: JTree,
+      value: Any,
+      sel: Boolean,
+      expanded: Boolean,
+      leaf: Boolean,
+      row: Int,
+      hasFocus: Boolean
+  ): Component = {
     val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
     val example = value match {
       case node: DseResultTreeNode#ResultSetNode => Some(node.setMembers.head)

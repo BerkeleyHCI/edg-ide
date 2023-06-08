@@ -7,13 +7,12 @@ import java.io.File
 import scala.annotation.tailrec
 import scala.util.control.Breaks
 
-
 object KicadFootprintUtil {
   @tailrec
   private def filePathJoin(base: File, join: Seq[String]): Option[File] = {
     join match {
       case Seq() => Some(base)
-      case Seq(init, tail@_*) =>
+      case Seq(init, tail @ _*) =>
         val nextFile = new File(base, init)
         if (nextFile.exists()) {
           filePathJoin(nextFile, tail)

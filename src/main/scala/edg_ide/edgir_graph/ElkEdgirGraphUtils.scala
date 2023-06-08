@@ -8,7 +8,6 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import scala.jdk.CollectionConverters._
 
-
 object ElkEdgirGraphUtils {
   import org.eclipse.elk.graph.properties.IProperty
 
@@ -56,7 +55,7 @@ object ElkEdgirGraphUtils {
           case _ => None
         }
         Some(refdesStringMaybe.getOrElse(node.path.lastString))
-      case _ => None  // use default for non-blocks
+      case _ => None // use default for non-blocks
     }
 
     // port name not supported, since ports are not hierarchical (can't just use the last path component)
@@ -83,9 +82,9 @@ object ElkEdgirGraphUtils {
       portType.toSimpleString match {
         case "VoltageSource" => Some(PortSide.EAST)
         case "VoltageSink" => portName match {
-          case "gnd" | "vss" => Some(PortSide.SOUTH)
-          case _ => Some(PortSide.NORTH)
-        }
+            case "gnd" | "vss" => Some(PortSide.SOUTH)
+            case _ => Some(PortSide.NORTH)
+          }
 
         case "DigitalSource" => Some(PortSide.EAST)
         case "DigitalSingleSource" => Some(PortSide.EAST)
@@ -140,12 +139,12 @@ object ElkEdgirGraphUtils {
     override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
   }
 
-  /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath.
-    * Returns target node(s) matching the path.
+  /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath. Returns target
+    * node(s) matching the path.
     */
   def follow(path: DesignPath, root: ElkNode): Seq[ElkGraphElement] = {
     def inner(elkNode: ElkNode): Seq[ElkGraphElement] = {
-      if (elkNode.getProperty(DesignPathMapper.property) == path) {  // reached target node
+      if (elkNode.getProperty(DesignPathMapper.property) == path) { // reached target node
         Seq(elkNode)
       } else {
         val nextNodeResults = elkNode.getChildren.asScala.toSeq.filter { node =>

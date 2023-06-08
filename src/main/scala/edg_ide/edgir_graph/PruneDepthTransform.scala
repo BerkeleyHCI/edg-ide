@@ -2,9 +2,7 @@ package edg_ide.edgir_graph
 
 import scala.collection.SeqMap
 
-
-/**
-  * Removes all nodes below a certain depth
+/** Removes all nodes below a certain depth
   *
   * TODO: can this be made generic on HGraphNode?
   */
@@ -13,9 +11,9 @@ object PruneDepthTransform extends CollapseNodeTransform {
     if (depth == 0) {
       val filteredMembers = node.members.collect {
         case (name, member: EdgirGraph.EdgirPort) => name -> member
-          // discard anything else, namely nodes
+        // discard anything else, namely nodes
       }
-      EdgirGraph.EdgirNode(node.data, filteredMembers, Seq())  // no internal components, discard edges
+      EdgirGraph.EdgirNode(node.data, filteredMembers, Seq()) // no internal components, discard edges
     } else {
       val mappedMembers = node.members.to(SeqMap).view.mapValues {
         case member: EdgirGraph.EdgirPort => member

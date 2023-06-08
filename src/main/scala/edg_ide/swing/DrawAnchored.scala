@@ -2,7 +2,7 @@ package edg_ide.swing
 
 import java.awt.Graphics
 
-sealed trait DrawAnchored  // position on the "label" where the drawing point is
+sealed trait DrawAnchored // position on the "label" where the drawing point is
 object DrawAnchored {
   object Bottom extends DrawAnchored
   object Top extends DrawAnchored

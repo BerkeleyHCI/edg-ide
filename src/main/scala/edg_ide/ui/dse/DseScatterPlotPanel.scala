@@ -13,12 +13,14 @@ import java.awt.event.{ActionEvent, ItemEvent, ItemListener, MouseEvent}
 import java.awt.{GridBagConstraints, GridBagLayout}
 import javax.swing.{JButton, JPanel}
 
-
 abstract class DseBasePlot extends JPanel {
   // API functions
   //
-  def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
-                 objectives: Seq[DseObjective]): Unit
+  def setResults(
+      combinedResults: CombinedDseResultSet,
+      search: Seq[DseConfigElement],
+      objectives: Seq[DseObjective]
+  ): Unit
   def setSelection(results: Seq[DseResult]): Unit
 
   // User hooks - can be overridden
@@ -35,11 +37,11 @@ abstract class DseBasePlot extends JPanel {
   def onSwitchClick(): Unit = {}
 }
 
-
 class DseScatterPlotPanel() extends DseBasePlot {
   // Data State
-  private var combinedResults = new CombinedDseResultSet(Seq())  // reflects the data points
-  private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) = (Seq(), Seq())  // reflects the widget display
+  private var combinedResults = new CombinedDseResultSet(Seq()) // reflects the data points
+  private var displayAxisSelector: (Seq[DseConfigElement], Seq[DseObjective]) =
+    (Seq(), Seq()) // reflects the widget display
 
   setLayout(new GridBagLayout)
 
@@ -62,12 +64,12 @@ class DseScatterPlotPanel() extends DseBasePlot {
 
   private val emptyAxis = new DummyAxis("Empty")
   private val ySelector = new ComboBox[PlotAxis]()
-  ySelector.addItem(emptyAxis)  // don't need listener yet, does nothing
+  ySelector.addItem(emptyAxis) // don't need listener yet, does nothing
   add(new JBLabel("Y ↑"), Gbc(1, 1))
   add(ySelector, Gbc(2, 1, GridBagConstraints.HORIZONTAL))
 
   private val xSelector = new ComboBox[PlotAxis]()
-  xSelector.addItem(emptyAxis)  // don't need listener yet, does nothing
+  xSelector.addItem(emptyAxis) // don't need listener yet, does nothing
   add(xSelector, Gbc(3, 1, GridBagConstraints.HORIZONTAL))
   add(new JBLabel("X →"), Gbc(4, 1))
 
@@ -76,8 +78,14 @@ class DseScatterPlotPanel() extends DseBasePlot {
     val (xPoints, xAxis) = xSelector.getItem.resultsToValuesAxis(flatResults)
     val (yPoints, yAxis) = ySelector.getItem.resultsToValuesAxis(flatResults)
 
-    require(flatResults.size == xPoints.size, s"X axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
-    require(flatResults.size == yPoints.size, s"Y axis points mismatch, got ${xPoints.size} expected ${flatResults.size}")
+    require(
+      flatResults.size == xPoints.size,
+      s"X axis points mismatch, got ${xPoints.size} expected ${flatResults.size}"
+    )
+    require(
+      flatResults.size == yPoints.size,
+      s"Y axis points mismatch, got ${xPoints.size} expected ${flatResults.size}"
+    )
 
     val scatterPoints = flatResults.zip(xPoints.zip(yPoints)).toIndexedSeq.flatMap {
       case (result, (Some(xVal), Some(yVal))) =>
@@ -88,8 +96,14 @@ class DseScatterPlotPanel() extends DseBasePlot {
           case (false, false) => (1, None)
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)
-        Some(new scatterPlot.Data(result, xVal, yVal, zOrder, color,
-          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))))
+        Some(new scatterPlot.Data(
+          result,
+          xVal,
+          yVal,
+          zOrder,
+          color,
+          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+        ))
       case _ => Seq()
     }
 
@@ -131,8 +145,11 @@ class DseScatterPlotPanel() extends DseBasePlot {
     }
   }
 
-  override def setResults(combinedResults: CombinedDseResultSet, search: Seq[DseConfigElement],
-                 objectives: Seq[DseObjective]): Unit = {
+  override def setResults(
+      combinedResults: CombinedDseResultSet,
+      search: Seq[DseConfigElement],
+      objectives: Seq[DseObjective]
+  ): Unit = {
     updateAxisSelectors(search, objectives)
 
     this.combinedResults = combinedResults

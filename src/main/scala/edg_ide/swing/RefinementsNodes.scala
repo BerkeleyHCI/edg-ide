@@ -4,7 +4,6 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.ExprToString
 import edgrpc.hdl.{hdl => edgrpc}
 
-
 object RefinementsNodes {
   class ClassRefinementsNode(refinements: edgrpc.Refinements) extends ElementDetailNode {
     override lazy val children = refinements.subclasses.map { subclass =>
@@ -35,11 +34,13 @@ object RefinementsNodes {
       case (edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam), edgrpc.Refinements.Value.Value.Expr(expr)) =>
         new RefinementsDetailNode(
           srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
-          ExprToString(expr))
+          ExprToString(expr)
+        )
       case (edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam), edgrpc.Refinements.Value.Value.Param(path)) =>
         new RefinementsDetailNode(
           srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
-          f"ParamValue(${ExprToString(path)}")
+          f"ParamValue(${ExprToString(path)}"
+        )
     }
     override def getColumns(index: Int): String = ""
     override def toString: String = "Class Values Refinements"

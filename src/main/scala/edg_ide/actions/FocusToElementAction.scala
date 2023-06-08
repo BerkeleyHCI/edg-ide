@@ -17,23 +17,21 @@ import edg_ide.util.{DesignFindBlockOfTypes, exceptionPopup}
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-
 object FocusToElementAction {
   // Sorting function for block paths, comparing them to some context path.
   // Prefers the context path, then subpaths, then parent paths.
   def pathSortFn(contextPath: DesignPath)(compare1: DesignPath, compare2: DesignPath): Boolean = {
     if (compare1 == contextPath && compare2 != contextPath) {
-      true  // Prefer exact match first
+      true // Prefer exact match first
     } else if (compare1.startsWith(contextPath) && !compare2.startsWith(contextPath)) {
-      true  // Prefer children next
+      true // Prefer children next
     } else if (contextPath.startsWith(compare1) && !contextPath.startsWith(compare2)) {
-      true  // Prefer parents next
+      true // Prefer parents next
     } else {
       false
     }
   }
 }
-
 
 class FocusToElementAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.NavigateToBlockAction")
@@ -46,7 +44,7 @@ class FocusToElementAction() extends AnAction() {
     val editor = event.getData(CommonDataKeys.EDITOR)
     if (editor == null) {
       notificationGroup.createNotification("No editor", NotificationType.WARNING)
-          .notify(event.getProject)
+        .notify(event.getProject)
     }
 
     exceptionPopup(editor) {
@@ -70,10 +68,10 @@ class FocusToElementAction() extends AnAction() {
       }.toSet
 
       val instancesOfClass = new DesignFindBlockOfTypes(targetTypes).map(design)
-          .exceptEmpty(s"no ${containingClass.getName} in design")
-          .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
-            FocusToElementAction.pathSortFn(contextPath)(blockPath1, blockPath2)
-          }
+        .exceptEmpty(s"no ${containingClass.getName} in design")
+        .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
+          FocusToElementAction.pathSortFn(contextPath)(blockPath1, blockPath2)
+        }
 
       val matchBlockPathTypes = instancesOfClass.collect {
         case (blockPath, block) if block.ports.toSeqMap.contains(refName) =>
@@ -88,10 +86,13 @@ class FocusToElementAction() extends AnAction() {
         val eltTypeStr = desc.map(_.toSimpleString).getOrElse("???")
         val blockTypeStr = block.getSelfClass.toSimpleString
         val descStr = s"$eltTypeStr $refName in $blockTypeStr $blockPath"
-        NavigateNode(descStr, () => {
-          visualizer.setContext(blockPath)
-          visualizer.selectPath(blockPath + refName)
-        })
+        NavigateNode(
+          descStr,
+          () => {
+            visualizer.setContext(blockPath)
+            visualizer.selectPath(blockPath + refName)
+          }
+        )
       }.exceptEmpty("no navigation targets")
 
       if (items.length == 1) {

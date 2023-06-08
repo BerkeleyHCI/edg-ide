@@ -19,7 +19,6 @@ import org.jdom.Element
 import java.awt.GridLayout
 import javax.swing._
 
-
 // Most of this file is boilerplate, based on
 // https://plugins.jetbrains.com/docs/intellij/run-configurations.html#implement-a-run-configuration
 // The main exception is *Configuration.getState, which defines the run execution
@@ -36,7 +35,6 @@ class DesignTopRunConfigurationType extends ConfigurationType {
     Seq(new DesignTopConfigurationFactory(this)).toArray
   }
 }
-
 
 class DesignTopConfigurationFactory(confType: ConfigurationType) extends ConfigurationFactory(confType) {
   override def getId: String = getClass.getName
@@ -120,7 +118,7 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
 
 class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTopRunConfiguration] {
   protected val designName = new JTextField()
-  protected val netlistFile = new JTextField()  // no browse button b/c FileChooser can't create new files
+  protected val netlistFile = new JTextField() // no browse button b/c FileChooser can't create new files
   protected val toggleRefdes = new JBRadioButton()
   protected val togglePathname = new JBRadioButton()
   protected val toggleButtons = new ButtonGroup()
@@ -130,14 +128,14 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
   protected val pdfFile = new JTextField()
 
   protected val panel = FormBuilder.createFormBuilder()
-      .addLabeledComponent(new JBLabel("Design top name"), designName, false)
-      .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
-      .addLabeledComponent(new JBLabel("Select Netlist Refdes value"), toggleRefdes)
-      .addLabeledComponent(new JBLabel("Select Netlist Path Name"), togglePathname)
-      .addLabeledComponent(new JBLabel("BOM output file"), bomFile, false)
-      .addLabeledComponent(new JBLabel("PDF output file"), pdfFile, false)
-      .addComponentFillVertically(new JPanel(), 0)
-      .getPanel
+    .addLabeledComponent(new JBLabel("Design top name"), designName, false)
+    .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
+    .addLabeledComponent(new JBLabel("Select Netlist Refdes value"), toggleRefdes)
+    .addLabeledComponent(new JBLabel("Select Netlist Path Name"), togglePathname)
+    .addLabeledComponent(new JBLabel("BOM output file"), bomFile, false)
+    .addLabeledComponent(new JBLabel("PDF output file"), pdfFile, false)
+    .addComponentFillVertically(new JPanel(), 0)
+    .getPanel
 
   override def resetEditorFrom(s: DesignTopRunConfiguration): Unit = {
     designName.setText(s.options.designName)

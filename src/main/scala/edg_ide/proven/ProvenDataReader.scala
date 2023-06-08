@@ -13,13 +13,12 @@ import scala.collection.{SeqMap, mutable}
 import scala.util.Using
 import scala.util.matching.Regex
 
-
 object ProvenStatus extends Enumeration {
   type Status = Value
 
   val Untested = Value(0, "untested")
   val Broken = Value(1, "broken")
-  val Fixed = Value(2, "fixed")  // fixed in code but not end-to-end (HDL to PCB) tested
+  val Fixed = Value(2, "fixed") // fixed in code but not end-to-end (HDL to PCB) tested
   val Working = Value(3, "working")
 
   def toEnum(s: String): Option[Status] = {
@@ -34,20 +33,22 @@ object ProvenStatus extends Enumeration {
   }
 }
 
-
 sealed trait ProvenRecord {
-  def file: File  // compiled design / file that was tested
-  def version: String  // git version at which the design was tested
+  def file: File // compiled design / file that was tested
+  def version: String // git version at which the design was tested
   def status: ProvenStatus.Status
 }
 
-
 // A proven record directly specified by the user (corresponds to a row in the CSV)
-class UserProvenRecord(val status: ProvenStatus.Status, val file: File, val version: String, pattern: Seq[String],
-                       val comments: Option[String]) extends ProvenRecord {
+class UserProvenRecord(
+    val status: ProvenStatus.Status,
+    val file: File,
+    val version: String,
+    pattern: Seq[String],
+    val comments: Option[String]
+) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}($status, $comments from $file:${pattern.mkString(".")})"
 }
-
 
 // A proven record that is the inner
 class InnerProvenRecord(parent: ProvenRecord) extends ProvenRecord {
@@ -58,12 +59,10 @@ class InnerProvenRecord(parent: ProvenRecord) extends ProvenRecord {
   override def status = parent.status
 }
 
-
 class UntestedRecord(val file: File, val version: String) extends ProvenRecord {
   override def toString = f"${this.getClass.getSimpleName}(from $file)"
   override def status = ProvenStatus.Untested
 }
-
 
 object ProvenDataReader {
   private val kFieldFile = "file"
@@ -84,8 +83,10 @@ object ProvenDataReader {
     var lastFileVersion: Option[(File, String)] = None
     reader.stream().forEach { row =>
       if (row.getField(kFieldFile).nonEmpty || row.getField(kFieldVersion).nonEmpty) {
-        require(row.getField(kFieldFile).nonEmpty && row.getField(kFieldVersion).nonEmpty,
-          "both file and field must be nonempty")
+        require(
+          row.getField(kFieldFile).nonEmpty && row.getField(kFieldVersion).nonEmpty,
+          "both file and field must be nonempty"
+        )
         lastFileVersion = Some((new File(containingDir, row.getField(kFieldFile)), row.getField(kFieldVersion)))
       }
       val (file, version) = lastFileVersion.get
@@ -107,7 +108,8 @@ object ProvenDataReader {
           new UserProvenRecord(ProvenStatus.Broken, file, version, path, comments)
       }
       designToRecord.getOrElseUpdate((file, version), mutable.ArrayBuffer()).append(
-        (pathRegex, status))
+        (pathRegex, status)
+      )
     }
 
     val dataBuilder = mutable.SeqMap[ref.LibraryPath, mutable.ArrayBuffer[(ProvenRecord, DesignPath)]]()
@@ -117,8 +119,13 @@ object ProvenDataReader {
     // proven propagation rules (eg, working applies to all children, but broken doesn't) are applied here
     // untested is applied by default if no record matches
     // multiple record matches are an error
-    def processBlock(file: File, version: String, path: DesignPath, block: elem.HierarchyBlock,
-                     records: SeqMap[Seq[Regex], ProvenRecord]): Unit = {
+    def processBlock(
+        file: File,
+        version: String,
+        path: DesignPath,
+        block: elem.HierarchyBlock,
+        records: SeqMap[Seq[Regex], ProvenRecord]
+    ): Unit = {
       val thisRecords = records.filter { case (recordPath, _) => recordPath.isEmpty }
       if (thisRecords.nonEmpty) {
         require(thisRecords.size == 1, f"multiple proven records at $file $path")
@@ -129,19 +136,22 @@ object ProvenDataReader {
         dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append((thisUntestedRecord, path))
       }
 
-      block.blocks.collect { case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
-        val subBlockMap = records.flatMap { case (recordPath, proven) => recordPath match {
-          case Seq() if proven.status == ProvenStatus.Working =>  // propagate working
-            if (proven.isInstanceOf[UserProvenRecord]) {
-              Some(Seq(), new InnerProvenRecord(proven))  // create a derived record
-            } else {
-              Some(Seq(), proven)  // otherwise propagate as-is
+      block.blocks.collect {
+        case subBlockPair if subBlockPair.getValue.`type`.isHierarchy =>
+          val subBlockMap = records.flatMap { case (recordPath, proven) =>
+            recordPath match {
+              case Seq() if proven.status == ProvenStatus.Working => // propagate working
+                if (proven.isInstanceOf[UserProvenRecord]) {
+                  Some(Seq(), new InnerProvenRecord(proven)) // create a derived record
+                } else {
+                  Some(Seq(), proven) // otherwise propagate as-is
+                }
+              case Seq() => None // don't propagate other records
+              case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) => Some(pathTail -> proven)
+              case Seq(pathHead, pathTail @ _*) => None // non-matching, discard
             }
-          case Seq() => None  // don't propagate other records
-          case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) => Some(pathTail -> proven)
-          case Seq(pathHead, pathTail @ _*) => None  // non-matching, discard
-        } }
-        processBlock(file, version, path + subBlockPair.name, subBlockPair.getValue.getHierarchy, subBlockMap)
+          }
+          processBlock(file, version, path + subBlockPair.name, subBlockPair.getValue.getHierarchy, subBlockMap)
       }
     }
 
@@ -149,9 +159,15 @@ object ProvenDataReader {
       val design = Using(new FileInputStream(file)) { fileInputStream =>
         schema.Design.parseFrom(fileInputStream)
       }.get
-      processBlock(file, version, DesignPath(), design.getContents, SeqMap.from(records.map { case (path, record) =>
-        path -> record
-      }))
+      processBlock(
+        file,
+        version,
+        DesignPath(),
+        design.getContents,
+        SeqMap.from(records.map { case (path, record) =>
+          path -> record
+        })
+      )
     }
 
     new ProvenDatabase(dataBuilder.map { case (libraryPath, records) => libraryPath -> records.toSeq })
@@ -175,8 +191,8 @@ class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, Des
   def getDataOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = {
     val dataSeq = data
       .toSeq.reverse
-      .dropWhile(_._2.forall(_._1.status != status))  // drop all of not-containing the status
-      .takeWhile(_._2.exists(_._1.status == status))  // and take all which has the status
+      .dropWhile(_._2.forall(_._1.status != status)) // drop all of not-containing the status
+      .takeWhile(_._2.exists(_._1.status == status)) // and take all which has the status
       .map { case (design, records) =>
         design -> records.filter(_._1.status == status)
       }.reverse
@@ -193,6 +209,6 @@ class ProvenDatabase(val data: SeqMap[ref.LibraryPath, Seq[(ProvenRecord, Design
     data.get(elt).toSeq.flatten.foreach { case (record, path) =>
       resultBuilder.getOrElseUpdate((record.file, record.version), new ArrayBuffer()).append((record, path))
     }
-    new BlockProvenRecords(SeqMap.from(resultBuilder.map{case (key, value) => key -> value.toSeq}))
+    new BlockProvenRecords(SeqMap.from(resultBuilder.map { case (key, value) => key -> value.toSeq }))
   }
 }

@@ -27,23 +27,22 @@ object PsiUtils {
     s"${psiFile.getName}:${endLineNumber + 2}"
   }
 
-  /** If element is a ReferenceExpression or TargetExpression of the form 'self.xyz', returns Some(xyz).
-    * Does not truncate (will fail on self.xyz.abc).
-    * Accounts for different self names within a function.
+  /** If element is a ReferenceExpression or TargetExpression of the form 'self.xyz', returns Some(xyz). Does not
+    * truncate (will fail on self.xyz.abc). Accounts for different self names within a function.
     */
   def selfReferenceOption(element: PsiElement): Errorable[String] = exceptable {
     val containingFunction = PsiTreeUtil.getParentOfType(element, classOf[PyFunction])
-        .exceptNull("not in a function")
+      .exceptNull("not in a function")
     val selfName = containingFunction.getParameterList.getParameters.toSeq
-        .exceptEmpty(s"function ${containingFunction.getName} has no self")
-        .head.getName
+      .exceptEmpty(s"function ${containingFunction.getName} has no self")
+      .head.getName
 
     val optRef = Option(PsiTreeUtil.getTopmostParentOfType(element, classOf[PyReferenceExpression]))
     val optTarget = Option(PsiTreeUtil.getTopmostParentOfType(element, classOf[PyTargetExpression]))
     (optRef, optTarget) match {
       case (Some(ref), _) if ref.getQualifier != null && ref.getQualifier.textMatches(selfName) =>
         ref.getName
-      case (None, Some(target)) if target.getQualifier != null &&  target.getQualifier.textMatches(selfName) =>
+      case (None, Some(target)) if target.getQualifier != null && target.getQualifier.textMatches(selfName) =>
         target.getName
       case _ => exceptable.fail("not in a reference expression")
     }

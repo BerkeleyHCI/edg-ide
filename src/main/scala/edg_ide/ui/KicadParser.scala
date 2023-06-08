@@ -14,18 +14,19 @@ sealed trait KicadComponent {
 }
 
 // TODO distinguish pad names from other geometry
-case class Rectangle(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent {
-  override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
+case class Rectangle(x: Float, y: Float, width: Float, height: Float, name: String) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) =
+    ((x - width / 2, y - height / 2), (x + width / 2, y + height / 2))
 }
 
-case class Oval(x:Float, y:Float, width:Float, height:Float, name: String) extends KicadComponent {
-  override def bounds: ((Float, Float), (Float, Float)) = ((x - width/2, y - height/2), (x + width/2, y + height/2))
+case class Oval(x: Float, y: Float, width: Float, height: Float, name: String) extends KicadComponent {
+  override def bounds: ((Float, Float), (Float, Float)) =
+    ((x - width / 2, y - height / 2), (x + width / 2, y + height / 2))
 }
 
-case class Line(x0:Float, y0:Float, x1:Float, y1:Float, layers: Set[String]) extends KicadComponent {
+case class Line(x0: Float, y0: Float, x1: Float, y1: Float, layers: Set[String]) extends KicadComponent {
   override def bounds: ((Float, Float), (Float, Float)) = ((x0, y0), (x1, y1))
 }
-
 
 case class KicadFootprint(elts: Seq[KicadComponent]) {
   // Returns overall bounds as ((xmin, ymin), (xmax, ymax))
@@ -33,7 +34,7 @@ case class KicadFootprint(elts: Seq[KicadComponent]) {
     if (elts.isEmpty) {
       ((0, 0), (0, 0))
     } else {
-      elts.map(_.bounds).reduce { (elt1, elt2)  =>
+      elts.map(_.bounds).reduce { (elt1, elt2) =>
         val ((xmin1, ymin1), (xmax1, ymax1)) = elt1
         val ((xmin2, ymin2), (xmax2, ymax2)) = elt2
         ((Seq(xmin1, xmin2).min, Seq(ymin1, ymin2).min), (Seq(xmax1, xmax2).min, Seq(ymax1, ymax2).max))
@@ -43,14 +44,13 @@ case class KicadFootprint(elts: Seq[KicadComponent]) {
 
   // Calculates the area formed by courtyard lines, if they form a closed path
   def courtyardArea: Option[Float] = {
-    val courtyardEdges = elts.collect {  // collect courtyard lines and transform structure
+    val courtyardEdges = elts.collect { // collect courtyard lines and transform structure
       case Line(x0, y0, x1, y1, layers) if layers.contains("F.CrtYd") =>
         ((x0, y0), (x1, y1))
     }
     AreaUtils.doubleAreaOf(courtyardEdges).map(_ / 2)
   }
 }
-
 
 object KicadParser {
   // Given an SList, scan the SList for the only sublist tagged by `name`
@@ -59,12 +59,12 @@ object KicadParser {
   protected def getOnlySublistByName(list: Seq[Element], name: String): SList = {
     val subLists = list
       .filter {
-        case _:Atom => false
+        case _: Atom => false
         case SList(values) =>
           values.head match {
             case atom: Atom =>
               atom.symbol.equals(name)
-            case _: SList =>false
+            case _: SList => false
           }
       }
       .map {
@@ -85,17 +85,20 @@ object KicadParser {
 
   // Given a position-identifying list of the form (name:String, a:Float, b:Float),
   // return (a, b) or throw an Exception
-  protected def extractPosition(list:SList): (Float, Float, Float) = {
+  protected def extractPosition(list: SList): (Float, Float, Float) = {
     list.values match {
-      case (_:Atom) :: Atom(xPos) :: Atom(yPos) :: Nil =>
+      case (_: Atom) :: Atom(xPos) :: Atom(yPos) :: Nil =>
         (xPos.toFloatOption, yPos.toFloatOption) match {
           case (Some(xPos), Some(yPos)) => (xPos, yPos, 0)
-          case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
+          case _ =>
+            throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
         }
       case (_: Atom) :: Atom(xPos) :: Atom(yPos) :: Atom(rot) :: Nil =>
         (xPos.toFloatOption, yPos.toFloatOption, rot.toFloatOption) match {
           case (Some(xPos), Some(yPos), Some(rot)) => (xPos, yPos, rot)
-          case _ => throw new IllegalArgumentException("Expected (float, float, float), but got non-numerical value: " + xPos + yPos + rot)
+          case _ => throw new IllegalArgumentException(
+              "Expected (float, float, float), but got non-numerical value: " + xPos + yPos + rot
+            )
         }
       case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
     }
@@ -107,7 +110,9 @@ object KicadParser {
       case (_: Atom) :: Atom(width) :: Atom(height) :: Nil =>
         (width.toFloatOption, height.toFloatOption) match {
           case (Some(width), Some(height)) => (width, height)
-          case _ => throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + width + height)
+          case _ => throw new IllegalArgumentException(
+              "Expected (float, float), but got non-numerical value: " + width + height
+            )
         }
       case badVal => throw new IllegalArgumentException("Expected (float, float), but got: " + badVal)
     }
@@ -167,19 +172,17 @@ object KicadParser {
 
       fileReader.close()
       KicadFootprint(kicadComponents)
-    }
-    catch {
+    } catch {
       // Fail noisily but don't crash the plugin -- just don't draw anything
-      case e:FileNotFoundException => {}
+      case e: FileNotFoundException =>
+        {}
         println("Couldn't open kicad file for parsing: ", kicadFile.getName)
         e.printStackTrace()
         KicadFootprint(Seq())
-      case t:Throwable =>
+      case t: Throwable =>
         println("Error while parsing kicad file")
         t.printStackTrace()
         KicadFootprint(Seq())
     }
   }
 }
-
-

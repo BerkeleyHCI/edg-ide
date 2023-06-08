@@ -14,7 +14,10 @@ object ColorUtil {
 
   def withAlpha(baseColor: Color, alpha: Int): Color = {
     new Color(
-      baseColor.getRed, baseColor.getGreen, baseColor.getBlue, alpha
+      baseColor.getRed,
+      baseColor.getGreen,
+      baseColor.getBlue,
+      alpha
     )
   }
 }

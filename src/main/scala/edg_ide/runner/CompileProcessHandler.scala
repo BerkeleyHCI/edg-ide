@@ -29,7 +29,6 @@ import java.io._
 import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava}
 
-
 // a dummy-ish provider for PythonRunParams to get the Python interpreter executable
 class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: String) extends PythonRunParams {
   override def getInterpreterOptions: String = ""
@@ -73,11 +72,13 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
   override def setAddSourceRoots(b: Boolean): Unit = throw new NotImplementedError()
 }
 
-
 // a PythonInterface that uses the on-event hooks to log to the console
-class LoggingPythonInterface(serverFile: Option[File], pythonPaths: Seq[String], pythonInterpreter: String,
-                             console: ConsoleView)
-    extends PythonInterface(serverFile, pythonPaths, pythonInterpreter) {
+class LoggingPythonInterface(
+    serverFile: Option[File],
+    pythonPaths: Seq[String],
+    pythonInterpreter: String,
+    console: ConsoleView
+) extends PythonInterface(serverFile, pythonPaths, pythonInterpreter) {
   def forwardProcessOutput(): Unit = {
     StreamUtils.forAvailable(processOutputStream) { data =>
       console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
@@ -92,50 +93,58 @@ class LoggingPythonInterface(serverFile: Option[File], pythonPaths: Seq[String],
     console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_DEBUG_OUTPUT)
   }
 
-  override def onLibraryRequestComplete(element: ref.LibraryPath,
-                                        result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]): Unit = {
+  override def onLibraryRequestComplete(
+      element: ref.LibraryPath,
+      result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]
+  ): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(f"Error while compiling ${element.toSimpleString}: $msg\n",
-        ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) =>
+        console.print(f"Error while compiling ${element.toSimpleString}: $msg\n", ConsoleViewContentType.ERROR_OUTPUT)
       case _ =>
     }
   }
 
   override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
     val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
-        .mkString(", ")
-    console.print(s"Generate ${element.toSimpleString} ($valuesString)\n",
-      ConsoleViewContentType.LOG_DEBUG_OUTPUT)
+      .mkString(", ")
+    console.print(s"Generate ${element.toSimpleString} ($valuesString)\n", ConsoleViewContentType.LOG_DEBUG_OUTPUT)
   }
 
-  override def onElaborateGeneratorRequestComplete(element: ref.LibraryPath,
-                                                   values: Map[ref.LocalPath, ExprValue],
-                                                   result: Errorable[elem.HierarchyBlock]): Unit = {
+  override def onElaborateGeneratorRequestComplete(
+      element: ref.LibraryPath,
+      values: Map[ref.LocalPath, ExprValue],
+      result: Errorable[elem.HierarchyBlock]
+  ): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(f"Error while generating ${element.toSimpleString}: $msg\n",
-        ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) =>
+        console.print(f"Error while generating ${element.toSimpleString}: $msg\n", ConsoleViewContentType.ERROR_OUTPUT)
       case _ =>
     }
   }
 
-  override def onRunRefinementPassComplete(refinementPass: ref.LibraryPath,
-                                           result: Errorable[Map[DesignPath, ExprValue]]): Unit = {
+  override def onRunRefinementPassComplete(
+      refinementPass: ref.LibraryPath,
+      result: Errorable[Map[DesignPath, ExprValue]]
+  ): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(f"Error while running refinement ${refinementPass.toSimpleString}: $msg\n",
-        ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) => console.print(
+          f"Error while running refinement ${refinementPass.toSimpleString}: $msg\n",
+          ConsoleViewContentType.ERROR_OUTPUT
+        )
       case _ =>
     }
   }
 
-  override def onRunBackendComplete(backend: ref.LibraryPath,
-                                    result: Errorable[Map[DesignPath, String]]): Unit = {
+  override def onRunBackendComplete(backend: ref.LibraryPath, result: Errorable[Map[DesignPath, String]]): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(f"Error while running backend ${backend.toSimpleString}: $msg\n",
-        ConsoleViewContentType.ERROR_OUTPUT)
+      case Errorable.Error(msg) => console.print(
+          f"Error while running backend ${backend.toSimpleString}: $msg\n",
+          ConsoleViewContentType.ERROR_OUTPUT
+        )
       case _ =>
     }
   }
@@ -144,39 +153,43 @@ class LoggingPythonInterface(serverFile: Option[File], pythonPaths: Seq[String],
 object CompileProcessHandler {
   // Returns the interpreter executable from the SDK, Python paths, and the SDK name,
   // for the Python class associated with the design
-  def getPythonInterpreter(project: Project, designName: String):
-      Errorable[(String, Seq[String], String)] = exceptable {
-    ReadAction.compute(() => {
-      val pyPsi = PyPsiFacade.getInstance(project)
-      val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
-      val pyClass = pyPsi.createClassByQName(designName, anchor)
+  def getPythonInterpreter(project: Project, designName: String): Errorable[(String, Seq[String], String)] =
+    exceptable {
+      ReadAction.compute(() => {
+        val pyPsi = PyPsiFacade.getInstance(project)
+        val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
+        val pyClass = pyPsi.createClassByQName(designName, anchor)
           .exceptNull(s"can't find class $designName")
-      val module = ModuleUtilCore.findModuleForPsiElement(pyClass).exceptNull("can't find project module")
-      val sdk = PythonSdkUtil.findPythonSdk(module).exceptNull("can't find Python SDK")
+        val module = ModuleUtilCore.findModuleForPsiElement(pyClass).exceptNull("can't find project module")
+        val sdk = PythonSdkUtil.findPythonSdk(module).exceptNull("can't find Python SDK")
 
-      val runParams = new DesignTopRunParams(
-        pyClass.getContainingFile.getVirtualFile.getPath, sdk.getHomePath, module.getName)
-      val pythonCommand = PythonCommandLineState.getInterpreterPath(project, runParams)
+        val runParams = new DesignTopRunParams(
+          pyClass.getContainingFile.getVirtualFile.getPath,
+          sdk.getHomePath,
+          module.getName
+        )
+        val pythonCommand = PythonCommandLineState.getInterpreterPath(project, runParams)
           .exceptNull("can't get interpreter path")
-      val pythonPaths = PythonCommandLineState.collectPythonPath(module)
-      (pythonCommand, pythonPaths.asScala.toSeq, sdk.getName)
-    })
-  }
+        val pythonPaths = PythonCommandLineState.collectPythonPath(module)
+        (pythonCommand, pythonPaths.asScala.toSeq, sdk.getName)
+      })
+    }
 }
 
 trait HasConsoleStages {
   val console: ConsoleView
 
-  /** Logging and status wrappers for running a stage that returns some value.
-    * Exceptions are not caught and propagated up.
-    * The stage function returns both a type and a message (can be empty) that is printed to the console.
+  /** Logging and status wrappers for running a stage that returns some value. Exceptions are not caught and propagated
+    * up. The stage function returns both a type and a message (can be empty) that is printed to the console.
     *
     * If a progress fraction is specified, the progress indicator is set to it, otherwise it is set indeterminate.
     */
-  protected def runRequiredStage[ReturnType](name: String, indicator: ProgressIndicator,
-                                             progressFrac: Option[Float] = None)
-                                          (fn: => (ReturnType, String)): ReturnType = {
-    if (Thread.interrupted()) throw new InterruptedException  // TODO cleaner way to stop compile process?
+  protected def runRequiredStage[ReturnType](
+      name: String,
+      indicator: ProgressIndicator,
+      progressFrac: Option[Float] = None
+  )(fn: => (ReturnType, String)): ReturnType = {
+    if (Thread.interrupted()) throw new InterruptedException // TODO cleaner way to stop compile process?
     indicator.setText(f"EDG compiling: $name")
     progressFrac match {
       case None => indicator.setIndeterminate(true)
@@ -193,12 +206,15 @@ trait HasConsoleStages {
     fnResult
   }
 
-  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console.
-    * If the function fails, a specified default is returned.
+  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console. If the function
+    * fails, a specified default is returned.
     */
-  protected def runFailableStage[ReturnType](name: String, default: ReturnType, indicator: ProgressIndicator,
-                                             progressFrac: Option[Float] = None)
-                                            (fn: => (ReturnType, String)): ReturnType = {
+  protected def runFailableStage[ReturnType](
+      name: String,
+      default: ReturnType,
+      indicator: ProgressIndicator,
+      progressFrac: Option[Float] = None
+  )(fn: => (ReturnType, String)): ReturnType = {
     try {
       runRequiredStage(name, indicator, progressFrac) {
         fn
@@ -220,8 +236,11 @@ trait HasConsoleStages {
     *
     * Because for some reason overloaded alternatives can't all have defaults, this needs a different name.
     */
-  protected def runFailableStageUnit(name: String, indicator: ProgressIndicator, progressFrac: Option[Float] = None)
-                                    (fn: => String): Unit = {
+  protected def runFailableStageUnit(
+      name: String,
+      indicator: ProgressIndicator,
+      progressFrac: Option[Float] = None
+  )(fn: => String): Unit = {
     runFailableStage[Unit](name, (), indicator, progressFrac) {
       ((), fn)
     }
@@ -261,12 +280,13 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     var exitCode: Int = -1
 
     try {
-      val (pythonCommand, pythonPaths, sdkName) = CompileProcessHandler.getPythonInterpreter(project, options.designName)
-        .mapErr(
-          msg => s"while getting Python interpreter path: $msg"
-        ).get
-      console.print(s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
-        ConsoleViewContentType.LOG_INFO_OUTPUT)
+      val (pythonCommand, pythonPaths, sdkName) =
+        CompileProcessHandler.getPythonInterpreter(project, options.designName)
+          .mapErr(msg => s"while getting Python interpreter path: $msg").get
+      console.print(
+        s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
+        ConsoleViewContentType.LOG_INFO_OUTPUT
+      )
       val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
       hdlServerOption.foreach { _ =>
         console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
@@ -305,7 +325,7 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         val errors = runFailableStage("validate", Seq[CompilerError](), indicator) {
           val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
-              new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
+            new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
           if (errors.nonEmpty) {
             console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
           }
@@ -315,7 +335,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
         runFailableStageUnit("refdes", indicator) {
           val refdes = pythonInterface.get.runRefinementPass(
             ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
-            compiled, compiler.getAllSolved
+            compiled,
+            compiler.getAllSolved
           ).mapErr(msg => s"while refdesing: $msg").get
           compiler.addAssignValues(refdes, "refdes")
           f"${refdes.size} components"
@@ -331,7 +352,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           runFailableStageUnit("generate netlist", indicator) {
             val netlist = pythonInterface.get.runBackend(
               ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
-              compiled, compiler.getAllSolved,
+              compiled,
+              compiler.getAllSolved,
               Map("RefdesMode" -> options.toggle.toString)
             ).mapErr(msg => s"while netlisting: $msg").get
             require(netlist.size == 1)
@@ -343,15 +365,18 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
             f"wrote ${options.netlistFile}"
           }
         } else {
-          console.print(s"Skip generating netlist, no netlist file specified in run options\n",
-            ConsoleViewContentType.LOG_INFO_OUTPUT)
+          console.print(
+            s"Skip generating netlist, no netlist file specified in run options\n",
+            ConsoleViewContentType.LOG_INFO_OUTPUT
+          )
         }
 
         if (options.bomFile.nonEmpty) {
           runFailableStageUnit("generate BOM", indicator) {
             val bom = pythonInterface.get.runBackend(
               ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
-              compiled, compiler.getAllSolved,
+              compiled,
+              compiler.getAllSolved,
               Map()
             ).mapErr(msg => s"while generating bom: $msg").get
             require(bom.size == 1)
@@ -363,25 +388,31 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
             f"wrote ${options.bomFile}"
           }
         } else {
-          console.print(s"Skip generating BOM, no BOM file specified in run options\n",
-            ConsoleViewContentType.LOG_INFO_OUTPUT)
+          console.print(
+            s"Skip generating BOM, no BOM file specified in run options\n",
+            ConsoleViewContentType.LOG_INFO_OUTPUT
+          )
         }
 
         if (options.pdfFile.nonEmpty) {
           runFailableStageUnit("generate PDF", indicator) {
             Files.createDirectories(Paths.get(options.pdfFile).getParent)
-            PDFGeneratorUtil.generate(compiled.getContents, mappers = Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)), options.pdfFile)
+            PDFGeneratorUtil.generate(
+              compiled.getContents,
+              mappers = Seq(new ElkEdgirGraphUtils.TitleMapper(compiler)),
+              options.pdfFile
+            )
             f"wrote ${options.pdfFile}"
           }
         }
       }
       exitCode = pythonInterface.get.shutdown()
       pythonInterface.get.forwardProcessOutput() // dump remaining process output (shouldn't happen)
-    } catch {  // this generally shouldn't happen but is an overall catch-all and clean-up
+    } catch { // this generally shouldn't happen but is an overall catch-all and clean-up
       case e: Throwable =>
         pythonInterface.foreach { pyIf =>
           exitCode = pyIf.shutdown()
-          pyIf.forwardProcessOutput()  // dump remaining process output before the final error message
+          pyIf.forwardProcessOutput() // dump remaining process output before the final error message
         }
 
         val stackWriter = new StringWriter()

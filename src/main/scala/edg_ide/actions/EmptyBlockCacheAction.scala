@@ -4,7 +4,6 @@ import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.actionSystem.{AnAction, AnActionEvent}
 import edg_ide.ui.EdgCompilerService
 
-
 class EmptyBlockCacheAction() extends AnAction() {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.actions.EmptyCacheAction")
 

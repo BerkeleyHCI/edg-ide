@@ -5,7 +5,6 @@ import com.intellij.ui.JBColor
 import java.awt.Color
 import scala.collection.mutable
 
-
 object JDsePlot {
   // GUI constants
   private val kDefaultRangeMarginFactor = 1.1f // factor to extend the default range by
@@ -31,7 +30,7 @@ object JDsePlot {
   val kTickSizePx: Int = 4
 
   def defaultValuesRange(values: Seq[Float], factor: Float = kDefaultRangeMarginFactor): (Float, Float) = {
-    val rangingValues = values.filter { value =>  // ignore invalid values for ranging
+    val rangingValues = values.filter { value => // ignore invalid values for ranging
       value != Float.NegativeInfinity && value != Float.PositiveInfinity && value != Float.NaN
     } :+ 0f
     val range = (rangingValues.min, rangingValues.max) // 0 in case values is empty, and forces the scale to include 0
@@ -71,8 +70,11 @@ object JDsePlot {
   }
 
   // Returns all the axis ticks given some scale, screen origin, screen size, and min screen spacing
-  def getAxisTicks(range: (Float, Float), screenSize: Int, minScreenSpacing: Int = kMinTickSpacingPx):
-  Seq[(Float, String)] = {
+  def getAxisTicks(
+      range: (Float, Float),
+      screenSize: Int,
+      minScreenSpacing: Int = kMinTickSpacingPx
+  ): Seq[(Float, String)] = {
     val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize)) // min tick spacing in data units
     val tickSpacings = kTickSpacingIntervals.map { factor => // try all the spacings and take the minimum
       math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor

@@ -21,12 +21,10 @@ import javax.swing.event.TreeModelListener
 import javax.swing.tree._
 import scala.collection.SeqMap
 
-
 trait ElementDetailNode {
   val children: Seq[ElementDetailNode]
   def getColumns(index: Int): String = ""
 }
-
 
 object ElementDetailNode {
   class Dummy(text: String) extends ElementDetailNode {
@@ -34,7 +32,6 @@ object ElementDetailNode {
     override def toString: String = text
   }
 }
-
 
 class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val refinements: edgrpc.Refinements) {
   sealed trait BasePortNode extends ElementDetailNode {
@@ -44,12 +41,12 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     lazy val linkNode: Option[ElementDetailNode] = if (!fromLink) {
       compiler.getConnectedLink(path) match {
         case Some(linkPath) => EdgirUtils.resolveExactLink(linkPath, root) match {
-          case Some(link) =>
-            Some(new LinkNode(linkPath, path.asIndirect + IndirectStep.ConnectedLink, link))
-          case None =>
-            Some(new ElementDetailNode.Dummy(s"Invalid connected @ $path"))
-        }
-        case None => Some(new ElementDetailNode.Dummy("Disconnected"))  // not connected
+            case Some(link) =>
+              Some(new LinkNode(linkPath, path.asIndirect + IndirectStep.ConnectedLink, link))
+            case None =>
+              Some(new ElementDetailNode.Dummy(s"Invalid connected @ $path"))
+          }
+        case None => Some(new ElementDetailNode.Dummy("Disconnected")) // not connected
       }
     } else {
       None
@@ -71,8 +68,7 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     override def getColumns(index: Int): String = desc
   }
 
-  class PortNode(val path: DesignPath, port: elem.Port,
-                 val fromLink: Boolean=false)
+  class PortNode(val path: DesignPath, port: elem.Port, val fromLink: Boolean = false)
       extends BasePortNode {
     override lazy val children = {
       Seq(
@@ -88,8 +84,7 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     override def getColumns(index: Int): String = port.getSelfClass.toSimpleString
   }
 
-  class BundleNode(val path: DesignPath, port: elem.Bundle,
-                   val fromLink: Boolean=false)
+  class BundleNode(val path: DesignPath, port: elem.Bundle, val fromLink: Boolean = false)
       extends BasePortNode {
     override lazy val children = {
       Seq(
@@ -107,15 +102,17 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     override def getColumns(index: Int): String = port.getSelfClass.toSimpleString
   }
 
-  class PortArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean=false)
+  class PortArrayNode(val path: DesignPath, port: elem.PortArray, val fromLink: Boolean = false)
       extends BasePortNode {
     override lazy val children = {
       Seq(
         linkNode,
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
         Some(new ParamNode(path.asIndirect + IndirectStep.Length, ExprBuilder.ValInit.Integer)),
-        Some(new ParamNode(path.asIndirect + IndirectStep.Elements,
-          ExprBuilder.ValInit.Array(ExprBuilder.ValInit.Text))),
+        Some(new ParamNode(
+          path.asIndirect + IndirectStep.Elements,
+          ExprBuilder.ValInit.Array(ExprBuilder.ValInit.Text)
+        )),
         port.contains.ports.getOrElse(elem.PortArray.Ports()).ports.asPairs.map {
           case (name, subport) => PortLikeNode(path + name, subport, fromLink)
         },
@@ -125,7 +122,7 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     override def getColumns(index: Int): String = s"Array[${port.getSelfClass.toSimpleString}]"
   }
 
-  def PortLikeNode(path: DesignPath, port: elem.PortLike, fromLink: Boolean=false): ElementDetailNode = {
+  def PortLikeNode(path: DesignPath, port: elem.PortLike, fromLink: Boolean = false): ElementDetailNode = {
     port.is match {
       case elem.PortLike.Is.Port(port) => new PortNode(path, port, fromLink)
       case elem.PortLike.Is.Bundle(port) => new BundleNode(path, port, fromLink)
@@ -137,11 +134,10 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     }
   }
 
-
   def BlockNode(path: DesignPath, block: elem.HierarchyBlock): BlockNode = new BlockNode(path, block)
 
   class BlockNode(path: DesignPath, block: elem.HierarchyBlock) extends ElementDetailNode {
-    override lazy val children: Seq[ElementDetailNode] = {  // don't recurse into blocks here
+    override lazy val children: Seq[ElementDetailNode] = { // don't recurse into blocks here
       Seq(
         Some(new SuperclassesNode(block.superclasses)),
         block.ports.asPairs.map {
@@ -154,7 +150,7 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
           new MetadataNode("Metadata", meta)
         },
         Some(new ConstraintsNode(path, block.constraints.toSeqMap)),
-        if (path == DesignPath()) {  // display refinements if root
+        if (path == DesignPath()) { // display refinements if root
           Seq(
             new RefinementsNodes.ClassRefinementsNode(refinements),
             new RefinementsNodes.InstanceRefinementsNode(refinements),
@@ -185,12 +181,11 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     }
   }
 
-
   class LinkNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.Link) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {
       Seq(
         Some(new SuperclassesNode(link.superclasses)),
-        Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
+        Option.when(path.asIndirect == relpath) { // only show ports if not CONNECTED_LINK
           link.ports.asPairs.map {
             case (name, port) => PortLikeNode(path + name, port, true)
           }
@@ -222,7 +217,7 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
   class LinkArrayNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkArray) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = {
       Seq(
-        Option.when(path.asIndirect == relpath) {  // only show ports if not CONNECTED_LINK
+        Option.when(path.asIndirect == relpath) { // only show ports if not CONNECTED_LINK
           link.ports.asPairs.map {
             case (name, port) => PortLikeNode(path + name, port, true)
           }
@@ -259,14 +254,13 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     }
   }
 
-
   class ParamNode(val path: IndirectDesignPath, param: init.ValInit) extends ElementDetailNode {
-    def outer: ElementDetailNodes = ElementDetailNodes.this  // TODO: should all ElementDetailNode have outer ref?
+    def outer: ElementDetailNodes = ElementDetailNodes.this // TODO: should all ElementDetailNode have outer ref?
 
     override lazy val children: Seq[ElementDetailNode] = compiler.getParamValue(path) match {
       case Some(ArrayValue(values)) => values.zipWithIndex.map { case (value, index) =>
-        new ParamEltNode(index, value)
-      }
+          new ParamEltNode(index, value)
+        }
       case _ => Seq()
     }
 
@@ -296,7 +290,7 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
 
     override def toString: String = index.toString
 
-    override def getColumns(index: Int): String = {  // unlike the top-level ParamNode case we don't show the type
+    override def getColumns(index: Int): String = { // unlike the top-level ParamNode case we don't show the type
       value.toStringValue
     }
   }
@@ -304,7 +298,8 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
   class ConstraintsNode(root: DesignPath, constraints: SeqMap[String, expr.ValueExpr])
       extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = constraints.map { case (name, value) =>
-      new ConstraintNode(root, name, value) }.toSeq
+      new ConstraintNode(root, name, value)
+    }.toSeq
 
     override def toString: String = "Constraints"
 
@@ -324,14 +319,18 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
     private lazy val nameDescChildren: (String, String, Seq[ConstraintDetailNode]) = {
       val constraintStr = ExprToString(constraint)
       constraint.expr match {
-        case expr.ValueExpr.Expr.Assign(constraint) =>  // special case for assign: show final value and missing
+        case expr.ValueExpr.Expr.Assign(constraint) => // special case for assign: show final value and missing
           compiler.evaluateExpr(root, constraint.getSrc) match {
             case ExprResult.Result(result) =>
               (s"$name ⇐ ${result.toStringValue}", constraintStr, Seq())
             case ExprResult.Missing(missing) =>
-              (s"$name ⇐ unknown", constraintStr, missing.toSeq.map { param =>
-                new ConstraintDetailNode("Missing param", param)
-              })
+              (
+                s"$name ⇐ unknown",
+                constraintStr,
+                missing.toSeq.map { param =>
+                  new ConstraintDetailNode("Missing param", param)
+                }
+              )
           }
         case _ => (name, constraintStr, Seq())
       }
@@ -365,8 +364,8 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
   class MetadataNode(name: String, meta: common.Metadata) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = meta.meta match {
       case common.Metadata.Meta.Members(members) => members.node.map { case (subName, subMeta) =>
-        new MetadataNode(subName, subMeta)
-      }.toSeq
+          new MetadataNode(subName, subMeta)
+        }.toSeq
       case _ => Seq()
     }
 
@@ -382,9 +381,8 @@ class ElementDetailNodes(val root: schema.Design, val compiler: Compiler, val re
   }
 }
 
-
-class ElementDetailTreeModel(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements,
-                             compiler: Compiler) extends SeqTreeTableModel[ElementDetailNode] {
+class ElementDetailTreeModel(path: DesignPath, root: schema.Design, refinements: edgrpc.Refinements, compiler: Compiler)
+    extends SeqTreeTableModel[ElementDetailNode] {
   val (rootBlockPath, rootBlock) = EdgirUtils.resolveDeepestBlock(path, root)
   val rootNode: ElementDetailNode = new ElementDetailNodes(root, compiler, refinements)
     .BlockNode(rootBlockPath, rootBlock)
@@ -418,5 +416,5 @@ class ElementDetailTreeModel(path: DesignPath, root: schema.Design, refinements:
   override def isNodeCellEditable(node: ElementDetailNode, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: ElementDetailNode, column: Int): Unit = {}
 
-  def setTree(tree: JTree): Unit = { }  // tree updates ignored
+  def setTree(tree: JTree): Unit = {} // tree updates ignored
 }
