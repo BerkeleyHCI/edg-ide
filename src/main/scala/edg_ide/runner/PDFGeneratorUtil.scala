@@ -27,8 +27,8 @@ object PDFGeneratorUtil{
    */
   private final val kPageMargin = 16f
   private final val kTableRowHeight = 23f
-  final val kLinkFont = new Font(Font.HELVETICA, 12f, Font.UNDERLINE, Color.BLUE)
-  final val kBoldFont = new Font(Font.HELVETICA, 12f, Font.BOLD, Color.BLACK)
+  private final val kLinkFont = new Font(Font.HELVETICA, 12f, Font.UNDERLINE, Color.BLUE)
+  private final val kBoldFont = new Font(Font.HELVETICA, 12f, Font.BOLD, Color.BLACK)
 
 
   private def generatePageSize(node: ElkNode, tableRows: Int): (Float, Float) = {
@@ -64,6 +64,24 @@ object PDFGeneratorUtil{
 
     traverseBlock(block, DesignPath())
     dupList.view.mapValues(_.toList).toMap
+  }
+
+  private def generateHyperlinkPathName(hyperlinkPath: DesignPath, cellContent: Phrase, lastElement: String, isTitle: Boolean = false): Unit = {
+    val (parent, currentElement) = hyperlinkPath.split
+
+    if (parent != DesignPath()) {
+      generateHyperlinkPathName(parent, cellContent, lastElement, isTitle)
+    }
+    val anchor = new Anchor
+    anchor.setReference(s"#${parent.toString}")
+    anchor.add(new Phrase(parent.lastString, kLinkFont))
+    anchor.add(new Phrase("."))
+
+    if (currentElement == lastElement) {
+      anchor.add(new Phrase(currentElement))
+    }
+
+    cellContent.add(anchor)
   }
 
 
@@ -124,27 +142,8 @@ object PDFGeneratorUtil{
 
         dupSet.foreach { dupPath =>
           val cellContent = new Paragraph
-          val lastElement = dupPath.lastString
 
-          def generateHyperlinkPathName(hyperlinkPath: DesignPath): Unit = {
-            val (parent, currentElement) = hyperlinkPath.split
-
-            if(parent != DesignPath()){
-              generateHyperlinkPathName(parent)
-            }
-            val anchor = new Anchor
-            anchor.setReference(s"#${parent.toString}")
-            anchor.add(new Phrase(parent.lastString, kLinkFont))
-            anchor.add(new Phrase("."))
-
-            if(currentElement == lastElement){
-              anchor.add(new Phrase(currentElement))
-            }
-
-            cellContent.add(anchor)
-          }
-
-          generateHyperlinkPathName(dupPath)
+          generateHyperlinkPathName(dupPath, cellContent, dupPath.lastString)
 
           val cell = new PdfPCell(cellContent)
           cell.setFixedHeight(kTableRowHeight)
