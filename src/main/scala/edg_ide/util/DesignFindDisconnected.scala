@@ -42,9 +42,9 @@ object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[Strin
       case expr.ValueExpr.Expr.Ref(path) => path.steps
     }.collect {
       case Seq(
-          ref.LocalStep(ref.LocalStep.Step.Name(blockName), _),
-          ref.LocalStep(ref.LocalStep.Step.Name(portName), _)
-        ) => (blockName, portName)
+            ref.LocalStep(ref.LocalStep.Step.Name(blockName), _),
+            ref.LocalStep(ref.LocalStep.Step.Name(portName), _)
+          ) => (blockName, portName)
     }
 
     // Required ports of children, as (block, port) tuple

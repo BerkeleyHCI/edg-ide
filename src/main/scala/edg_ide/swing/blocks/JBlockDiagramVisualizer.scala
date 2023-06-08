@@ -117,7 +117,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
         }.sortBy(_._2) // sort to get closest to cursor
         val containedEdges = edgeDistances.collect {
           case (edge, dist)
-            if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
+              if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
         }
 
         containedChildren ++ containedEdges ++ Seq(node)

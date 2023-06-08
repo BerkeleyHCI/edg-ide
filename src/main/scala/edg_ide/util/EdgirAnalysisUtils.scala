@@ -13,8 +13,8 @@ object EdgirAnalysisUtils {
   def getInnermostSubblock(path: DesignPath, block: elem.HierarchyBlock): Option[(DesignPath, elem.HierarchyBlock)] = {
     val nonDummyBlocks = block.blocks.asPairs.collect {
       case (name, subblock)
-        if !(name.startsWith("(bridge)") || name.startsWith("(adapter)") ||
-          name.startsWith("(not_connected)")) =>
+          if !(name.startsWith("(bridge)") || name.startsWith("(adapter)") ||
+            name.startsWith("(not_connected)")) =>
         (name, subblock.`type`)
     }
     nonDummyBlocks match {

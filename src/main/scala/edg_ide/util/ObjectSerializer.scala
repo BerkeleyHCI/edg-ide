@@ -35,10 +35,10 @@ object ObjectSerializer {
       elementFn: EltType => Boolean
   ): Option[Seq[EltType]] = obj match {
     case obj: Seq[Any]
-      if obj.forall(elt =>
-        classTag[EltType].runtimeClass.isInstance(elt) &&
-          elementFn(elt.asInstanceOf[EltType])
-      ) => Some(obj.asInstanceOf[Seq[EltType]])
+        if obj.forall(elt =>
+          classTag[EltType].runtimeClass.isInstance(elt) &&
+            elementFn(elt.asInstanceOf[EltType])
+        ) => Some(obj.asInstanceOf[Seq[EltType]])
     case _ => None
   }
 
