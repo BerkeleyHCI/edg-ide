@@ -52,7 +52,7 @@ object InsertPinningAction {
       (path, DesignAnalysisUtils.pyClassOf(portType, project).toOption)
     }.collect {
       case (path, Some(portClass))
-          if portClass.isSubclass(circuitPortClass, TypeEvalContext.codeAnalysis(project, null)) =>
+        if portClass.isSubclass(circuitPortClass, TypeEvalContext.codeAnalysis(project, null)) =>
         path
     }
   }

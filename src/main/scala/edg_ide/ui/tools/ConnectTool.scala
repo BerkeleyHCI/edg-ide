@@ -189,14 +189,14 @@ class ConnectPopup(
         case ConnectToolAction.None(focusPath, initialPort) =>
           block: elem.HierarchyBlock => block
         case ConnectToolAction.AppendToLink(
-              focusPath,
-              linkName,
-              initialPort,
-              priorPorts,
-              priorBridgedPorts,
-              linkPorts,
-              bridgePorts
-            ) => { block: elem.HierarchyBlock => // TODO in-place append?
+            focusPath,
+            linkName,
+            initialPort,
+            priorPorts,
+            priorBridgedPorts,
+            linkPorts,
+            bridgePorts
+          ) => { block: elem.HierarchyBlock => // TODO in-place append?
           val cleanedBlock = block.update(
             _.constraints := block.constraints.toSeqMap.filter { case (name, constraint) => // disconnect existing link
               constraint.expr match {
@@ -225,14 +225,14 @@ class ConnectPopup(
             )
         }
         case ConnectToolAction.RefactorExportToLink(
-              focusPath,
-              constrName,
-              initialPort,
-              priorExteriorPort,
-              priorInnerPort,
-              linkPorts,
-              bridgePorts
-            ) => { block: elem.HierarchyBlock =>
+            focusPath,
+            constrName,
+            initialPort,
+            priorExteriorPort,
+            priorInnerPort,
+            linkPorts,
+            bridgePorts
+          ) => { block: elem.HierarchyBlock =>
           val cleanedBlock = block.update(
             _.constraints := block.constraints.toSeqMap.filter(_._1 != constrName).toPb,
           )

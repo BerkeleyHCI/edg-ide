@@ -120,12 +120,12 @@ object CompilerErrorNodeBase {
         )
 
       case CompilerError.InconsistentLinkArrayElements(
-            root,
-            linkPath,
-            linkElements,
-            blockPortPath,
-            blockPortElements
-          ) =>
+          root,
+          linkPath,
+          linkElements,
+          blockPortPath,
+          blockPortElements
+        ) =>
         (
           s"Inconsistent link array elements",
           s"$linkPath",
