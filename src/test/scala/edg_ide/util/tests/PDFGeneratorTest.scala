@@ -18,6 +18,14 @@ import scala.language.postfixOps
 class PDFGeneratorTest extends AnyFlatSpec with Matchers {
   behavior of "PDFGeneratorUtil"
 
+  it should "work on empty block" in {
+    val blockIr = elem.HierarchyBlock()
+    PDFGeneratorUtil.generate(blockIr, fileName = "empty_block.pdf")
+    val bufferedInputStream = new BufferedInputStream(new FileInputStream("empty_block.pdf"))
+    val byteArray = LazyList.continually(bufferedInputStream.read).takeWhile(-1 !=).map(_.toByte).toArray
+    byteArray should not be empty
+  }
+
   it should "generate a working PDF file" in {
     val blockIr = elem.HierarchyBlock(
       blocks = SeqMap(
