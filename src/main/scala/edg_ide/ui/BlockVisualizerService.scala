@@ -21,7 +21,8 @@ object BlockVisualizerService {
   }
 }
 
-class BlockVisualizerService(project: Project) extends PersistentStateComponent[BlockVisualizerServiceState]
+class BlockVisualizerService(project: Project)
+    extends PersistentStateComponent[BlockVisualizerServiceState]
     with Disposable {
   private var visualizerPanel: Option[BlockVisualizerPanel] = None
   private var initialState: Option[BlockVisualizerServiceState] = None

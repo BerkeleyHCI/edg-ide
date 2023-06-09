@@ -83,8 +83,10 @@ class DseParallelPlotPanel() extends DseBasePlot {
     val parallelPoints = flatResults.toIndexedSeq.zipWithIndex.map { case (result, dataIndex) =>
       val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
       val (zOrder, color) = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-        case (_, true) => (-1, Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorOtherError, 0.66)))
-        case (true, false) => (0, Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorIdealError, 0.66)))
+        case (_, true) =>
+          (-1, Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorOtherError, 0.66)))
+        case (true, false) =>
+          (0, Some(ColorUtil.blendColor(getBackground, DseResultModel.kColorIdealError, 0.66)))
         case (false, false) => (1, None)
       }
       val tooltipText = DseConfigElement.configMapToString(result.config)
@@ -133,7 +135,9 @@ class DseParallelPlotPanel() extends DseBasePlot {
         axisSelector.addItemListener(axisSelectorListener)
 
         // restore prior selection by name matching
-        items.find { item => item.toString == selected.toString }.foreach { item => axisSelector.setItem(item) }
+        items.find { item => item.toString == selected.toString }.foreach { item =>
+          axisSelector.setItem(item)
+        }
       }
       revalidate()
     })
@@ -156,7 +160,10 @@ class DseParallelPlotPanel() extends DseBasePlot {
               axisSelector
             }
             thisLayout.setConstraints(axisAddButton, Gbc(axisSelectors.size + 1, 1))
-            thisLayout.setConstraints(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, axisSelectors.size + 2))
+            thisLayout.setConstraints(
+              parallelPlot,
+              Gbc(0, 0, GridBagConstraints.BOTH, axisSelectors.size + 2)
+            )
           }
           revalidate()
 

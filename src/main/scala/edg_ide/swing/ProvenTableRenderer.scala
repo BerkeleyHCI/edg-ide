@@ -17,16 +17,17 @@ trait ProvenTreeTableMixin extends TreeTable {
   override def getToolTipText(e: MouseEvent): String = {
     getValueAt(rowAtPoint(e.getPoint), columnAtPoint(e.getPoint)) match {
       case cell: BlockProven => SwingHtmlUtil.wrapInHtml(cell.htmlDescription, getFont)
-      case _ => super.getToolTipText(e)
+      case _                 => super.getToolTipText(e)
     }
   }
 
   override def setModel(treeTableModel: TreeTableModel): Unit = {
     super.setModel(treeTableModel)
-    getColumnModel.getColumns.asScala.foreach { column => // must support the case where the column isn't shown
-      if (column.getIdentifier == "Proven") {
-        column.setMaxWidth(48)
-      }
+    getColumnModel.getColumns.asScala.foreach {
+      column => // must support the case where the column isn't shown
+        if (column.getIdentifier == "Proven") {
+          column.setMaxWidth(48)
+        }
     }
   }
 }

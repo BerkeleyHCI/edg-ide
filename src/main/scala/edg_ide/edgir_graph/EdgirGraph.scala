@@ -55,11 +55,13 @@ object EdgirGraph {
       override val data: NodeDataWrapper,
       override val members: SeqMap[Seq[String], EdgirNodeMember],
       override val edges: Seq[EdgirEdge]
-  ) extends HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper] with EdgirNodeMember {}
+  ) extends HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+      with EdgirNodeMember {}
 
   case class EdgirPort(
       override val data: PortWrapper
-  ) extends HGraphPort[PortWrapper] with EdgirNodeMember {}
+  ) extends HGraphPort[PortWrapper]
+      with EdgirNodeMember {}
 
   case class EdgirEdge(
       override val data: EdgeWrapper,
@@ -75,23 +77,30 @@ object EdgirGraph {
 
   /** For a list of constraints, returns the EdgirEdges of corresponding connect and exports
     */
-  protected def constraintsToEdges(path: DesignPath, constraints: SeqMap[String, expr.ValueExpr]): Seq[EdgirEdge] = {
+  protected def constraintsToEdges(
+      path: DesignPath,
+      constraints: SeqMap[String, expr.ValueExpr]
+  ): Seq[EdgirEdge] = {
     constraints.flatMap { case (name, constr) =>
       constr.expr match {
         case expr.ValueExpr.Expr.Connected(connect) =>
           // in the loading pass, the source is the block side and the target is the link side
-          Some(EdgirEdge(
-            ConnectWrapper(path + name, constr),
-            source = Ref.unapply(connect.getBlockPort.getRef).get,
-            target = Ref.unapply(connect.getLinkPort.getRef).get
-          ))
+          Some(
+            EdgirEdge(
+              ConnectWrapper(path + name, constr),
+              source = Ref.unapply(connect.getBlockPort.getRef).get,
+              target = Ref.unapply(connect.getLinkPort.getRef).get
+            )
+          )
         case expr.ValueExpr.Expr.Exported(export) =>
           // in the loading pass, the source is the block side and the target is the external port
-          Some(EdgirEdge(
-            ConnectWrapper(path + name, constr),
-            source = Ref.unapply(export.getInternalBlockPort.getRef).get,
-            target = Ref.unapply(`export`.getExteriorPort.getRef).get
-          ))
+          Some(
+            EdgirEdge(
+              ConnectWrapper(path + name, constr),
+              source = Ref.unapply(export.getInternalBlockPort.getRef).get,
+              target = Ref.unapply(`export`.getExteriorPort.getRef).get
+            )
+          )
         case _ => None
       }
     }.toSeq
@@ -101,11 +110,19 @@ object EdgirGraph {
     blockLike.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) =>
         // Create sub-nodes and a unified member namespace
-        val allMembers = MapUtils.mergeSeqMapSafe( // arrays not collapse
-          block.ports.toSeqMap.flatMap { case (name, port) => expandPortsWithNames(path + name, Seq(name), port) },
-          block.blocks.toSeqMap.map { case (name, subblock) => Seq(name) -> blockLikeToNode(path + name, subblock) },
-          block.links.toSeqMap.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
-        ).to(SeqMap)
+        val allMembers = MapUtils
+          .mergeSeqMapSafe( // arrays not collapse
+            block.ports.toSeqMap.flatMap { case (name, port) =>
+              expandPortsWithNames(path + name, Seq(name), port)
+            },
+            block.blocks.toSeqMap.map { case (name, subblock) =>
+              Seq(name) -> blockLikeToNode(path + name, subblock)
+            },
+            block.links.toSeqMap.map { case (name, sublink) =>
+              Seq(name) -> linkLikeToNode(path + name, sublink)
+            }
+          )
+          .to(SeqMap)
 
         // Read edges from constraints
         val edges: Seq[EdgirEdge] = constraintsToEdges(path, block.constraints.toSeqMap)
@@ -124,12 +141,16 @@ object EdgirGraph {
     linkLike.`type` match {
       case elem.LinkLike.Type.Link(link) =>
         // Create sub-nodes and a unified member namespace
-        val allMembers = MapUtils.mergeSeqMapSafe(
-          link.ports.toSeqMap.flatMap { case (name, port) =>
-            expandPortsWithNames(path + name, Seq(name), port)
-          }, // arrays collapsed
-          link.links.toSeqMap.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
-        ).to(SeqMap)
+        val allMembers = MapUtils
+          .mergeSeqMapSafe(
+            link.ports.toSeqMap.flatMap { case (name, port) =>
+              expandPortsWithNames(path + name, Seq(name), port)
+            }, // arrays collapsed
+            link.links.toSeqMap.map { case (name, sublink) =>
+              Seq(name) -> linkLikeToNode(path + name, sublink)
+            }
+          )
+          .to(SeqMap)
 
         // Read edges from constraints
         val edges: Seq[EdgirEdge] = constraintsToEdges(path, link.constraints.toSeqMap)
@@ -137,12 +158,16 @@ object EdgirGraph {
         EdgirNode(LinkWrapper(path, linkLike), allMembers, edges)
       case elem.LinkLike.Type.Array(link) =>
         // Create sub-nodes and a unified member namespace
-        val allMembers = MapUtils.mergeSeqMapSafe(
-          link.ports.toSeqMap.flatMap { case (name, port) =>
-            expandPortsWithNames(path + name, Seq(name), port)
-          }, // arrays collapsed
-          link.links.toSeqMap.map { case (name, sublink) => Seq(name) -> linkLikeToNode(path + name, sublink) },
-        ).to(SeqMap)
+        val allMembers = MapUtils
+          .mergeSeqMapSafe(
+            link.ports.toSeqMap.flatMap { case (name, port) =>
+              expandPortsWithNames(path + name, Seq(name), port)
+            }, // arrays collapsed
+            link.links.toSeqMap.map { case (name, sublink) =>
+              Seq(name) -> linkLikeToNode(path + name, sublink)
+            }
+          )
+          .to(SeqMap)
 
         // Read edges from constraints
         val edges: Seq[EdgirEdge] = constraintsToEdges(path, link.constraints.toSeqMap)

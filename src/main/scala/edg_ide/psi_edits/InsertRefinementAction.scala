@@ -25,7 +25,8 @@ object InsertRefinementAction {
   val kRefinementsFunctionName = "refinements"
   val kKwargInstanceRefinements = "instance_refinements" // path-based subclass refinement
   val kKwargInstanceValues = "instance_values" // path-based value refinement
-  val kKwargClassRefinements = "class_refinements" // class-based subclass refinement (refine all classes of X)
+  val kKwargClassRefinements =
+    "class_refinements" // class-based subclass refinement (refine all classes of X)
   val kKwargClassValues = "class_values" // class + subpath-based value refinement
 }
 
@@ -60,8 +61,9 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
       list: PyListLiteralExpression,
       key: Seq[PyExpression]
   ): Option[PyTupleExpression] = {
-    list.getElements.collect {
-      case elt: PyParenthesizedExpression => elt.getContainedExpression match {
+    list.getElements
+      .collect { case elt: PyParenthesizedExpression =>
+        elt.getContainedExpression match {
           case elt: PyTupleExpression if elt.getElements.length == key.length + 1 =>
             val eltMatches = elt.getElements.init.zip(key).forall { case (eltElt, keyElt) =>
               eltElt.textMatches(keyElt)
@@ -73,7 +75,9 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
             }
           case _ => None
         }
-    }.flatten.lastOption
+      }
+      .flatten
+      .lastOption
   }
 
   // Creates a function that when called within a writeCommandAction,
@@ -86,13 +90,17 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
     Option(into.getKeywordArgument(kwargName)) match {
       case Some(kwarg) => // merge into list
         val valueList =
-          kwarg.getValueExpression.instanceOfExcept[PyListLiteralExpression](s"Refinements kwarg $kwarg not a list")
+          kwarg.getValueExpression.instanceOfExcept[PyListLiteralExpression](
+            s"Refinements kwarg $kwarg not a list"
+          )
         val eltActions = refinements.map { case (keyElts, value) =>
           findRefinementsExprByKey(valueList, keyElts) match {
-            case Some(existingRefinementTuple) => () => {
+            case Some(existingRefinementTuple) =>
+              () => {
                 Seq(existingRefinementTuple.getElements.last.replace(value).asInstanceOf[PyExpression])
               }
-            case None => () => {
+            case None =>
+              () => {
                 val insertTuple = psiElementGenerator.createExpressionFromText(
                   languageLevel,
                   s"(${keyElts.map(_.getText).mkString(", ")}, ${value.getText})"
@@ -121,8 +129,9 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   // Returns a function that when called, does the insertion and return the newly inserted expressions
   // Refinements are inserted as one action
   // Inserts surrounding infrastructure as needed, handling cases where no refinements block or kwarg is present
-  def createInsertRefinements(refinements: SeqMap[String, Seq[(Seq[PyExpression], PyExpression)]])
-      : Errorable[() => Seq[PyElement]] = exceptable {
+  def createInsertRefinements(
+      refinements: SeqMap[String, Seq[(Seq[PyExpression], PyExpression)]]
+  ): Errorable[() => Seq[PyElement]] = exceptable {
     val refinementsMethod = insertIntoClass.getMethods.find { method =>
       method.getName == InsertRefinementAction.kRefinementsFunctionName
     }
@@ -131,8 +140,10 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
         val argList = refinementsMethod.getStatementList.getStatements.toSeq
           .onlyExcept("unexpected multiple statements in refinements()")
           .instanceOfExcept[PyReturnStatement]("unexpected statement in refinements() body")
-          .getExpression.instanceOfExcept[PyBinaryExpression]("unexpected expr in refinements() return")
-          .getRightExpression.instanceOfExcept[PyCallExpression]("unexpected expr in refinements() return rhs")
+          .getExpression
+          .instanceOfExcept[PyBinaryExpression]("unexpected expr in refinements() return")
+          .getRightExpression
+          .instanceOfExcept[PyCallExpression]("unexpected expr in refinements() return rhs")
           .getArgumentList
         val mergeRefinements = refinements.toSeq.map { case (kwargName, refinements) =>
           createMergeRefinementKwarg(argList, kwargName, refinements).exceptError
@@ -151,10 +162,12 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
                |""".stripMargin.replace("\r\n", "\n")
           ) // avoid a "wrong line separator" assert
           val refinementsFn = insertIntoClass.getStatementList.add(newFn).asInstanceOf[PyFunction]
-          val argList = refinementsFn.getStatementList.getStatements
-            .head.asInstanceOf[PyReturnStatement]
-            .getExpression.asInstanceOf[PyBinaryExpression]
-            .getRightExpression.asInstanceOf[PyCallExpression]
+          val argList = refinementsFn.getStatementList.getStatements.head
+            .asInstanceOf[PyReturnStatement]
+            .getExpression
+            .asInstanceOf[PyBinaryExpression]
+            .getRightExpression
+            .asInstanceOf[PyCallExpression]
             .getArgumentList
           refinements.foreach { case (kwargName, refinements) =>
             insertRefinementKwarg(argList, kwargName, refinements)
@@ -183,12 +196,17 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
     val instanceValuesEntry = refinements.instanceValues.map { case (sourcePath, targetValue) =>
       Seq(keyFromPath(sourcePath)) -> valueFromExpr(targetValue).exceptError
     }.toSeq
-    createInsertRefinements(SeqMap.from(Seq(
-      if (classRefinementsEntry.isEmpty) Seq() else Seq(kKwargClassRefinements -> classRefinementsEntry),
-      if (instanceRefinementsEntry.isEmpty) Seq() else Seq(kKwargInstanceRefinements -> instanceRefinementsEntry),
-      if (classValuesEntry.isEmpty) Seq() else Seq(kKwargClassValues -> classValuesEntry),
-      if (instanceValuesEntry.isEmpty) Seq() else Seq(kKwargInstanceValues -> instanceValuesEntry),
-    ).flatten)).exceptError
+    createInsertRefinements(
+      SeqMap.from(
+        Seq(
+          if (classRefinementsEntry.isEmpty) Seq() else Seq(kKwargClassRefinements -> classRefinementsEntry),
+          if (instanceRefinementsEntry.isEmpty) Seq()
+          else Seq(kKwargInstanceRefinements -> instanceRefinementsEntry),
+          if (classValuesEntry.isEmpty) Seq() else Seq(kKwargClassValues -> classValuesEntry),
+          if (instanceValuesEntry.isEmpty) Seq() else Seq(kKwargInstanceValues -> instanceValuesEntry)
+        ).flatten
+      )
+    ).exceptError
   }
 
   // Utility functions for generating refinement exprs
@@ -202,7 +220,8 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
     val listExpr = psiElementGenerator.createListLiteral()
     path.steps.foreach { step =>
       step.step match {
-        case ref.LocalStep.Step.Name(name) => listExpr.add(psiElementGenerator.createStringLiteralFromString(name))
+        case ref.LocalStep.Step.Name(name) =>
+          listExpr.add(psiElementGenerator.createStringLiteralFromString(name))
         case _ => exceptable.fail(f"path ${ExprToString(path)} not compatible with refinement")
       }
     }
@@ -212,7 +231,7 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   def valueFromExpr(expr: ExprValue): Errorable[PyExpression] = exceptable {
     expr match {
       case FloatValue(value) => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
-      case IntValue(value) => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
+      case IntValue(value)   => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
       case RangeValue(lower, upper) =>
         psiElementGenerator.createExpressionFromText(languageLevel, f"Range($lower, $upper)")
       case RangeEmpty => exceptable.fail("can't create empty range")

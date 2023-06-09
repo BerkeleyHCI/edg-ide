@@ -29,7 +29,9 @@ class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[Des
         if (psiPyClass.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
           configuration.setName(psiPyClass.getQualifiedName)
           configuration.options.designName = psiPyClass.getQualifiedName
-          val containingDirectory = new File(psiPyClass.getContainingFile.getContainingDirectory.getVirtualFile.getPath)
+          val containingDirectory = new File(
+            psiPyClass.getContainingFile.getContainingDirectory.getVirtualFile.getPath
+          )
           val designDirectory = new File(containingDirectory, psiPyClass.getName)
           val netlistFile = new File(designDirectory, psiPyClass.getName + ".net")
           configuration.options.netlistFile = netlistFile.getAbsolutePath

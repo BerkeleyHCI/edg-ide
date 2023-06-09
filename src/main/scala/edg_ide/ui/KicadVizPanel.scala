@@ -34,9 +34,11 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
   // State
   //
-  var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] =
+  var currentBlockPathTypePin
+      : Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] =
     None // should be a Block with a footprint and pinning field
-  var footprintSynced: Boolean = false // whether the footprint is assigned to the block (as opposed to preview mode)
+  var footprintSynced: Boolean =
+    false // whether the footprint is assigned to the block (as opposed to preview mode)
 
   object FootprintBrowser extends JPanel {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
@@ -53,7 +55,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       Option(file.getParentFile).flatMap { parentFile =>
         (parentFile.getName, file.getName) match {
           case (s"$parentFileName.pretty", s"$fileName.kicad_mod") => Some(s"$parentFileName:$fileName")
-          case _ => None
+          case _                                                   => None
         }
       }
     }
@@ -62,7 +64,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       override def mouseClicked(mouseEvent: MouseEvent): Unit = {
         val node = tree.getTree.getSelectionPath.getLastPathComponent match {
           case node: FootprintBrowserNode => node
-          case _ => return
+          case _                          => return
         }
 
         if (mouseEvent.getClickCount == 1) { // single click opens the footprint for preview
@@ -74,16 +76,21 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
             case Some(footprintName) =>
               visualizer.kicadFootprint = KicadParser.parseKicadFile(node.file)
               visualizer.repaint()
-              val footprintStr = footprintName.replace(":", ": ") // TODO this allows a line break but is hacky
-              status.setText(SwingHtmlUtil.wrapInHtml(
-                s"Footprint preview: ${footprintStr}",
-                KicadVizPanel.this.getFont
-              ))
+              val footprintStr =
+                footprintName.replace(":", ": ") // TODO this allows a line break but is hacky
+              status.setText(
+                SwingHtmlUtil.wrapInHtml(
+                  s"Footprint preview: ${footprintStr}",
+                  KicadVizPanel.this.getFont
+                )
+              )
             case _ =>
-              status.setText(SwingHtmlUtil.wrapInHtml(
-                s"Invalid file: ${node.file.getName}",
-                KicadVizPanel.this.getFont
-              ))
+              status.setText(
+                SwingHtmlUtil.wrapInHtml(
+                  s"Invalid file: ${node.file.getName}",
+                  KicadVizPanel.this.getFont
+                )
+              )
           }
         } else if (mouseEvent.getClickCount == 2) { // double click assigns the footprint to the opened block
           exceptionPopup(mouseEvent) {
@@ -110,7 +117,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
         }
       }
 
-      val searchTerms = filterTextBox.getText.split(' ')
+      val searchTerms = filterTextBox.getText
+        .split(' ')
         .filterNot(_.isEmpty)
         .map(_.toLowerCase())
       if (searchTerms.isEmpty) {
@@ -154,7 +162,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
   splitter.setFirstComponent(FootprintBrowser)
 
-  private val status = new JEditorPane("text/html", SwingHtmlUtil.wrapInHtml("No footprint selected", this.getFont))
+  private val status =
+    new JEditorPane("text/html", SwingHtmlUtil.wrapInHtml("No footprint selected", this.getFont))
   status.setEditable(false)
   status.setBackground(null)
   private val visualizer = new KicadVizDrawPanel()
@@ -163,10 +172,12 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       if (e.getClickCount == 2) {
         exceptionPopup(e) {
           requireExcept(footprintSynced, "footprint not synced")
-          val selectedComp = visualizer.getComponentForLocation(e.getX, e.getY)
+          val selectedComp = visualizer
+            .getComponentForLocation(e.getX, e.getY)
             .onlyExcept("must select exactly one pad")
           val selectedPin = selectedComp.instanceOfExcept[Rectangle]("selected not a pad").name
-          val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
+          val (blockPath, blockType, block, pinning) =
+            currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
 
           def continuation(portPath: ref.LocalPath, added: PsiElement): Unit = {
             InsertAction.navigateToEnd(added)
@@ -179,7 +190,9 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
             // TODO actually modify the Design ... once a better API for that exists
           }
 
-          InsertPinningAction.createInsertPinningFlow(block, selectedPin, pinning, e, project, continuation).exceptError
+          InsertPinningAction
+            .createInsertPinningFlow(block, selectedPin, pinning, e, project, continuation)
+            .exceptError
         }
       }
     }
@@ -200,18 +213,25 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   def pinningFromBlock(block: elem.HierarchyBlock): Option[Map[String, ref.LocalPath]] = {
     // TODO better error handling, Option[ref.LocalPath]?
     // TODO move into EdgirUtils or something?
-    block.meta.map(_.meta).collect {
-      case common.Metadata.Meta.Members(members) => members.node.get("pinning")
-    }.flatten.map(_.meta).collect {
-      case common.Metadata.Meta.Members(members) =>
-        members.node.map { case (pin, pinValue) =>
-          pin -> pinValue.meta
-        }.collect { case (pin, common.Metadata.Meta.BinLeaf(bin)) =>
-          pin -> expr.ValueExpr.parseFrom(bin.toByteArray).expr
-        }.collect { case (pin, expr.ValueExpr.Expr.Ref(ref)) =>
-          pin -> ref
-        }
-    }
+    block.meta
+      .map(_.meta)
+      .collect { case common.Metadata.Meta.Members(members) =>
+        members.node.get("pinning")
+      }
+      .flatten
+      .map(_.meta)
+      .collect { case common.Metadata.Meta.Members(members) =>
+        members.node
+          .map { case (pin, pinValue) =>
+            pin -> pinValue.meta
+          }
+          .collect { case (pin, common.Metadata.Meta.BinLeaf(bin)) =>
+            pin -> expr.ValueExpr.parseFrom(bin.toByteArray).expr
+          }
+          .collect { case (pin, expr.ValueExpr.Expr.Ref(ref)) =>
+            pin -> ref
+          }
+      }
   }
 
   def footprintFromBlock(
@@ -219,9 +239,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       block: elem.HierarchyBlock,
       compiler: Compiler
   ): Option[(String, Map[String, ref.LocalPath])] = {
-    compiler.getParamValue(blockPath.asIndirect + "fp_footprint").collect {
-      case TextValue(value) =>
-        (value, pinningFromBlock(block).getOrElse(Map()))
+    compiler.getParamValue(blockPath.asIndirect + "fp_footprint").collect { case TextValue(value) =>
+      (value, pinningFromBlock(block).getOrElse(Map()))
     }
   }
 
@@ -240,17 +259,21 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
             visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
             visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
-            status.setText(SwingHtmlUtil.wrapInHtml(
-              s"Footprint ${footprintStr} at ${blockPath.lastString}",
-              this.getFont
-            ))
+            status.setText(
+              SwingHtmlUtil.wrapInHtml(
+                s"Footprint ${footprintStr} at ${blockPath.lastString}",
+                this.getFont
+              )
+            )
 
           case _ =>
             visualizer.pinmap = Map()
-            status.setText(SwingHtmlUtil.wrapInHtml(
-              s"Unknown footprint ${footprintStr} at ${blockPath.lastString}",
-              this.getFont
-            ))
+            status.setText(
+              SwingHtmlUtil.wrapInHtml(
+                s"Unknown footprint ${footprintStr} at ${blockPath.lastString}",
+                this.getFont
+              )
+            )
         }
       case Some((block, None)) =>
         currentBlockPathTypePin = Some((blockPath, block.getSelfClass, block, Map()))
@@ -265,16 +288,19 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     }
   }
 
-  /** Returns an action to insert code to set the current block's footprint to something. FootprintBlock detection is
-    * done here, so code edit actions are as consistent as possible.
+  /** Returns an action to insert code to set the current block's footprint to something. FootprintBlock
+    * detection is done here, so code edit actions are as consistent as possible.
     */
   def insertBlockFootprint(footprintName: String): Errorable[() => Unit] = exceptable {
-    val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
+    val (blockPath, blockType, block, pinning) =
+      currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
     val blockPyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
 
     val footprintFile = KicadFootprintUtil.getFootprintFile(footprintName).exceptError
     val footprintBlockType =
-      ElemBuilder.LibraryPath("electronics_model.CircuitBlock.FootprintBlock") // TODO belongs in shared place?
+      ElemBuilder.LibraryPath(
+        "electronics_model.CircuitBlock.FootprintBlock"
+      ) // TODO belongs in shared place?
     val footprintBlockClass = DesignAnalysisUtils.pyClassOf(footprintBlockType, project).get
     requireExcept(
       blockPyClass.isSubclass(footprintBlockClass, TypeEvalContext.codeAnalysis(project, null)),
@@ -291,7 +317,9 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       // TODO update in design itself - but this requires changing Compiler params which isn't well supported
     }
 
-    InsertFootprintAction.createInsertFootprintFlow(blockPyClass, footprintName, project, continuation).exceptError
+    InsertFootprintAction
+      .createInsertFootprintFlow(blockPyClass, footprintName, project, continuation)
+      .exceptError
   }
 
   // Configuration State

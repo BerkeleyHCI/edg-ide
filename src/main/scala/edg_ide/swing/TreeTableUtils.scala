@@ -14,7 +14,9 @@ object TreeTableUtils {
     val savedNodes = getExpandedNodes(treeTable.getTree)
     val isRootVisible = treeTable.getTree.isRootVisible
     val savedRenderer = treeTable.getTree.getCellRenderer
-    treeTable.setModel(newModel) // note that setModel resets TreeTable.getTree, so we need to get a fresh tree handle
+    treeTable.setModel(
+      newModel
+    ) // note that setModel resets TreeTable.getTree, so we need to get a fresh tree handle
     restoreExpandedNodes(treeTable.getTree, savedNodes)
     treeTable.setRootVisible(isRootVisible)
     treeTable.getTree.setCellRenderer(savedRenderer)

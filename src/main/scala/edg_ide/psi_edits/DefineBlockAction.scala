@@ -38,9 +38,11 @@ object DefineBlockAction {
                |""".stripMargin.replace("\r\n", "\n")
           )
 
-          val added = writeCommandAction(project).withName(actionName).compute(() => {
-            containingPsiFile.addAfter(newClass, after)
-          })
+          val added = writeCommandAction(project)
+            .withName(actionName)
+            .compute(() => {
+              containingPsiFile.addAfter(newClass, after)
+            })
 
           continuation(name, added)
         }

@@ -22,7 +22,10 @@ class DesignFindBlockOfTypes(targetTypes: Set[ref.LibraryPath])
       blocks.values.flatten.toSeq
     }
   }
-  override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Seq[(DesignPath, elem.HierarchyBlock)] = {
+  override def mapBlockLibrary(
+      path: DesignPath,
+      block: ref.LibraryPath
+  ): Seq[(DesignPath, elem.HierarchyBlock)] = {
     Seq()
   }
 }

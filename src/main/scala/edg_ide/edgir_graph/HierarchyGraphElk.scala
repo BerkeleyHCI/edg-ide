@@ -78,7 +78,11 @@ object HierarchyGraphElk {
     port
   }
 
-  protected def addEdge(parent: ElkNode, source: ElkConnectableShape, target: ElkConnectableShape): ElkEdge = {
+  protected def addEdge(
+      parent: ElkNode,
+      source: ElkConnectableShape,
+      target: ElkConnectableShape
+  ): ElkEdge = {
     // TODO some kind of naming?
     val edge = ElkGraphUtil.createEdge(parent)
     edge.getSources.add(source)
@@ -107,7 +111,7 @@ object HierarchyGraphElk {
   ): (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
     val elkNode = parent match {
       case Some(parent) => addNode(parent, name)
-      case None => makeGraphRoot()
+      case None         => makeGraphRoot()
     }
     mappers.foreach { mapper =>
       mapper.nodeConv(node.data).foreach { mapperResult =>
@@ -116,46 +120,51 @@ object HierarchyGraphElk {
     }
 
     val title = Option(elkNode.getProperty(TitleProperty)).getOrElse(name)
-    ElkGraphUtil.createLabel(title, elkNode)
+    ElkGraphUtil
+      .createLabel(title, elkNode)
       .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.outsideTopLeft())
-    ElkGraphUtil.createLabel(node.data.toString, elkNode)
+    ElkGraphUtil
+      .createLabel(node.data.toString, elkNode)
       .setProperty(CoreOptions.NODE_LABELS_PLACEMENT, NodeLabelPlacement.insideTopCenter())
 
     // Create ELK objects for members (blocks and ports)
-    val myElkPorts = node.members.collect {
-      case (childName, childElt: HGraphPort[PortType]) =>
-        val childElkPort = addPort(elkNode, name)
-        mappers.foreach { mapper =>
-          mapper.portConv(childElt.data).foreach { mapperResult =>
-            childElkPort.setProperty(mapper.property, mapperResult)
-          }
+    val myElkPorts = node.members.collect { case (childName, childElt: HGraphPort[PortType]) =>
+      val childElkPort = addPort(elkNode, name)
+      mappers.foreach { mapper =>
+        mapper.portConv(childElt.data).foreach { mapperResult =>
+          childElkPort.setProperty(mapper.property, mapperResult)
         }
+      }
 
-        val title = Option(childElkPort.getProperty(TitleProperty)).getOrElse(childName.mkString("."))
-        ElkGraphUtil.createLabel(title, childElkPort)
-        // TODO: currently only name label is displayed. Is there a sane way to display additional data?
-        // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)
-        childName -> childElkPort
+      val title = Option(childElkPort.getProperty(TitleProperty)).getOrElse(childName.mkString("."))
+      ElkGraphUtil.createLabel(title, childElkPort)
+      // TODO: currently only name label is displayed. Is there a sane way to display additional data?
+      // ElkGraphUtil.createLabel(childElt.data.toString, childElkPort)
+      childName -> childElkPort
     }
 
-    val myElkChildren = node.members.collect {
-      // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
-      case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
-        val (childElkNode, childConnectables) =
-          HGraphNodeToElkNode(childElt, childName.mkString("."), Some(elkNode), mappers)
-        // Add the outer element into the inner namespace path
-        childConnectables.map { case (childPath, childElk) =>
-          childName ++ childPath -> childElk
-        }
-    }.flatten.toMap
+    val myElkChildren = node.members
+      .collect {
+        // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
+        case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
+          val (childElkNode, childConnectables) =
+            HGraphNodeToElkNode(childElt, childName.mkString("."), Some(elkNode), mappers)
+          // Add the outer element into the inner namespace path
+          childConnectables.map { case (childPath, childElk) =>
+            childName ++ childPath -> childElk
+          }
+      }
+      .flatten
+      .toMap
 
     // Create edges
-    val myElkElements = myElkPorts ++ myElkChildren // unify namespace, data structure should prevent conflicts
+    val myElkElements =
+      myElkPorts ++ myElkChildren // unify namespace, data structure should prevent conflicts
     node.edges.foreach { edge =>
       (myElkElements.get(edge.source), myElkElements.get(edge.target)) match {
         case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
-        case (None, _) => logger.warn(s"edge with invalid source ${edge.source}")
-        case (_, None) => logger.warn(s"edge with invalid target ${edge.target}")
+        case (None, _)    => logger.warn(s"edge with invalid source ${edge.source}")
+        case (_, None)    => logger.warn(s"edge with invalid target ${edge.target}")
         case (Some(elkSource), Some(elkTarget)) =>
           val childEdge = addEdge(elkNode, elkSource, elkTarget)
           mappers.foreach { mapper =>
@@ -204,11 +213,15 @@ object HierarchyGraphElk {
       Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink"))
     )
     val transformedGraph = highFanoutTransform(
-      CollapseLinkTransform(CollapseBridgeTransform(
-        InferEdgeDirectionTransform(SimplifyPortTransform(
-          PruneDepthTransform(edgirGraph, depth)
-        ))
-      ))
+      CollapseLinkTransform(
+        CollapseBridgeTransform(
+          InferEdgeDirectionTransform(
+            SimplifyPortTransform(
+              PruneDepthTransform(edgirGraph, depth)
+            )
+          )
+        )
+      )
     )
 
     val layoutGraphRoot = HierarchyGraphElk.HGraphNodeToElk(

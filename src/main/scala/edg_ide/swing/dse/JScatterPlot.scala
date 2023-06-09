@@ -6,13 +6,13 @@ import java.awt.event._
 import java.awt.{Color, Graphics, Point}
 import javax.swing.{JComponent, SwingUtilities}
 
-/** Scatterplot widget with two numerical axes, with labels inside the plot. Data is structured as (x, y, data)
-  * coordinates, with some arbitrary data attached to each point.
+/** Scatterplot widget with two numerical axes, with labels inside the plot. Data is structured as (x, y,
+  * data) coordinates, with some arbitrary data attached to each point.
   */
 class JScatterPlot[ValueType] extends JComponent {
 
-  /** Scatterplot data point. Value (arbitrary data associated with this point), X, Y are required, others are optional
-    * with defaults. This allows future extensibility with additional parameters, eg size or marks.
+  /** Scatterplot data point. Value (arbitrary data associated with this point), X, Y are required, others are
+    * optional with defaults. This allows future extensibility with additional parameters, eg size or marks.
     */
   class Data(
       val value: ValueType,
@@ -24,7 +24,9 @@ class JScatterPlot[ValueType] extends JComponent {
   ) {}
 
   // data state
-  private var xAxis: PlotAxis.AxisType = Some(Seq()) // if text labels are specified, instead of dynamic numbers
+  private var xAxis: PlotAxis.AxisType = Some(
+    Seq()
+  ) // if text labels are specified, instead of dynamic numbers
   private var yAxis: PlotAxis.AxisType = Some(Seq())
 
   private var data: IndexedSeq[Data] = IndexedSeq()
@@ -41,17 +43,23 @@ class JScatterPlot[ValueType] extends JComponent {
   private def dataToScreenX(dataVal: Float): Int = dataVal match {
     case Float.PositiveInfinity => getWidth - 2
     case Float.NegativeInfinity => 1
-    case _ => ((dataVal - xRange._1) * JDsePlot.dataScale(xRange, getWidth)).toInt
+    case _                      => ((dataVal - xRange._1) * JDsePlot.dataScale(xRange, getWidth)).toInt
   }
   private def dataToScreenY(dataVal: Float): Int = dataVal match {
     case Float.PositiveInfinity => 1
     case Float.NegativeInfinity => getHeight - 2
-    case _ => ((yRange._2 - dataVal) * JDsePlot.dataScale(yRange, getHeight)).toInt
+    case _                      => ((yRange._2 - dataVal) * JDsePlot.dataScale(yRange, getHeight)).toInt
   }
-  private def screenToDataX(screenPos: Int): Float = screenPos / JDsePlot.dataScale(xRange, getWidth) + xRange._1
-  private def screenToDataY(screenPos: Int): Float = -(screenPos / JDsePlot.dataScale(yRange, getHeight) - yRange._2)
+  private def screenToDataX(screenPos: Int): Float =
+    screenPos / JDsePlot.dataScale(xRange, getWidth) + xRange._1
+  private def screenToDataY(screenPos: Int): Float =
+    -(screenPos / JDsePlot.dataScale(yRange, getHeight) - yRange._2)
 
-  def setData(xys: IndexedSeq[Data], xAxis: PlotAxis.AxisType = None, yAxis: PlotAxis.AxisType = None): Unit = {
+  def setData(
+      xys: IndexedSeq[Data],
+      xAxis: PlotAxis.AxisType = None,
+      yAxis: PlotAxis.AxisType = None
+  ): Unit = {
     data = xys
     mouseOverIndices = Seq() // clear
     selectedIndices = Seq() // clear
@@ -74,7 +82,7 @@ class JScatterPlot[ValueType] extends JComponent {
     selectedIndices = values.flatMap { value =>
       data.indexWhere(_.value == value) match {
         case index if index >= 0 => Some(index)
-        case _ => None // ignored
+        case _                   => None // ignored
       }
     }
 
@@ -89,7 +97,7 @@ class JScatterPlot[ValueType] extends JComponent {
     }
     val xTicks = xAxis match {
       case Some(xAxis) => xAxis
-      case _ => JDsePlot.getAxisTicks(xRange, getWidth)
+      case _           => JDsePlot.getAxisTicks(xRange, getWidth)
     }
     xTicks.foreach { case (tickPos, tickVal) =>
       val screenX = dataToScreenX(tickPos)
@@ -108,7 +116,7 @@ class JScatterPlot[ValueType] extends JComponent {
     }
     val yTicks = yAxis match {
       case Some(yAxis) => yAxis
-      case _ => JDsePlot.getAxisTicks(yRange, getHeight)
+      case _           => JDsePlot.getAxisTicks(yRange, getHeight)
     }
     yTicks.foreach { case (tickPos, tickVal) =>
       val screenY = dataToScreenY(tickPos)
@@ -128,11 +136,13 @@ class JScatterPlot[ValueType] extends JComponent {
 
       if (mouseOverIndices.contains(index)) { // mouseover: highlight
         val hoverGraphics = paintGraphics.create()
-        hoverGraphics.setColor(ColorUtil.blendColor(
-          getBackground,
-          JDsePlot.kHoverOutlineColor,
-          JDsePlot.kHoverOutlineBlend
-        ))
+        hoverGraphics.setColor(
+          ColorUtil.blendColor(
+            getBackground,
+            JDsePlot.kHoverOutlineColor,
+            JDsePlot.kHoverOutlineBlend
+          )
+        )
         hoverGraphics.fillOval(
           screenX - JDsePlot.kPointHoverOutlinePx / 2,
           screenY - JDsePlot.kPointHoverOutlinePx / 2,
@@ -160,7 +170,9 @@ class JScatterPlot[ValueType] extends JComponent {
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val axesGraphics = paintGraphics.create()
-    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness))
+    axesGraphics.setColor(
+      ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness)
+    )
     paintAxes(axesGraphics)
 
     paintData(paintGraphics)
@@ -324,7 +336,7 @@ class JScatterPlot[ValueType] extends JComponent {
   override def getToolTipText(e: MouseEvent): String = {
     getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
-      case None => null
+      case None                    => null
     }
   }
 

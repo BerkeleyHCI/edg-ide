@@ -17,43 +17,56 @@ class EdgSettingsComponent {
     null,
     FileChooserDescriptorFactory.createSingleFolderDescriptor()
   )
-  val kicadDirectoryHelp = new JBLabel("Multiple footprint directories can be separated by semicolons (;). " +
-    "IDE restart may be required to take effect.")
+  val kicadDirectoryHelp = new JBLabel(
+    "Multiple footprint directories can be separated by semicolons (;). " +
+      "IDE restart may be required to take effect."
+  )
   kicadDirectoryHelp.setEnabled(false)
 
   val persistBlockCache = new JCheckBox()
-  val persistBlockCacheHelp = new JBLabel("Not recommended. " +
-    "Persists compiled blocks across IDE restarts for a faster first compile. " +
-    "May not detect HDL changes when the IDE is not running.")
+  val persistBlockCacheHelp = new JBLabel(
+    "Not recommended. " +
+      "Persists compiled blocks across IDE restarts for a faster first compile. " +
+      "May not detect HDL changes when the IDE is not running."
+  )
   persistBlockCacheHelp.setEnabled(false)
 
   val showProvenStatus = new JCheckBox()
-  val showProvenStatusHelp = new JBLabel("Experimental feature. " +
-    "In the design tree and library browser, shows which blocks have been made and tested in actual hardware " +
-    "by the project maintainers, from an internal database included locally with the IDE. " +
-    "IDE restart may be required to take effect.")
+  val showProvenStatusHelp = new JBLabel(
+    "Experimental feature. " +
+      "In the design tree and library browser, shows which blocks have been made and tested in actual hardware " +
+      "by the project maintainers, from an internal database included locally with the IDE. " +
+      "IDE restart may be required to take effect."
+  )
   showProvenStatusHelp.setEnabled(false)
 
   val showInternalBlocks = new JCheckBox()
-  val showInternalBlocksHelp = new JBLabel("Show internal blocks like bridges and adapters in the design tree. " +
-    "These are implementation details in most cases but may be useful for model debugging. " +
-    "IDE restart may be required to take effect.")
+  val showInternalBlocksHelp = new JBLabel(
+    "Show internal blocks like bridges and adapters in the design tree. " +
+      "These are implementation details in most cases but may be useful for model debugging. " +
+      "IDE restart may be required to take effect."
+  )
   showInternalBlocksHelp.setEnabled(false)
 
   val showIdeErrors = new JCheckBox()
-  val showIdeErrorsHelp = new JBLabel("Show detailed IDE internal errors in the run console. " +
-    "This is generally only useful for developing the IDE itself and may add excessive clutter for HDL work.")
+  val showIdeErrorsHelp = new JBLabel(
+    "Show detailed IDE internal errors in the run console. " +
+      "This is generally only useful for developing the IDE itself and may add excessive clutter for HDL work."
+  )
   showIdeErrorsHelp.setEnabled(false)
 
   val useInsertionLiveTemplates = new JCheckBox()
   val useInsertionLiveTemplatesHelp = new JBLabel("Experimental alternative to caret-based edits.")
   useInsertionLiveTemplatesHelp.setEnabled(false)
 
-  val versionLabel = new JBLabel(s"Version ${BuildInfo.version}, built at ${BuildInfo.builtAtString}, " +
-    s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}")
+  val versionLabel = new JBLabel(
+    s"Version ${BuildInfo.version}, built at ${BuildInfo.builtAtString}, " +
+      s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}"
+  )
   versionLabel.setEnabled(false)
 
-  val mainPanel = FormBuilder.createFormBuilder()
+  val mainPanel = FormBuilder
+    .createFormBuilder()
     .addLabeledComponent(new JBLabel("KiCad Footprint Directory"), kicadDirectoryText, false)
     .addComponent(kicadDirectoryHelp)
     .addLabeledComponent(new JBLabel("Persist Block Cache"), persistBlockCache, false)

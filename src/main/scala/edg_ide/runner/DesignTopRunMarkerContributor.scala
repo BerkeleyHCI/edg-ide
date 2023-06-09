@@ -14,7 +14,7 @@ class DesignTopRunMarkerContributor extends RunLineMarkerContributor {
   override def getInfo(element: PsiElement): RunLineMarkerContributor.Info = {
     element match {
       case element: LeafPsiElement if element.getElementType == PyTokenTypes.IDENTIFIER =>
-      case _ => return null
+      case _                                                                            => return null
     }
     element.getParent match {
       case parent: PyClass =>

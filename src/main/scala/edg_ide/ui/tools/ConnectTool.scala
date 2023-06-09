@@ -25,24 +25,26 @@ object ConnectTool {
   // TODO we can't yet replace this with EdgirUtils.typeOfPort, since that takes a PortLike whereas this takes a Port as Any
   private def typeOfPort(port: Any): Errorable[ref.LibraryPath] = exceptable {
     port match {
-      case port: elem.Port => port.getSelfClass
-      case port: elem.Bundle => port.getSelfClass
+      case port: elem.Port       => port.getSelfClass
+      case port: elem.Bundle     => port.getSelfClass
       case array: elem.PortArray => array.getSelfClass
-      case isOther => exceptable.fail(s"unexpected port ${isOther.getClass}")
+      case isOther               => exceptable.fail(s"unexpected port ${isOther.getClass}")
     }
   }
 
-  /** External interface for creating a ConnectTool, which does the needed analysis work and can return an error (as an
-    * exceptable) if the ConnectTool cannot be created.
+  /** External interface for creating a ConnectTool, which does the needed analysis work and can return an
+    * error (as an exceptable) if the ConnectTool cannot be created.
     */
   def apply(interface: ToolInterface, portPath: DesignPath): Errorable[ConnectTool] = exceptable {
-    val libraryAnalysis = new LibraryConnectivityAnalysis(interface.getLibrary) // TODO this should be saved & reused!
+    val libraryAnalysis =
+      new LibraryConnectivityAnalysis(interface.getLibrary) // TODO this should be saved & reused!
     val port = EdgirUtils.resolveExact(portPath, interface.getDesign).exceptNone("no port")
     val portType = typeOfPort(port).exceptError
 
     val containingBlockPath = EdgirUtils.resolveDeepestBlock(portPath, interface.getDesign)._1
     val focusPath = interface.getFocus
-    val focusBlock = EdgirUtils.resolveExact(focusPath, interface.getDesign)
+    val focusBlock = EdgirUtils
+      .resolveExact(focusPath, interface.getDesign)
       .exceptNone("can't reach focus block")
       .instanceOfExcept[elem.HierarchyBlock]("focus block not a block")
     val blockAnalysis = new BlockConnectivityAnalysis(focusBlock)
@@ -69,21 +71,25 @@ object ConnectTool {
     } else {
       Some(portType)
     }
-    val (linkAvailable, connectableRefTypes) = interiorPortTypeOption.map { interiorPortType =>
-      val linkType = libraryAnalysis.linkOfPort(interiorPortType).exceptNone(s"no link for bridged port")
-      val linkAvailable = libraryAnalysis.connectablePorts(linkType)
-      val linkAvailableTypes = linkAvailable.keySet
-      val connectableRefs = focusBlockConnectable.innerPortTypes.collect { // filter by has-port
-        case (intPortRef, intPortType) if linkAvailableTypes.contains(intPortType) =>
-          (intPortRef, intPortType)
-      } ++ focusBlockConnectable.exteriorPortTypes.map { // map to bridged-port-option
-        case (extPortRef, extPortType) => (extPortRef, libraryAnalysis.bridgedPortByOuter(extPortType))
-      }.collect { // filter by has-bridged-port and connectable-bridged-port
-        case (extPortRef, Some(bridgedPortType)) if linkAvailableTypes.contains(bridgedPortType) =>
-          (extPortRef, bridgedPortType)
+    val (linkAvailable, connectableRefTypes) = interiorPortTypeOption
+      .map { interiorPortType =>
+        val linkType = libraryAnalysis.linkOfPort(interiorPortType).exceptNone(s"no link for bridged port")
+        val linkAvailable = libraryAnalysis.connectablePorts(linkType)
+        val linkAvailableTypes = linkAvailable.keySet
+        val connectableRefs = focusBlockConnectable.innerPortTypes.collect { // filter by has-port
+          case (intPortRef, intPortType) if linkAvailableTypes.contains(intPortType) =>
+            (intPortRef, intPortType)
+        } ++ focusBlockConnectable.exteriorPortTypes
+          .map { // map to bridged-port-option
+            case (extPortRef, extPortType) => (extPortRef, libraryAnalysis.bridgedPortByOuter(extPortType))
+          }
+          .collect { // filter by has-bridged-port and connectable-bridged-port
+            case (extPortRef, Some(bridgedPortType)) if linkAvailableTypes.contains(bridgedPortType) =>
+              (extPortRef, bridgedPortType)
+          }
+        (linkAvailable, connectableRefs)
       }
-      (linkAvailable, connectableRefs)
-    }.getOrElse((Map[ref.LibraryPath, Int](), Seq())) // if no link, then no connects
+      .getOrElse((Map[ref.LibraryPath, Int](), Seq())) // if no link, then no connects
 
     val otherConnectedRefs = focusBlockConnectedRefs.toSet -- portConnected.getPorts - portRef
     val connectablePathTypes = connectableRefTypes.collect {
@@ -94,8 +100,8 @@ object ConnectTool {
       case exportableRef if !otherConnectedRefs.contains(exportableRef) =>
         focusPath ++ exportableRef
     }
-    val boundaryTypes = focusBlockConnectable.exteriorPortTypes.toMap.map {
-      case (portRef, portType) => focusPath ++ portRef -> portType
+    val boundaryTypes = focusBlockConnectable.exteriorPortTypes.toMap.map { case (portRef, portType) =>
+      focusPath ++ portRef -> portType
     }
     new ConnectTool(
       interface,
@@ -152,7 +158,8 @@ class ConnectPopup(
         val namer = NameCreator.fromBlock(block)
         val bridgeNameBlockIntTypes = bridgePorts.map { extPortPath =>
           val bridgeName = namer.newName(s"(bridge)_new_${linkName}_${extPortPath.steps.last}")
-          val (bridge, intPortType) = fastPathUtil.instantiateStubBridgeLike(boundaryTypes(extPortPath)).exceptError
+          val (bridge, intPortType) =
+            fastPathUtil.instantiateStubBridgeLike(boundaryTypes(extPortPath)).exceptError
           (extPortPath, bridgeName, bridge, intPortType)
         }
         val linkPortTypes = (linkPorts.map { innerPortPath =>
@@ -174,13 +181,16 @@ class ConnectPopup(
               (focusPath + linkNewName ++ linkRef).postfixFromOption(focusPath).get
             )).toPb
           },
-          _.constraints :++= bridgeNameBlockIntTypes.map { case (extPortPath, bridgeName, bridge, intPortType) =>
-            (namer.newName(s"_new_${linkName}_export") -> ElemBuilder.Constraint.Exported(
-              extPortPath.postfixFromOption(focusPath).get,
-              (focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeOuterPort).postfixFromOption(
-                focusPath
-              ).get
-            )).toPb
+          _.constraints :++= bridgeNameBlockIntTypes.map {
+            case (extPortPath, bridgeName, bridge, intPortType) =>
+              (namer.newName(s"_new_${linkName}_export") -> ElemBuilder.Constraint.Exported(
+                extPortPath.postfixFromOption(focusPath).get,
+                (focusPath + bridgeName + LibraryConnectivityAnalysis.portBridgeOuterPort)
+                  .postfixFromOption(
+                    focusPath
+                  )
+                  .get
+              )).toPb
           }
         )
       }
@@ -189,23 +199,24 @@ class ConnectPopup(
         case ConnectToolAction.None(focusPath, initialPort) =>
           block: elem.HierarchyBlock => block
         case ConnectToolAction.AppendToLink(
-            focusPath,
-            linkName,
-            initialPort,
-            priorPorts,
-            priorBridgedPorts,
-            linkPorts,
-            bridgePorts
-          ) => { block: elem.HierarchyBlock => // TODO in-place append?
+              focusPath,
+              linkName,
+              initialPort,
+              priorPorts,
+              priorBridgedPorts,
+              linkPorts,
+              bridgePorts
+            ) => { block: elem.HierarchyBlock => // TODO in-place append?
           val cleanedBlock = block.update(
-            _.constraints := block.constraints.toSeqMap.filter { case (name, constraint) => // disconnect existing link
-              constraint.expr match {
-                case expr.ValueExpr.Expr.Connected(connected) =>
-                  connected.getLinkPort.getRef.steps.head.getName != linkName
-                case _ => true
-              }
+            _.constraints := block.constraints.toSeqMap.filter {
+              case (name, constraint) => // disconnect existing link
+                constraint.expr match {
+                  case expr.ValueExpr.Expr.Connected(connected) =>
+                    connected.getLinkPort.getRef.steps.head.getName != linkName
+                  case _ => true
+                }
             }.toPb,
-            _.links := block.links.toSeqMap.filter(_._1 != linkName).toPb,
+            _.links := block.links.toSeqMap.filter(_._1 != linkName).toPb
           )
           transformBlockMakeLink(cleanedBlock, linkName, focusPath, priorPorts ++ linkPorts, bridgePorts)
         }
@@ -225,16 +236,16 @@ class ConnectPopup(
             )
         }
         case ConnectToolAction.RefactorExportToLink(
-            focusPath,
-            constrName,
-            initialPort,
-            priorExteriorPort,
-            priorInnerPort,
-            linkPorts,
-            bridgePorts
-          ) => { block: elem.HierarchyBlock =>
+              focusPath,
+              constrName,
+              initialPort,
+              priorExteriorPort,
+              priorInnerPort,
+              linkPorts,
+              bridgePorts
+            ) => { block: elem.HierarchyBlock =>
           val cleanedBlock = block.update(
-            _.constraints := block.constraints.toSeqMap.filter(_._1 != constrName).toPb,
+            _.constraints := block.constraints.toSeqMap.filter(_._1 != constrName).toPb
           )
           transformBlockMakeLink(
             cleanedBlock,
@@ -252,24 +263,28 @@ class ConnectPopup(
   private val contextPyClass = InsertAction.getPyClassOfContext(interface.getProject)
   private val contextPyName = contextPyClass.mapToString(_.getName)
   private val caretPsiElement = exceptable {
-    InsertAction.getCaretAtFileOfType(
-      contextPyClass.exceptError.getContainingFile,
-      classOf[PyStatementList],
-      interface.getProject
-    ).exceptError
+    InsertAction
+      .getCaretAtFileOfType(
+        contextPyClass.exceptError.getContainingFile,
+        classOf[PyStatementList],
+        interface.getProject
+      )
+      .exceptError
   }
 
   val appendConnectAction: Errorable[() => Unit] = exceptable {
     action.getAppendPortPaths.exceptEmpty("no selection to connect")
 
-    InsertConnectAction.createAppendConnectFlow(
-      caretPsiElement.exceptError,
-      action.getAllPortPaths.map(pathToPairs),
-      action.getAppendPortPaths.map(pathToPairs),
-      s"${action.getDesc} at $contextPyName caret",
-      interface.getProject,
-      continuation
-    ).exceptError
+    InsertConnectAction
+      .createAppendConnectFlow(
+        caretPsiElement.exceptError,
+        action.getAllPortPaths.map(pathToPairs),
+        action.getAppendPortPaths.map(pathToPairs),
+        s"${action.getDesc} at $contextPyName caret",
+        interface.getProject,
+        continuation
+      )
+      .exceptError
   }
   private val appendConnectCaretFileLine = exceptable {
     appendConnectAction.exceptError
@@ -285,10 +300,13 @@ class ConnectPopup(
   private val appendPairs = exceptable {
     action.getAppendPortPaths.exceptEmpty("no selection to connect")
 
-    InsertConnectAction.findConnectsTo(contextPyClass.exceptError, initialPortPair, interface.getProject).exceptError
+    InsertConnectAction
+      .findConnectsTo(contextPyClass.exceptError, initialPortPair, interface.getProject)
+      .exceptError
       .map { call =>
         val fn = PsiTreeUtil.getParentOfType(call, classOf[PyFunction])
-        val fileLine = PsiUtils.fileLineOf(call, interface.getProject)
+        val fileLine = PsiUtils
+          .fileLineOf(call, interface.getProject)
           .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
         val label = s"Append connect at ${contextPyName}.${fn.getName}$fileLine"
         val runnable = InsertConnectAction.createAppendConnectFlow(
@@ -300,24 +318,29 @@ class ConnectPopup(
           continuation
         )
         (label, runnable)
-      }.collect {
-        case (fn, Errorable.Success(action)) => (fn, action)
-      }.exceptEmpty("no insertion points")
+      }
+      .collect { case (fn, Errorable.Success(action)) =>
+        (fn, action)
+      }
+      .exceptEmpty("no insertion points")
   }
-  ContextMenuUtils.MenuItemsFromErrorableSeq(appendPairs, s"Append connect into $contextPyName")
+  ContextMenuUtils
+    .MenuItemsFromErrorableSeq(appendPairs, s"Append connect into $contextPyName")
     .foreach(add)
 
   val insertConnectAction: Errorable[() => Unit] = exceptable {
     action.getAppendPortPaths.exceptEmpty("no selection to connect") // TODO append maybe not perfect here
 
-    InsertConnectAction.createInsertConnectFlow(
-      caretPsiElement.exceptError,
-      !action.isInstanceOf[ConnectToolAction.AppendToLink],
-      action.getInsertPortPaths.map(pathToPairs),
-      s"${action.getDesc} at $contextPyName caret",
-      interface.getProject,
-      continuation
-    ).exceptError
+    InsertConnectAction
+      .createInsertConnectFlow(
+        caretPsiElement.exceptError,
+        !action.isInstanceOf[ConnectToolAction.AppendToLink],
+        action.getInsertPortPaths.map(pathToPairs),
+        s"${action.getDesc} at $contextPyName caret",
+        interface.getProject,
+        continuation
+      )
+      .exceptError
   }
   private val insertConnectCaretFileLine = exceptable {
     insertConnectAction.exceptError
@@ -332,9 +355,12 @@ class ConnectPopup(
   private val insertionPairs = exceptable {
     action.getAppendPortPaths.exceptEmpty("no selection to connect") // TODO append maybe not perfect here
 
-    InsertAction.findInsertionPoints(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES).exceptError
+    InsertAction
+      .findInsertionPoints(contextPyClass.exceptError, InsertBlockAction.VALID_FUNCTION_NAMES)
+      .exceptError
       .map { fn =>
-        val fileLine = PsiUtils.fileNextLineOf(fn.getStatementList.getLastChild, interface.getProject)
+        val fileLine = PsiUtils
+          .fileNextLineOf(fn.getStatementList.getLastChild, interface.getProject)
           .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
         val label = s"Insert connect at ${contextPyName}.${fn.getName}$fileLine"
         val runnable = InsertConnectAction.createInsertConnectFlow(
@@ -346,16 +372,19 @@ class ConnectPopup(
           continuation
         )
         (label, runnable)
-      }.collect {
-        case (fn, Errorable.Success(action)) => (fn, action)
-      }.exceptEmpty("no insertion points")
+      }
+      .collect { case (fn, Errorable.Success(action)) =>
+        (fn, action)
+      }
+      .exceptEmpty("no insertion points")
   }
-  ContextMenuUtils.MenuItemsFromErrorableSeq(insertionPairs, s"Insert connect into $contextPyName")
+  ContextMenuUtils
+    .MenuItemsFromErrorableSeq(insertionPairs, s"Insert connect into $contextPyName")
     .foreach(add)
   addSeparator()
 
-  val cancelAction: Errorable[() => Unit] = exceptable {
-    () => interface.endTool()
+  val cancelAction: Errorable[() => Unit] = exceptable { () =>
+    interface.endTool()
   }
   private val cancelItem = ContextMenuUtils.MenuItemFromErrorable(cancelAction, "Cancel")
   add(cancelItem)
@@ -363,7 +392,7 @@ class ConnectPopup(
   val defaultAction: Errorable[() => Unit] = if (action.getAppendPortPaths.nonEmpty) {
     appendConnectAction match {
       case Errorable.Success(_) => appendConnectAction // prefer append connect if available
-      case _ => insertConnectAction
+      case _                    => insertConnectAction
     }
   } else {
     cancelAction
@@ -404,7 +433,8 @@ object ConnectToolAction {
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
 
-    override def getAllPortPaths: Seq[DesignPath] = priorPorts ++ priorBridgedPorts ++ linkPorts ++ bridgePorts
+    override def getAllPortPaths: Seq[DesignPath] =
+      priorPorts ++ priorBridgedPorts ++ linkPorts ++ bridgePorts
     override def getAppendPortPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
   }
   case class NewLink(
@@ -418,17 +448,23 @@ object ConnectToolAction {
     override def getInitialPort: DesignPath = initialPort
 
     override def getAllPortPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
-    override def getInsertPortPaths: Seq[DesignPath] = getAllPortPaths // initialPort is already one of the other ports
+    override def getInsertPortPaths: Seq[DesignPath] =
+      getAllPortPaths // initialPort is already one of the other ports
     override def getAppendPortPaths: Seq[DesignPath] = getAllPortPaths
   }
-  case class NewExport(focusPath: DesignPath, initialPort: DesignPath, exteriorPort: DesignPath, innerPort: DesignPath)
-      extends ConnectToolAction {
+  case class NewExport(
+      focusPath: DesignPath,
+      initialPort: DesignPath,
+      exteriorPort: DesignPath,
+      innerPort: DesignPath
+  ) extends ConnectToolAction {
     override def getDesc: String = s"Create new export to $exteriorPort from $innerPort"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
 
     override def getAllPortPaths: Seq[DesignPath] = Seq(exteriorPort, innerPort)
-    override def getInsertPortPaths: Seq[DesignPath] = getAllPortPaths // initialPort is already one of the other ports
+    override def getInsertPortPaths: Seq[DesignPath] =
+      getAllPortPaths // initialPort is already one of the other ports
     override def getAppendPortPaths: Seq[DesignPath] = getAllPortPaths
   }
   case class RefactorExportToLink(
@@ -441,11 +477,13 @@ object ConnectToolAction {
       bridgePorts: Seq[DesignPath]
   ) extends AppendConnectAction {
     override def getDesc: String =
-      s"Create connection from export of $priorInnerPort from $priorExteriorPort with ${(linkPorts ++ bridgePorts).mkString(", ")}"
+      s"Create connection from export of $priorInnerPort from $priorExteriorPort with ${(linkPorts ++ bridgePorts)
+          .mkString(", ")}"
     override def getFocusPath: DesignPath = focusPath
     override def getInitialPort: DesignPath = initialPort
 
-    override def getAllPortPaths: Seq[DesignPath] = Seq(priorExteriorPort, priorInnerPort) ++ linkPorts ++ bridgePorts
+    override def getAllPortPaths: Seq[DesignPath] =
+      Seq(priorExteriorPort, priorInnerPort) ++ linkPorts ++ bridgePorts
     override def getAppendPortPaths: Seq[DesignPath] = linkPorts ++ bridgePorts
   }
 }
@@ -468,7 +506,8 @@ class ConnectTool(
   private def isExteriorPort(path: DesignPath) = path.split._1 == focusPath
 
   // User State
-  private val selected = mutable.ListBuffer[DesignPath]() // order preserving; excluding priorConnect and portPath
+  private val selected =
+    mutable.ListBuffer[DesignPath]() // order preserving; excluding priorConnect and portPath
 
   private def getConnectAction(): ConnectToolAction = priorConnect match {
     case Connection.Disconnected() =>
@@ -506,7 +545,11 @@ class ConnectTool(
       } else { // cannot refactor existing export to link, can only have single export
         ConnectToolAction.None(focusPath, portPath)
       }
-    case Connection.Link(linkName, linkConnects, bridgedExports) => // prior link, add new links but no exports
+    case Connection.Link(
+          linkName,
+          linkConnects,
+          bridgedExports
+        ) => // prior link, add new links but no exports
       val (linkPorts, bridgePorts) = selected.toSeq.partition(!isExteriorPort(_))
       val priorPorts = linkConnects.map(focusPath ++ _._1)
       val priorBridgedPorts = bridgedExports.map(focusPath ++ _._1)
@@ -528,12 +571,15 @@ class ConnectTool(
       val allTypes = priorConnectPaths.flatMap { linkTargetsMap.get }
       val allTypeCounts = allTypes.groupBy(identity).view.mapValues(_.size)
 
-      val linkRemainingTypes = linkAvailable.map { case (linkType, linkTypeCount) => // subtract connected count
-        linkType -> (linkTypeCount - allTypeCounts.getOrElse(linkType, 0))
-      }.collect {
-        case (linkType, linkTypeCount) if linkTypeCount > 0 => // filter > 0, convert to types
-          linkType
-      }.toSet
+      val linkRemainingTypes = linkAvailable
+        .map { case (linkType, linkTypeCount) => // subtract connected count
+          linkType -> (linkTypeCount - allTypeCounts.getOrElse(linkType, 0))
+        }
+        .collect {
+          case (linkType, linkTypeCount) if linkTypeCount > 0 => // filter > 0, convert to types
+            linkType
+        }
+        .toSet
       linkTargets.toSeq.collect { // filter by type, convert to paths
         case (linkTargetPath, linkTargetType) if linkRemainingTypes.contains(linkTargetType) => linkTargetPath
       }
@@ -557,9 +603,15 @@ class ConnectTool(
         } else { // cannot refactor existing export to link, can only have single export
           Seq()
         }
-      case Connection.Link(linkName, linkConnects, bridgedExports) => // prior link, add new links but no exports
-        linkRemainingConnects(linkConnects.map(focusPath ++ _._1) ++
-          bridgedExports.map(focusPath ++ _._1) ++ selected.toSeq)
+      case Connection.Link(
+            linkName,
+            linkConnects,
+            bridgedExports
+          ) => // prior link, add new links but no exports
+        linkRemainingConnects(
+          linkConnects.map(focusPath ++ _._1) ++
+            bridgedExports.map(focusPath ++ _._1) ++ selected.toSeq
+        )
     }
   }
 
@@ -598,8 +650,7 @@ class ConnectTool(
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
       exceptionPopup(e) { // quick insert at caret
         val connectToolAction = getConnectAction()
-        new ConnectPopup(interface, connectToolAction, linkTargets, boundaryTypes)
-          .defaultAction.exceptError()
+        new ConnectPopup(interface, connectToolAction, linkTargets, boundaryTypes).defaultAction.exceptError()
       }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
       val connectToolAction = getConnectAction()

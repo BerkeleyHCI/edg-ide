@@ -1,6 +1,12 @@
 package edg_ide.util
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, ObjectInputStream, ObjectOutputStream}
+import java.io.{
+  ByteArrayInputStream,
+  ByteArrayOutputStream,
+  IOException,
+  ObjectInputStream,
+  ObjectOutputStream
+}
 import java.util.Base64
 import scala.reflect.{ClassTag, classTag}
 
@@ -35,10 +41,11 @@ object ObjectSerializer {
       elementFn: EltType => Boolean
   ): Option[Seq[EltType]] = obj match {
     case obj: Seq[Any]
-      if obj.forall(elt =>
-        classTag[EltType].runtimeClass.isInstance(elt) &&
-          elementFn(elt.asInstanceOf[EltType])
-      ) => Some(obj.asInstanceOf[Seq[EltType]])
+        if obj.forall(elt =>
+          classTag[EltType].runtimeClass.isInstance(elt) &&
+            elementFn(elt.asInstanceOf[EltType])
+        ) =>
+      Some(obj.asInstanceOf[Seq[EltType]])
     case _ => None
   }
 

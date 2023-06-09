@@ -26,9 +26,9 @@ object ParamToUnitsStringUtil {
 
   def toString(value: ExprValue): String = {
     value match {
-      case FloatValue(_) => paramToUnitsString(value, "")
+      case FloatValue(_)    => paramToUnitsString(value, "")
       case RangeValue(_, _) => paramToUnitsString(value, "")
-      case _ => value.toStringValue
+      case _                => value.toStringValue
     }
   }
 }

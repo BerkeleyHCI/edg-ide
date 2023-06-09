@@ -57,16 +57,20 @@ class DseService(project: Project) extends PersistentStateComponent[DseServiceSt
         case config: DseRunConfiguration if config.options.designName == blockType.toFullString => config
       }
     val existingConfig = currentConfig.orElse {
-      runManager.getAllSettings.asScala.map { configSettings =>
-        (configSettings, configSettings.getConfiguration)
-      }.collectFirst {
-        case (configSettings, config: DseRunConfiguration) if config.options.designName == blockType.toFullString =>
-          (configSettings, config)
-      }.map { case (configSettings, config) =>
-        runManager.setSelectedConfiguration(configSettings)
-        PopupUtils.createPopupAtMouse(s"switched to existing DSE config ${config.getName}", owner)
-        config
-      }
+      runManager.getAllSettings.asScala
+        .map { configSettings =>
+          (configSettings, configSettings.getConfiguration)
+        }
+        .collectFirst {
+          case (configSettings, config: DseRunConfiguration)
+              if config.options.designName == blockType.toFullString =>
+            (configSettings, config)
+        }
+        .map { case (configSettings, config) =>
+          runManager.setSelectedConfiguration(configSettings)
+          PopupUtils.createPopupAtMouse(s"switched to existing DSE config ${config.getName}", owner)
+          config
+        }
     }
     existingConfig.getOrElse { // if no existing config of the type, create a new one
       val newConfigSettings = runManager.createConfiguration(

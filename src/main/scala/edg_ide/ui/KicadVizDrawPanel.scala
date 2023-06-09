@@ -51,12 +51,14 @@ class KicadVizDrawPanel extends JPanel {
           )
 
           val fillG = g.create().asInstanceOf[Graphics2D] // TODO dedup w/ JBlockDiagramVisualizer?
-          fillG.setColor(new Color(
-            fillG.getColor.getRed,
-            fillG.getColor.getGreen,
-            fillG.getColor.getBlue,
-            63
-          ))
+          fillG.setColor(
+            new Color(
+              fillG.getColor.getRed,
+              fillG.getColor.getGreen,
+              fillG.getColor.getBlue,
+              63
+            )
+          )
           fillG.fillRect(
             scaledX,
             scaledY,
@@ -64,7 +66,12 @@ class KicadVizDrawPanel extends JPanel {
             scaledHeight
           )
 
-          DrawAnchored.drawLabel(g, name, (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2), DrawAnchored.Bottom)
+          DrawAnchored.drawLabel(
+            g,
+            name,
+            (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
+            DrawAnchored.Bottom
+          )
           DrawAnchored.drawLabel(
             g,
             pinmap.getOrElse(name, ""),
@@ -86,12 +93,14 @@ class KicadVizDrawPanel extends JPanel {
           )
 
           val fillG = g.create().asInstanceOf[Graphics2D] // TODO dedup w/ JBlockDiagramVisualizer?
-          fillG.setColor(new Color(
-            fillG.getColor.getRed,
-            fillG.getColor.getGreen,
-            fillG.getColor.getBlue,
-            63
-          ))
+          fillG.setColor(
+            new Color(
+              fillG.getColor.getRed,
+              fillG.getColor.getGreen,
+              fillG.getColor.getBlue,
+              63
+            )
+          )
           fillG.fillOval(
             scaledX,
             scaledY,
@@ -99,7 +108,12 @@ class KicadVizDrawPanel extends JPanel {
             scaledHeight
           )
 
-          DrawAnchored.drawLabel(g, name, (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2), DrawAnchored.Bottom)
+          DrawAnchored.drawLabel(
+            g,
+            name,
+            (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
+            DrawAnchored.Bottom
+          )
           DrawAnchored.drawLabel(
             g,
             pinmap.getOrElse(name, ""),
@@ -122,8 +136,10 @@ class KicadVizDrawPanel extends JPanel {
         val scaledHeight = (height * mul_factor).asInstanceOf[Int]
         val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
         val scaledY = ((y - min_y) * mul_factor).asInstanceOf[Int] - (scaledHeight / 2)
-        Option.when(locX >= scaledX && locX <= scaledX + scaledWidth &&
-          locY >= scaledY && locY <= scaledY + scaledHeight) {
+        Option.when(
+          locX >= scaledX && locX <= scaledX + scaledWidth &&
+            locY >= scaledY && locY <= scaledY + scaledHeight
+        ) {
           comp
         }
       case comp @ Oval(x, y, width, height, name) =>
@@ -131,8 +147,10 @@ class KicadVizDrawPanel extends JPanel {
         val scaledHeight = (height * mul_factor).asInstanceOf[Int]
         val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
         val scaledY = ((y - min_y) * mul_factor).asInstanceOf[Int] - (scaledHeight / 2)
-        Option.when(locX >= scaledX && locX <= scaledX + scaledWidth &&
-          locY >= scaledY && locY <= scaledY + scaledHeight) {
+        Option.when(
+          locX >= scaledX && locX <= scaledX + scaledWidth &&
+            locY >= scaledY && locY <= scaledY + scaledHeight
+        ) {
           comp
         }
       case _ => None

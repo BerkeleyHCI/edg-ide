@@ -22,7 +22,8 @@ class ModifiedElkNodePainter(
   private val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
 
   def makeHatchTexture(backgroundColor: Color, foregroundColor: Color): TexturePaint = {
-    val hatchImage = new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
+    val hatchImage =
+      new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
     val hatchGraphics = hatchImage.createGraphics()
     val hatchTexture = new TexturePaint(hatchImage, hatchRect)
     hatchGraphics.setColor(backgroundColor)
@@ -61,7 +62,9 @@ class ModifiedElkNodePainter(
     } else if (staleElts.contains(element)) {
       val newBase = base.create().asInstanceOf[Graphics2D]
       if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-        newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.0375)))
+        newBase.setPaint(
+          makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.0375))
+        )
       } else {
         newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.15)))
       }
@@ -102,8 +105,8 @@ class ModifiedElkNodePainter(
     super.paintEdge(parentG, blockG, background, edge)
 
     val thisG = if (edge.getSources == edge.getTargets) {
-      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect {
-        case sourcePort: ElkPort => sourcePort.getParent
+      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect { case sourcePort: ElkPort =>
+        sourcePort.getParent
       }
       if (edgeTargetBlockOption == Some(edge.getContainingNode)) {
         parentG
@@ -117,7 +120,7 @@ class ModifiedElkNodePainter(
     if (edge.getSources == edge.getTargets) { // degenerate, "tunnel" (by heuristic / transform) edge
       val label = edge.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
         case DesignPath(steps) => steps.lastOption.getOrElse("")
-        case _ => ""
+        case _                 => ""
       }
 
       val targetPointOpt = edge.getSections.asScala.headOption.map { section =>
@@ -142,7 +145,11 @@ class ModifiedElkNodePainter(
     }
   }
 
-  override def getNodeBackground(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Color = {
+  override def getNodeBackground(
+      containingG: Graphics2D,
+      containingBackground: Color,
+      node: ElkNode
+  ): Color = {
     val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
       ColorUtil.blendColor(containingBackground, containingG.getColor, 0.375)
     } else {

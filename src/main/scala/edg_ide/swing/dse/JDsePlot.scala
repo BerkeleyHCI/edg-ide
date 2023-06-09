@@ -33,7 +33,8 @@ object JDsePlot {
     val rangingValues = values.filter { value => // ignore invalid values for ranging
       value != Float.NegativeInfinity && value != Float.PositiveInfinity && value != Float.NaN
     } :+ 0f
-    val range = (rangingValues.min, rangingValues.max) // 0 in case values is empty, and forces the scale to include 0
+    val range =
+      (rangingValues.min, rangingValues.max) // 0 in case values is empty, and forces the scale to include 0
     val span = range._2 - range._1
     val expansion = if (span > 0) { // range units to expand on each side
       span * (factor - 1) / 2
@@ -75,7 +76,8 @@ object JDsePlot {
       screenSize: Int,
       minScreenSpacing: Int = kMinTickSpacingPx
   ): Seq[(Float, String)] = {
-    val minDataSpacing = math.abs(minScreenSpacing / dataScale(range, screenSize)) // min tick spacing in data units
+    val minDataSpacing =
+      math.abs(minScreenSpacing / dataScale(range, screenSize)) // min tick spacing in data units
     val tickSpacings = kTickSpacingIntervals.map { factor => // try all the spacings and take the minimum
       math.pow(10, math.log10(minDataSpacing / factor).ceil) * factor
     }

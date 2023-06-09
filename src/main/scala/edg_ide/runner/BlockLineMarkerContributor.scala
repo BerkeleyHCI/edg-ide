@@ -40,30 +40,35 @@ class FocusToBlockSelectAction(identifier: PsiElement, pyClass: PyClass)
     val design = visualizer.getDesign.exceptNone("no design")
     val (contextPath, contextBlock) = visualizer.getContextBlock.exceptNone("no visualizer context")
 
-    ReadAction.nonBlocking((() => {
-      val inheritors = PyClassInheritorsSearch.search(pyClass, true).findAll().asScala
-      val extendedClasses = inheritors.toSeq :+ pyClass
-      val targetTypes = extendedClasses.map { pyClass =>
-        ElemBuilder.LibraryPath(pyClass.getQualifiedName)
-      }.toSet
+    ReadAction
+      .nonBlocking((() => {
+        val inheritors = PyClassInheritorsSearch.search(pyClass, true).findAll().asScala
+        val extendedClasses = inheritors.toSeq :+ pyClass
+        val targetTypes = extendedClasses.map { pyClass =>
+          ElemBuilder.LibraryPath(pyClass.getQualifiedName)
+        }.toSet
 
-      val instancesOfClass = new DesignFindBlockOfTypes(targetTypes).map(design)
-        .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
-          FocusToElementAction.pathSortFn(contextPath)(blockPath1, blockPath2)
+        val instancesOfClass = new DesignFindBlockOfTypes(targetTypes)
+          .map(design)
+          .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
+            FocusToElementAction.pathSortFn(contextPath)(blockPath1, blockPath2)
+          }
+        instancesOfClass.map { case (path, block) => NavigateNode(path, block) }
+      }): Callable[Seq[NavigateNode]])
+      .finishOnUiThread(
+        ModalityState.defaultModalityState(),
+        items => {
+          PopupUtils.createMenuPopup(s"Visualizer focus to ${pyClass.getName}", items, editor) { selected =>
+            visualizer.setContext(selected.path)
+          }
         }
-      instancesOfClass.map { case (path, block) => NavigateNode(path, block) }
-    }): Callable[Seq[NavigateNode]]).finishOnUiThread(
-      ModalityState.defaultModalityState(),
-      items => {
-        PopupUtils.createMenuPopup(s"Visualizer focus to ${pyClass.getName}", items, editor) { selected =>
-          visualizer.setContext(selected.path)
-        }
-      }
-    ).submit(AppExecutorUtil.getAppExecutorService)
+      )
+      .submit(AppExecutorUtil.getAppExecutorService)
   }
 }
 
-class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends LineMarkerInfo[PsiElement](
+class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass)
+    extends LineMarkerInfo[PsiElement](
       identifier,
       identifier.getTextRange,
       AllIcons.Toolwindows.ToolWindowHierarchy,
@@ -72,9 +77,10 @@ class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends Line
       GutterIconRenderer.Alignment.RIGHT,
       () => "Visualizer Focus Block"
     ) {
-  override def createGutterRenderer(): GutterIconRenderer = new LineMarkerGutterIconRenderer[PsiElement](this) {
-    override def getClickAction: AnAction = new FocusToBlockSelectAction(identifier, pyClass)
-  }
+  override def createGutterRenderer(): GutterIconRenderer =
+    new LineMarkerGutterIconRenderer[PsiElement](this) {
+      override def getClickAction: AnAction = new FocusToBlockSelectAction(identifier, pyClass)
+    }
 }
 
 // Adds the line markers for DesignTop-based classes.
@@ -84,7 +90,7 @@ class BlockLineMarkerContributor extends LineMarkerProvider {
   override def getLineMarkerInfo(element: PsiElement): LineMarkerInfo[PsiElement] = {
     element match {
       case element: LeafPsiElement if element.getElementType == PyTokenTypes.IDENTIFIER =>
-      case _ => return null
+      case _                                                                            => return null
     }
     element.getParent match {
       case parent: PyClass =>

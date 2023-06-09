@@ -1,6 +1,16 @@
 package edg_ide.runner
 
-import com.lowagie.text.{Anchor, Document, Element, Font, FontFactory, HeaderFooter, Paragraph, Phrase, Rectangle}
+import com.lowagie.text.{
+  Anchor,
+  Document,
+  Element,
+  Font,
+  FontFactory,
+  HeaderFooter,
+  Paragraph,
+  Phrase,
+  Rectangle
+}
 import com.lowagie.text.pdf.{PdfPCell, PdfPTable, PdfWriter}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil.BlockProtoToSeqMap
@@ -52,13 +62,16 @@ object PDFGeneratorUtil {
       val className = block.getSelfClass
       dupList.getOrElseUpdate(className, ListBuffer()) += path
 
-      block.blocks.asPairs.map {
-        case (name, subblock) => (name, subblock.`type`)
-      }.collect {
-        case (name, BlockLike.Type.Hierarchy(subblock)) => (path + name, subblock)
-      }.foreach {
-        case (path, subblock) => traverseBlock(subblock, path)
-      }
+      block.blocks.asPairs
+        .map { case (name, subblock) =>
+          (name, subblock.`type`)
+        }
+        .collect { case (name, BlockLike.Type.Hierarchy(subblock)) =>
+          (path + name, subblock)
+        }
+        .foreach { case (path, subblock) =>
+          traverseBlock(subblock, path)
+        }
     }
 
     traverseBlock(block, DesignPath())
@@ -160,18 +173,21 @@ object PDFGeneratorUtil {
       val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
       printNode(node, block.getSelfClass, path)
 
-      block.blocks.asPairs.map {
-        case (name, subblock) => (name, subblock.`type`)
-      }.collect {
-        case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty =>
-          (path + name, subblock, subblock.getSelfClass)
-      }.foreach {
-        case (path, subblock, className) => {
-          if (dupList.getOrElse(className, Set.empty).headOption.contains(path)) {
-            printNextHierarchyLevel(subblock, path)
+      block.blocks.asPairs
+        .map { case (name, subblock) =>
+          (name, subblock.`type`)
+        }
+        .collect {
+          case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty =>
+            (path + name, subblock, subblock.getSelfClass)
+        }
+        .foreach {
+          case (path, subblock, className) => {
+            if (dupList.getOrElse(className, Set.empty).headOption.contains(path)) {
+              printNextHierarchyLevel(subblock, path)
+            }
           }
         }
-      }
     }
 
     printNextHierarchyLevel(content)

@@ -27,15 +27,17 @@ object DseConfigElement {
   // TODO this is still used for objective functions, which should define a objective-specific valueToString
   def valueToString(value: Any): String = value match {
     case value: ref.LibraryPath => value.toSimpleString
-    case value: ExprValue => ParamToUnitsStringUtil.toString(value)
-    case Some(value) => valueToString(value) // drop the "Some" for simplicity
-    case value => value.toString
+    case value: ExprValue       => ParamToUnitsStringUtil.toString(value)
+    case Some(value)            => valueToString(value) // drop the "Some" for simplicity
+    case value                  => value.toString
   }
 
   def configMapToString(configMap: SeqMap[DseConfigElement, Any]): String = {
-    configMap.map { case (config, value) =>
-      f"${config.configToString} -> ${config.valueToString(value)}"
-    }.mkString(", ")
+    configMap
+      .map { case (config, value) =>
+        f"${config.configToString} -> ${config.valueToString(value)}"
+      }
+      .mkString(", ")
   }
 }
 
@@ -62,7 +64,8 @@ sealed trait DseRefinementElement[+ValueType] extends DseStaticConfig { self: Se
 }
 
 // DSE element that is associated with a single path
-sealed trait DseInstanceRefinementElement[+ValueType] extends DseRefinementElement[ValueType] { self: Serializable =>
+sealed trait DseInstanceRefinementElement[+ValueType] extends DseRefinementElement[ValueType] {
+  self: Serializable =>
   val path: DesignPath
 }
 
@@ -139,9 +142,13 @@ object DseParameterSearch {
         if (inQuotes) {
           mustEnd = true
         } else { // if have unescaped quotes, they must start the string
-          builder.toString().strip().isEmpty.exceptFalse(
-            "unexpected open quote, may only be at start of element or escaped"
-          )
+          builder
+            .toString()
+            .strip()
+            .isEmpty
+            .exceptFalse(
+              "unexpected open quote, may only be at start of element or escaped"
+            )
           builder.clear()
         }
         inQuotes = !inQuotes
@@ -167,21 +174,23 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
   override def valueToString(value: Any): String = value match {
     case value: FloatValue => ParamToUnitsStringUtil.toString(value)
     case value: RangeValue => ParamToUnitsStringUtil.toString(value)
-    case value: ExprValue => value.toStringValue
-    case _ => value.toString
+    case value: ExprValue  => value.toStringValue
+    case _                 => value.toString
   }
 
   // Returns the values as a string, that will parse back with valuesStringToConfig.
   // This contains special-case code to handle the TextValue case
   def valuesToString(): String = {
-    values.map {
-      case TextValue(str) =>
-        val escaped = str.replace("\\", "\\\\").replace("\"", "\\\"")
-        f"\"$escaped\"" // always wrap in quotes, so we can insert a space after the commas separating elements
-      case value: FloatValue => ParamToUnitsStringUtil.toString(value)
-      case value: RangeValue => ParamToUnitsStringUtil.toString(value)
-      case value => value.toStringValue
-    }.mkString(", ")
+    values
+      .map {
+        case TextValue(str) =>
+          val escaped = str.replace("\\", "\\\\").replace("\"", "\\\"")
+          f"\"$escaped\"" // always wrap in quotes, so we can insert a space after the commas separating elements
+        case value: FloatValue => ParamToUnitsStringUtil.toString(value)
+        case value: RangeValue => ParamToUnitsStringUtil.toString(value)
+        case value             => value.toStringValue
+      }
+      .mkString(", ")
   }
 
   // Parses a string specification of values into a new DseParameterSearch (of the same path and type).
@@ -193,7 +202,9 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
     val newValues = valueClass match {
       case v if v == classOf[BooleanValue] =>
         str.split(',').toSeq.zipWithIndex.map { case (str, index) =>
-          BooleanValue(str.strip().toBooleanOption.exceptNone(f"invalid value ${index + 1} '$str': not an bool"))
+          BooleanValue(
+            str.strip().toBooleanOption.exceptNone(f"invalid value ${index + 1} '$str': not an bool")
+          )
         }
       case v if v == classOf[IntValue] =>
         str.split(',').toSeq.zipWithIndex.map { case (str, index) =>
@@ -201,8 +212,12 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
         }
       case v if v == classOf[FloatValue] =>
         str.split(',').toSeq.zipWithIndex.map { case (str, index) =>
-          FloatValue(SiPrefixUtil.stringToFloat(str.strip()).mapErr(err => f"invalid value ${index + 1} '$str': $err")
-            .exceptError)
+          FloatValue(
+            SiPrefixUtil
+              .stringToFloat(str.strip())
+              .mapErr(err => f"invalid value ${index + 1} '$str': $err")
+              .exceptError
+          )
         }
       case v if v == classOf[TextValue] =>
         DseParameterSearch.splitString(str).exceptError.map {
@@ -210,7 +225,10 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
         }
       case v if v == classOf[RangeValue] =>
         DseParameterSearch.splitRange(str).zipWithIndex.map { case (str: String, index) =>
-          DseParameterSearch.stringToRange(str).mapErr(err => f"invalid value ${index + 1} '$str': $err").exceptError
+          DseParameterSearch
+            .stringToRange(str)
+            .mapErr(err => f"invalid value ${index + 1} '$str': $err")
+            .exceptError
         }
       case v =>
         exceptable.fail(f"unknown type of value $v")
@@ -224,8 +242,11 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
 
 // Tries all values for some parameter
 case class DsePathParameterSearch(path: DesignPath, values: Seq[ExprValue])
-    extends DseInstanceRefinementElement[ExprValue] with DseParameterSearch with Serializable {
-  override def toString = f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(",")})"
+    extends DseInstanceRefinementElement[ExprValue]
+    with DseParameterSearch
+    with Serializable {
+  override def toString =
+    f"${this.getClass.getSimpleName}($path, ${values.map(_.toStringValue).mkString(",")})"
   override def configToString: String = f"Param($path)"
 
   override def getPartialCompile: PartialCompile = {
@@ -244,7 +265,8 @@ case class DsePathParameterSearch(path: DesignPath, values: Seq[ExprValue])
 
 // Tries all values for some class
 case class DseClassParameterSearch(cls: ref.LibraryPath, postfix: ref.LocalPath, values: Seq[ExprValue])
-    extends DseParameterSearch with Serializable {
+    extends DseParameterSearch
+    with Serializable {
   override def toString =
     f"${this.getClass.getSimpleName}(${cls.toSimpleString}:${ExprToString(postfix)}, ${values.map(_.toStringValue).mkString(",")})"
   override def configToString: String = f"ClassParams(${cls.toSimpleString}:${ExprToString(postfix)})"
@@ -265,8 +287,10 @@ case class DseClassParameterSearch(cls: ref.LibraryPath, postfix: ref.LocalPath,
 
 // Tries all subclasses for some block
 case class DseSubclassSearch(path: DesignPath, subclasses: Seq[ref.LibraryPath])
-    extends DseInstanceRefinementElement[ref.LibraryPath] with Serializable {
-  override def toString = f"${this.getClass.getSimpleName}($path, ${subclasses.map(_.toSimpleString).mkString(", ")})"
+    extends DseInstanceRefinementElement[ref.LibraryPath]
+    with Serializable {
+  override def toString =
+    f"${this.getClass.getSimpleName}($path, ${subclasses.map(_.toSimpleString).mkString(", ")})"
   override def configToString: String = f"Subclass($path)"
   def valueToString(value: Any): String = value.asInstanceOf[ref.LibraryPath].toSimpleString
 
@@ -304,7 +328,8 @@ case class DseDerivedPartSearch(path: DesignPath) extends DseDerivedConfig with 
       case Some(ArrayValue.ExtractText(values)) =>
         Errorable.Success(DsePathParameterSearch(path + "part", values.map(TextValue)))
       case Some(ArrayValue.Empty(_)) => Errorable.Error(f"no matching parts: $matchingPartsPath")
-      case Some(value) => Errorable.Error(f"invalid matching parts: $matchingPartsPath = ${value.toStringValue}")
+      case Some(value) =>
+        Errorable.Error(f"invalid matching parts: $matchingPartsPath = ${value.toStringValue}")
       case None => Errorable.Error(f"matching parts unavailable: $matchingPartsPath")
     }
   }

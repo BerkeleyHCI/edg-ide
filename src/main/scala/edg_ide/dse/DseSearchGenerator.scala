@@ -5,15 +5,15 @@ import edg.wir.Refinements
 
 import scala.collection.{SeqMap, mutable}
 
-/** This class generates the search space for design space exploration. This supports dynamic / derived design spaces,
-  * where additional points in the design space are revealed based on the value of evaluated points.
+/** This class generates the search space for design space exploration. This supports dynamic / derived design
+  * spaces, where additional points in the design space are revealed based on the value of evaluated points.
   *
   * This is its own class so the design space behavior is unit-testable.
   */
 class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   val (staticConfigs, derivedConfigs) = configs.partitionMap {
     case config: DseRefinementElement[Any] => Left(config)
-    case config: DseDerivedConfig => Right(config)
+    case config: DseDerivedConfig          => Right(config)
   }
   private val allConfigs = staticConfigs ++ derivedConfigs
 
@@ -53,9 +53,12 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
     val implicitStaticCount = if (stackCount.size >= space.length) 1 else cumulativeSpaceSize(stackCount.size)
     // this pushes back the accounting for the last element of each config (the one currently under evaluation)
     // to the next config, and eventually onto the 1 in implicitStaticCount
-    val remainingStaticCount = stackCount.zip(cumulativeSpaceSize.drop(1)).map { case (remainingCount, searchSpace) =>
-      (remainingCount - 1) * searchSpace
-    }.sum + implicitStaticCount
+    val remainingStaticCount = stackCount
+      .zip(cumulativeSpaceSize.drop(1))
+      .map { case (remainingCount, searchSpace) =>
+        (remainingCount - 1) * searchSpace
+      }
+      .sum + implicitStaticCount
 
     (remainingStaticCount, cumulativeSpaceSize.head)
   }
@@ -66,8 +69,9 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   // If a design point has an empty PartialCompile, it can be used in the output.
   // This only changes after addEvaluatedPoint is called, when the point is marked as evaluated
   // and derived points are added.
-  def nextPoint()
-      : Option[(Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements, Refinements, Float)] = {
+  def nextPoint(): Option[
+    (Option[Compiler], PartialCompile, SeqMap[DseConfigElement, Any], Refinements, Refinements, Float)
+  ] = {
     // initial point: add partial compile root, with all config holdbacks
     // for each static config: do a partial compile while holding back the rest
     // when all static configs have an assignment:
@@ -82,14 +86,18 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
       }
       require(searchStack.length == compilerStack.length)
 
-      val staticPartialCompile = staticConfigs.drop(searchStack.length)
-        .map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
+      val staticPartialCompile = staticConfigs
+        .drop(searchStack.length)
+        .map(_.getPartialCompile)
+        .fold(PartialCompile())(_ ++ _)
       val derivedPartialCompile =
         if (derivedSpace.isEmpty && searchStack.length == staticConfigs.length) { // do generating compile
           PartialCompile()
         } else { // for all other cases, it's a normal part of backtracking search
-          derivedConfigs.drop(math.max(0, searchStack.length - staticConfigs.length))
-            .map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
+          derivedConfigs
+            .drop(math.max(0, searchStack.length - staticConfigs.length))
+            .map(_.getPartialCompile)
+            .fold(PartialCompile())(_ ++ _)
         }
       val baseCompiler = compilerStack.lastOption // initial is None
       val searchValues = allConfigs.zip(searchStack).map { case (staticConfig, staticValues) =>
@@ -105,15 +113,16 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         staticSpace.map(_.length)
       )
 
-      val derivedCompletedFraction = derivedSpace match { // this counts against the last element of staticSpaceRemain
-        case Some(derivedSpace) =>
-          val (derivedSpaceRemain, derivedSpaceTotal) = getRemainingSearchSpace(
-            searchStack.drop(staticSpace.length).map(_.length).toSeq,
-            derivedSpace.map(_.length)
-          )
-          (derivedSpaceTotal - derivedSpaceRemain.toFloat) / derivedSpaceTotal
-        case None => 0
-      }
+      val derivedCompletedFraction =
+        derivedSpace match { // this counts against the last element of staticSpaceRemain
+          case Some(derivedSpace) =>
+            val (derivedSpaceRemain, derivedSpaceTotal) = getRemainingSearchSpace(
+              searchStack.drop(staticSpace.length).map(_.length).toSeq,
+              derivedSpace.map(_.length)
+            )
+            (derivedSpaceTotal - derivedSpaceRemain.toFloat) / derivedSpaceTotal
+          case None => 0
+        }
       val completedFraction =
         (staticSpaceTotal - (staticSpaceRemain.toFloat - derivedCompletedFraction)) / staticSpaceTotal
 
@@ -140,7 +149,9 @@ class DseSearchGenerator(configs: Seq[DseConfigElement]) {
         if (searchStack.size < staticConfigs.length) { // static config case
           searchStack.append(staticSpace(searchStack.length).to(mutable.ListBuffer))
         } else { // dynamic config case
-          searchStack.append(derivedSpace.get(searchStack.length - staticConfigs.length).to(mutable.ListBuffer))
+          searchStack.append(
+            derivedSpace.get(searchStack.length - staticConfigs.length).to(mutable.ListBuffer)
+          )
         }
         compilerStack.append(compiler)
       } else { // just evaluated a concrete design point, pop up the stack

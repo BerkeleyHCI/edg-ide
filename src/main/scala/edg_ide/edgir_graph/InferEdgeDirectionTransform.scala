@@ -7,12 +7,13 @@ class InferEdgeDirectionTransform { // dummy class for logger
 
 /** An HGraph transform that infers / fixes up edge directions using the link type and port name.
   *
-  * Behavior summary: If the link type has defined sink and source ports: use those For links with bidirectional
-  * connections and no sources: the first bidir is a source For exports: direction is inferred from the containing node
+  * Behavior summary: If the link type has defined sink and source ports: use those For links with
+  * bidirectional connections and no sources: the first bidir is a source For exports: direction is inferred
+  * from the containing node
   *
-  * Algorithm summary: PRECONDITION: block ports are "sources" and link ports are "targets" Build structure of block
-  * paths by links and ports For all links, assign sources according to the above summary Traverse edges, updating the
-  * direction as needed
+  * Algorithm summary: PRECONDITION: block ports are "sources" and link ports are "targets" Build structure of
+  * block paths by links and ports For all links, assign sources according to the above summary Traverse
+  * edges, updating the direction as needed
   */
 object InferEdgeDirectionTransform {
   val logger = Logger.getInstance(classOf[InferEdgeDirectionTransform])
@@ -28,7 +29,7 @@ object InferEdgeDirectionTransform {
       "host",
       "master",
       "pull", // SWD, USB, SPI
-      "controller", // CAN logic
+      "controller" // CAN logic
     )
     val sinks = Set(
       "sink",
@@ -36,7 +37,7 @@ object InferEdgeDirectionTransform {
       "crystal",
       "device",
       "devices", // SWD, USB, SPI
-      "transceiver", // CAN logic
+      "transceiver" // CAN logic
     )
     val bidirs = Set(
       "bidirs",
@@ -44,7 +45,7 @@ object InferEdgeDirectionTransform {
       "passives",
       "a",
       "b", // UART
-      "nodes", // CAN diff
+      "nodes" // CAN diff
     )
     val allKnownPorts = sources ++ sinks ++ bidirs
 
@@ -78,20 +79,29 @@ object InferEdgeDirectionTransform {
 
   def apply(node: EdgirGraph.EdgirNode, mySourcePorts: Set[Seq[String]] = Set()): EdgirGraph.EdgirNode = {
     // Aggregate connected block ports by link and link port, as link name -> (link port -> Seq(block path))
-    val linkConnectedPorts: Map[String, Map[String, Set[Seq[String]]]] = node.edges.flatMap { edge =>
-      val edgeTargetTop = edge.target.head
-      val targetMember = node.members.get(Seq(edgeTargetTop))
-      targetMember match {
-        case Some(targetTop: EdgirGraph.EdgirNode) if targetTop.data.isInstanceOf[LinkWrapper] =>
-          Some((edge.target.head, (edge.target.tail, edge.source)))
-        case _ => None
+    val linkConnectedPorts: Map[String, Map[String, Set[Seq[String]]]] = node.edges
+      .flatMap { edge =>
+        val edgeTargetTop = edge.target.head
+        val targetMember = node.members.get(Seq(edgeTargetTop))
+        targetMember match {
+          case Some(targetTop: EdgirGraph.EdgirNode) if targetTop.data.isInstanceOf[LinkWrapper] =>
+            Some((edge.target.head, (edge.target.tail, edge.source)))
+          case _ => None
+        }
       }
-    }.groupBy(_._1).view.mapValues(_.map(_._2)) // sort by link name, discard the first tuple component in values
+      .groupBy(_._1)
+      .view
+      .mapValues(_.map(_._2)) // sort by link name, discard the first tuple component in values
       .mapValues { linkPortBlockPathPairs =>
-        linkPortBlockPathPairs.groupBy(_._1.head).view.mapValues(
-          _.map(_._2).toSet
-        ).toMap // same as above, with Set conversion
-      }.toMap
+        linkPortBlockPathPairs
+          .groupBy(_._1.head)
+          .view
+          .mapValues(
+            _.map(_._2).toSet
+          )
+          .toMap // same as above, with Set conversion
+      }
+      .toMap
 
     val allBlockPorts = linkConnectedPorts.flatMap { case (linkName, linkPortBlockPaths) =>
       linkPortBlockPaths.flatMap(_._2)
@@ -99,7 +109,8 @@ object InferEdgeDirectionTransform {
 
     val blockSourcePorts = linkConnectedPorts.flatMap { case (linkName, linkPortBlockPaths) =>
       // should be safe because this should have been tested above
-      val linkWrapper = node.members(Seq(linkName)).asInstanceOf[EdgirGraph.EdgirNode].data.asInstanceOf[LinkWrapper]
+      val linkWrapper =
+        node.members(Seq(linkName)).asInstanceOf[EdgirGraph.EdgirNode].data.asInstanceOf[LinkWrapper]
       sourcePorts(linkWrapper, linkPortBlockPaths)
     }.toSet
 

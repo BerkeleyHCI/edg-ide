@@ -34,26 +34,32 @@ object DeleteElemAction {
     val assignmentTargets = assignment.getRawTargets.toSet
 
     val containingFunctionName = Option(PsiTreeUtil.getParentOfType(assignment, classOf[PyFunction]))
-      .map(_.getName).getOrElse("")
-    val (searchScope, scopeDesc) = if (containingFunctionName == "__init__") { // assume only init visible elsewhere
-      (GlobalSearchScope.projectScope(project), "public variable")
-    } else {
-      val containingClass = Option(PsiTreeUtil.getParentOfType(assignment, classOf[PyClass])).getOrElse(assignment)
-      (new LocalSearchScope(containingClass), "internal variable")
-    }
+      .map(_.getName)
+      .getOrElse("")
+    val (searchScope, scopeDesc) =
+      if (containingFunctionName == "__init__") { // assume only init visible elsewhere
+        (GlobalSearchScope.projectScope(project), "public variable")
+      } else {
+        val containingClass =
+          Option(PsiTreeUtil.getParentOfType(assignment, classOf[PyClass])).getOrElse(assignment)
+        (new LocalSearchScope(containingClass), "internal variable")
+      }
     val allReferences = assignmentTargets.toSeq.flatMap { assignmentTarget =>
       ReferencesSearch.search(assignmentTarget, searchScope).findAll().asScala
     }
     // TODO for things defined in contents (instead of init), this can turn up a lot of dynamic usages
-    val references = allReferences.map {
-      _.getElement()
-    }.filter {
-      case ref: PyExpression => !assignmentTargets.contains(ref)
-      case _ => true
-    }
+    val references = allReferences
+      .map {
+        _.getElement()
+      }
+      .filter {
+        case ref: PyExpression => !assignmentTargets.contains(ref)
+        case _                 => true
+      }
 
     val items = references.map { reference =>
-      val fileLine = PsiUtils.fileLineOf(reference, project)
+      val fileLine = PsiUtils
+        .fileLineOf(reference, project)
         .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
       val statement = Option(PsiTreeUtil.getParentOfType(reference, classOf[PyStatement]))
         .getOrElse(reference)
@@ -71,11 +77,13 @@ object DeleteElemAction {
           // Can't use getNextSibling (and related) because it can return a deleted whitespace
           Option(PsiTreeUtil.getNextSiblingOfType(assignment, classOf[PyStatement])),
           Option(PsiTreeUtil.getPrevSiblingOfType(assignment, classOf[PyStatement])),
-          Option(assignment.getParent),
+          Option(assignment.getParent)
         ).flatten.head
-        writeCommandAction(project).withName(actionName).compute(() => {
-          assignment.delete()
-        })
+        writeCommandAction(project)
+          .withName(actionName)
+          .compute(() => {
+            assignment.delete()
+          })
 
         continuation(prev)
       }

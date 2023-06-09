@@ -34,28 +34,34 @@ abstract class MovableLiveTemplate(actionName: String) {
       }
       val offset = event.getOffset
       val expressionContext = templateState.getExpressionContextForSegment(0)
-      if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
+      if (
+        expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset
+      ) {
         return // ignore clicks within the template
       }
       event.consume()
 
       val project = templateState.getProject
       val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(event.getEditor.getDocument)
-      val caretElement = psiFile.findElementAt(offset) match { // get the caret element before modifying the AST
-        // whitespace may be modified by the template delete and become invalid
-        case caretElement: PsiWhiteSpace => caretElement.getPrevSibling
-        case caretElement => caretElement
-      }
+      val caretElement =
+        psiFile.findElementAt(offset) match { // get the caret element before modifying the AST
+          // whitespace may be modified by the template delete and become invalid
+          case caretElement: PsiWhiteSpace => caretElement.getPrevSibling
+          case caretElement                => caretElement
+        }
 
-      val templatePos = templateState.getCurrentVariableNumber // save template state before deleting the template
+      val templatePos =
+        templateState.getCurrentVariableNumber // save template state before deleting the template
       val templateValues = templateState.getTemplate.getVariables.asScala.map { variable =>
         templateState.getVariableValue(variable.getName).getText
       }.toSeq
 
-      writeCommandAction(project).withName(s"move $actionName").compute(() => {
-        TemplateUtils.deleteTemplate(templateState)
-        run(Some(caretElement), Some((templatePos, templateValues)))
-      })
+      writeCommandAction(project)
+        .withName(s"move $actionName")
+        .compute(() => {
+          TemplateUtils.deleteTemplate(templateState)
+          run(Some(caretElement), Some((templatePos, templateValues)))
+        })
     }
   }
 
@@ -64,7 +70,7 @@ abstract class MovableLiveTemplate(actionName: String) {
   def run(caretEltOpt: Option[PsiElement], priorTemplateValues: Option[(Int, Seq[String])] = None): Unit = {
     val tooltipString = priorTemplateValues match {
       case Some(_) => None // tooltip only shows on initial template insertion, not on moves
-      case None => Some(kHelpTooltip)
+      case None    => Some(kHelpTooltip)
     }
     val templateState = startTemplate(caretEltOpt).run(tooltipString, priorTemplateValues.map(_._2))
     currentTemplateState = Some(templateState)

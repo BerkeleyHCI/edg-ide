@@ -32,20 +32,22 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
 
   // Defines the root node
   override lazy val children = {
-    informationalHeader ++ results.groupedResults.sortBy { resultsSet =>
-      val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
-      (idealErrors.isEmpty, otherErrors.isEmpty) match {
-        case (true, true) => 0 // non-error points prioritized
-        case (_, true) => 1 // ideal points next
-        case _ => 2 // error points last
+    informationalHeader ++ results.groupedResults
+      .sortBy { resultsSet =>
+        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
+        (idealErrors.isEmpty, otherErrors.isEmpty) match {
+          case (true, true) => 0 // non-error points prioritized
+          case (_, true)    => 1 // ideal points next
+          case _            => 2 // error points last
+        }
       }
-    }.map { resultsSet =>
-      if (resultsSet.length == 1) {
-        new ResultNode(resultsSet.head, true)
-      } else {
-        new ResultSetNode(resultsSet)
+      .map { resultsSet =>
+        if (resultsSet.length == 1) {
+          new ResultNode(resultsSet.head, true)
+        } else {
+          new ResultSetNode(resultsSet)
+        }
       }
-    }
   }
 
   override val config = "" // empty, since the root node is hidden
@@ -63,9 +65,10 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     // internal objectives not shown to avoid visual clutter
     override lazy val children = setMembers.map(result => new ResultNode(result, false))
     override def getColumns(index: Int): String = objectiveByColumn.get(index) match {
-      case Some(objective) => exampleResult.objectives.get(objective) match {
+      case Some(objective) =>
+        exampleResult.objectives.get(objective) match {
           case Some(value) => DseConfigElement.valueToString(value)
-          case _ => "(unknown)"
+          case _           => "(unknown)"
         }
       case _ => "???"
     }
@@ -78,9 +81,10 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     override def getColumns(index: Int): String = {
       if (showObjectives) {
         objectiveByColumn.get(index) match {
-          case Some(objective) => result.objectives.get(objective) match {
+          case Some(objective) =>
+            result.objectives.get(objective) match {
               case Some(value) => DseConfigElement.valueToString(value)
-              case _ => "(unknown)"
+              case _           => "(unknown)"
             }
           case _ => "???"
         }
@@ -97,8 +101,11 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
   }
 }
 
-class DseResultTreeTableModel(results: CombinedDseResultSet, objectives: Seq[DseObjective], inProgress: Boolean)
-    extends SeqTreeTableModel[DseResultNodeBase] {
+class DseResultTreeTableModel(
+    results: CombinedDseResultSet,
+    objectives: Seq[DseObjective],
+    inProgress: Boolean
+) extends SeqTreeTableModel[DseResultNodeBase] {
   val COLUMNS = Seq("Config") ++ objectives.map(_.objectiveToString)
 
   val rootNode: DseResultTreeNode = new DseResultTreeNode(results, objectives, inProgress)
@@ -143,10 +150,11 @@ object DseResultModel {
   val kColorIdealError: Color = JBColor.ORANGE
 
   // Partitions the input compiler errors as (ideal model errors, any other error)
-  def partitionByIdeal(errors: Seq[CompilerError]): (Seq[CompilerError], Seq[CompilerError]) = errors.partition {
-    case CompilerError.FailedAssertion(_, constrName, _, _, _) if constrName == kIdealConstraintName => true
-    case _ => false
-  }
+  def partitionByIdeal(errors: Seq[CompilerError]): (Seq[CompilerError], Seq[CompilerError]) =
+    errors.partition {
+      case CompilerError.FailedAssertion(_, constrName, _, _, _) if constrName == kIdealConstraintName => true
+      case _ => false
+    }
 }
 
 class DseResultTreeRenderer extends DefaultTreeCellRenderer {
@@ -162,14 +170,14 @@ class DseResultTreeRenderer extends DefaultTreeCellRenderer {
     val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
     val example = value match {
       case node: DseResultTreeNode#ResultSetNode => Some(node.setMembers.head)
-      case node: DseResultTreeNode#ResultNode => Some(node.result)
-      case _ => None
+      case node: DseResultTreeNode#ResultNode    => Some(node.result)
+      case _                                     => None
     }
     val color = example.flatMap { example =>
       val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(example.errors)
       (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-        case (_, true) => Some(DseResultModel.kColorOtherError)
-        case (true, false) => Some(DseResultModel.kColorIdealError)
+        case (_, true)      => Some(DseResultModel.kColorOtherError)
+        case (true, false)  => Some(DseResultModel.kColorIdealError)
         case (false, false) => None
       }
     }

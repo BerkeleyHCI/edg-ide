@@ -27,9 +27,9 @@ object ProvenStatus extends Enumeration {
 
   def colorOf(status: Status): JBColor = status match {
     case Untested => JBColor.GRAY
-    case Working => JBColor.GREEN
-    case Fixed => JBColor.ORANGE
-    case Broken => JBColor.RED
+    case Working  => JBColor.GREEN
+    case Fixed    => JBColor.ORANGE
+    case Broken   => JBColor.RED
   }
 }
 
@@ -47,7 +47,8 @@ class UserProvenRecord(
     pattern: Seq[String],
     val comments: Option[String]
 ) extends ProvenRecord {
-  override def toString = f"${this.getClass.getSimpleName}($status, $comments from $file:${pattern.mkString(".")})"
+  override def toString =
+    f"${this.getClass.getSimpleName}($status, $comments from $file:${pattern.mkString(".")})"
 }
 
 // A proven record that is the inner
@@ -87,7 +88,8 @@ object ProvenDataReader {
           row.getField(kFieldFile).nonEmpty && row.getField(kFieldVersion).nonEmpty,
           "both file and field must be nonempty"
         )
-        lastFileVersion = Some((new File(containingDir, row.getField(kFieldFile)), row.getField(kFieldVersion)))
+        lastFileVersion =
+          Some((new File(containingDir, row.getField(kFieldFile)), row.getField(kFieldVersion)))
       }
       val (file, version) = lastFileVersion.get
       val path = row.getField(kFieldPath).split('.').toSeq
@@ -95,7 +97,7 @@ object ProvenDataReader {
         pathComponent.replace("*", ".*").r
       }
       val comments = row.getField(kFieldComments) match {
-        case "" => None
+        case ""       => None
         case comments => Some(comments)
       }
 
@@ -107,9 +109,11 @@ object ProvenDataReader {
         case "broken" =>
           new UserProvenRecord(ProvenStatus.Broken, file, version, path, comments)
       }
-      designToRecord.getOrElseUpdate((file, version), mutable.ArrayBuffer()).append(
-        (pathRegex, status)
-      )
+      designToRecord
+        .getOrElseUpdate((file, version), mutable.ArrayBuffer())
+        .append(
+          (pathRegex, status)
+        )
     }
 
     val dataBuilder = mutable.SeqMap[ref.LibraryPath, mutable.ArrayBuffer[(ProvenRecord, DesignPath)]]()
@@ -130,10 +134,14 @@ object ProvenDataReader {
       if (thisRecords.nonEmpty) {
         require(thisRecords.size == 1, f"multiple proven records at $file $path")
         val thisRecordProven = thisRecords.head._2
-        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append((thisRecordProven, path))
+        dataBuilder
+          .getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer())
+          .append((thisRecordProven, path))
       } else {
         val thisUntestedRecord = new UntestedRecord(file, version)
-        dataBuilder.getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer()).append((thisUntestedRecord, path))
+        dataBuilder
+          .getOrElseUpdate(block.getSelfClass, mutable.ArrayBuffer())
+          .append((thisUntestedRecord, path))
       }
 
       block.blocks.collect {
@@ -147,11 +155,18 @@ object ProvenDataReader {
                   Some(Seq(), proven) // otherwise propagate as-is
                 }
               case Seq() => None // don't propagate other records
-              case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) => Some(pathTail -> proven)
+              case Seq(pathHead, pathTail @ _*) if pathHead.matches(subBlockPair.name) =>
+                Some(pathTail -> proven)
               case Seq(pathHead, pathTail @ _*) => None // non-matching, discard
             }
           }
-          processBlock(file, version, path + subBlockPair.name, subBlockPair.getValue.getHierarchy, subBlockMap)
+          processBlock(
+            file,
+            version,
+            path + subBlockPair.name,
+            subBlockPair.getValue.getHierarchy,
+            subBlockMap
+          )
       }
     }
 
@@ -180,22 +195,26 @@ class BlockProvenRecords(val data: SeqMap[(File, String), Seq[(ProvenRecord, Des
   def size = data.size
 
   // data with untested status filtered out, which is more useful for some displays
-  private lazy val testedData = data.map { case (design, records) =>
-    design -> records.filter(_._1.status != ProvenStatus.Untested)
-  }.filter { case (design, records) =>
-    records.nonEmpty
-  }
+  private lazy val testedData = data
+    .map { case (design, records) =>
+      design -> records.filter(_._1.status != ProvenStatus.Untested)
+    }
+    .filter { case (design, records) =>
+      records.nonEmpty
+    }
 
   lazy val latestStatus = testedData.headOption.map(_._2.head._1.status).getOrElse(ProvenStatus.Untested)
 
-  def getDataOfStatus(status: ProvenStatus.Status): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = {
-    val dataSeq = data
-      .toSeq.reverse
+  def getDataOfStatus(
+      status: ProvenStatus.Status
+  ): SeqMap[(File, String), Seq[(ProvenRecord, DesignPath)]] = {
+    val dataSeq = data.toSeq.reverse
       .dropWhile(_._2.forall(_._1.status != status)) // drop all of not-containing the status
       .takeWhile(_._2.exists(_._1.status == status)) // and take all which has the status
       .map { case (design, records) =>
         design -> records.filter(_._1.status == status)
-      }.reverse
+      }
+      .reverse
     SeqMap.from(dataSeq)
   }
 }

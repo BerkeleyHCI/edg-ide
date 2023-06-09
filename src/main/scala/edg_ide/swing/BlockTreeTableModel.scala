@@ -15,21 +15,25 @@ import javax.swing.tree._
 class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem.HierarchyBlock) {
   import edgir.elem.elem.BlockLike
 
-  lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs.filter { case (name, subblock) =>
-    if (!EdgSettingsState.getInstance().showInternalBlocks) {
-      !(name.startsWith("(bridge)") || name.startsWith("(adapter)") || name.startsWith("(not_connected)"))
-    } else {
-      true
+  lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs
+    .filter { case (name, subblock) =>
+      if (!EdgSettingsState.getInstance().showInternalBlocks) {
+        !(name.startsWith("(bridge)") || name.startsWith("(adapter)") || name.startsWith("(not_connected)"))
+      } else {
+        true
+      }
     }
-  }.map { case (name, subblock) =>
-    (name, subblock.`type`)
-  }.collect {
-    case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(project, path + name, subblock)
-  }.toSeq
+    .map { case (name, subblock) =>
+      (name, subblock.`type`)
+    }
+    .collect { case (name, BlockLike.Type.Hierarchy(subblock)) =>
+      new HierarchyBlockNode(project, path + name, subblock)
+    }
+    .toSeq
 
   override def equals(other: Any): Boolean = other match {
     case other: HierarchyBlockNode => other.block == block
-    case _ => false
+    case _                         => false
   }
 
   override def toString: String = path.lastString
@@ -45,7 +49,10 @@ class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem
 }
 
 object BlockTreeTableModel {
-  def follow(path: DesignPath, model: BlockTreeTableModel): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
+  def follow(
+      path: DesignPath,
+      model: BlockTreeTableModel
+  ): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
 
     def inner(
         nodePrefix: Seq[HierarchyBlockNode],
@@ -56,8 +63,8 @@ object BlockTreeTableModel {
       } else {
         val nextChildNodes = node.children.filter { node => path.steps.startsWith(node.path.steps) }
         nextChildNodes match {
-          case Seq() => (nodePrefix :+ node, None) // no further steps possible
-          case Seq(childNode) => inner(nodePrefix :+ node, childNode) // exactly one next step
+          case Seq()             => (nodePrefix :+ node, None) // no further steps possible
+          case Seq(childNode)    => inner(nodePrefix :+ node, childNode) // exactly one next step
           case Seq(childNode, _) => inner(nodePrefix :+ node, childNode) // multiple possible, just pick one
           // TODO maybe this should error or warn
         }
@@ -68,7 +75,8 @@ object BlockTreeTableModel {
   }
 }
 
-class BlockTreeTableModel(project: Project, root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
+class BlockTreeTableModel(project: Project, root: elem.HierarchyBlock)
+    extends SeqTreeTableModel[HierarchyBlockNode] {
   val rootNode: HierarchyBlockNode = new HierarchyBlockNode(project, DesignPath(), root)
   val COLUMNS = if (EdgSettingsState.getInstance().showProvenStatus) {
     Seq("Path", "Class", "Proven")

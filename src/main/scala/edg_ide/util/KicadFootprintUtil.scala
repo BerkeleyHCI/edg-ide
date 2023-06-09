@@ -26,7 +26,7 @@ object KicadFootprintUtil {
   def getFootprintFile(footprintName: String): Errorable[File] = exceptable {
     val footprintPath = footprintName match {
       case s"$libraryName:$footprintName" => Seq(f"$libraryName.pretty", f"$footprintName.kicad_mod")
-      case _ => exceptable.fail(s"malformed footprint path $footprintName")
+      case _                              => exceptable.fail(s"malformed footprint path $footprintName")
     }
 
     // use a for loop to return the first match, instead of mapping over everything else
@@ -36,14 +36,14 @@ object KicadFootprintUtil {
       EdgSettingsState.getInstance().kicadDirectories.foreach { kicadDirectory =>
         filePathJoin(new File(kicadDirectory), footprintPath) match {
           case Some(joinedFile) => footprintFile = Some(joinedFile); loop.break()
-          case None => // continue
+          case None             => // continue
         }
       }
     }
 
     footprintFile match {
       case Some(footprintFile) => footprintFile
-      case None => exceptable.fail(s"unable to find footprint file for $footprintName")
+      case None                => exceptable.fail(s"unable to find footprint file for $footprintName")
     }
   }
 }

@@ -91,12 +91,15 @@ object KicadParser {
         (xPos.toFloatOption, yPos.toFloatOption) match {
           case (Some(xPos), Some(yPos)) => (xPos, yPos, 0)
           case _ =>
-            throw new IllegalArgumentException("Expected (float, float), but got non-numerical value: " + xPos + yPos)
+            throw new IllegalArgumentException(
+              "Expected (float, float), but got non-numerical value: " + xPos + yPos
+            )
         }
       case (_: Atom) :: Atom(xPos) :: Atom(yPos) :: Atom(rot) :: Nil =>
         (xPos.toFloatOption, yPos.toFloatOption, rot.toFloatOption) match {
           case (Some(xPos), Some(yPos), Some(rot)) => (xPos, yPos, rot)
-          case _ => throw new IllegalArgumentException(
+          case _ =>
+            throw new IllegalArgumentException(
               "Expected (float, float, float), but got non-numerical value: " + xPos + yPos + rot
             )
         }
@@ -110,7 +113,8 @@ object KicadParser {
       case (_: Atom) :: Atom(width) :: Atom(height) :: Nil =>
         (width.toFloatOption, height.toFloatOption) match {
           case (Some(width), Some(height)) => (width, height)
-          case _ => throw new IllegalArgumentException(
+          case _ =>
+            throw new IllegalArgumentException(
               "Expected (float, float), but got non-numerical value: " + width + height
             )
         }
@@ -123,7 +127,7 @@ object KicadParser {
   protected def stripChildAtom(list: SList): SList = {
     SList(list.values.map {
       case Atom(atomValue) => Atom(atomValue.stripPrefix("\"").stripSuffix("\""))
-      case elt => elt
+      case elt             => elt
     })
   }
 
@@ -139,7 +143,8 @@ object KicadParser {
       val parsed = ExpressionParser.parse(s)
 
       val kicadComponents = parsed.values.flatMap {
-        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "rect" || geom == "roundrect" =>
+        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail)
+            if geom == "rect" || geom == "roundrect" =>
           val (x, y, r) = extractPosition(getOnlySublistByName(tail, "at"))
           val (w, h) = extractSize(getOnlySublistByName(tail, "size"))
           if (r == 0 || r == 180) {
@@ -149,7 +154,8 @@ object KicadParser {
           } else {
             throw new IllegalArgumentException(f"rotation not supported $r")
           }
-        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail) if geom == "oval" || geom == "circle" =>
+        case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail)
+            if geom == "oval" || geom == "circle" =>
           val (x, y, r) = extractPosition(getOnlySublistByName(tail, "at"))
           val (w, h) = extractSize(getOnlySublistByName(tail, "size"))
           if (r == 0 || r == 180) {

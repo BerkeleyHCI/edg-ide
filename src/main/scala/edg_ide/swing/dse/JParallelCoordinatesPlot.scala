@@ -6,8 +6,8 @@ import java.awt.event._
 import java.awt.{BasicStroke, Color, Graphics, Graphics2D}
 import javax.swing.{JComponent, SwingUtilities}
 
-/** Parallel coordinates plot with arbitrary number of axes, with data structured as ((positions ...), data), with
-  * arbitrary data of ValueType attached to each point
+/** Parallel coordinates plot with arbitrary number of axes, with data structured as ((positions ...), data),
+  * with arbitrary data of ValueType attached to each point
   */
 class JParallelCoordinatesPlot[ValueType] extends JComponent {
   // Data point object
@@ -26,7 +26,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
   private var selectedIndices: Seq[Int] = Seq() // unsorted
 
-  private var dragRange: Option[(Int, Float, Option[Float])] = None // (axis, start, current) in data-space if in drag
+  private var dragRange: Option[(Int, Float, Option[Float])] =
+    None // (axis, start, current) in data-space if in drag
 
   // UI state
   private var axesRange: Seq[(Float, Float)] = Seq((-1.0f, 1.0f)) // range for each axis
@@ -61,7 +62,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     selectedIndices = values.flatMap { value =>
       data.indexWhere(_.value == value) match {
         case index if index >= 0 => Some(index)
-        case _ => None // ignored
+        case _                   => None // ignored
       }
     }
 
@@ -76,12 +77,13 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
       val ticks = axis match {
         case Some(axis) => axis
-        case _ => JDsePlot.getAxisTicks(range, getHeight)
+        case _          => JDsePlot.getAxisTicks(range, getHeight)
       }
       ticks.foreach { case (tickPos, tickVal) =>
         val screenPos = ((range._2 - tickPos) * JDsePlot.dataScale(range, getHeight)).toInt
         paintGraphics.drawLine(axisX, screenPos, axisX + JDsePlot.kTickSizePx, screenPos)
-        DrawAnchored.drawLabel(paintGraphics, tickVal, (axisX + JDsePlot.kTickSizePx, screenPos), DrawAnchored.Left)
+        DrawAnchored
+          .drawLabel(paintGraphics, tickVal, (axisX + JDsePlot.kTickSizePx, screenPos), DrawAnchored.Left)
       }
     }
   }
@@ -130,10 +132,12 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         }
         dataGraphics
       }
-      dataGraphics.setColor(ColorUtil.withAlpha(
-        ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend),
-        alpha
-      ))
+      dataGraphics.setColor(
+        ColorUtil.withAlpha(
+          ColorUtil.blendColor(getBackground, dataGraphics.getColor, colorBlend),
+          alpha
+        )
+      )
 
       data.positions.sliding(2).zipWithIndex.foreach {
         case (Seq(Some(value), Some(nextValue)), axisIndex) =>
@@ -177,11 +181,13 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       noColor = true,
       alpha = 191
     ) // draw the background exclusion border
-    hoverGraphics.setColor(ColorUtil.blendColor(
-      getBackground,
-      JDsePlot.kHoverOutlineColor,
-      JDsePlot.kHoverOutlineBlend
-    ))
+    hoverGraphics.setColor(
+      ColorUtil.blendColor(
+        getBackground,
+        JDsePlot.kHoverOutlineColor,
+        JDsePlot.kHoverOutlineBlend
+      )
+    )
     hoverGraphics.setStroke(new BasicStroke(JDsePlot.kLineHoverOutlinePx.toFloat))
     paintData(hoverGraphics, mouseoverData.map(_._1), noColor = true)
 
@@ -190,7 +196,9 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val axesGraphics = paintGraphics.create()
-    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness))
+    axesGraphics.setColor(
+      ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness)
+    )
     paintAxes(axesGraphics)
 
     paintAllData(paintGraphics)
@@ -198,7 +206,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     dragRange.collect { case (axis, startVal, Some(currVal)) =>
       val selectionGraphics = paintGraphics.create()
       selectionGraphics.setColor(JDsePlot.kHoverOutlineColor)
-      val (minY, maxY) = JDsePlot.orderedValues(getPositionForValue(axis, startVal), getPositionForValue(axis, currVal))
+      val (minY, maxY) =
+        JDsePlot.orderedValues(getPositionForValue(axis, startVal), getPositionForValue(axis, currVal))
       val centerX = getPositionForAxis(axis)
       val minX = centerX - JDsePlot.kPointHoverOutlinePx / 2
       val maxX = centerX + JDsePlot.kPointHoverOutlinePx / 2
@@ -293,7 +302,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
       if (dragRange.isEmpty) { // only runs on non-drag
-        val newPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx, selectablePointsWithIndex)
+        val newPoints =
+          getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx, selectablePointsWithIndex)
         val sortedIndices = newPoints.sortBy(_._2).map(_._1) // sort by distance
         hoverUpdated(sortedIndices)
       }
@@ -312,7 +322,8 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       val zoomFactor = Math.pow(1.1, 1 * e.getPreciseWheelRotation).toFloat
 
       val axisIndex = getAxisForLocation(e.getX)
-      val newRange = JDsePlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
+      val newRange =
+        JDsePlot.scrollNewRange(axesRange(axisIndex), zoomFactor, 1 - (e.getY.toFloat / getHeight))
       axesRange = axesRange.updated(axisIndex, newRange)
 
       validate()
@@ -418,9 +429,14 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
   addMouseMotionListener(dragSelectListener) // this registers the dragged
 
   override def getToolTipText(e: MouseEvent): String = {
-    getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx, selectablePointsWithIndex).headOption match {
+    getPointsForLocation(
+      e.getX,
+      e.getY,
+      JDsePlot.kSnapDistancePx,
+      selectablePointsWithIndex
+    ).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
-      case None => null
+      case None                    => null
     }
   }
 

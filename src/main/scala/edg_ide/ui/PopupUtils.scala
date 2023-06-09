@@ -15,7 +15,9 @@ import scala.jdk.CollectionConverters.SeqHasAsJava
 
 object PopupUtils {
   def createMenuPopup[T](title: String, elts: Seq[T], editor: Editor)(accept: T => Unit): Unit = {
-    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
+    val popup = JBPopupFactory
+      .getInstance()
+      .createPopupChooserBuilder(elts.asJava)
       .setTitle(title)
       .setItemChosenCallback((t: T) => {
         accept(t)
@@ -26,7 +28,9 @@ object PopupUtils {
 
   // TODO unify & dedup!
   def createMenuPopup[T](title: String, elts: Seq[T], project: Project)(accept: T => Unit): Unit = {
-    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
+    val popup = JBPopupFactory
+      .getInstance()
+      .createPopupChooserBuilder(elts.asJava)
       .setTitle(title)
       .setItemChosenCallback((t: T) => {
         accept(t)
@@ -36,7 +40,9 @@ object PopupUtils {
   }
 
   def createMenuPopup[T](title: String, elts: Seq[T], e: MouseEvent)(accept: T => Unit): Unit = {
-    val popup = JBPopupFactory.getInstance().createPopupChooserBuilder(elts.asJava)
+    val popup = JBPopupFactory
+      .getInstance()
+      .createPopupChooserBuilder(elts.asJava)
       .setTitle(title)
       .setItemChosenCallback((t: T) => {
         accept(t)
@@ -71,12 +77,14 @@ object PopupUtils {
     if (isWarning) {
       validationInfo = validationInfo.asWarning()
     }
-    val popupBuilder = ComponentValidator.createPopupBuilder(
-      validationInfo,
-      (editorPane: JEditorPane) => {
-        hintHeight = editorPane.getPreferredSize.height
-      }
-    ).setCancelOnWindowDeactivation(false)
+    val popupBuilder = ComponentValidator
+      .createPopupBuilder(
+        validationInfo,
+        (editorPane: JEditorPane) => {
+          hintHeight = editorPane.getPreferredSize.height
+        }
+      )
+      .setCancelOnWindowDeactivation(false)
       .setCancelOnClickOutside(true)
       .addUserData("SIMPLE_WINDOW")
 

@@ -91,19 +91,21 @@ class DseScatterPlotPanel() extends DseBasePlot {
       case (result, (Some(xVal), Some(yVal))) =>
         val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
         val (zOrder, color) = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-          case (_, true) => (-1, Some(DseResultModel.kColorOtherError))
-          case (true, false) => (0, Some(DseResultModel.kColorIdealError))
+          case (_, true)      => (-1, Some(DseResultModel.kColorOtherError))
+          case (true, false)  => (0, Some(DseResultModel.kColorIdealError))
           case (false, false) => (1, None)
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)
-        Some(new scatterPlot.Data(
-          result,
-          xVal,
-          yVal,
-          zOrder,
-          color,
-          Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
-        ))
+        Some(
+          new scatterPlot.Data(
+            result,
+            xVal,
+            yVal,
+            zOrder,
+            color,
+            Some(SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+          )
+        )
       case _ => Seq()
     }
 
@@ -132,7 +134,9 @@ class DseScatterPlotPanel() extends DseBasePlot {
         axisSelector.addItemListener(axisSelectorListener)
 
         // restore prior selection by name matching
-        items.find { item => item.toString == selected.toString }.foreach { item => axisSelector.setItem(item) }
+        items.find { item => item.toString == selected.toString }.foreach { item =>
+          axisSelector.setItem(item)
+        }
       }
     })
   }

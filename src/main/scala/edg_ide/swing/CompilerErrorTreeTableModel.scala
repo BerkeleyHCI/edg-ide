@@ -49,13 +49,16 @@ object CompilerErrorNodeBase {
         ("Unelaborated Link", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.ParamValue(path), deps) =>
         ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
-      case CompilerError.Unelaborated(ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath, root), deps) =>
+      case CompilerError.Unelaborated(
+            ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath, root),
+            deps
+          ) =>
         (
           s"Unelaborated Connect",
           root.toString,
           Seq(
             new CompilerErrorDetailNode("Connect Towards Link Port", toLinkPortPath.toString),
-            new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString),
+            new CompilerErrorDetailNode("Connect Away From Link Port", fromLinkPortPath.toString)
           ) ++ deps.toSeq.map(elaborateRecordToDetailNode)
         )
       case CompilerError.Unelaborated(unelaborated, deps) =>
@@ -120,18 +123,21 @@ object CompilerErrorNodeBase {
         )
 
       case CompilerError.InconsistentLinkArrayElements(
-          root,
-          linkPath,
-          linkElements,
-          blockPortPath,
-          blockPortElements
-        ) =>
+            root,
+            linkPath,
+            linkElements,
+            blockPortPath,
+            blockPortElements
+          ) =>
         (
           s"Inconsistent link array elements",
           s"$linkPath",
           Seq(
             new CompilerErrorDetailNode("Link elements", linkElements.toStringValue),
-            new CompilerErrorDetailNode(f"Block port elements @ $blockPortPath", blockPortElements.toStringValue)
+            new CompilerErrorDetailNode(
+              f"Block port elements @ $blockPortPath",
+              blockPortElements.toStringValue
+            )
           )
         )
     }
@@ -142,7 +148,8 @@ object CompilerErrorNodeBase {
   }
 }
 
-class CustomTooltipTableHeader(columnModel: TableColumnModel) extends JTableHeader(columnModel: TableColumnModel) {
+class CustomTooltipTableHeader(columnModel: TableColumnModel)
+    extends JTableHeader(columnModel: TableColumnModel) {
   override def getToolTipText(e: MouseEvent): String = {
     val col = columnModel.getColumnIndexAtX(e.getX)
     val name = columnModel.getColumn(col).getHeaderValue.toString
@@ -151,8 +158,8 @@ class CustomTooltipTableHeader(columnModel: TableColumnModel) extends JTableHead
       "overcurrent constraint is failing."
     val tooltip = name match {
       case "Path ⓘ" => headerTooltipText
-      case "Error" => "Error message"
-      case _ => "Unknown"
+      case "Error"  => "Error message"
+      case _        => "Unknown"
     }
     tooltip
   }

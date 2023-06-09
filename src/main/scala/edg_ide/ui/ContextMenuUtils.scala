@@ -32,7 +32,10 @@ object ContextMenuUtils {
     item
   }
 
-  def MenuItemNamedFromErrorable(action: Errorable[(() => Unit, String)], fallbackLabel: String): JMenuItem = {
+  def MenuItemNamedFromErrorable(
+      action: Errorable[(() => Unit, String)],
+      fallbackLabel: String
+  ): JMenuItem = {
     val item = action match {
       case Errorable.Success((action, label)) =>
         val item = new JMenuItem(label)

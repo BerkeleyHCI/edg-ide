@@ -19,8 +19,8 @@ import java.nio.file.{Files, Paths}
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
-/** Utility class that allows one running instance at any time, additional runIfIdle requests are discarded. Useful for
-  * background-able tasks that can return an outdated result, eg UI updates.
+/** Utility class that allows one running instance at any time, additional runIfIdle requests are discarded.
+  * Useful for background-able tasks that can return an outdated result, eg UI updates.
   *
   * This in itself is not thread-safe!
   */
@@ -89,7 +89,8 @@ class DseCsvWriter(
 }
 
 class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, val console: ConsoleView)
-    extends ProcessHandler with HasConsoleStages {
+    extends ProcessHandler
+    with HasConsoleStages {
   var runThread: Option[Thread] = None
 
   override def destroyProcessImpl(): Unit = {
@@ -105,9 +106,11 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     notifyProcessTerminated(exitCode)
   }
 
-  ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
-    override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
-  })
+  ProgressManager
+    .getInstance()
+    .run(new Task.Backgroundable(project, "EDG compiling") {
+      override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
+    })
 
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
@@ -127,7 +130,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       Files.createDirectories(Paths.get(options.resultCsvFile).getParent)
       DseCsvWriter(new FileWriter(options.resultCsvFile), options.searchConfigs, options.objectives) match {
         case Some(csv) =>
-          console.print(s"Opening results CSV at ${options.resultCsvFile}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+          console.print(
+            s"Opening results CSV at ${options.resultCsvFile}\n",
+            ConsoleViewContentType.LOG_INFO_OUTPUT
+          )
           Some(csv)
         case None =>
           console.print(
@@ -160,8 +166,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     try {
       val (pythonCommand, pythonPaths, sdkName) =
-        CompileProcessHandler.getPythonInterpreter(project, options.designName)
-          .mapErr(msg => s"while getting Python interpreter path: $msg").get
+        CompileProcessHandler
+          .getPythonInterpreter(project, options.designName)
+          .mapErr(msg => s"while getting Python interpreter path: $msg")
+          .get
       console.print(
         s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT
@@ -189,8 +197,10 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         }
 
         val designType = ElemBuilder.LibraryPath(options.designName)
-        val (block, refinementsPb) = EdgCompilerService(project).pyLib.getDesignTop(designType)
-          .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
+        val (block, refinementsPb) = EdgCompilerService(project).pyLib
+          .getDesignTop(designType)
+          .mapErr(msg => s"invalid top-level design: $msg")
+          .get // TODO propagate Errorable
         val design = schema.Design(contents = Some(block))
         val partialCompile = options.searchConfigs.map(_.getPartialCompile).fold(PartialCompile())(_ ++ _)
         val (removedRefinements, refinements) = Refinements(refinementsPb).partitionBy(
@@ -211,15 +221,24 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
           val searchGenerator = new DseSearchGenerator(options.searchConfigs)
           var nextPoint = searchGenerator.nextPoint()
           while (nextPoint.nonEmpty) {
-            val (baseCompilerOpt, partialCompile, pointValues, searchRefinements, incrRefinements, completedFraction) =
+            val (
+              baseCompilerOpt,
+              partialCompile,
+              pointValues,
+              searchRefinements,
+              incrRefinements,
+              completedFraction
+            ) =
               nextPoint.get
 
             val compiler = baseCompilerOpt match {
-              case Some(baseCompiler) => baseCompiler.fork(
+              case Some(baseCompiler) =>
+                baseCompiler.fork(
                   additionalRefinements = incrRefinements,
                   partial = partialCompile
                 )
-              case None => new Compiler(
+              case None =>
+                new Compiler(
                   design,
                   EdgCompilerService(project).pyLib,
                   refinements = refinements ++ incrRefinements,
@@ -257,7 +276,13 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                 }
 
                 uiUpdater.runIfIdle { // only have one UI update in progress at any time
-                  DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, true, false)
+                  DseService(project).setResults(
+                    results.toSeq,
+                    options.searchConfigs,
+                    options.objectives,
+                    true,
+                    false
+                  )
                 }
 
                 if (errors.nonEmpty) {
@@ -279,7 +304,13 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
         runFailableStageUnit("update visualization", indicator) {
           uiUpdater.join() // wait for pending UI updates to finish before updating to final value
-          DseService(project).setResults(results.toSeq, options.searchConfigs, options.objectives, false, false)
+          DseService(project).setResults(
+            results.toSeq,
+            options.searchConfigs,
+            options.objectives,
+            false,
+            false
+          )
           BlockVisualizerService(project).setLibrary(EdgCompilerService(project).pyLib)
 
           if (options.searchConfigs.isEmpty && results.length == 1) {

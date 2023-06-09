@@ -2,7 +2,12 @@ package edg_ide.psi_edits
 
 import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
-import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
+import com.intellij.codeInsight.template.{
+  Template,
+  TemplateBuilderImpl,
+  TemplateEditingAdapter,
+  TemplateManager
+}
 import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
@@ -62,16 +67,21 @@ object InsertionLiveTemplate {
 
   // utility validator for Python names, that also checks for name collisions (if class passed in; ignoring the
   // current template being edited)
-  def validatePythonName(name: String, templateState: TemplateState, pyClass: Option[PyClass]): Option[String] = {
+  def validatePythonName(
+      name: String,
+      templateState: TemplateState,
+      pyClass: Option[PyClass]
+  ): Option[String] = {
     val existingNames = pyClass match {
       case Some(pyClass) =>
         val templateRange = new TextRange(
           templateState.getExpressionContextForSegment(0).getTemplateStartOffset,
           templateState.getExpressionContextForSegment(0).getTemplateEndOffset
         )
-        pyClass.getInstanceAttributes.asScala.filter(psi =>
-          !templateRange.contains(psi.getTextRange)
-        ).map(_.getName).toSet
+        pyClass.getInstanceAttributes.asScala
+          .filter(psi => !templateRange.contains(psi.getTextRange))
+          .map(_.getName)
+          .toSet
       case None => Set[String]()
     }
 
@@ -172,10 +182,12 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     if (!isError) {
       validationInfo = validationInfo.asWarning()
     }
-    val popupBuilder = ComponentValidator.createPopupBuilder(
-      validationInfo,
-      _ => ()
-    ).setCancelKeyEnabled(false) // otherwise this eats the cancel keypress for the live template
+    val popupBuilder = ComponentValidator
+      .createPopupBuilder(
+        validationInfo,
+        _ => ()
+      )
+      .setCancelKeyEnabled(false) // otherwise this eats the cancel keypress for the live template
     val popup = popupBuilder.createPopup()
     popup.showInBestPositionFor(editor)
     popup
@@ -193,19 +205,23 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     val fileDescriptor =
       new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile, elt.getTextRange.getStartOffset)
     val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
-    editor.getCaretModel.moveToOffset(elt.getTextOffset) // needed so the template is placed at the right location
+    editor.getCaretModel.moveToOffset(
+      elt.getTextOffset
+    ) // needed so the template is placed at the right location
 
     // these must be constructed before template creation, other template creation messes up the locations
     val highlighters = new java.util.ArrayList[RangeHighlighter]()
     // flags = 0 means ignore esc, otherwise it eats the esc keypress
-    HighlightManager.getInstance(project).addOccurrenceHighlight(
-      editor,
-      elt.getTextRange.getStartOffset,
-      elt.getTextRange.getEndOffset,
-      EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT,
-      0,
-      highlighters
-    )
+    HighlightManager
+      .getInstance(project)
+      .addOccurrenceHighlight(
+        editor,
+        elt.getTextRange.getStartOffset,
+        elt.getTextRange.getEndOffset,
+        EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT,
+        0,
+        highlighters
+      )
 
     val builder = new TemplateBuilderImpl(elt)
     variables.zipWithIndex.foreach { case (variable, variableIndex) =>
@@ -238,7 +254,7 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     UIUtil.markAsShowing(editor.getContentComponent, true)
     val tooltipString = initialTooltip match {
       case Some(initialTooltip) => f"${variables.head.name} | $initialTooltip"
-      case None => f"${variables.head.name}"
+      case None                 => f"${variables.head.name}"
     }
     val tooltip = createTemplateTooltip(tooltipString, editor)
 

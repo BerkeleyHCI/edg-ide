@@ -43,7 +43,8 @@ class DesignTopConfigurationFactory(confType: ConfigurationType) extends Configu
     new DesignTopRunConfiguration(project, this, "DesignTop")
   }
 
-  override def getOptionsClass: Class[DesignTopRunConfigurationOptions] = classOf[DesignTopRunConfigurationOptions]
+  override def getOptionsClass: Class[DesignTopRunConfigurationOptions] =
+    classOf[DesignTopRunConfigurationOptions]
 }
 
 object RefdesMode extends Enumeration {
@@ -69,7 +70,9 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
     extends RunConfigurationBase[DesignTopRunConfigurationOptions](project, factory, name) {
   def options: DesignTopRunConfigurationOptions = getOptions.asInstanceOf[DesignTopRunConfigurationOptions]
 
-  override def getConfigurationEditor: SettingsEditor[_ <: RunConfiguration] = new DesignTopSettingsEditor(project)
+  override def getConfigurationEditor: SettingsEditor[_ <: RunConfiguration] = new DesignTopSettingsEditor(
+    project
+  )
 
   // This is new
   override def getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState = {
@@ -127,7 +130,8 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
   protected val bomFile = new JTextField()
   protected val pdfFile = new JTextField()
 
-  protected val panel = FormBuilder.createFormBuilder()
+  protected val panel = FormBuilder
+    .createFormBuilder()
     .addLabeledComponent(new JBLabel("Design top name"), designName, false)
     .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
     .addLabeledComponent(new JBLabel("Select Netlist Refdes value"), toggleRefdes)

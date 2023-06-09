@@ -16,7 +16,9 @@ import scala.jdk.CollectionConverters.ListHasAsScala
   *   - additional setStable(elts) to render elts as stale (???)
   */
 class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = false)
-    extends JComponent with Scrollable with Zoomable {
+    extends JComponent
+    with Scrollable
+    with Zoomable {
   private var zoomLevel: Float = 1.0f
   private var selected: Set[ElkGraphElement] = Set()
   private var highlighted: Option[Set[ElkGraphElement]] = None
@@ -112,12 +114,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       // Test node, and if within node, recurse into children
       val containedNodes = if (shapeContainsPoint(node, point)) {
         val containedChildren = node.getChildren.asScala.flatMap(intersectNode(_, nodePoint))
-        val edgeDistances = node.getContainedEdges.asScala.map { edge =>
-          (edge, edgeClosestDistance(edge, nodePoint) * zoomLevel) // attach distance calculation
-        }.sortBy(_._2) // sort to get closest to cursor
+        val edgeDistances = node.getContainedEdges.asScala
+          .map { edge =>
+            (edge, edgeClosestDistance(edge, nodePoint) * zoomLevel) // attach distance calculation
+          }
+          .sortBy(_._2) // sort to get closest to cursor
         val containedEdges = edgeDistances.collect {
-          case (edge, dist)
-            if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
+          case (edge, dist) if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
         }
 
         containedChildren ++ containedEdges ++ Seq(node)
@@ -137,7 +140,8 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
+    val painter =
+      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
     painter.paintComponent(paintGraphics, this.getBackground)
   }
 
@@ -160,8 +164,9 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   override def getToolTipText(e: MouseEvent): String = {
     getElementForLocation(e.getX, e.getY) match {
       case None => null
-      case Some(element) => elementToolTips.get(element) match {
-          case None => null
+      case Some(element) =>
+        elementToolTips.get(element) match {
+          case None       => null
           case Some(text) => text
         }
     }

@@ -35,7 +35,8 @@ object DseSearchConfigPopupMenu {
       project: Project,
       newConfigFn: DseConfigElement => Unit
   ): Errorable[() => Unit] = exceptable {
-    val parseableSearchConfig = searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
+    val parseableSearchConfig =
+      searchConfig.instanceOfExcept[DseParameterSearch]("not an editable config type")
     val initialValue = parseableSearchConfig.valuesToString()
 
     () =>
@@ -49,49 +50,55 @@ object DseSearchConfigPopupMenu {
 }
 
 class DseSearchConfigPopupMenu(searchConfig: DseConfigElement, project: Project) extends JPopupMenu {
-  add(ContextMenuUtils.MenuItemFromErrorable(
-    exceptable {
-      val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
-      val originalSearchConfigs = dseConfig.options.searchConfigs
-      () => {
-        dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != searchConfig)
-        DseService(project).onSearchConfigChanged(dseConfig, false)
-      }
-    },
-    s"Delete"
-  ))
-
-  add(ContextMenuUtils.MenuItemFromErrorable(
-    DseSearchConfigPopupMenu.createParamSearchEditPopup(
-      searchConfig,
-      project,
-      { newConfig =>
-        exceptionPopup.atMouse(this) {
-          val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
-          val originalSearchConfigs = dseConfig.options.searchConfigs
-          val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
-          val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
-          dseConfig.options.searchConfigs = newSearchConfigs
+  add(
+    ContextMenuUtils.MenuItemFromErrorable(
+      exceptable {
+        val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
+        val originalSearchConfigs = dseConfig.options.searchConfigs
+        () => {
+          dseConfig.options.searchConfigs = originalSearchConfigs.filter(_ != searchConfig)
           DseService(project).onSearchConfigChanged(dseConfig, false)
         }
-      }
-    ),
-    s"Edit"
-  ))
+      },
+      s"Delete"
+    )
+  )
+
+  add(
+    ContextMenuUtils.MenuItemFromErrorable(
+      DseSearchConfigPopupMenu.createParamSearchEditPopup(
+        searchConfig,
+        project,
+        { newConfig =>
+          exceptionPopup.atMouse(this) {
+            val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
+            val originalSearchConfigs = dseConfig.options.searchConfigs
+            val index = originalSearchConfigs.indexOf(searchConfig).exceptEquals(-1, "config not found")
+            val newSearchConfigs = originalSearchConfigs.patch(index, Seq(newConfig), 1)
+            dseConfig.options.searchConfigs = newSearchConfigs
+            DseService(project).onSearchConfigChanged(dseConfig, false)
+          }
+        }
+      ),
+      s"Edit"
+    )
+  )
 }
 
 class DseObjectivePopupMenu(objective: DseObjective, project: Project) extends JPopupMenu {
-  add(ContextMenuUtils.MenuItemFromErrorable(
-    exceptable {
-      val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
-      val originalObjectives = dseConfig.options.objectives
-      () => {
-        dseConfig.options.objectives = originalObjectives.filter(_ != objective)
-        DseService(project).onObjectiveConfigChanged(dseConfig, false)
-      }
-    },
-    s"Delete"
-  ))
+  add(
+    ContextMenuUtils.MenuItemFromErrorable(
+      exceptable {
+        val dseConfig = DseService(project).getRunConfiguration.exceptNone("no run config")
+        val originalObjectives = dseConfig.options.objectives
+        () => {
+          dseConfig.options.objectives = originalObjectives.filter(_ != objective)
+          DseService(project).onObjectiveConfigChanged(dseConfig, false)
+        }
+      },
+      s"Delete"
+    )
+  )
 }
 
 class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu {
@@ -104,21 +111,24 @@ class DseResultPopupMenu(result: DseResult, project: Project) extends JPopupMenu
   }
   addSeparator()
 
-  add(ContextMenuUtils.MenuItemFromErrorable(
-    exceptable {
-      val topType = result.compiled.getContents.getSelfClass
-      val topClass = DesignAnalysisUtils.pyClassOf(topType, project).exceptError
+  add(
+    ContextMenuUtils.MenuItemFromErrorable(
+      exceptable {
+        val topType = result.compiled.getContents.getSelfClass
+        val topClass = DesignAnalysisUtils.pyClassOf(topType, project).exceptError
 
-      val insertAction = new InsertRefinementAction(project, topClass)
-        .createInsertRefinements(result.searchRefinements).exceptError
-      () => { // TODO standardized continuation?
-        val inserted = insertAction()
-        InsertAction.navigateToEnd(inserted.head)
-        InsertAction.selectAndNavigate(inserted)
-      }
-    },
-    s"Insert refinements"
-  ))
+        val insertAction = new InsertRefinementAction(project, topClass)
+          .createInsertRefinements(result.searchRefinements)
+          .exceptError
+        () => { // TODO standardized continuation?
+          val inserted = insertAction()
+          InsertAction.navigateToEnd(inserted.head)
+          InsertAction.selectAndNavigate(inserted)
+        }
+      },
+      s"Insert refinements"
+    )
+  )
 }
 
 class DsePanel(project: Project) extends JPanel {
@@ -128,12 +138,13 @@ class DsePanel(project: Project) extends JPanel {
   // Regularly check the selected run config so the panel contents are kept in sync
   AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(
     () => {
-      DseService.option(project).map { dseService => // option avoids an exception on shutdown, after it's been disposed
-        val newConfig = dseService.getRunConfiguration
-        if (newConfig != displayedConfig) {
-          displayedConfig = newConfig
-          onConfigUpdate()
-        }
+      DseService.option(project).map {
+        dseService => // option avoids an exception on shutdown, after it's been disposed
+          val newConfig = dseService.getRunConfiguration
+          if (newConfig != displayedConfig) {
+            displayedConfig = newConfig
+            onConfigUpdate()
+          }
       }
     },
     333,
@@ -185,7 +196,7 @@ class DsePanel(project: Project) extends JPanel {
         case node: treeRoot.ResultSetNode =>
           node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
         case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
-        case _ => Seq()
+        case _                                                       => Seq()
       }
 
       val treeRootPath = new TreePath(treeRoot)
@@ -252,8 +263,11 @@ class DsePanel(project: Project) extends JPanel {
   configTree.setRootVisible(false)
   configTree.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val selectedTreePath = TreeTableUtils.getPathForRowLocation(configTree, e.getX, e.getY).getOrElse(return
-      )
+      val selectedTreePath = TreeTableUtils
+        .getPathForRowLocation(configTree, e.getX, e.getY)
+        .getOrElse(
+          return
+        )
       selectedTreePath.getLastPathComponent match {
         case node: DseConfigTreeNode.DseSearchConfigNode =>
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
@@ -272,8 +286,11 @@ class DsePanel(project: Project) extends JPanel {
     override def keyReleased(keyEvent: KeyEvent): Unit = {}
     override def keyPressed(keyEvent: KeyEvent): Unit = {
       if (keyEvent.getKeyCode == KeyEvent.VK_DELETE) {
-        Option(configTree.getTree.getSelectionPath).getOrElse(return
-        ).getLastPathComponent match {
+        Option(configTree.getTree.getSelectionPath)
+          .getOrElse(
+            return
+          )
+          .getLastPathComponent match {
           case node: DseConfigTreeNode.DseSearchConfigNode =>
             DseService(project).getRunConfiguration.foreach { dseConfig =>
               val originalSearchConfigs = dseConfig.options.searchConfigs
@@ -296,14 +313,19 @@ class DsePanel(project: Project) extends JPanel {
 
   // GUI: Bottom Tabs: Results
   //
-  private val resultsTree = new TreeTable(new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false))
+  private val resultsTree = new TreeTable(
+    new DseResultTreeTableModel(new CombinedDseResultSet(Seq()), Seq(), false)
+  )
   resultsTree.setTreeCellRenderer(new DseResultTreeRenderer)
   resultsTree.setShowColumns(true)
   resultsTree.setRootVisible(false)
   resultsTree.addMouseListener(new MouseAdapter {
     override def mouseClicked(e: MouseEvent): Unit = {
-      val selectedTreePath = TreeTableUtils.getPathForRowLocation(resultsTree, e.getX, e.getY).getOrElse(return
-      )
+      val selectedTreePath = TreeTableUtils
+        .getPathForRowLocation(resultsTree, e.getX, e.getY)
+        .getOrElse(
+          return
+        )
       selectedTreePath.getLastPathComponent match {
         case node: DseResultTreeNode#ResultSetNode =>
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // single click, highlight all in chart
@@ -348,7 +370,10 @@ class DsePanel(project: Project) extends JPanel {
   ): Unit = {
     val combinedResults = new CombinedDseResultSet(results)
     ApplicationManager.getApplication.invokeLater(() => {
-      TreeTableUtils.updateModel(resultsTree, new DseResultTreeTableModel(combinedResults, objectives, inProgress))
+      TreeTableUtils.updateModel(
+        resultsTree,
+        new DseResultTreeTableModel(combinedResults, objectives, inProgress)
+      )
     })
     allPlots.foreach { _.setResults(combinedResults, search, objectives) }
   }

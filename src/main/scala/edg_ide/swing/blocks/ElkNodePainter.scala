@@ -50,7 +50,11 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
 
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
   // text should be drawn.
-  def transformLabelCoords(g: Graphics2D, label: ElkLabel, placement: Set[NodeLabelPlacement]): (Double, Double) = {
+  def transformLabelCoords(
+      g: Graphics2D,
+      label: ElkLabel,
+      placement: Set[NodeLabelPlacement]
+  ): (Double, Double) = {
     val fontMetrics = g.getFontMetrics(g.getFont)
 
     val textWidth = fontMetrics.stringWidth(label.getText)
@@ -84,8 +88,8 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     // If a self-edge between parent's ports, use parent's transforms
     // TODO: is this generally correct? it's good enough for what we need though
     val thisG = if (edge.getSources == edge.getTargets) {
-      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect {
-        case sourcePort: ElkPort => sourcePort.getParent
+      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect { case sourcePort: ElkPort =>
+        sourcePort.getParent
       }
       if (edgeTargetBlockOption == Some(edge.getContainingNode)) {
         parentG
@@ -114,7 +118,11 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     node.getLabels.asScala.foreach { label =>
       val (labelX, labelY) =
         transformLabelCoords(g, label, label.getProperty(CoreOptions.NODE_LABELS_PLACEMENT).asScala.toSet)
-      textGraphics(g, nodeBackground, node).drawString(label.getText, (labelX + nodeX).toInt, (labelY + nodeY).toInt)
+      textGraphics(g, nodeBackground, node).drawString(
+        label.getText,
+        (labelX + nodeX).toInt,
+        (labelY + nodeY).toInt
+      )
     }
   }
 
@@ -136,9 +144,9 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
       case PortSide.NORTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP)
       case PortSide.SOUTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM)
-      case PortSide.WEST => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
-      case PortSide.EAST => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
-      case _ => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
+      case PortSide.WEST  => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
+      case PortSide.EAST  => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
+      case _              => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
     }
 
     port.getLabels.asScala.foreach { label =>
@@ -151,7 +159,11 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     }
   }
 
-  protected def getNodeBackground(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Color = {
+  protected def getNodeBackground(
+      containingG: Graphics2D,
+      containingBackground: Color,
+      node: ElkNode
+  ): Color = {
     val nodeBackground = ColorUtil.blendColor(containingBackground, containingG.getColor, 0.15)
     nodeBackground
   }

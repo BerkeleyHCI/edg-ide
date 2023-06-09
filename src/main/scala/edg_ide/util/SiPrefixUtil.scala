@@ -56,7 +56,7 @@ object SiPrefixUtil {
       val (numericStr, siPrefix) = str.splitAt(str.length - 1)
       val multiplier = PREFIXES_MAP.get(siPrefix) match {
         case Some(multiplier) => multiplier
-        case None => exceptable.fail(s"bad SI prefix '$siPrefix'")
+        case None             => exceptable.fail(s"bad SI prefix '$siPrefix'")
       }
       (numericStr, multiplier.toFloat)
     } else {

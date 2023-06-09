@@ -30,7 +30,8 @@ import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava}
 
 // a dummy-ish provider for PythonRunParams to get the Python interpreter executable
-class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: String) extends PythonRunParams {
+class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: String)
+    extends PythonRunParams {
   override def getInterpreterOptions: String = ""
 
   override def setInterpreterOptions(s: String): Unit = throw new NotImplementedError()
@@ -61,7 +62,8 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 
   override def getMappingSettings: PathMappingSettings = new PathMappingSettings()
 
-  override def setMappingSettings(pathMappingSettings: PathMappingSettings): Unit = throw new NotImplementedError()
+  override def setMappingSettings(pathMappingSettings: PathMappingSettings): Unit =
+    throw new NotImplementedError()
 
   override def shouldAddContentRoots(): Boolean = false
 
@@ -100,15 +102,25 @@ class LoggingPythonInterface(
     forwardProcessOutput()
     result match {
       case Errorable.Error(msg) =>
-        console.print(f"Error while compiling ${element.toSimpleString}: $msg\n", ConsoleViewContentType.ERROR_OUTPUT)
+        console.print(
+          f"Error while compiling ${element.toSimpleString}: $msg\n",
+          ConsoleViewContentType.ERROR_OUTPUT
+        )
       case _ =>
     }
   }
 
-  override def onElaborateGeneratorRequest(element: ref.LibraryPath, values: Map[ref.LocalPath, ExprValue]): Unit = {
-    val valuesString = values.map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
+  override def onElaborateGeneratorRequest(
+      element: ref.LibraryPath,
+      values: Map[ref.LocalPath, ExprValue]
+  ): Unit = {
+    val valuesString = values
+      .map { case (path, value) => s"${ExprToString(path)}: ${value.toStringValue}" }
       .mkString(", ")
-    console.print(s"Generate ${element.toSimpleString} ($valuesString)\n", ConsoleViewContentType.LOG_DEBUG_OUTPUT)
+    console.print(
+      s"Generate ${element.toSimpleString} ($valuesString)\n",
+      ConsoleViewContentType.LOG_DEBUG_OUTPUT
+    )
   }
 
   override def onElaborateGeneratorRequestComplete(
@@ -119,7 +131,10 @@ class LoggingPythonInterface(
     forwardProcessOutput()
     result match {
       case Errorable.Error(msg) =>
-        console.print(f"Error while generating ${element.toSimpleString}: $msg\n", ConsoleViewContentType.ERROR_OUTPUT)
+        console.print(
+          f"Error while generating ${element.toSimpleString}: $msg\n",
+          ConsoleViewContentType.ERROR_OUTPUT
+        )
       case _ =>
     }
   }
@@ -130,7 +145,8 @@ class LoggingPythonInterface(
   ): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(
+      case Errorable.Error(msg) =>
+        console.print(
           f"Error while running refinement ${refinementPass.toSimpleString}: $msg\n",
           ConsoleViewContentType.ERROR_OUTPUT
         )
@@ -138,10 +154,14 @@ class LoggingPythonInterface(
     }
   }
 
-  override def onRunBackendComplete(backend: ref.LibraryPath, result: Errorable[Map[DesignPath, String]]): Unit = {
+  override def onRunBackendComplete(
+      backend: ref.LibraryPath,
+      result: Errorable[Map[DesignPath, String]]
+  ): Unit = {
     forwardProcessOutput()
     result match {
-      case Errorable.Error(msg) => console.print(
+      case Errorable.Error(msg) =>
+        console.print(
           f"Error while running backend ${backend.toSimpleString}: $msg\n",
           ConsoleViewContentType.ERROR_OUTPUT
         )
@@ -158,7 +178,8 @@ object CompileProcessHandler {
       ReadAction.compute(() => {
         val pyPsi = PyPsiFacade.getInstance(project)
         val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
-        val pyClass = pyPsi.createClassByQName(designName, anchor)
+        val pyClass = pyPsi
+          .createClassByQName(designName, anchor)
           .exceptNull(s"can't find class $designName")
         val module = ModuleUtilCore.findModuleForPsiElement(pyClass).exceptNull("can't find project module")
         val sdk = PythonSdkUtil.findPythonSdk(module).exceptNull("can't find Python SDK")
@@ -168,7 +189,8 @@ object CompileProcessHandler {
           sdk.getHomePath,
           module.getName
         )
-        val pythonCommand = PythonCommandLineState.getInterpreterPath(project, runParams)
+        val pythonCommand = PythonCommandLineState
+          .getInterpreterPath(project, runParams)
           .exceptNull("can't get interpreter path")
         val pythonPaths = PythonCommandLineState.collectPythonPath(module)
         (pythonCommand, pythonPaths.asScala.toSeq, sdk.getName)
@@ -179,10 +201,12 @@ object CompileProcessHandler {
 trait HasConsoleStages {
   val console: ConsoleView
 
-  /** Logging and status wrappers for running a stage that returns some value. Exceptions are not caught and propagated
-    * up. The stage function returns both a type and a message (can be empty) that is printed to the console.
+  /** Logging and status wrappers for running a stage that returns some value. Exceptions are not caught and
+    * propagated up. The stage function returns both a type and a message (can be empty) that is printed to
+    * the console.
     *
-    * If a progress fraction is specified, the progress indicator is set to it, otherwise it is set indeterminate.
+    * If a progress fraction is specified, the progress indicator is set to it, otherwise it is set
+    * indeterminate.
     */
   protected def runRequiredStage[ReturnType](
       name: String,
@@ -206,8 +230,8 @@ trait HasConsoleStages {
     fnResult
   }
 
-  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console. If the function
-    * fails, a specified default is returned.
+  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console. If the
+    * function fails, a specified default is returned.
     */
   protected def runFailableStage[ReturnType](
       name: String,
@@ -247,8 +271,12 @@ trait HasConsoleStages {
   }
 }
 
-class CompileProcessHandler(project: Project, options: DesignTopRunConfigurationOptions, val console: ConsoleView)
-    extends ProcessHandler with HasConsoleStages {
+class CompileProcessHandler(
+    project: Project,
+    options: DesignTopRunConfigurationOptions,
+    val console: ConsoleView
+) extends ProcessHandler
+    with HasConsoleStages {
   var runThread: Option[Thread] = None
 
   override def destroyProcessImpl(): Unit = {
@@ -264,9 +292,11 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
     notifyProcessTerminated(exitCode)
   }
 
-  ProgressManager.getInstance().run(new Task.Backgroundable(project, "EDG compiling") {
-    override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
-  })
+  ProgressManager
+    .getInstance()
+    .run(new Task.Backgroundable(project, "EDG compiling") {
+      override def run(indicator: ProgressIndicator): Unit = runCompile(indicator)
+    })
 
   private def runCompile(indicator: ProgressIndicator): Unit = {
     runThread = Some(Thread.currentThread())
@@ -281,8 +311,10 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
     try {
       val (pythonCommand, pythonPaths, sdkName) =
-        CompileProcessHandler.getPythonInterpreter(project, options.designName)
-          .mapErr(msg => s"while getting Python interpreter path: $msg").get
+        CompileProcessHandler
+          .getPythonInterpreter(project, options.designName)
+          .mapErr(msg => s"while getting Python interpreter path: $msg")
+          .get
       console.print(
         s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT
@@ -313,7 +345,8 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           }
 
           val designModule = options.designName.split('.').init.mkString(".")
-          val (indexed, _, _) = EdgCompilerService(project).rebuildLibraries(designModule, Some(rebuildProgressFn)).get
+          val (indexed, _, _) =
+            EdgCompilerService(project).rebuildLibraries(designModule, Some(rebuildProgressFn)).get
           f"${indexed.size} elements"
         }
 
@@ -327,17 +360,23 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
           val errors = compiler.getErrors() ++ new DesignAssertionCheck(compiler).map(compiled) ++
             new DesignStructuralValidate().map(compiled) ++ new DesignRefsValidate().validate(compiled)
           if (errors.nonEmpty) {
-            console.print(s"Compiled design has ${errors.length} errors\n", ConsoleViewContentType.ERROR_OUTPUT)
+            console.print(
+              s"Compiled design has ${errors.length} errors\n",
+              ConsoleViewContentType.ERROR_OUTPUT
+            )
           }
           (errors, f"${errors.length} errors")
         }
 
         runFailableStageUnit("refdes", indicator) {
-          val refdes = pythonInterface.get.runRefinementPass(
-            ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
-            compiled,
-            compiler.getAllSolved
-          ).mapErr(msg => s"while refdesing: $msg").get
+          val refdes = pythonInterface.get
+            .runRefinementPass(
+              ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
+              compiled,
+              compiler.getAllSolved
+            )
+            .mapErr(msg => s"while refdesing: $msg")
+            .get
           compiler.addAssignValues(refdes, "refdes")
           f"${refdes.size} components"
         }
@@ -350,12 +389,15 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.netlistFile.nonEmpty) {
           runFailableStageUnit("generate netlist", indicator) {
-            val netlist = pythonInterface.get.runBackend(
-              ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
-              compiled,
-              compiler.getAllSolved,
-              Map("RefdesMode" -> options.toggle.toString)
-            ).mapErr(msg => s"while netlisting: $msg").get
+            val netlist = pythonInterface.get
+              .runBackend(
+                ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
+                compiled,
+                compiler.getAllSolved,
+                Map("RefdesMode" -> options.toggle.toString)
+              )
+              .mapErr(msg => s"while netlisting: $msg")
+              .get
             require(netlist.size == 1)
 
             Files.createDirectories(Paths.get(options.netlistFile).getParent)
@@ -373,12 +415,15 @@ class CompileProcessHandler(project: Project, options: DesignTopRunConfiguration
 
         if (options.bomFile.nonEmpty) {
           runFailableStageUnit("generate BOM", indicator) {
-            val bom = pythonInterface.get.runBackend(
-              ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
-              compiled,
-              compiler.getAllSolved,
-              Map()
-            ).mapErr(msg => s"while generating bom: $msg").get
+            val bom = pythonInterface.get
+              .runBackend(
+                ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
+                compiled,
+                compiler.getAllSolved,
+                Map()
+              )
+              .mapErr(msg => s"while generating bom: $msg")
+              .get
             require(bom.size == 1)
 
             Files.createDirectories(Paths.get(options.bomFile).getParent)

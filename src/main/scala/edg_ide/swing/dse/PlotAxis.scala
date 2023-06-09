@@ -19,7 +19,7 @@ object PlotAxis {
           " (min)",
           {
             case RangeValue(lower, upper) => Some(lower)
-            case _ => None
+            case _                        => None
           }
         ),
         new DseConfigParamAxis(
@@ -27,7 +27,7 @@ object PlotAxis {
           " (mid)",
           {
             case RangeValue(lower, upper) => Some((lower + upper) / 2)
-            case _ => None
+            case _                        => None
           }
         ),
         new DseConfigParamAxis(
@@ -35,7 +35,7 @@ object PlotAxis {
           " (max)",
           {
             case RangeValue(lower, upper) => Some(upper)
-            case _ => None
+            case _                        => None
           }
         ),
         new DseConfigParamAxis(
@@ -56,9 +56,9 @@ object PlotAxis {
           " (span)",
           {
             case RangeValue(lower, upper) => Some(upper - lower)
-            case _ => None
+            case _                        => None
           }
-        ),
+        )
       )
     case config => Seq(new DseConfigOrdinalAxis(config))
   }
@@ -66,7 +66,7 @@ object PlotAxis {
   // creates plot axes for an objective function
   def fromObjective(objective: DseObjective): Seq[PlotAxis] = objective match {
     case objective: DseFloatObjective => Seq(new DseObjectiveAxis(objective))
-    case objective: DseIntObjective => Seq(new DseObjectiveAxis(objective))
+    case objective: DseIntObjective   => Seq(new DseObjectiveAxis(objective))
     case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
       Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
     case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
@@ -78,7 +78,7 @@ object PlotAxis {
           " (min)",
           {
             case RangeValue(lower, upper) => Some(lower)
-            case _ => None
+            case _                        => None
           }
         ),
         new DseObjectiveParamAxis(
@@ -86,7 +86,7 @@ object PlotAxis {
           " (mid)",
           {
             case RangeValue(lower, upper) => Some((lower + upper) / 2)
-            case _ => None
+            case _                        => None
           }
         ),
         new DseObjectiveParamAxis(
@@ -94,7 +94,7 @@ object PlotAxis {
           " (max)",
           {
             case RangeValue(lower, upper) => Some(upper)
-            case _ => None
+            case _                        => None
           }
         ),
         new DseObjectiveParamAxis(
@@ -115,9 +115,9 @@ object PlotAxis {
           " (span)",
           {
             case RangeValue(lower, upper) => Some(upper - lower)
-            case _ => None
+            case _                        => None
           }
-        ),
+        )
       )
     case objective: DseObjectiveParameter =>
       Seq(new DseObjectiveParamOrdinalAxis(objective))
@@ -144,25 +144,26 @@ class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
     val values = results.map { result =>
       result.objectives.get(objective).flatMap {
         case x: Float => Some(x)
-        case x: Int => Some(x.toFloat)
-        case _ => None
+        case x: Int   => Some(x.toFloat)
+        case _        => None
       }
     }
     (values, None)
   }
 }
 
-class DseObjectiveParamAxis(objective: DseObjectiveParameter, postfix: String, mapFn: ExprValue => Option[Float])
-    extends PlotAxis {
+class DseObjectiveParamAxis(
+    objective: DseObjectiveParameter,
+    postfix: String,
+    mapFn: ExprValue => Option[Float]
+) extends PlotAxis {
   override def toString = objective.objectiveToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     val values = results.map { result =>
-      result.objectives.get(objective).flatMap(value =>
-        value.asInstanceOf[Option[ExprValue]].flatMap(value =>
-          mapFn(value)
-        )
-      )
+      result.objectives
+        .get(objective)
+        .flatMap(value => value.asInstanceOf[Option[ExprValue]].flatMap(value => mapFn(value)))
     }
     (values, None)
   }
@@ -173,11 +174,13 @@ class DseObjectiveParamOrdinalAxis(objective: DseObjectiveParameter) extends Plo
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
     val values = results.map { result =>
-      result.objectives.get(objective).flatMap(value =>
-        value.asInstanceOf[Option[ExprValue]].map(_.toStringValue)
-      )
+      result.objectives
+        .get(objective)
+        .flatMap(value => value.asInstanceOf[Option[ExprValue]].map(_.toStringValue))
     }
-    val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) => (str, index.toFloat) }
+    val stringToPos = values.flatten.distinct.sorted.zipWithIndex.map { case (str, index) =>
+      (str, index.toFloat)
+    }
     val axis = stringToPos.map { case (str, index) => (index, str) }
 
     val stringToPosMap = stringToPos.toMap
@@ -190,7 +193,8 @@ class DseObjectiveParamOrdinalAxis(objective: DseObjectiveParameter) extends Plo
   }
 }
 
-class DseConfigParamAxis(config: DseConfigElement, postfix: String, map: ExprValue => Option[Float]) extends PlotAxis {
+class DseConfigParamAxis(config: DseConfigElement, postfix: String, map: ExprValue => Option[Float])
+    extends PlotAxis {
   override def toString = config.configToString + postfix
 
   override def resultsToValuesAxis(results: Seq[DseResult]): (Seq[Option[Float]], PlotAxis.AxisType) = {
@@ -211,7 +215,8 @@ class DseConfigOrdinalAxis(config: DseConfigElement) extends PlotAxis {
 
     val distinctValues = values.flatten.distinct
     val presort = (config match { // sorted by input space
-      case config: DseRefinementElement[Any] => config.getValues.map { case (value, refinements) =>
+      case config: DseRefinementElement[Any] =>
+        config.getValues.map { case (value, refinements) =>
           config.valueToString(value)
         }
       case _ => Seq()

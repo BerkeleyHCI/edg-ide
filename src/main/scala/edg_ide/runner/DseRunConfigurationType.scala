@@ -102,7 +102,11 @@ class DseRunConfiguration(project: Project, factory: ConfigurationFactory, name:
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldResultCsvFile, options.resultCsvFile)
-    JDOMExternalizerUtil.writeField(element, kFieldSearchConfigs, ObjectSerializer.serialize(options.searchConfigs))
+    JDOMExternalizerUtil.writeField(
+      element,
+      kFieldSearchConfigs,
+      ObjectSerializer.serialize(options.searchConfigs)
+    )
     JDOMExternalizerUtil.writeField(element, kFieldObjectives, ObjectSerializer.serialize(options.objectives))
   }
 }
@@ -113,7 +117,8 @@ class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   protected val searchConfigs = new JLabel() // view only - set from DSE tab in BlockVisualizer panel
   protected val objectives = new JLabel()
 
-  protected val panel = FormBuilder.createFormBuilder()
+  protected val panel = FormBuilder
+    .createFormBuilder()
     .addLabeledComponent(new JBLabel("Design top name"), designName, false)
     .addLabeledComponent(new JBLabel("Result CSV file"), resultCsvFile, false)
     .addLabeledComponent(new JBLabel("Parameter search configs"), searchConfigs, false)
@@ -124,7 +129,9 @@ class DseSettingsEditor extends SettingsEditor[DseRunConfiguration] {
   override def resetEditorFrom(s: DseRunConfiguration): Unit = {
     designName.setText(s.options.designName)
     resultCsvFile.setText(s.options.resultCsvFile)
-    searchConfigs.setText("<html>" + s.options.searchConfigs.map(_.configToString).mkString("<br/>") + "</html>")
+    searchConfigs.setText(
+      "<html>" + s.options.searchConfigs.map(_.configToString).mkString("<br/>") + "</html>"
+    )
     objectives.setText("<html>" + s.options.objectives.map(_.objectiveToString).mkString("<br/>") + "</html>")
   }
 

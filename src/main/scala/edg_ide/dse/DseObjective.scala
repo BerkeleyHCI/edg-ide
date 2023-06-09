@@ -21,16 +21,31 @@ import scala.collection.{SeqMap, mutable}
 sealed trait DseObjective { self: Serializable =>
   def objectiveToString: String // short human-friendly string describing this configuration
 
-  def calculate(design: schema.Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Any
+  def calculate(
+      design: schema.Design,
+      compiler: Compiler,
+      pythonInterface: PythonInterface,
+      project: Project
+  ): Any
 }
 
 // Abstract base class for numeric calculation results
 sealed abstract class DseFloatObjective extends DseObjective { self: Serializable =>
-  def calculate(design: schema.Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Float
+  def calculate(
+      design: schema.Design,
+      compiler: Compiler,
+      pythonInterface: PythonInterface,
+      project: Project
+  ): Float
 }
 
 sealed abstract class DseIntObjective extends DseObjective { self: Serializable =>
-  def calculate(design: schema.Design, compiler: Compiler, pythonInterface: PythonInterface, project: Project): Int
+  def calculate(
+      design: schema.Design,
+      compiler: Compiler,
+      pythonInterface: PythonInterface,
+      project: Project
+  ): Int
 }
 
 // Abstract base class for parameter values
@@ -80,7 +95,7 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath) extends DseFloatObjec
         val thisArea = if (path.startsWith(rootPath)) {
           compiler.getParamValue((path + "fp_footprint").asIndirect) match {
             case Some(TextValue(footprintName)) => DseObjectiveFootprintArea.getFootprintArea(footprintName)
-            case _ => 0
+            case _                              => 0
           }
         } else {
           0
@@ -103,7 +118,8 @@ case class DseObjectiveFootprintCount(rootPath: DesignPath) extends DseIntObject
   ): Int = {
     new DesignBlockMap[Int] {
       override def mapBlock(path: DesignPath, block: HierarchyBlock, blocks: SeqMap[String, Int]): Int = {
-        val thisValue = if (path.startsWith(rootPath) && block.params.toSeqMap.contains("fp_footprint")) 1 else 0
+        val thisValue =
+          if (path.startsWith(rootPath) && block.params.toSeqMap.contains("fp_footprint")) 1 else 0
         thisValue + blocks.values.sum
       }
     }.map(design)
@@ -119,12 +135,16 @@ case class DseObjectivePrice() extends DseFloatObjective with Serializable {
       pythonInterface: PythonInterface,
       project: Project
   ): Float = {
-    pythonInterface.runBackend(
-      ElemBuilder.LibraryPath("electronics_lib.PriceGetter.GeneratePrice"),
-      design,
-      compiler.getAllSolved,
-      Map()
-    ).toOption.map(value => value(DesignPath()).toFloat).getOrElse(0)
+    pythonInterface
+      .runBackend(
+        ElemBuilder.LibraryPath("electronics_lib.PriceGetter.GeneratePrice"),
+        design,
+        compiler.getAllSolved,
+        Map()
+      )
+      .toOption
+      .map(value => value(DesignPath()).toFloat)
+      .getOrElse(0)
   }
 }
 
@@ -142,7 +162,7 @@ case class DseObjectiveUnprovenCount(rootPath: DesignPath) extends DseIntObjecti
         val thisProven = BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass)
         val thisUnprovenCount = thisProven.latestStatus match {
           case ProvenStatus.Working => 0
-          case _ => 1
+          case _                    => 1
         }
         thisUnprovenCount + blocks.values.sum
       }
