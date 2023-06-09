@@ -2,8 +2,8 @@ package edg_ide.edgir_graph
 
 trait CollapseNodeTransform {
 
-  /** In a containing node, collapses the target node, by removing edges pointing to that node and replacing
-    * them with edges from sources directly to sinks.
+  /** In a containing node, collapses the target node, by removing edges pointing to that node and replacing them with
+    * edges from sources directly to sinks.
     *
     * Takes in a function that determines how to merge the edges being collapsed.
     *
@@ -11,8 +11,8 @@ trait CollapseNodeTransform {
     *   - Collect all edges involving the target block
     *   - Get a list of all sources and sinks on the other end
     *   - 'Delete' the original edges
-    *   - ... and add in new edges as all-to-all edges from sources to sinks TODO: can this be made order
-    *     preserving in some way?
+    *   - ... and add in new edges as all-to-all edges from sources to sinks TODO: can this be made order preserving in
+    *     some way?
     *   - 'Delete' the original node
     *
     * TODO: can this be made generic on HGraphNode? Issue seems to be with instantiating an abstract type

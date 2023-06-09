@@ -37,8 +37,8 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
         val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
         (idealErrors.isEmpty, otherErrors.isEmpty) match {
           case (true, true) => 0 // non-error points prioritized
-          case (_, true)    => 1 // ideal points next
-          case _            => 2 // error points last
+          case (_, true) => 1 // ideal points next
+          case _ => 2 // error points last
         }
       }
       .map { resultsSet =>
@@ -68,7 +68,7 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
       case Some(objective) =>
         exampleResult.objectives.get(objective) match {
           case Some(value) => DseConfigElement.valueToString(value)
-          case _           => "(unknown)"
+          case _ => "(unknown)"
         }
       case _ => "???"
     }
@@ -84,7 +84,7 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
           case Some(objective) =>
             result.objectives.get(objective) match {
               case Some(value) => DseConfigElement.valueToString(value)
-              case _           => "(unknown)"
+              case _ => "(unknown)"
             }
           case _ => "???"
         }
@@ -170,14 +170,14 @@ class DseResultTreeRenderer extends DefaultTreeCellRenderer {
     val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
     val example = value match {
       case node: DseResultTreeNode#ResultSetNode => Some(node.setMembers.head)
-      case node: DseResultTreeNode#ResultNode    => Some(node.result)
-      case _                                     => None
+      case node: DseResultTreeNode#ResultNode => Some(node.result)
+      case _ => None
     }
     val color = example.flatMap { example =>
       val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(example.errors)
       (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-        case (_, true)      => Some(DseResultModel.kColorOtherError)
-        case (true, false)  => Some(DseResultModel.kColorIdealError)
+        case (_, true) => Some(DseResultModel.kColorOtherError)
+        case (true, false) => Some(DseResultModel.kColorIdealError)
         case (false, false) => None
       }
     }

@@ -17,7 +17,7 @@ trait ProvenTreeTableMixin extends TreeTable {
   override def getToolTipText(e: MouseEvent): String = {
     getValueAt(rowAtPoint(e.getPoint), columnAtPoint(e.getPoint)) match {
       case cell: BlockProven => SwingHtmlUtil.wrapInHtml(cell.htmlDescription, getFont)
-      case _                 => super.getToolTipText(e)
+      case _ => super.getToolTipText(e)
     }
   }
 

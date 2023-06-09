@@ -70,7 +70,7 @@ object InsertConnectAction {
     }
 
   def elementPairToText(selfName: String, pair: (String, String)): String = pair match {
-    case ("", portName)        => s"$selfName.$portName"
+    case ("", portName) => s"$selfName.$portName"
     case (blockName, portName) => s"$selfName.$blockName.$portName"
   }
 
@@ -82,7 +82,7 @@ object InsertConnectAction {
   ): Seq[String] = {
     portPairs
       .map { // to attribute name
-        case ("", portName)        => portName
+        case ("", portName) => portName
         case (blockName, portName) => blockName // assume portName is in blockName
       }
       .map { attributeName => // to ([assigns], attribute name)
@@ -103,12 +103,11 @@ object InsertConnectAction {
       }
   }
 
-  /** Creates an action to insert a new connect statement containing (interior block, block's port). If
-    * interior_block is empty, the port is a port of the parent. Location is checked to ensure all the ports
-    * are visible.
+  /** Creates an action to insert a new connect statement containing (interior block, block's port). If interior_block
+    * is empty, the port is a port of the parent. Location is checked to ensure all the ports are visible.
     *
-    * TODO should elements be more structured to allow more analysis checking? This generally assumes that
-    * elements are sane and in the class of after.
+    * TODO should elements be more structured to allow more analysis checking? This generally assumes that elements are
+    * sane and in the class of after.
     */
   def createInsertConnectFlow(
       after: PsiElement,
@@ -191,7 +190,7 @@ object InsertConnectAction {
   ): Errorable[() => Unit] = exceptable {
     val containingPsiCall = (within match { // first extract the statement if needed
       case within: PyExpressionStatement => within.getExpression
-      case within                        => within
+      case within => within
     }) match {
       case within: PyCallExpression => within
       case within =>

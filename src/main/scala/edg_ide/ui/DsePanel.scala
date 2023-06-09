@@ -196,7 +196,7 @@ class DsePanel(project: Project) extends JPanel {
         case node: treeRoot.ResultSetNode =>
           node.children.flatMap(getTreePathsForResults(path.pathByAddingChild(node), _))
         case node: treeRoot.ResultNode if data.contains(node.result) => Seq(path.pathByAddingChild(node))
-        case _                                                       => Seq()
+        case _ => Seq()
       }
 
       val treeRootPath = new TreePath(treeRoot)

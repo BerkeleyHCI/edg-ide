@@ -144,9 +144,9 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
       case PortSide.NORTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP)
       case PortSide.SOUTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM)
-      case PortSide.WEST  => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
-      case PortSide.EAST  => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
-      case _              => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
+      case PortSide.WEST => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
+      case PortSide.EAST => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
+      case _ => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
     }
 
     port.getLabels.asScala.foreach { label =>

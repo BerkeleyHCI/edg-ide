@@ -27,9 +27,9 @@ object ProvenStatus extends Enumeration {
 
   def colorOf(status: Status): JBColor = status match {
     case Untested => JBColor.GRAY
-    case Working  => JBColor.GREEN
-    case Fixed    => JBColor.ORANGE
-    case Broken   => JBColor.RED
+    case Working => JBColor.GREEN
+    case Fixed => JBColor.ORANGE
+    case Broken => JBColor.RED
   }
 }
 
@@ -97,7 +97,7 @@ object ProvenDataReader {
         pathComponent.replace("*", ".*").r
       }
       val comments = row.getField(kFieldComments) match {
-        case ""       => None
+        case "" => None
         case comments => Some(comments)
       }
 

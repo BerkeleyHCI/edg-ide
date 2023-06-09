@@ -166,7 +166,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       case None => null
       case Some(element) =>
         elementToolTips.get(element) match {
-          case None       => null
+          case None => null
           case Some(text) => text
         }
     }

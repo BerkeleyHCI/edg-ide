@@ -29,12 +29,12 @@ object AreaUtils {
         seenPoints: Set[PointType]
     ): Option[Seq[PointType]] = {
       adjacency.get(prevPoints.last) match {
-        case None                  => None
+        case None => None
         case Some(connectedPoints) =>
           // discard back-edge
           val newPoints = connectedPoints.filter(_ != prevPoints(prevPoints.size - 2))
           newPoints match {
-            case Seq(nextPoint) if nextPoint == startPoint        => Some(prevPoints)
+            case Seq(nextPoint) if nextPoint == startPoint => Some(prevPoints)
             case Seq(nextPoint) if seenPoints.contains(nextPoint) => None // looped back mid-path
             case Seq(nextPoint) =>
               makeClosedPath(startPoint, prevPoints :+ nextPoint, seenPoints + nextPoint)

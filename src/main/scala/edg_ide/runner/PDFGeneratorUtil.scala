@@ -1,16 +1,6 @@
 package edg_ide.runner
 
-import com.lowagie.text.{
-  Anchor,
-  Document,
-  Element,
-  Font,
-  FontFactory,
-  HeaderFooter,
-  Paragraph,
-  Phrase,
-  Rectangle
-}
+import com.lowagie.text.{Anchor, Document, Element, Font, FontFactory, HeaderFooter, Paragraph, Phrase, Rectangle}
 import com.lowagie.text.pdf.{PdfPCell, PdfPTable, PdfWriter}
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.wir.ProtoUtil.BlockProtoToSeqMap

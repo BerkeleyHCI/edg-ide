@@ -54,7 +54,7 @@ object ElkEdgirGraphUtils {
             compiler.getParamValue((innerPath + "fp_refdes").asIndirect)
           } match {
           case Some(TextValue(refdes)) => Some(f"${node.path.lastString}, $refdes")
-          case _                       => None
+          case _ => None
         }
         Some(refdesStringMaybe.getOrElse(node.path.lastString))
       case _ => None // use default for non-blocks
@@ -85,41 +85,41 @@ object ElkEdgirGraphUtils {
         case "VoltageSink" =>
           portName match {
             case "gnd" | "vss" => Some(PortSide.SOUTH)
-            case _             => Some(PortSide.NORTH)
+            case _ => Some(PortSide.NORTH)
           }
 
-        case "DigitalSource"       => Some(PortSide.EAST)
+        case "DigitalSource" => Some(PortSide.EAST)
         case "DigitalSingleSource" => Some(PortSide.EAST)
-        case "DigitalSink"         => Some(PortSide.WEST)
-        case "DigitalBidir"        => None
+        case "DigitalSink" => Some(PortSide.WEST)
+        case "DigitalBidir" => None
 
         case "AnalogSource" => Some(PortSide.EAST)
-        case "AnalogSink"   => Some(PortSide.WEST)
+        case "AnalogSink" => Some(PortSide.WEST)
 
-        case "CanControllerPort"  => Some(PortSide.EAST)
+        case "CanControllerPort" => Some(PortSide.EAST)
         case "CanTransceiverPort" => Some(PortSide.WEST)
-        case "CanDiffPort"        => None
+        case "CanDiffPort" => None
 
         case "CrystalDriver" => Some(PortSide.EAST)
-        case "CrystalPort"   => Some(PortSide.WEST)
+        case "CrystalPort" => Some(PortSide.WEST)
 
-        case "I2cMaster"     => Some(PortSide.EAST)
+        case "I2cMaster" => Some(PortSide.EAST)
         case "I2cPullupPort" => Some(PortSide.EAST)
-        case "I2cSlave"      => Some(PortSide.WEST)
+        case "I2cSlave" => Some(PortSide.WEST)
 
         case "SpeakerDriverPort" => Some(PortSide.EAST)
-        case "SpeakerPort"       => Some(PortSide.WEST)
+        case "SpeakerPort" => Some(PortSide.WEST)
 
         case "SpiMaster" => Some(PortSide.EAST)
-        case "SpiSlave"  => Some(PortSide.WEST)
+        case "SpiSlave" => Some(PortSide.WEST)
 
-        case "SwdHostPort"   => Some(PortSide.EAST)
+        case "SwdHostPort" => Some(PortSide.EAST)
         case "SwdTargetPort" => Some(PortSide.WEST)
 
         case "UartPrt" => None
 
-        case "UsbHostPort"    => Some(PortSide.EAST)
-        case "UsbDevicePort"  => Some(PortSide.WEST)
+        case "UsbHostPort" => Some(PortSide.EAST)
+        case "UsbDevicePort" => Some(PortSide.WEST)
         case "UsbPassivePort" => None
 
         case _ => None
@@ -141,8 +141,8 @@ object ElkEdgirGraphUtils {
     override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
   }
 
-  /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath.
-    * Returns target node(s) matching the path.
+  /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath. Returns target
+    * node(s) matching the path.
     */
   def follow(path: DesignPath, root: ElkNode): Seq[ElkGraphElement] = {
     def inner(elkNode: ElkNode): Seq[ElkGraphElement] = {
@@ -153,7 +153,7 @@ object ElkEdgirGraphUtils {
           .filter { node =>
             node.getProperty(DesignPathMapper.property) match {
               case DesignPath(steps) => path.steps.startsWith(steps)
-              case _                 => false
+              case _ => false
             }
           }
           .flatMap { childNode =>

@@ -65,9 +65,9 @@ object InsertAction {
   )(implicit tag: ClassTag[PsiType]): Errorable[PsiType] = {
     elt match {
       case elt: PsiWhiteSpace => snapInsertionEltOfType[PsiType](elt.getPrevSibling)
-      case elt: PsiType       => Errorable.Success(elt)
-      case null               => Errorable.Error(s"element not in a ${tag.getClass.getName}")
-      case elt                => snapInsertionEltOfType[PsiType](elt.getParent)
+      case elt: PsiType => Errorable.Success(elt)
+      case null => Errorable.Error(s"element not in a ${tag.getClass.getName}")
+      case elt => snapInsertionEltOfType[PsiType](elt.getParent)
     }
   }
 
@@ -113,7 +113,7 @@ object InsertAction {
         .getSelectedEditor(exampleElement.getContainingFile.getVirtualFile)
     val editor = fileEditor match {
       case editor: TextEditor => editor.getEditor
-      case _                  => return
+      case _ => return
     }
     val carets = elements.map { element =>
       val startPos = editor.offsetToLogicalPosition(element.getTextRange.getStartOffset)

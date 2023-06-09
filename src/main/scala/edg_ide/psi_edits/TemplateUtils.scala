@@ -37,8 +37,8 @@ object TemplateUtils {
   }
 }
 
-/** Utility on top of TemplateEditingAdapter that provides a templateFinished that provides both the
-  * TemplateState (note that some fields may be invalid) and brokenOff in one templateFinished function.
+/** Utility on top of TemplateEditingAdapter that provides a templateFinished that provides both the TemplateState (note
+  * that some fields may be invalid) and brokenOff in one templateFinished function.
   */
 abstract class TemplateFinishedListener extends TemplateEditingAdapter {
   private var finishedTemplateState: Option[TemplateState] = None

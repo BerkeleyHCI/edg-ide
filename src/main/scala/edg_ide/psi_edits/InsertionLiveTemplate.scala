@@ -2,12 +2,7 @@ package edg_ide.psi_edits
 
 import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
-import com.intellij.codeInsight.template.{
-  Template,
-  TemplateBuilderImpl,
-  TemplateEditingAdapter,
-  TemplateManager
-}
+import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
 import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
@@ -254,7 +249,7 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     UIUtil.markAsShowing(editor.getContentComponent, true)
     val tooltipString = initialTooltip match {
       case Some(initialTooltip) => f"${variables.head.name} | $initialTooltip"
-      case None                 => f"${variables.head.name}"
+      case None => f"${variables.head.name}"
     }
     val tooltip = createTemplateTooltip(tooltipString, editor)
 

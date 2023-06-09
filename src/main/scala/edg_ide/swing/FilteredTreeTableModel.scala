@@ -5,14 +5,13 @@ import javax.swing.tree.TreePath
 import collection.mutable
 import scala.reflect.ClassTag
 
-/** A filtering layer around a TreeModel, that takes a filter function on node types, and displays only the
-  * filtered nodes, all their children (recursively), and all their parents.
+/** A filtering layer around a TreeModel, that takes a filter function on node types, and displays only the filtered
+  * nodes, all their children (recursively), and all their parents.
   *
   * Filtering happens on filter application, and traverses the entire tree, requiring N time.
   */
-class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeType])(implicit
-    tag: ClassTag[NodeType]
-) extends SeqTreeTableModel[NodeType] {
+class FilteredTreeTableModel[NodeType <: Object](model: SeqTreeTableModel[NodeType])(implicit tag: ClassTag[NodeType])
+    extends SeqTreeTableModel[NodeType] {
 
   /** Applies the filter on nodes. Computation happens immediately, traversing all nodes to rebuild the tree.
     */

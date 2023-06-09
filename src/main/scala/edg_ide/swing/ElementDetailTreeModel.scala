@@ -11,16 +11,7 @@ import edgir.schema.schema
 import edg.wir._
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder
-import edg.compiler.{
-  ArrayValue,
-  Compiler,
-  ExprResult,
-  ExprToString,
-  ExprValue,
-  FloatValue,
-  IntValue,
-  RangeValue
-}
+import edg.compiler.{ArrayValue, Compiler, ExprResult, ExprToString, ExprValue, FloatValue, IntValue, RangeValue}
 import edg.wir.ProtoUtil._
 import edg_ide.EdgirUtils
 import edg_ide.ui.ParamToUnitsStringUtil
@@ -69,7 +60,7 @@ class ElementDetailNodes(
     override def toString = if (!fromLink) {
       compiler.getConnectedLink(path) match {
         case Some(linkPath) => s"${path.lastString} @ $linkPath"
-        case None           => path.lastString
+        case None => path.lastString
       }
     } else {
       path.lastString
@@ -139,9 +130,9 @@ class ElementDetailNodes(
 
   def PortLikeNode(path: DesignPath, port: elem.PortLike, fromLink: Boolean = false): ElementDetailNode = {
     port.is match {
-      case elem.PortLike.Is.Port(port)   => new PortNode(path, port, fromLink)
+      case elem.PortLike.Is.Port(port) => new PortNode(path, port, fromLink)
       case elem.PortLike.Is.Bundle(port) => new BundleNode(path, port, fromLink)
-      case elem.PortLike.Is.Array(port)  => new PortArrayNode(path, port, fromLink)
+      case elem.PortLike.Is.Array(port) => new PortArrayNode(path, port, fromLink)
       case elem.PortLike.Is.LibElem(port) =>
         new UnelaboratedNode(path, s"unelaborated ${port.toSimpleString}")
       case _ =>
@@ -267,7 +258,7 @@ class ElementDetailNodes(
 
   def LinkLikeNode(path: DesignPath, relpath: IndirectDesignPath, link: elem.LinkLike): ElementDetailNode = {
     link.`type` match {
-      case elem.LinkLike.Type.Link(link)  => new LinkNode(path, relpath, link)
+      case elem.LinkLike.Type.Link(link) => new LinkNode(path, relpath, link)
       case elem.LinkLike.Type.Array(link) => new LinkArrayNode(path, relpath, link)
       case elem.LinkLike.Type.LibElem(link) =>
         new UnelaboratedNode(path, s"unelaborated ${link.toSimpleString}")
@@ -293,17 +284,17 @@ class ElementDetailNodes(
       case steps =>
         val annotation = compiler.getParamValue(path) match {
           case Some(ArrayValue(values)) => f" (${values.length})"
-          case _                        => ""
+          case _ => ""
         }
         steps.last.toString + annotation
     }
 
     override def getColumns(index: Int): String = {
       val value = compiler.getParamValue(path) match {
-        case Some(value @ FloatValue(_))    => ParamToUnitsStringUtil.paramToUnitsString(value, "")
+        case Some(value @ FloatValue(_)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
         case Some(value @ RangeValue(_, _)) => ParamToUnitsStringUtil.paramToUnitsString(value, "")
-        case Some(value)                    => value.toStringValue
-        case None                           => "(unsolved)"
+        case Some(value) => value.toStringValue
+        case None => "(unsolved)"
       }
       s"$value"
     }
@@ -343,7 +334,7 @@ class ElementDetailNodes(
       val constraintStr = ExprToString(constraint)
       constraint.expr match {
         case expr.ValueExpr.Expr
-              .Assign(constraint) => // special case for assign: show final value and missing
+            .Assign(constraint) => // special case for assign: show final value and missing
           compiler.evaluateExpr(root, constraint.getSrc) match {
             case ExprResult.Result(result) =>
               (s"$name ⇐ ${result.toStringValue}", constraintStr, Seq())
@@ -399,10 +390,10 @@ class ElementDetailNodes(
 
     override def getColumns(index: Int): String = meta.meta match {
       case common.Metadata.Meta.Members(members) => "(dict)"
-      case common.Metadata.Meta.BinLeaf(binary)  => s"(binary, ${binary.size()} long)"
-      case common.Metadata.Meta.TextLeaf(text)   => s"$text"
-      case common.Metadata.Meta.Empty            => s"(empty)"
-      case other                                 => s"(unknown ${other.getClass.getSimpleName})"
+      case common.Metadata.Meta.BinLeaf(binary) => s"(binary, ${binary.size()} long)"
+      case common.Metadata.Meta.TextLeaf(text) => s"$text"
+      case common.Metadata.Meta.Empty => s"(empty)"
+      case other => s"(unknown ${other.getClass.getSimpleName})"
     }
   }
 }

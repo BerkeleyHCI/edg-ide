@@ -19,7 +19,7 @@ object PlotAxis {
           " (min)",
           {
             case RangeValue(lower, upper) => Some(lower)
-            case _                        => None
+            case _ => None
           }
         ),
         new DseConfigParamAxis(
@@ -27,7 +27,7 @@ object PlotAxis {
           " (mid)",
           {
             case RangeValue(lower, upper) => Some((lower + upper) / 2)
-            case _                        => None
+            case _ => None
           }
         ),
         new DseConfigParamAxis(
@@ -35,7 +35,7 @@ object PlotAxis {
           " (max)",
           {
             case RangeValue(lower, upper) => Some(upper)
-            case _                        => None
+            case _ => None
           }
         ),
         new DseConfigParamAxis(
@@ -56,7 +56,7 @@ object PlotAxis {
           " (span)",
           {
             case RangeValue(lower, upper) => Some(upper - lower)
-            case _                        => None
+            case _ => None
           }
         )
       )
@@ -66,7 +66,7 @@ object PlotAxis {
   // creates plot axes for an objective function
   def fromObjective(objective: DseObjective): Seq[PlotAxis] = objective match {
     case objective: DseFloatObjective => Seq(new DseObjectiveAxis(objective))
-    case objective: DseIntObjective   => Seq(new DseObjectiveAxis(objective))
+    case objective: DseIntObjective => Seq(new DseObjectiveAxis(objective))
     case objective: DseObjectiveParameter if objective.exprType == classOf[FloatValue] =>
       Seq(new DseObjectiveParamAxis(objective, "", param => Some(param.asInstanceOf[FloatValue].value)))
     case objective: DseObjectiveParameter if objective.exprType == classOf[IntValue] =>
@@ -78,7 +78,7 @@ object PlotAxis {
           " (min)",
           {
             case RangeValue(lower, upper) => Some(lower)
-            case _                        => None
+            case _ => None
           }
         ),
         new DseObjectiveParamAxis(
@@ -86,7 +86,7 @@ object PlotAxis {
           " (mid)",
           {
             case RangeValue(lower, upper) => Some((lower + upper) / 2)
-            case _                        => None
+            case _ => None
           }
         ),
         new DseObjectiveParamAxis(
@@ -94,7 +94,7 @@ object PlotAxis {
           " (max)",
           {
             case RangeValue(lower, upper) => Some(upper)
-            case _                        => None
+            case _ => None
           }
         ),
         new DseObjectiveParamAxis(
@@ -115,7 +115,7 @@ object PlotAxis {
           " (span)",
           {
             case RangeValue(lower, upper) => Some(upper - lower)
-            case _                        => None
+            case _ => None
           }
         )
       )
@@ -144,8 +144,8 @@ class DseObjectiveAxis(objective: DseObjective) extends PlotAxis {
     val values = results.map { result =>
       result.objectives.get(objective).flatMap {
         case x: Float => Some(x)
-        case x: Int   => Some(x.toFloat)
-        case _        => None
+        case x: Int => Some(x.toFloat)
+        case _ => None
       }
     }
     (values, None)

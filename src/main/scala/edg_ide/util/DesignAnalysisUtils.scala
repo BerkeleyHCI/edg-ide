@@ -64,13 +64,13 @@ object DesignAnalysisUtils {
       headExpr.getExpression match {
         case pyCall: PyCallExpression if pyCall.getCallee.textMatches("super().__init__") => Some(pyCall)
         case _: PyStringLiteralExpression => firstInitOption(tail) // skip comments
-        case expr                         => None // unknown, ignored
+        case expr => None // unknown, ignored
       }
     case Seq(head, tail @ _*) => None
   }
 
-  /** For a PyClass, traverses down the init MRO chain, and returns all the arguments accepted by the init
-    * accounting for **kwargs propagation.
+  /** For a PyClass, traverses down the init MRO chain, and returns all the arguments accepted by the init accounting
+    * for **kwargs propagation.
     *
     * Returns (positional-capable args, keyword-only args)
     */
@@ -170,8 +170,8 @@ object DesignAnalysisUtils {
       (argsList.toSeq, kwargsList.toSeq)
     }
 
-  /** Returns whether an element is after another element accounting for EDG function call semantics. If
-    * within the same function, does a simple after analysis without accounting for runtime behavior.
+  /** Returns whether an element is after another element accounting for EDG function call semantics. If within the same
+    * function, does a simple after analysis without accounting for runtime behavior.
     *
     * TODO: could use better naming - more formally, the intent is beforeElement is visible immediately after
     * afterElement
@@ -234,8 +234,8 @@ object DesignAnalysisUtils {
     assigns
   }
 
-  /** Returns all connects to some path, by searching its parent class (for exports) and that parent's parent
-    * (for connects). TODO clarify semantics around chain and implicits!
+  /** Returns all connects to some path, by searching its parent class (for exports) and that parent's parent (for
+    * connects). TODO clarify semantics around chain and implicits!
     */
   def allConnectsTo(
       path: DesignPath,
@@ -251,7 +251,7 @@ object DesignAnalysisUtils {
       val parentPyClass = pyClassOf(parentBlock.getSelfClass, project).exceptError
       val parentConnects = findGeneralConnectsTo(parentPyClass, ("", portName), project) match {
         case Errorable.Success(connects) => connects
-        case _                           => Seq()
+        case _ => Seq()
       }
 
       val (containingPath, parentName) = parentPath.split
@@ -262,7 +262,7 @@ object DesignAnalysisUtils {
       val containingConnects =
         findGeneralConnectsTo(containingPyClass, (parentName, portName), project) match {
           case Errorable.Success(connects) => connects
-          case _                           => Seq()
+          case _ => Seq()
         }
 
       (containingConnects ++ parentConnects)
@@ -270,9 +270,9 @@ object DesignAnalysisUtils {
         .exceptEmpty(s"no connects to $parentName.$portName")
     }
 
-  /** Returns all connections involving a port, specified relative from the container as a pair. TODO: dedup
-    * w/ InsertConnectAction? But this is more general, and finds (some!) chains TODO needs to be aware of
-    * implicit port semantics, including chain TODO needs to find exports
+  /** Returns all connections involving a port, specified relative from the container as a pair. TODO: dedup w/
+    * InsertConnectAction? But this is more general, and finds (some!) chains TODO needs to be aware of implicit port
+    * semantics, including chain TODO needs to find exports
     */
   protected def findGeneralConnectsTo(
       container: PyClass,
@@ -306,9 +306,7 @@ object DesignAnalysisUtils {
           val references = mutable.ListBuffer[PyExpression]()
           container.accept(new PyRecursiveElementVisitor() {
             override def visitPyCallExpression(node: PyCallExpression): Unit = {
-              if (
-                node.getCallee.textMatches(connectReference) || node.getCallee.textMatches(chainReference)
-              ) {
+              if (node.getCallee.textMatches(connectReference) || node.getCallee.textMatches(chainReference)) {
                 // an optimization to not traverse down other functions
                 super.visitPyCallExpression(node)
               }
@@ -327,7 +325,7 @@ object DesignAnalysisUtils {
             }
             .collect {
               case call if call.getCallee.textMatches(connectReference) => call
-              case call if call.getCallee.textMatches(chainReference)   => call
+              case call if call.getCallee.textMatches(chainReference) => call
             }
         }
       }
@@ -385,8 +383,7 @@ object DesignAnalysisUtils {
     }
   }
 
-  /** Resolves a PyReferenceExpression to PyClasses. May return empty if the reference does not resolve to a
-    * class.
+  /** Resolves a PyReferenceExpression to PyClasses. May return empty if the reference does not resolve to a class.
     */
   private def referenceToClass(ref: PyReferenceExpression): Seq[PyClass] = {
     ref.getReference
@@ -396,10 +393,10 @@ object DesignAnalysisUtils {
       .collect { case expr: PyClass => expr }
   }
 
-  /** Like PyClassInheritorsSearch.search, but returns subclasses depth-first order (roughly grouping similar
-    * results). At each level, the default refinement (if provided) occurs first, with the rest sorted
-    * alphabetically by name If a subclass occurs multiple times, only the first is kept. non_library elements
-    * are not includes, but their subclasses are included.
+  /** Like PyClassInheritorsSearch.search, but returns subclasses depth-first order (roughly grouping similar results).
+    * At each level, the default refinement (if provided) occurs first, with the rest sorted alphabetically by name If a
+    * subclass occurs multiple times, only the first is kept. non_library elements are not includes, but their
+    * subclasses are included.
     */
   def findOrderedSubclassesOf(superclass: PyClass): Seq[PyClass] = {
     val directSubclasses = PyClassInheritorsSearch

@@ -231,7 +231,7 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
   def valueFromExpr(expr: ExprValue): Errorable[PyExpression] = exceptable {
     expr match {
       case FloatValue(value) => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
-      case IntValue(value)   => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
+      case IntValue(value) => psiElementGenerator.createExpressionFromText(languageLevel, value.toString)
       case RangeValue(lower, upper) =>
         psiElementGenerator.createExpressionFromText(languageLevel, f"Range($lower, $upper)")
       case RangeEmpty => exceptable.fail("can't create empty range")

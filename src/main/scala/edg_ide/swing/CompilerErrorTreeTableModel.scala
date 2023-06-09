@@ -50,9 +50,9 @@ object CompilerErrorNodeBase {
       case CompilerError.Unelaborated(ElaborateRecord.ParamValue(path), deps) =>
         ("Unelaborated Param", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(
-            ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath, root),
-            deps
-          ) =>
+          ElaborateRecord.Connect(toLinkPortPath, fromLinkPortPath, root),
+          deps
+        ) =>
         (
           s"Unelaborated Connect",
           root.toString,
@@ -123,12 +123,12 @@ object CompilerErrorNodeBase {
         )
 
       case CompilerError.InconsistentLinkArrayElements(
-            root,
-            linkPath,
-            linkElements,
-            blockPortPath,
-            blockPortElements
-          ) =>
+          root,
+          linkPath,
+          linkElements,
+          blockPortPath,
+          blockPortElements
+        ) =>
         (
           s"Inconsistent link array elements",
           s"$linkPath",
@@ -158,8 +158,8 @@ class CustomTooltipTableHeader(columnModel: TableColumnModel)
       "overcurrent constraint is failing."
     val tooltip = name match {
       case "Path ⓘ" => headerTooltipText
-      case "Error"  => "Error message"
-      case _        => "Unknown"
+      case "Error" => "Error message"
+      case _ => "Unknown"
     }
     tooltip
   }

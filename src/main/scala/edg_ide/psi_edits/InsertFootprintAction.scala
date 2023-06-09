@@ -34,12 +34,12 @@ object InsertFootprintAction {
         languageLevel,
         classOf[PyStatement],
         s"""${selfName}.footprint(
-         |  'U', '${footprint}',
-         |  { },
-         |  mfr='[Manufacturer]', part='[Part]',
-         |  datasheet='[Datasheet URL]'
-         |)
-         |""".stripMargin.replace("\r\n", "\n")
+           |  'U', '${footprint}',
+           |  { },
+           |  mfr='[Manufacturer]', part='[Part]',
+           |  datasheet='[Datasheet URL]'
+           |)
+           |""".stripMargin.replace("\r\n", "\n")
       ) // avoid a "wrong line separator" assert
       .exceptNull("couldn't create footprint statement")
 
@@ -74,8 +74,8 @@ object InsertFootprintAction {
         })
   }
 
-  /** Creates a function that inserts or modifies a self.Footprint() call. As much pre-checking as possible
-    * should be done here.
+  /** Creates a function that inserts or modifies a self.Footprint() call. As much pre-checking as possible should be
+    * done here.
     */
   def createInsertFootprintFlow(
       container: PyClass,
@@ -140,7 +140,7 @@ object InsertFootprintAction {
     }
 
     (modifyAction, insertAction) match {
-      case (Errorable.Success(modifyAction), _)                  => modifyAction
+      case (Errorable.Success(modifyAction), _) => modifyAction
       case (Errorable.Error(_), Errorable.Success(insertAction)) => insertAction
       case (Errorable.Error(modifyErr), Errorable.Error(insertErr)) =>
         exceptable.fail(s"$modifyErr and $insertErr")

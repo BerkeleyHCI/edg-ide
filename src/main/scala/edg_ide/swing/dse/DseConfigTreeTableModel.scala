@@ -44,7 +44,7 @@ object DseConfigTreeNode {
     override val value = ""
     override lazy val children = configs.map {
       case config: DseRefinementElement[Any] => new DseRefinementElementNode(config)
-      case config: DseDerivedConfig          => new DseDerivedConfigNode(config)
+      case config: DseDerivedConfig => new DseDerivedConfigNode(config)
     }
   }
 

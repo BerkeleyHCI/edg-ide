@@ -95,7 +95,7 @@ case class DseObjectiveFootprintArea(rootPath: DesignPath) extends DseFloatObjec
         val thisArea = if (path.startsWith(rootPath)) {
           compiler.getParamValue((path + "fp_footprint").asIndirect) match {
             case Some(TextValue(footprintName)) => DseObjectiveFootprintArea.getFootprintArea(footprintName)
-            case _                              => 0
+            case _ => 0
           }
         } else {
           0
@@ -162,7 +162,7 @@ case class DseObjectiveUnprovenCount(rootPath: DesignPath) extends DseIntObjecti
         val thisProven = BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass)
         val thisUnprovenCount = thisProven.latestStatus match {
           case ProvenStatus.Working => 0
-          case _                    => 1
+          case _ => 1
         }
         thisUnprovenCount + blocks.values.sum
       }

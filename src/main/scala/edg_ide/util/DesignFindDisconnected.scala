@@ -10,11 +10,11 @@ import edg.wir.ProtoUtil.ConstraintProtoToSeqMap
 
 import scala.collection.SeqMap
 
-/** For a design, returns the DesignPath of all ports that are required but not connected in the parent, and
-  * the list of ports of the block that are required.
+/** For a design, returns the DesignPath of all ports that are required but not connected in the parent, and the list of
+  * ports of the block that are required.
   *
-  * This is a heuristic operation that relies on a specific constraint style, and will not catch more complex
-  * (eg, conditional) required-connected ports
+  * This is a heuristic operation that relies on a specific constraint style, and will not catch more complex (eg,
+  * conditional) required-connected ports
   */
 object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[String])] {
   override def mapBlock(
@@ -48,9 +48,9 @@ object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[Strin
       }
       .collect {
         case Seq(
-              ref.LocalStep(ref.LocalStep.Step.Name(blockName), _),
-              ref.LocalStep(ref.LocalStep.Step.Name(portName), _)
-            ) =>
+            ref.LocalStep(ref.LocalStep.Step.Name(blockName), _),
+            ref.LocalStep(ref.LocalStep.Step.Name(portName), _)
+          ) =>
           (blockName, portName)
       }
 

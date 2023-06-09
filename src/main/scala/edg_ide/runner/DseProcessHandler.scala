@@ -19,8 +19,8 @@ import java.nio.file.{Files, Paths}
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
-/** Utility class that allows one running instance at any time, additional runIfIdle requests are discarded.
-  * Useful for background-able tasks that can return an outdated result, eg UI updates.
+/** Utility class that allows one running instance at any time, additional runIfIdle requests are discarded. Useful for
+  * background-able tasks that can return an outdated result, eg UI updates.
   *
   * This in itself is not thread-safe!
   */

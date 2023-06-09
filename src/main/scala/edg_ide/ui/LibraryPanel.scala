@@ -490,7 +490,7 @@ class LibraryPreview(project: Project) extends JPanel {
           (blockGraph, textFieldText)
         } match {
           case Errorable.Success(value) => value
-          case Errorable.Error(errMsg)  => (emptyHGraph, s"${blockType.toSimpleString}: $errMsg")
+          case Errorable.Error(errMsg) => (emptyHGraph, s"${blockType.toSimpleString}: $errMsg")
         }
       }): Callable[(ElkNode, String)])
       .finishOnUiThread(
@@ -519,7 +519,7 @@ class LibraryPreview(project: Project) extends JPanel {
             docstring
         } match {
           case Errorable.Success(value) => value
-          case Errorable.Error(errMsg)  => s"${portType.toSimpleString}: $errMsg"
+          case Errorable.Error(errMsg) => s"${portType.toSimpleString}: $errMsg"
         }
       }): Callable[String])
       .finishOnUiThread(
@@ -586,8 +586,7 @@ class LibraryPanel(project: Project) extends JPanel {
     }
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
   libraryTree.getTree.expandPath( // expand the blocks node by default
-    new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head)
-  )
+    new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head))
 
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
@@ -691,8 +690,7 @@ class LibraryPanel(project: Project) extends JPanel {
       libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
       libraryTree.getTree.expandPath( // TODO - this is a hack because restoring prev expanded doesn't work
         new TreePath(libraryTreeModel.getRootNode)
-          .pathByAddingChild(libraryTreeModel.getRootNode.children.head)
-      )
+          .pathByAddingChild(libraryTreeModel.getRootNode.children.head))
     })
   }
 

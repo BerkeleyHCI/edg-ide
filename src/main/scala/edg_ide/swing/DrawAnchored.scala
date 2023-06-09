@@ -19,9 +19,9 @@ object DrawAnchored {
     val (pointX, pointY) = point
     val (drawX, drawY) = anchor match {
       case Bottom => (pointX - textWidth / 2, pointY)
-      case Top    => (pointX - textWidth / 2, pointY + textHeight)
-      case Left   => (pointX, pointY + textHeight / 2)
-      case Right  => (pointX - textWidth, pointY + textHeight / 2)
+      case Top => (pointX - textWidth / 2, pointY + textHeight)
+      case Left => (pointX, pointY + textHeight / 2)
+      case Right => (pointX - textWidth, pointY + textHeight / 2)
       case Center => (pointX - textWidth / 2, pointY + textHeight / 2)
     }
     g.drawString(text, drawX.toInt, drawY.toInt)

@@ -127,7 +127,7 @@ object KicadParser {
   protected def stripChildAtom(list: SList): SList = {
     SList(list.values.map {
       case Atom(atomValue) => Atom(atomValue.stripPrefix("\"").stripSuffix("\""))
-      case elt             => elt
+      case elt => elt
     })
   }
 
@@ -144,7 +144,7 @@ object KicadParser {
 
       val kicadComponents = parsed.values.flatMap {
         case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail)
-            if geom == "rect" || geom == "roundrect" =>
+          if geom == "rect" || geom == "roundrect" =>
           val (x, y, r) = extractPosition(getOnlySublistByName(tail, "at"))
           val (w, h) = extractSize(getOnlySublistByName(tail, "size"))
           if (r == 0 || r == 180) {
@@ -155,7 +155,7 @@ object KicadParser {
             throw new IllegalArgumentException(f"rotation not supported $r")
           }
         case SList(Atom("pad") :: Atom(name) :: _ :: Atom(geom) :: tail)
-            if geom == "oval" || geom == "circle" =>
+          if geom == "oval" || geom == "circle" =>
           val (x, y, r) = extractPosition(getOnlySublistByName(tail, "at"))
           val (w, h) = extractSize(getOnlySublistByName(tail, "size"))
           if (r == 0 || r == 180) {

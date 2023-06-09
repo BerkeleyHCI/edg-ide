@@ -27,8 +27,8 @@ object PsiUtils {
     s"${psiFile.getName}:${endLineNumber + 2}"
   }
 
-  /** If element is a ReferenceExpression or TargetExpression of the form 'self.xyz', returns Some(xyz). Does
-    * not truncate (will fail on self.xyz.abc). Accounts for different self names within a function.
+  /** If element is a ReferenceExpression or TargetExpression of the form 'self.xyz', returns Some(xyz). Does not
+    * truncate (will fail on self.xyz.abc). Accounts for different self names within a function.
     */
   def selfReferenceOption(element: PsiElement): Errorable[String] = exceptable {
     val containingFunction = PsiTreeUtil

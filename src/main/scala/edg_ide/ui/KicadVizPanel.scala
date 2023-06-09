@@ -34,8 +34,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
   // State
   //
-  var currentBlockPathTypePin
-      : Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] =
+  var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] =
     None // should be a Block with a footprint and pinning field
   var footprintSynced: Boolean =
     false // whether the footprint is assigned to the block (as opposed to preview mode)
@@ -55,7 +54,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       Option(file.getParentFile).flatMap { parentFile =>
         (parentFile.getName, file.getName) match {
           case (s"$parentFileName.pretty", s"$fileName.kicad_mod") => Some(s"$parentFileName:$fileName")
-          case _                                                   => None
+          case _ => None
         }
       }
     }
@@ -64,7 +63,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       override def mouseClicked(mouseEvent: MouseEvent): Unit = {
         val node = tree.getTree.getSelectionPath.getLastPathComponent match {
           case node: FootprintBrowserNode => node
-          case _                          => return
+          case _ => return
         }
 
         if (mouseEvent.getClickCount == 1) { // single click opens the footprint for preview
@@ -288,8 +287,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     }
   }
 
-  /** Returns an action to insert code to set the current block's footprint to something. FootprintBlock
-    * detection is done here, so code edit actions are as consistent as possible.
+  /** Returns an action to insert code to set the current block's footprint to something. FootprintBlock detection is
+    * done here, so code edit actions are as consistent as possible.
     */
   def insertBlockFootprint(footprintName: String): Errorable[() => Unit] = exceptable {
     val (blockPath, blockType, block, pinning) =

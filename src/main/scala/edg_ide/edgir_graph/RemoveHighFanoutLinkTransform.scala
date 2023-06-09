@@ -5,13 +5,13 @@ import edgir.ref.ref.LibraryPath
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.EdgirGraph.EdgirEdge
 
-/** Removes links (as nodes - must run before they are collapsed) that are "high-fanout", based on the link
-  * type allowlist and parameterized number of sink connections.
+/** Removes links (as nodes - must run before they are collapsed) that are "high-fanout", based on the link type
+  * allowlist and parameterized number of sink connections.
   */
 class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[LibraryPath]) {
 
-  /** Does the transform, returning the node minus eliminated link nodes, and returning the eliminated links
-    * as a map of (containing block, link name) to paths of ports involved in the connection.
+  /** Does the transform, returning the node minus eliminated link nodes, and returning the eliminated links as a map of
+    * (containing block, link name) to paths of ports involved in the connection.
     */
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
     val allowedLinkNameWraps = node.members
@@ -62,11 +62,11 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
     val filteredEdges = node.edges.map {
       // Transform to degenerate edges
       case EdgirEdge(data, Seq(sourceNode, sourcePort), target)
-          if highFanoutLinkNameWraps.contains(Seq(sourceNode)) =>
+        if highFanoutLinkNameWraps.contains(Seq(sourceNode)) =>
         val linkWrap = highFanoutLinkNameWraps(Seq(sourceNode))
         EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), target, target)
       case EdgirEdge(data, source, Seq(targetNode, targetPort))
-          if highFanoutLinkNameWraps.contains(Seq(targetNode)) =>
+        if highFanoutLinkNameWraps.contains(Seq(targetNode)) =>
         val linkWrap = highFanoutLinkNameWraps(Seq(targetNode))
         EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), source, source)
       case edge => edge

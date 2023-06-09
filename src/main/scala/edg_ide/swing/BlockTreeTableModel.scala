@@ -33,7 +33,7 @@ class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem
 
   override def equals(other: Any): Boolean = other match {
     case other: HierarchyBlockNode => other.block == block
-    case _                         => false
+    case _ => false
   }
 
   override def toString: String = path.lastString
@@ -63,8 +63,8 @@ object BlockTreeTableModel {
       } else {
         val nextChildNodes = node.children.filter { node => path.steps.startsWith(node.path.steps) }
         nextChildNodes match {
-          case Seq()             => (nodePrefix :+ node, None) // no further steps possible
-          case Seq(childNode)    => inner(nodePrefix :+ node, childNode) // exactly one next step
+          case Seq() => (nodePrefix :+ node, None) // no further steps possible
+          case Seq(childNode) => inner(nodePrefix :+ node, childNode) // exactly one next step
           case Seq(childNode, _) => inner(nodePrefix :+ node, childNode) // multiple possible, just pick one
           // TODO maybe this should error or warn
         }

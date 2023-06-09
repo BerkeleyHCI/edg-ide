@@ -25,15 +25,15 @@ object ConnectTool {
   // TODO we can't yet replace this with EdgirUtils.typeOfPort, since that takes a PortLike whereas this takes a Port as Any
   private def typeOfPort(port: Any): Errorable[ref.LibraryPath] = exceptable {
     port match {
-      case port: elem.Port       => port.getSelfClass
-      case port: elem.Bundle     => port.getSelfClass
+      case port: elem.Port => port.getSelfClass
+      case port: elem.Bundle => port.getSelfClass
       case array: elem.PortArray => array.getSelfClass
-      case isOther               => exceptable.fail(s"unexpected port ${isOther.getClass}")
+      case isOther => exceptable.fail(s"unexpected port ${isOther.getClass}")
     }
   }
 
-  /** External interface for creating a ConnectTool, which does the needed analysis work and can return an
-    * error (as an exceptable) if the ConnectTool cannot be created.
+  /** External interface for creating a ConnectTool, which does the needed analysis work and can return an error (as an
+    * exceptable) if the ConnectTool cannot be created.
     */
   def apply(interface: ToolInterface, portPath: DesignPath): Errorable[ConnectTool] = exceptable {
     val libraryAnalysis =
@@ -199,14 +199,14 @@ class ConnectPopup(
         case ConnectToolAction.None(focusPath, initialPort) =>
           block: elem.HierarchyBlock => block
         case ConnectToolAction.AppendToLink(
-              focusPath,
-              linkName,
-              initialPort,
-              priorPorts,
-              priorBridgedPorts,
-              linkPorts,
-              bridgePorts
-            ) => { block: elem.HierarchyBlock => // TODO in-place append?
+            focusPath,
+            linkName,
+            initialPort,
+            priorPorts,
+            priorBridgedPorts,
+            linkPorts,
+            bridgePorts
+          ) => { block: elem.HierarchyBlock => // TODO in-place append?
           val cleanedBlock = block.update(
             _.constraints := block.constraints.toSeqMap.filter {
               case (name, constraint) => // disconnect existing link
@@ -236,14 +236,14 @@ class ConnectPopup(
             )
         }
         case ConnectToolAction.RefactorExportToLink(
-              focusPath,
-              constrName,
-              initialPort,
-              priorExteriorPort,
-              priorInnerPort,
-              linkPorts,
-              bridgePorts
-            ) => { block: elem.HierarchyBlock =>
+            focusPath,
+            constrName,
+            initialPort,
+            priorExteriorPort,
+            priorInnerPort,
+            linkPorts,
+            bridgePorts
+          ) => { block: elem.HierarchyBlock =>
           val cleanedBlock = block.update(
             _.constraints := block.constraints.toSeqMap.filter(_._1 != constrName).toPb
           )
@@ -392,7 +392,7 @@ class ConnectPopup(
   val defaultAction: Errorable[() => Unit] = if (action.getAppendPortPaths.nonEmpty) {
     appendConnectAction match {
       case Errorable.Success(_) => appendConnectAction // prefer append connect if available
-      case _                    => insertConnectAction
+      case _ => insertConnectAction
     }
   } else {
     cancelAction
@@ -546,10 +546,10 @@ class ConnectTool(
         ConnectToolAction.None(focusPath, portPath)
       }
     case Connection.Link(
-          linkName,
-          linkConnects,
-          bridgedExports
-        ) => // prior link, add new links but no exports
+        linkName,
+        linkConnects,
+        bridgedExports
+      ) => // prior link, add new links but no exports
       val (linkPorts, bridgePorts) = selected.toSeq.partition(!isExteriorPort(_))
       val priorPorts = linkConnects.map(focusPath ++ _._1)
       val priorBridgedPorts = bridgedExports.map(focusPath ++ _._1)
@@ -604,10 +604,10 @@ class ConnectTool(
           Seq()
         }
       case Connection.Link(
-            linkName,
-            linkConnects,
-            bridgedExports
-          ) => // prior link, add new links but no exports
+          linkName,
+          linkConnects,
+          bridgedExports
+        ) => // prior link, add new links but no exports
         linkRemainingConnects(
           linkConnects.map(focusPath ++ _._1) ++
             bridgedExports.map(focusPath ++ _._1) ++ selected.toSeq

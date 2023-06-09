@@ -17,8 +17,8 @@ object InsertPortAction {
   val VALID_FUNCTION_NAME = "__init__" // unlike blocks, ports can only be in __init__ so they can be used
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block" // TODO dedup w/ InsertBlockAction
 
-  /** Creates an action to insert a port of type libClass after some PSI element after. Validation is
-    * performed before the action is generated, though the action itself may also return an error.
+  /** Creates an action to insert a port of type libClass after some PSI element after. Validation is performed before
+    * the action is generated, though the action itself may also return an error.
     *
     * TODO dedup w/ InsertBlockAction?
     */

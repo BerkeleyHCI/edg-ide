@@ -111,7 +111,7 @@ object HierarchyGraphElk {
   ): (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
     val elkNode = parent match {
       case Some(parent) => addNode(parent, name)
-      case None         => makeGraphRoot()
+      case None => makeGraphRoot()
     }
     mappers.foreach { mapper =>
       mapper.nodeConv(node.data).foreach { mapperResult =>
@@ -163,8 +163,8 @@ object HierarchyGraphElk {
     node.edges.foreach { edge =>
       (myElkElements.get(edge.source), myElkElements.get(edge.target)) match {
         case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
-        case (None, _)    => logger.warn(s"edge with invalid source ${edge.source}")
-        case (_, None)    => logger.warn(s"edge with invalid target ${edge.target}")
+        case (None, _) => logger.warn(s"edge with invalid source ${edge.source}")
+        case (_, None) => logger.warn(s"edge with invalid target ${edge.target}")
         case (Some(elkSource), Some(elkTarget)) =>
           val childEdge = addEdge(elkNode, elkSource, elkTarget)
           mappers.foreach { mapper =>

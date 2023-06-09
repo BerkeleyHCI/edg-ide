@@ -54,7 +54,7 @@ object DeleteElemAction {
       }
       .filter {
         case ref: PyExpression => !assignmentTargets.contains(ref)
-        case _                 => true
+        case _ => true
       }
 
     val items = references.map { reference =>

@@ -6,8 +6,8 @@ import java.awt.event._
 import java.awt.{BasicStroke, Color, Graphics, Graphics2D}
 import javax.swing.{JComponent, SwingUtilities}
 
-/** Parallel coordinates plot with arbitrary number of axes, with data structured as ((positions ...), data),
-  * with arbitrary data of ValueType attached to each point
+/** Parallel coordinates plot with arbitrary number of axes, with data structured as ((positions ...), data), with
+  * arbitrary data of ValueType attached to each point
   */
 class JParallelCoordinatesPlot[ValueType] extends JComponent {
   // Data point object
@@ -62,7 +62,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     selectedIndices = values.flatMap { value =>
       data.indexWhere(_.value == value) match {
         case index if index >= 0 => Some(index)
-        case _                   => None // ignored
+        case _ => None // ignored
       }
     }
 
@@ -77,7 +77,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
 
       val ticks = axis match {
         case Some(axis) => axis
-        case _          => JDsePlot.getAxisTicks(range, getHeight)
+        case _ => JDsePlot.getAxisTicks(range, getHeight)
       }
       ticks.foreach { case (tickPos, tickVal) =>
         val screenPos = ((range._2 - tickPos) * JDsePlot.dataScale(range, getHeight)).toInt
@@ -436,7 +436,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
       selectablePointsWithIndex
     ).headOption match {
       case Some((index, distance)) => data(index).tooltipText.orNull
-      case None                    => null
+      case None => null
     }
   }
 

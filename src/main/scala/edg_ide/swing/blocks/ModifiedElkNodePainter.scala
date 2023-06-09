@@ -120,7 +120,7 @@ class ModifiedElkNodePainter(
     if (edge.getSources == edge.getTargets) { // degenerate, "tunnel" (by heuristic / transform) edge
       val label = edge.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
         case DesignPath(steps) => steps.lastOption.getOrElse("")
-        case _                 => ""
+        case _ => ""
       }
 
       val targetPointOpt = edge.getSections.asScala.headOption.map { section =>

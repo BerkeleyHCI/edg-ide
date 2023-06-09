@@ -16,7 +16,7 @@ class FootprintBrowserRootNode(directories: Seq[File]) extends FootprintBrowserB
     Option(directory.list()).toSeq.flatten
       .flatMap { // flatten the libraries regardless of their containing directory
         case elt if elt.endsWith(".pretty") => Some(new FootprintBrowserNode(new File(directory, elt)))
-        case _                              => None
+        case _ => None
       }
   }
 }
@@ -40,7 +40,7 @@ class FootprintBrowserNode(val file: File) extends FootprintBrowserBaseNode {
 
   override def equals(obj: Any): Boolean = obj match {
     case obj: FootprintBrowserNode => obj.file.equals(this.file)
-    case _                         => false
+    case _ => false
   }
 
   override def toString: String = file.getName

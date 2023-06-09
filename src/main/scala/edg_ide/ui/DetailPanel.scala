@@ -155,7 +155,7 @@ class DetailParamPopupMenu(
         exceptable {
           val objective = compiler.getParamType(path) match {
             case Some(paramType) => DseObjectiveParameter(path, paramType)
-            case _               => exceptable.fail(f"no parameter type at $path")
+            case _ => exceptable.fail(f"no parameter type at $path")
           }
 
           () => {

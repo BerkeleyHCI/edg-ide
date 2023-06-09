@@ -91,8 +91,8 @@ class DseScatterPlotPanel() extends DseBasePlot {
       case (result, (Some(xVal), Some(yVal))) =>
         val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
         val (zOrder, color) = (idealErrors.nonEmpty, otherErrors.nonEmpty) match {
-          case (_, true)      => (-1, Some(DseResultModel.kColorOtherError))
-          case (true, false)  => (0, Some(DseResultModel.kColorIdealError))
+          case (_, true) => (-1, Some(DseResultModel.kColorOtherError))
+          case (true, false) => (0, Some(DseResultModel.kColorIdealError))
           case (false, false) => (1, None)
         }
         val tooltipText = DseConfigElement.configMapToString(result.config)

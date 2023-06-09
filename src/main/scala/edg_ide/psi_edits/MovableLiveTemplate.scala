@@ -34,9 +34,7 @@ abstract class MovableLiveTemplate(actionName: String) {
       }
       val offset = event.getOffset
       val expressionContext = templateState.getExpressionContextForSegment(0)
-      if (
-        expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset
-      ) {
+      if (expressionContext.getTemplateStartOffset <= offset && offset < expressionContext.getTemplateEndOffset) {
         return // ignore clicks within the template
       }
       event.consume()
@@ -47,7 +45,7 @@ abstract class MovableLiveTemplate(actionName: String) {
         psiFile.findElementAt(offset) match { // get the caret element before modifying the AST
           // whitespace may be modified by the template delete and become invalid
           case caretElement: PsiWhiteSpace => caretElement.getPrevSibling
-          case caretElement                => caretElement
+          case caretElement => caretElement
         }
 
       val templatePos =
@@ -70,7 +68,7 @@ abstract class MovableLiveTemplate(actionName: String) {
   def run(caretEltOpt: Option[PsiElement], priorTemplateValues: Option[(Int, Seq[String])] = None): Unit = {
     val tooltipString = priorTemplateValues match {
       case Some(_) => None // tooltip only shows on initial template insertion, not on moves
-      case None    => Some(kHelpTooltip)
+      case None => Some(kHelpTooltip)
     }
     val templateState = startTemplate(caretEltOpt).run(tooltipString, priorTemplateValues.map(_._2))
     currentTemplateState = Some(templateState)

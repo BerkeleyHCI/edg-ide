@@ -7,13 +7,12 @@ class InferEdgeDirectionTransform { // dummy class for logger
 
 /** An HGraph transform that infers / fixes up edge directions using the link type and port name.
   *
-  * Behavior summary: If the link type has defined sink and source ports: use those For links with
-  * bidirectional connections and no sources: the first bidir is a source For exports: direction is inferred
-  * from the containing node
+  * Behavior summary: If the link type has defined sink and source ports: use those For links with bidirectional
+  * connections and no sources: the first bidir is a source For exports: direction is inferred from the containing node
   *
-  * Algorithm summary: PRECONDITION: block ports are "sources" and link ports are "targets" Build structure of
-  * block paths by links and ports For all links, assign sources according to the above summary Traverse
-  * edges, updating the direction as needed
+  * Algorithm summary: PRECONDITION: block ports are "sources" and link ports are "targets" Build structure of block
+  * paths by links and ports For all links, assign sources according to the above summary Traverse edges, updating the
+  * direction as needed
   */
 object InferEdgeDirectionTransform {
   val logger = Logger.getInstance(classOf[InferEdgeDirectionTransform])

@@ -36,17 +36,17 @@ object RefinementsNodes {
       }
       .collect {
         case (
-              edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam),
-              edgrpc.Refinements.Value.Value.Expr(expr)
-            ) =>
+            edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam),
+            edgrpc.Refinements.Value.Value.Expr(expr)
+          ) =>
           new RefinementsDetailNode(
             srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
             ExprToString(expr)
           )
         case (
-              edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam),
-              edgrpc.Refinements.Value.Value.Param(path)
-            ) =>
+            edgrpc.Refinements.Value.Source.ClsParam(srcTypeParam),
+            edgrpc.Refinements.Value.Value.Param(path)
+          ) =>
           new RefinementsDetailNode(
             srcTypeParam.getCls.toSimpleString + ":" + ExprToString(srcTypeParam.getParamPath),
             f"ParamValue(${ExprToString(path)}"

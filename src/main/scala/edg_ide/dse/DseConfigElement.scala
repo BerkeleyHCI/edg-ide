@@ -27,9 +27,9 @@ object DseConfigElement {
   // TODO this is still used for objective functions, which should define a objective-specific valueToString
   def valueToString(value: Any): String = value match {
     case value: ref.LibraryPath => value.toSimpleString
-    case value: ExprValue       => ParamToUnitsStringUtil.toString(value)
-    case Some(value)            => valueToString(value) // drop the "Some" for simplicity
-    case value                  => value.toString
+    case value: ExprValue => ParamToUnitsStringUtil.toString(value)
+    case Some(value) => valueToString(value) // drop the "Some" for simplicity
+    case value => value.toString
   }
 
   def configMapToString(configMap: SeqMap[DseConfigElement, Any]): String = {
@@ -174,8 +174,8 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
   override def valueToString(value: Any): String = value match {
     case value: FloatValue => ParamToUnitsStringUtil.toString(value)
     case value: RangeValue => ParamToUnitsStringUtil.toString(value)
-    case value: ExprValue  => value.toStringValue
-    case _                 => value.toString
+    case value: ExprValue => value.toStringValue
+    case _ => value.toString
   }
 
   // Returns the values as a string, that will parse back with valuesStringToConfig.
@@ -188,7 +188,7 @@ sealed trait DseParameterSearch extends DseRefinementElement[ExprValue] { self: 
           f"\"$escaped\"" // always wrap in quotes, so we can insert a space after the commas separating elements
         case value: FloatValue => ParamToUnitsStringUtil.toString(value)
         case value: RangeValue => ParamToUnitsStringUtil.toString(value)
-        case value             => value.toStringValue
+        case value => value.toStringValue
       }
       .mkString(", ")
   }

@@ -100,7 +100,7 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
   val childMap: Map[ref.LibraryPath, Seq[ref.LibraryPath]] = library.allBlocks.toSeq
     .flatMap { case (path, block) =>
       block.superclasses match { // for each block, generate all pairs (superclass path, path)
-        case Seq()        => Seq((rootPath, path))
+        case Seq() => Seq((rootPath, path))
         case superclasses => superclasses.map(superclassPath => (superclassPath, path))
       }
     }

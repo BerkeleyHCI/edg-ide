@@ -201,12 +201,10 @@ object CompileProcessHandler {
 trait HasConsoleStages {
   val console: ConsoleView
 
-  /** Logging and status wrappers for running a stage that returns some value. Exceptions are not caught and
-    * propagated up. The stage function returns both a type and a message (can be empty) that is printed to
-    * the console.
+  /** Logging and status wrappers for running a stage that returns some value. Exceptions are not caught and propagated
+    * up. The stage function returns both a type and a message (can be empty) that is printed to the console.
     *
-    * If a progress fraction is specified, the progress indicator is set to it, otherwise it is set
-    * indeterminate.
+    * If a progress fraction is specified, the progress indicator is set to it, otherwise it is set indeterminate.
     */
   protected def runRequiredStage[ReturnType](
       name: String,
@@ -230,8 +228,8 @@ trait HasConsoleStages {
     fnResult
   }
 
-  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console. If the
-    * function fails, a specified default is returned.
+  /** Similar to (actually wraps) runRequiredStage, except errors are non-fatal and logs to console. If the function
+    * fails, a specified default is returned.
     */
   protected def runFailableStage[ReturnType](
       name: String,

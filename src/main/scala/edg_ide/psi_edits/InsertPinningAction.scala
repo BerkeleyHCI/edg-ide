@@ -59,7 +59,7 @@ object InsertPinningAction {
       }
       .collect {
         case (path, Some(portClass))
-            if portClass.isSubclass(circuitPortClass, TypeEvalContext.codeAnalysis(project, null)) =>
+          if portClass.isSubclass(circuitPortClass, TypeEvalContext.codeAnalysis(project, null)) =>
           path
       }
   }
@@ -110,12 +110,12 @@ object InsertPinningAction {
     val matchingKv = argDict.getElements.filter { elt =>
       elt.getKey match {
         case strLit: PyStringLiteralExpression => strLit.getStringValue == pin
-        case _                                 => false
+        case _ => false
       }
     }.toSeq match {
       case Seq(kv) => Some(kv)
-      case Seq()   => None
-      case _       => exceptable.fail(s"more than one pinning entry for $pin")
+      case Seq() => None
+      case _ => exceptable.fail(s"more than one pinning entry for $pin")
     }
 
     val priorPinned = pinning.values.toSet

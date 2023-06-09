@@ -5,8 +5,8 @@ import edgir.elem.elem
 
 object EdgirAnalysisUtils {
 
-  /** If this block is a chain of single inner blocks (excluding bridges and adapters), returns the deepest
-    * inner block. If this is a block with no children, returns itself.
+  /** If this block is a chain of single inner blocks (excluding bridges and adapters), returns the deepest inner block.
+    * If this is a block with no children, returns itself.
     *
     * This is useful for getting the innermost block, past any wrapping adapters.
     */
@@ -16,8 +16,8 @@ object EdgirAnalysisUtils {
   ): Option[(DesignPath, elem.HierarchyBlock)] = {
     val nonDummyBlocks = block.blocks.asPairs.collect {
       case (name, subblock)
-          if !(name.startsWith("(bridge)") || name.startsWith("(adapter)") ||
-            name.startsWith("(not_connected)")) =>
+        if !(name.startsWith("(bridge)") || name.startsWith("(adapter)") ||
+          name.startsWith("(not_connected)")) =>
         (name, subblock.`type`)
     }
     nonDummyBlocks match {

@@ -5,8 +5,8 @@ import com.intellij.ui.treeStructure.treetable.TreeTableModel
 
 import scala.reflect.ClassTag
 
-/** A TreeTableModel where all node objects are of a type, and dynamically checked in this class with
-  * non-fatal errors. Presents a strongly typed (instead of Object) interface for subclasses.
+/** A TreeTableModel where all node objects are of a type, and dynamically checked in this class with non-fatal errors.
+  * Presents a strongly typed (instead of Object) interface for subclasses.
   * @tparam NodeType
   */
 abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: ClassTag[NodeType])
@@ -97,8 +97,8 @@ abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: Cla
   }
 }
 
-/** TreeTable model where the children for each node is defined by a Seq. Also includes default (but
-  * overrideable) isLeaf implementation based on child counts.
+/** TreeTable model where the children for each node is defined by a Seq. Also includes default (but overrideable)
+  * isLeaf implementation based on child counts.
   */
 abstract class SeqTreeTableModel[NodeType <: Object](implicit tag: ClassTag[NodeType])
     extends ParameterizedTreeTableModel[NodeType] {

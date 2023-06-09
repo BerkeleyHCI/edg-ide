@@ -21,22 +21,22 @@ object EdgirUtils {
   // TODO refactor into common utils elsewher
   def typeOfBlockLike(blockLike: elem.BlockLike): Option[ref.LibraryPath] = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) => Some(block.getSelfClass)
-    case elem.BlockLike.Type.LibElem(lib)     => Some(lib)
-    case _                                    => None
+    case elem.BlockLike.Type.LibElem(lib) => Some(lib)
+    case _ => None
   }
 
   def typeOfPortLike(portLike: elem.PortLike): Option[ref.LibraryPath] = portLike.is match {
-    case elem.PortLike.Is.Port(port)   => Some(port.getSelfClass)
+    case elem.PortLike.Is.Port(port) => Some(port.getSelfClass)
     case elem.PortLike.Is.Bundle(port) => Some(port.getSelfClass)
-    case elem.PortLike.Is.Array(port)  => Some(port.getSelfClass)
+    case elem.PortLike.Is.Array(port) => Some(port.getSelfClass)
     case elem.PortLike.Is.LibElem(lib) => Some(lib)
-    case _                             => None
+    case _ => None
   }
 
   def typeOfLinkLike(linkLike: elem.LinkLike): Option[ref.LibraryPath] = linkLike.`type` match {
-    case elem.LinkLike.Type.Link(link)   => Some(link.getSelfClass)
+    case elem.LinkLike.Type.Link(link) => Some(link.getSelfClass)
     case elem.LinkLike.Type.LibElem(lib) => Some(lib)
-    case _                               => None
+    case _ => None
   }
 
   private sealed trait ResolveTarget[+T]
@@ -71,27 +71,27 @@ object EdgirUtils {
   def resolveExact(path: DesignPath, start: schema.Design): Option[Any] = {
     resolveDeepest(path, start) match {
       case Some((resolvedPath, resolvedTarget)) if resolvedPath == path => Some(resolvedTarget)
-      case _                                                            => None
+      case _ => None
     }
   }
 
   def resolveExactBlock(path: DesignPath, start: schema.Design): Option[elem.HierarchyBlock] = {
     resolveDeepestBlock(path, start) match {
       case (resolvedPath, resolvedBlock) if resolvedPath == path => Some(resolvedBlock)
-      case _                                                     => None
+      case _ => None
     }
   }
 
   def resolveExactLink(path: DesignPath, start: schema.Design): Option[elem.Link] = {
     resolveDeepestLink(path, start) match {
       case Some((resolvedPath, resolvedLink)) if resolvedPath == path => Some(resolvedLink)
-      case _                                                          => None
+      case _ => None
     }
   }
 
-  /** These helper functions resolve a path (given as a Seq[String]) to the deepest of some target element
-    * type. This guarantees a return of the target element type (or return of None), but does not guarantee
-    * the rest of the unresolved path is resolvable (to anything).
+  /** These helper functions resolve a path (given as a Seq[String]) to the deepest of some target element type. This
+    * guarantees a return of the target element type (or return of None), but does not guarantee the rest of the
+    * unresolved path is resolvable (to anything).
     */
   private object ResolveDeepest {
     val followIntoBlock = Set(ResolveTarget.Any, ResolveTarget.Block, ResolveTarget.Link, ResolveTarget.Port)
@@ -139,7 +139,7 @@ object EdgirUtils {
     ): Option[(Seq[String], T)] = {
       blockLike.`type` match {
         case elem.BlockLike.Type.Hierarchy(block) => fromBlock(prefix, postfix, block, target)
-        case _                                    => None
+        case _ => None
       }
     }
 
@@ -184,9 +184,9 @@ object EdgirUtils {
           }
         case elem.PortLike.Is.Array(port) =>
           (postfix, target) match {
-            case (Seq(), ResolveTarget.Any)  => Some((prefix, port.asInstanceOf[T]))
+            case (Seq(), ResolveTarget.Any) => Some((prefix, port.asInstanceOf[T]))
             case (Seq(), ResolveTarget.Port) => ??? // TODO return non-Port PortType
-            case (Seq(), _)                  => None // target isn't the right type, but nowhere to continue
+            case (Seq(), _) => None // target isn't the right type, but nowhere to continue
             case (Seq(head, tail @ _*), target) =>
               if (
                 port.contains.ports
@@ -209,9 +209,9 @@ object EdgirUtils {
           }
         case elem.PortLike.Is.Bundle(port) =>
           (postfix, target) match {
-            case (Seq(), ResolveTarget.Any)  => Some((prefix, port.asInstanceOf[T]))
+            case (Seq(), ResolveTarget.Any) => Some((prefix, port.asInstanceOf[T]))
             case (Seq(), ResolveTarget.Port) => ??? // TODO return non-Port PortType
-            case (Seq(), _)                  => None // target isn't the right type, but nowhere to continue
+            case (Seq(), _) => None // target isn't the right type, but nowhere to continue
             case (Seq(head, tail @ _*), target) =>
               if (port.ports.toSeqMap.contains(head) && target == ResolveTarget.Port) {
                 fromPortLike(prefix :+ head, tail, port.ports(head), target)

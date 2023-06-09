@@ -267,8 +267,8 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     throw new Exception()
   }
   private val portClass = port match {
-    case port: elem.Port       => port.getSelfClass
-    case bundle: elem.Bundle   => bundle.getSelfClass
+    case port: elem.Port => port.getSelfClass
+    case bundle: elem.Bundle => bundle.getSelfClass
     case array: elem.PortArray => array.getSelfClass
     case other =>
       PopupUtils.createErrorPopupAtMouse(f"internal error: unknown ${other.getClass} at $path", this)

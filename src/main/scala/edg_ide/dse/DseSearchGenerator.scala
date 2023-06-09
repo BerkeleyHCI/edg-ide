@@ -5,15 +5,15 @@ import edg.wir.Refinements
 
 import scala.collection.{SeqMap, mutable}
 
-/** This class generates the search space for design space exploration. This supports dynamic / derived design
-  * spaces, where additional points in the design space are revealed based on the value of evaluated points.
+/** This class generates the search space for design space exploration. This supports dynamic / derived design spaces,
+  * where additional points in the design space are revealed based on the value of evaluated points.
   *
   * This is its own class so the design space behavior is unit-testable.
   */
 class DseSearchGenerator(configs: Seq[DseConfigElement]) {
   val (staticConfigs, derivedConfigs) = configs.partitionMap {
     case config: DseRefinementElement[Any] => Left(config)
-    case config: DseDerivedConfig          => Right(config)
+    case config: DseDerivedConfig => Right(config)
   }
   private val allConfigs = staticConfigs ++ derivedConfigs
 

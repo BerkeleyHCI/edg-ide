@@ -36,14 +36,13 @@ class DesignFastPathUtil(library: wir.Library) {
   private def recursiveExpandPort(portLike: elem.PortLike): Errorable[elem.PortLike] = exceptable {
     portLike.is match {
       case elem.PortLike.Is.LibElem(portType) => instantiatePortLike(portType).exceptError
-      case elem.PortLike.Is.Array(array)      => portLike // for now, don't elaborate arrays
+      case elem.PortLike.Is.Array(array) => portLike // for now, don't elaborate arrays
       case other => exceptable.fail(s"unexpected ${other.getClass} in expand port")
     }
 
   }
 
-  /** Return a stub block, with the proper superclass, single-level-deep ports, but no links, subblocks, or
-    * constraints.
+  /** Return a stub block, with the proper superclass, single-level-deep ports, but no links, subblocks, or constraints.
     */
   def instantiateStubBlock(blockType: ref.LibraryPath): Errorable[elem.HierarchyBlock] = exceptable {
     val newBlock = library.getBlock(blockType).exceptError
@@ -57,7 +56,7 @@ class DesignFastPathUtil(library: wir.Library) {
           case Some(ref) =>
             ref.steps.lastOption match {
               case Some(Ref.IsConnectedStep) => true
-              case _                         => false
+              case _ => false
             }
           case _ => false
         }
@@ -75,8 +74,7 @@ class DesignFastPathUtil(library: wir.Library) {
       )
   }
 
-  /** Given the exterior facing port type, returns a stub BlockLike bridge, and the type of the inner (link)
-    * facing port
+  /** Given the exterior facing port type, returns a stub BlockLike bridge, and the type of the inner (link) facing port
     */
   def instantiateStubBridgeLike(extPortType: ref.LibraryPath): Errorable[(elem.BlockLike, ref.LibraryPath)] =
     exceptable {
@@ -87,8 +85,8 @@ class DesignFastPathUtil(library: wir.Library) {
       (bridgeBlockLike, bridgedPortType)
     }
 
-  /** Given all connected types as a map of some arbitrary key to port type, returns a stub LinkLike link and
-    * a map of the key to the port ref
+  /** Given all connected types as a map of some arbitrary key to port type, returns a stub LinkLike link and a map of
+    * the key to the port ref
     */
   def instantiateStubLinkLike[T](
       connectedTypes: Map[T, ref.LibraryPath]

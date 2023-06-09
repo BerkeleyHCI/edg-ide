@@ -19,8 +19,8 @@ object InsertBlockAction {
   val VALID_FUNCTION_NAMES = Seq("contents", "__init__") // TODO support generators
   val VALID_SUPERCLASS = "edg_core.HierarchyBlock.Block"
 
-  /** Creates an action to insert a block of type libClass after some PSI element after. Validation is
-    * performed before the action is generated, though the action itself may also return an error.
+  /** Creates an action to insert a block of type libClass after some PSI element after. Validation is performed before
+    * the action is generated, though the action itself may also return an error.
     */
   def createInsertBlockFlow(
       after: PsiElement,
@@ -181,7 +181,7 @@ object InsertBlockAction {
         val argTemplateVars = allParams.map { initParam =>
           val paramName = initParam.getName() + (Option(initParam.getAnnotationValue) match {
             case Some(typed) => f": $typed"
-            case None        => ""
+            case None => ""
           })
 
           if (initParam.getDefaultValue == null) { // required argument, needs ellipsis
@@ -232,7 +232,7 @@ object InsertBlockAction {
               .getArgumentList // args to the object instantiation
             val deleteArgs = args.getArguments.flatMap { // remove empty kwargs
               case arg: PyKeywordArgument => if (arg.getValueExpression == null) Some(arg) else None
-              case _                      => None // ignored
+              case _ => None // ignored
             }
             writeCommandAction(project)
               .withName(s"clean $actionName")

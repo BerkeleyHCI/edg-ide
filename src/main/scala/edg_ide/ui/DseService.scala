@@ -63,7 +63,7 @@ class DseService(project: Project) extends PersistentStateComponent[DseServiceSt
         }
         .collectFirst {
           case (configSettings, config: DseRunConfiguration)
-              if config.options.designName == blockType.toFullString =>
+            if config.options.designName == blockType.toFullString =>
             (configSettings, config)
         }
         .map { case (configSettings, config) =>

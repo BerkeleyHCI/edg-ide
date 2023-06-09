@@ -105,7 +105,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     override def setGraphHighlights(paths: Option[Set[DesignPath]]): Unit = {
       paths match {
         case Some(paths) => graph.setHighlighted(Some(pathsToGraphNodes(paths)))
-        case None        => graph.setHighlighted(None)
+        case None => graph.setHighlighted(None)
       }
     }
 
@@ -210,7 +210,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         case Some(clicked) =>
           clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
             case path: DesignPath => activeTool.onPathMouse(e, path)
-            case null             => // TODO should this error out?
+            case null => // TODO should this error out?
           }
         case None => // ignored
       }
@@ -300,7 +300,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         )
       selectedTreePath.getLastPathComponent match {
         case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
-        case _                               => // any other type ignored
+        case _ => // any other type ignored
       }
     }
   })
@@ -416,8 +416,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   }
 
-  /** Updates the design tree only, where the overall "top design" does not change. Mainly used for
-    * speculative updates on graphical edit actions.
+  /** Updates the design tree only, where the overall "top design" does not change. Mainly used for speculative updates
+    * on graphical edit actions.
     */
   def setDesign(design: schema.Design, compiler: Compiler): Unit = {
     // Update state
@@ -453,8 +453,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     detailPanel.setStale(true)
   }
 
-  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
-    * Does not update visualizations that are unaffected by operations that don't change the design.
+  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state. Does not
+    * update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
     val currentFocusPath = focusPath
