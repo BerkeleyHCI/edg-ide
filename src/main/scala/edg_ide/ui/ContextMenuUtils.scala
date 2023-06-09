@@ -7,7 +7,6 @@ import java.awt.MouseInfo
 import java.awt.event.{ActionEvent, MouseEvent}
 import javax.swing.JMenuItem
 
-
 object ContextMenuUtils {
   def MenuItem(action: () => Unit, label: String): JMenuItem = {
     val item = new JMenuItem(label)
@@ -33,7 +32,10 @@ object ContextMenuUtils {
     item
   }
 
-  def MenuItemNamedFromErrorable(action: Errorable[(() => Unit, String)], fallbackLabel: String): JMenuItem = {
+  def MenuItemNamedFromErrorable(
+      action: Errorable[(() => Unit, String)],
+      fallbackLabel: String
+  ): JMenuItem = {
     val item = action match {
       case Errorable.Success((action, label)) =>
         val item = new JMenuItem(label)
@@ -49,8 +51,10 @@ object ContextMenuUtils {
     item
   }
 
-  def MenuItemsFromErrorableSeq[T](actions: Errorable[Seq[(String, () => Unit)]],
-                                   errorLabel: String): Seq[JMenuItem] = {
+  def MenuItemsFromErrorableSeq[T](
+      actions: Errorable[Seq[(String, () => Unit)]],
+      errorLabel: String
+  ): Seq[JMenuItem] = {
     actions match {
       case Errorable.Success(actions) =>
         actions.map { case (label, action) =>

@@ -10,19 +10,20 @@ import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
 import scala.jdk.CollectionConverters.ListHasAsScala
 
-class ModifiedElkNodePainter(rootNode: ElkNode,
-                             showTop: Boolean = false,
-                             zoomLevel: Float = 1.0f,
-                             errorElts: Set[ElkGraphElement] = Set(),
-                             staleElts: Set[ElkGraphElement] = Set(),
-                             selected: Set[ElkGraphElement] = Set(),
-                             highlighted: Option[Set[ElkGraphElement]] = None)
-  extends ElkNodePainter(rootNode, showTop, zoomLevel) {
+class ModifiedElkNodePainter(
+    rootNode: ElkNode,
+    showTop: Boolean = false,
+    zoomLevel: Float = 1.0f,
+    errorElts: Set[ElkGraphElement] = Set(),
+    staleElts: Set[ElkGraphElement] = Set(),
+    selected: Set[ElkGraphElement] = Set(),
+    highlighted: Option[Set[ElkGraphElement]] = None
+) extends ElkNodePainter(rootNode, showTop, zoomLevel) {
   private val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
 
-
   def makeHatchTexture(backgroundColor: Color, foregroundColor: Color): TexturePaint = {
-    val hatchImage = new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
+    val hatchImage =
+      new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
     val hatchGraphics = hatchImage.createGraphics()
     val hatchTexture = new TexturePaint(hatchImage, hatchRect)
     hatchGraphics.setColor(backgroundColor)
@@ -40,8 +41,10 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
-    } else if (!selected.contains(element) &&
-      highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
+    } else if (
+      !selected.contains(element) &&
+      highlighted.isDefined && !highlighted.get.contains(element)
+    ) { // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))
       newGraphics
@@ -59,7 +62,9 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
     } else if (staleElts.contains(element)) {
       val newBase = base.create().asInstanceOf[Graphics2D]
       if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-        newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.0375)))
+        newBase.setPaint(
+          makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.0375))
+        )
       } else {
         newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.15)))
       }
@@ -96,13 +101,12 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
     }
   }
 
-
   override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, background: Color, edge: ElkEdge): Unit = {
     super.paintEdge(parentG, blockG, background, edge)
 
     val thisG = if (edge.getSources == edge.getTargets) {
-      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect {
-        case sourcePort: ElkPort => sourcePort.getParent
+      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect { case sourcePort: ElkPort =>
+        sourcePort.getParent
       }
       if (edgeTargetBlockOption == Some(edge.getContainingNode)) {
         parentG
@@ -141,8 +145,11 @@ class ModifiedElkNodePainter(rootNode: ElkNode,
     }
   }
 
-
-  override def getNodeBackground(containingG: Graphics2D, containingBackground: Color, node: ElkNode): Color = {
+  override def getNodeBackground(
+      containingG: Graphics2D,
+      containingBackground: Color,
+      node: ElkNode
+  ): Color = {
     val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
       ColorUtil.blendColor(containingBackground, containingG.getColor, 0.375)
     } else {

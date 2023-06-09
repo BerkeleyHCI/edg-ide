@@ -8,9 +8,8 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.collection.SeqMap
 
-
 class InnermostSubblockTest extends AnyFlatSpec with Matchers {
-  behavior of "getInnermostSubblock"
+  behavior.of("getInnermostSubblock")
 
   it should "get innermost subblocks" in {
     val design = Design(Block.Block(
@@ -21,14 +20,15 @@ class InnermostSubblockTest extends AnyFlatSpec with Matchers {
     ))
 
     EdgirAnalysisUtils.getInnermostSubblock(DesignPath(), design.getContents) shouldEqual
-        Some((DesignPath() + "inner", design.getContents.blocks(0).getValue.getHierarchy))
+      Some((DesignPath() + "inner", design.getContents.blocks(0).getValue.getHierarchy))
   }
 
   it should "get nested innermost subblocks" in {
     val design = Design(Block.Block(
       selfClass = "top",
       blocks = SeqMap(
-        "outer" -> Block.Block("outerBlock",
+        "outer" -> Block.Block(
+          "outerBlock",
           blocks = SeqMap(
             "inner" -> Block.Block("innerBlock"),
           ),
@@ -37,8 +37,10 @@ class InnermostSubblockTest extends AnyFlatSpec with Matchers {
     ))
 
     EdgirAnalysisUtils.getInnermostSubblock(DesignPath(), design.getContents) shouldEqual
-        Some((DesignPath() + "outer" + "inner",
-            design.getContents.blocks(0).getValue.getHierarchy.blocks(0).getValue.getHierarchy))
+      Some((
+        DesignPath() + "outer" + "inner",
+        design.getContents.blocks(0).getValue.getHierarchy.blocks(0).getValue.getHierarchy
+      ))
   }
 
   it should "ignore bridges" in {
@@ -51,7 +53,7 @@ class InnermostSubblockTest extends AnyFlatSpec with Matchers {
     ))
 
     EdgirAnalysisUtils.getInnermostSubblock(DesignPath(), design.getContents) shouldEqual
-        Some((DesignPath() + "inner", design.getContents.blocks(1).getValue.getHierarchy))
+      Some((DesignPath() + "inner", design.getContents.blocks(1).getValue.getHierarchy))
   }
 
   it should "return self" in {
@@ -62,7 +64,7 @@ class InnermostSubblockTest extends AnyFlatSpec with Matchers {
     ))
 
     EdgirAnalysisUtils.getInnermostSubblock(DesignPath(), design.getContents) shouldEqual
-        Some((DesignPath(), design.getContents))
+      Some((DesignPath(), design.getContents))
   }
 
   it should "ignore multiple subblocks" in {

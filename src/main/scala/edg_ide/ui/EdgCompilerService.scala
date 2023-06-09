@@ -24,7 +24,6 @@ import java.util.concurrent.Callable
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-
 // Note: the implementation is here, but the actual service in plugin.xml is a Java class,
 // because IntelliJ doesn't seem to like the Scala class.
 object EdgCompilerService {
@@ -33,13 +32,13 @@ object EdgCompilerService {
   }
 }
 
-
 /** A single shared interface to Python and for running EDG compilation jobs.
   *
   * TODO: perhaps split the library service out?
   */
-class EdgCompilerService(project: Project) extends
-    PersistentStateComponent[EdgCompilerServiceState] with Disposable {
+class EdgCompilerService(project: Project)
+    extends PersistentStateComponent[EdgCompilerServiceState]
+    with Disposable {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.EdgCompilerService")
 
   val pyLib = new PythonInterfaceLibrary()
@@ -49,46 +48,58 @@ class EdgCompilerService(project: Project) extends
   // PSI read operations.
   val modifiedTypes = mutable.Set[ref.LibraryPath]()
 
-  PsiManager.getInstance(project).addPsiTreeChangeListener(new PsiTreeChangeListener {
-    override def beforeChildAddition(event: PsiTreeChangeEvent): Unit = { }
-    override def beforeChildRemoval(event: PsiTreeChangeEvent): Unit = { }
-    override def beforeChildReplacement(event: PsiTreeChangeEvent): Unit = { }
-    override def beforeChildMovement(event: PsiTreeChangeEvent): Unit = { }
-    override def beforeChildrenChange(event: PsiTreeChangeEvent): Unit = { }
-    override def beforePropertyChange(event: PsiTreeChangeEvent): Unit = { }
+  PsiManager
+    .getInstance(project)
+    .addPsiTreeChangeListener(
+      new PsiTreeChangeListener {
+        override def beforeChildAddition(event: PsiTreeChangeEvent): Unit = {}
+        override def beforeChildRemoval(event: PsiTreeChangeEvent): Unit = {}
+        override def beforeChildReplacement(event: PsiTreeChangeEvent): Unit = {}
+        override def beforeChildMovement(event: PsiTreeChangeEvent): Unit = {}
+        override def beforeChildrenChange(event: PsiTreeChangeEvent): Unit = {}
+        override def beforePropertyChange(event: PsiTreeChangeEvent): Unit = {}
 
-    override def childAdded(event: PsiTreeChangeEvent): Unit = childAction(event)
-    override def childRemoved(event: PsiTreeChangeEvent): Unit = childAction(event)
-    override def childReplaced(event: PsiTreeChangeEvent): Unit = childAction(event)
-    override def childrenChanged(event: PsiTreeChangeEvent): Unit = { }  // ends up as a file action
-    override def childMoved(event: PsiTreeChangeEvent): Unit = childAction(event)
-    override def propertyChanged(event: PsiTreeChangeEvent): Unit = { }
+        override def childAdded(event: PsiTreeChangeEvent): Unit = childAction(event)
+        override def childRemoved(event: PsiTreeChangeEvent): Unit = childAction(event)
+        override def childReplaced(event: PsiTreeChangeEvent): Unit = childAction(event)
+        override def childrenChanged(event: PsiTreeChangeEvent): Unit = {} // ends up as a file action
+        override def childMoved(event: PsiTreeChangeEvent): Unit = childAction(event)
+        override def propertyChanged(event: PsiTreeChangeEvent): Unit = {}
 
-    def childAction(event: PsiTreeChangeEvent): Unit = {
-      val containingClass = PsiTreeUtil.getParentOfType(event.getParent, classOf[PyClass])
-      if (containingClass == null) {
-        return
-      }
+        def childAction(event: PsiTreeChangeEvent): Unit = {
+          val containingClass = PsiTreeUtil.getParentOfType(event.getParent, classOf[PyClass])
+          if (containingClass == null) {
+            return
+          }
 
-      ReadAction.nonBlocking((() => {
-        val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
-        val extendedModifiedTypes = (inheritors.toSeq :+ containingClass).map { modifiedClass =>
-          DesignAnalysisUtils.typeOf(modifiedClass)
-        }.toSet
+          ReadAction
+            .nonBlocking((() => {
+              val inheritors = PyClassInheritorsSearch.search(containingClass, true).findAll().asScala
+              val extendedModifiedTypes = (inheritors.toSeq :+ containingClass).map { modifiedClass =>
+                DesignAnalysisUtils.typeOf(modifiedClass)
+              }.toSet
 
-        modifiedTypes.synchronized {
-          val newTypes = extendedModifiedTypes -- modifiedTypes
-          modifiedTypes.addAll(newTypes)
-          newTypes
+              modifiedTypes.synchronized {
+                val newTypes = extendedModifiedTypes -- modifiedTypes
+                modifiedTypes.addAll(newTypes)
+                newTypes
+              }
+            }): Callable[Set[ref.LibraryPath]])
+            .finishOnUiThread(
+              ModalityState.defaultModalityState(),
+              newTypes => {
+                BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
+                  visualizerPanel.addStaleTypes(newTypes.toSeq)
+                }
+              }
+            )
+            .inSmartMode(project)
+            .submit(AppExecutorUtil.getAppExecutorService)
+          // TODO update library cached status, so incremental discard
         }
-      }): Callable[Set[ref.LibraryPath]]).finishOnUiThread(ModalityState.defaultModalityState(), newTypes => {
-        BlockVisualizerService(project).visualizerPanelOption.foreach { visualizerPanel =>
-          visualizerPanel.addStaleTypes(newTypes.toSeq)
-        }
-      }).inSmartMode(project).submit(AppExecutorUtil.getAppExecutorService)
-      // TODO update library cached status, so incremental discard
-    }
-  }, this)
+      },
+      this
+    )
 
   /** Discards stale elements from modifiedPyClasses, returning the discarded classes.
     */
@@ -100,7 +111,7 @@ class EdgCompilerService(project: Project) extends
     }
 
     val discarded = copyModifiedTypes.filter { modifiedType =>
-        // TODO should this use compiled library analysis or PSI analysis?
+      // TODO should this use compiled library analysis or PSI analysis?
       pyLib.discardCached(modifiedType)
     }
     discarded
@@ -110,15 +121,17 @@ class EdgCompilerService(project: Project) extends
   // Does not discard any elements and does not rebuild cached elements
   // progressFn is called for each library requested, passing in the library, index, and total library count,
   // for all library elements regardless of whether it's cached.
-  def rebuildLibraries(module: String, progressFn: Option[(ref.LibraryPath, Int, Int) => Unit] = None):
-      Errorable[(Set[ref.LibraryPath], Long, Long)] = exceptable {
+  def rebuildLibraries(
+      module: String,
+      progressFn: Option[(ref.LibraryPath, Int, Int) => Unit] = None
+  ): Errorable[(Set[ref.LibraryPath], Long, Long)] = exceptable {
     val (indexed, indexTime) = timeExec {
       pyLib.indexModule(module).mapErr(msg => s"failed to index: $msg").exceptError.toSet
     }
     val (_, rebuildTime) = timeExec {
       indexed.toSeq.zipWithIndex.foreach { case (libraryType, i) =>
         progressFn.foreach { fn => fn(libraryType, i, indexed.size) }
-        EdgCompilerService(project).pyLib.getLibrary(libraryType)  // run for effect, errors skipped
+        EdgCompilerService(project).pyLib.getLibrary(libraryType) // run for effect, errors skipped
       }
     }
     (indexed, indexTime, rebuildTime)
@@ -126,13 +139,15 @@ class EdgCompilerService(project: Project) extends
 
   // Compiles a top level design
   // progressFn is called (by compiler hook) for each compiler elaborate record
-  def compile(designType: ref.LibraryPath):
-      (schema.Design, Compiler, edgrpc.Refinements) = {
-    val (block, refinements) = EdgCompilerService(project).pyLib.getDesignTop(designType)
-        .mapErr(msg => s"invalid top-level design: $msg").get // TODO propagate Errorable
+  def compile(designType: ref.LibraryPath): (schema.Design, Compiler, edgrpc.Refinements) = {
+    val (block, refinements) = EdgCompilerService(project).pyLib
+      .getDesignTop(designType)
+      .mapErr(msg => s"invalid top-level design: $msg")
+      .get // TODO propagate Errorable
     val design = schema.Design(contents = Some(block))
 
-    val compiler = new Compiler(design, EdgCompilerService(project).pyLib, refinements = Refinements(refinements))
+    val compiler =
+      new Compiler(design, EdgCompilerService(project).pyLib, refinements = Refinements(refinements))
     (compiler.compile(), compiler, refinements)
   }
 
@@ -153,5 +168,5 @@ class EdgCompilerService(project: Project) extends
     }
   }
 
-  override def dispose(): Unit = { }
+  override def dispose(): Unit = {}
 }

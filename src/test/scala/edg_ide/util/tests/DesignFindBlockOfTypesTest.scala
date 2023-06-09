@@ -10,9 +10,8 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.collection.SeqMap
 
-
 class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
-  behavior of "DesignFindBlockOfType"
+  behavior.of("DesignFindBlockOfType")
 
   it should "find blocks by single type" in {
     val inputDesign = Design(Block.Block(
@@ -27,14 +26,16 @@ class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
     val design = compiler.compile()
 
     new DesignFindBlockOfTypes(Set(LibraryPath("sourceBlock"))).map(design).toMap.keySet should contain(
-      DesignPath() + "source" + "inner")
-    new DesignFindBlockOfTypes(Set(LibraryPath("sinkBlock"))).map(design).toMap.keySet should contain allOf(
+      DesignPath() + "source" + "inner"
+    )
+    (new DesignFindBlockOfTypes(Set(LibraryPath("sinkBlock"))).map(design).toMap.keySet should contain).allOf(
       DesignPath() + "sink1" + "inner",
       DesignPath() + "sink2" + "inner",
     )
     new DesignFindBlockOfTypes(Set(LibraryPath("sourceContainerBlock"))).map(design).toMap.keySet should contain(
-      DesignPath() + "source")
-    new DesignFindBlockOfTypes(Set(LibraryPath("sinkContainerBlock"))).map(design).toMap.keySet should contain allOf(
+      DesignPath() + "source"
+    )
+    (new DesignFindBlockOfTypes(Set(LibraryPath("sinkContainerBlock"))).map(design).toMap.keySet should contain).allOf(
       DesignPath() + "sink1",
       DesignPath() + "sink2",
     )
@@ -56,17 +57,18 @@ class DesignFindBlockOfTypesTest extends AnyFlatSpec with Matchers {
     val compiler = new Compiler(inputDesign, new wir.EdgirLibrary(CompilerExpansionTest.library))
     val design = compiler.compile()
 
-    new DesignFindBlockOfTypes(Set(LibraryPath("sourceBlock"), LibraryPath("sinkBlock")))
-        .map(design).toMap.keySet should contain allOf(
+    (new DesignFindBlockOfTypes(Set(LibraryPath("sourceBlock"), LibraryPath("sinkBlock")))
+      .map(design).toMap.keySet should contain).allOf(
       DesignPath() + "source" + "inner",
       DesignPath() + "sink1" + "inner",
       DesignPath() + "sink2" + "inner",
     )
 
-    new DesignFindBlockOfTypes(Set(LibraryPath("sinkContainerBlock"), LibraryPath("sourceContainerBlock")))
-        .map(design).toMap.keySet should contain allOf(
+    (new DesignFindBlockOfTypes(Set(LibraryPath("sinkContainerBlock"), LibraryPath("sourceContainerBlock")))
+      .map(design).toMap.keySet should contain).allOf(
       DesignPath() + "sink1",
       DesignPath() + "sink2",
-      DesignPath() + "source")
+      DesignPath() + "source"
+    )
   }
 }

@@ -4,9 +4,8 @@ import edg_ide.util.IterableExtensions.IterableExtension
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class IterableExtensionsTest extends AnyFlatSpec with Matchers {
-  behavior of "IterableExtensions"
+  behavior.of("IterableExtensions")
 
   it should "get allSameValue of list with same value" in {
     Seq(1).allSameValue should equal(Some(1))

@@ -17,7 +17,7 @@ class KicadVizDrawPanel extends JPanel {
     this.repaint()
   })
 
-  var pinmap: Map[String, String] = Map()  // TODO shouldn't be public, should be set alongside the file
+  var pinmap: Map[String, String] = Map() // TODO shouldn't be public, should be set alongside the file
 
   override def paintComponent(g: Graphics): Unit = {
     super.paintComponent(g)
@@ -47,29 +47,39 @@ class KicadVizDrawPanel extends JPanel {
             scaledX,
             scaledY,
             scaledWidth,
-            scaledHeight)
+            scaledHeight
+          )
 
-          val fillG = g.create().asInstanceOf[Graphics2D]  // TODO dedup w/ JBlockDiagramVisualizer?
-          fillG.setColor(new Color(
-            fillG.getColor.getRed,
-            fillG.getColor.getGreen,
-            fillG.getColor.getBlue,
-            63
-          ))
+          val fillG = g.create().asInstanceOf[Graphics2D] // TODO dedup w/ JBlockDiagramVisualizer?
+          fillG.setColor(
+            new Color(
+              fillG.getColor.getRed,
+              fillG.getColor.getGreen,
+              fillG.getColor.getBlue,
+              63
+            )
+          )
           fillG.fillRect(
             scaledX,
             scaledY,
             scaledWidth,
-            scaledHeight)
+            scaledHeight
+          )
 
-          DrawAnchored.drawLabel(g, name,
+          DrawAnchored.drawLabel(
+            g,
+            name,
             (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
-            DrawAnchored.Bottom)
-          DrawAnchored.drawLabel(g, pinmap.getOrElse(name, ""),
+            DrawAnchored.Bottom
+          )
+          DrawAnchored.drawLabel(
+            g,
+            pinmap.getOrElse(name, ""),
             (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
-            DrawAnchored.Top)
+            DrawAnchored.Top
+          )
 
-        case Oval(x, y, width, height, name) =>  // TODO dedup w/ Rectangle case?
+        case Oval(x, y, width, height, name) => // TODO dedup w/ Rectangle case?
           val scaledWidth = (width * mul_factor).asInstanceOf[Int]
           val scaledHeight = (height * mul_factor).asInstanceOf[Int]
           val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
@@ -79,27 +89,37 @@ class KicadVizDrawPanel extends JPanel {
             scaledX,
             scaledY,
             scaledWidth,
-            scaledHeight)
+            scaledHeight
+          )
 
           val fillG = g.create().asInstanceOf[Graphics2D] // TODO dedup w/ JBlockDiagramVisualizer?
-          fillG.setColor(new Color(
-            fillG.getColor.getRed,
-            fillG.getColor.getGreen,
-            fillG.getColor.getBlue,
-            63
-          ))
+          fillG.setColor(
+            new Color(
+              fillG.getColor.getRed,
+              fillG.getColor.getGreen,
+              fillG.getColor.getBlue,
+              63
+            )
+          )
           fillG.fillOval(
             scaledX,
             scaledY,
             scaledWidth,
-            scaledHeight)
+            scaledHeight
+          )
 
-          DrawAnchored.drawLabel(g, name,
+          DrawAnchored.drawLabel(
+            g,
+            name,
             (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
-            DrawAnchored.Bottom)
-          DrawAnchored.drawLabel(g, pinmap.getOrElse(name, ""),
+            DrawAnchored.Bottom
+          )
+          DrawAnchored.drawLabel(
+            g,
+            pinmap.getOrElse(name, ""),
             (scaledX + scaledWidth / 2, scaledY + scaledHeight / 2),
-            DrawAnchored.Top)
+            DrawAnchored.Top
+          )
 
         case _ =>
       }
@@ -116,8 +136,10 @@ class KicadVizDrawPanel extends JPanel {
         val scaledHeight = (height * mul_factor).asInstanceOf[Int]
         val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
         val scaledY = ((y - min_y) * mul_factor).asInstanceOf[Int] - (scaledHeight / 2)
-        Option.when(locX >= scaledX && locX <= scaledX+scaledWidth &&
-            locY >= scaledY && locY <= scaledY+scaledHeight) {
+        Option.when(
+          locX >= scaledX && locX <= scaledX + scaledWidth &&
+            locY >= scaledY && locY <= scaledY + scaledHeight
+        ) {
           comp
         }
       case comp @ Oval(x, y, width, height, name) =>
@@ -125,8 +147,10 @@ class KicadVizDrawPanel extends JPanel {
         val scaledHeight = (height * mul_factor).asInstanceOf[Int]
         val scaledX = ((x - min_x) * mul_factor).asInstanceOf[Int] - (scaledWidth / 2)
         val scaledY = ((y - min_y) * mul_factor).asInstanceOf[Int] - (scaledHeight / 2)
-        Option.when(locX >= scaledX && locX <= scaledX + scaledWidth &&
-            locY >= scaledY && locY <= scaledY + scaledHeight) {
+        Option.when(
+          locX >= scaledX && locX <= scaledX + scaledWidth &&
+            locY >= scaledY && locY <= scaledY + scaledHeight
+        ) {
           comp
         }
       case _ => None

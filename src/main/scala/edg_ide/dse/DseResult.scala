@@ -7,25 +7,25 @@ import edgir.schema.schema.Design
 
 import scala.collection.{SeqMap, mutable}
 
-
 // result entry for an evaluated point in the design space
 case class DseResult(
-                        index: Int,
-                        config: SeqMap[DseConfigElement, Any],
-                        searchRefinements: Refinements,
-                        compiler: Compiler,
-                        compiled: Design,
-                        errors: Seq[CompilerError],
-                        objectives: SeqMap[DseObjective, Any],
-                        compileTime: Long
+    index: Int,
+    config: SeqMap[DseConfigElement, Any],
+    searchRefinements: Refinements,
+    compiler: Compiler,
+    compiled: Design,
+    errors: Seq[CompilerError],
+    objectives: SeqMap[DseObjective, Any],
+    compileTime: Long
 ) {
   def objectiveToString: String = {
-    objectives.map { case (objective, value) =>
-      f"${objective.objectiveToString} -> ${DseConfigElement.valueToString(value)}"
-    }.mkString(", ")
+    objectives
+      .map { case (objective, value) =>
+        f"${objective.objectiveToString} -> ${DseConfigElement.valueToString(value)}"
+      }
+      .mkString(", ")
   }
 }
-
 
 // DSE result set that combines similar entries while preserving order
 class CombinedDseResultSet(results: Seq[DseResult]) {
@@ -36,7 +36,7 @@ class CombinedDseResultSet(results: Seq[DseResult]) {
     val groupedMap = mutable.SeqMap[GroupingKey, mutable.ArrayBuffer[DseResult]]()
     results.foreach { result =>
       val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(result.errors)
-      val key = ((idealErrors.nonEmpty && otherErrors.isEmpty), otherErrors.nonEmpty, result.objectives)
+      val key = (idealErrors.nonEmpty && otherErrors.isEmpty, otherErrors.nonEmpty, result.objectives)
       groupedMap.getOrElseUpdate(key, mutable.ArrayBuffer[DseResult]()).append(result)
     }
     groupedMap.map { case (key, vals) =>

@@ -34,7 +34,6 @@ import javax.swing._
 import javax.swing.event._
 import javax.swing.tree.TreePath
 
-
 class BlockRootPopupMenu(project: Project) extends JPopupMenu {
   private val contextPyClass = InsertAction.getPyClassOfContext(project)
   private val contextPyName = contextPyClass.mapToString(_.getName)
@@ -47,17 +46,25 @@ class BlockRootPopupMenu(project: Project) extends JPopupMenu {
     InsertAction.navigateToEnd(added)
   }
   val defineClassAfter = exceptable {
-    InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
-      classOf[PsiFile], project).exceptError
+    InsertAction
+      .getCaretAtFileOfType(
+        contextPyClass.exceptError.getContainingFile,
+        classOf[PsiFile],
+        project
+      )
+      .exceptError
   }
   val defineClassAction: Errorable[() => Unit] = exceptable {
-    val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.HierarchyBlock.Block", project)
-        .exceptError
-    DefineBlockAction.createDefineBlockFlow(
-      defineClassAfter.exceptError,
-      blockClass,
-      s"Define new Block",
-      project, createBlockContinuation).exceptError
+    val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.HierarchyBlock.Block", project).exceptError
+    DefineBlockAction
+      .createDefineBlockFlow(
+        defineClassAfter.exceptError,
+        blockClass,
+        s"Define new Block",
+        project,
+        createBlockContinuation
+      )
+      .exceptError
   }
   private val defineFileLine = exceptable {
     defineClassAction.exceptError
@@ -65,10 +72,11 @@ class BlockRootPopupMenu(project: Project) extends JPopupMenu {
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
   private val defineClassItem = ContextMenuUtils.MenuItemFromErrorable(
-    defineClassAction, s"Define new subclass$defineFileLine")
+    defineClassAction,
+    s"Define new subclass$defineFileLine"
+  )
   add(defineClassItem)
 }
-
 
 class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extends JPopupMenu {
   val blockTypeName = blockType.toSimpleString
@@ -92,18 +100,27 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
     exceptionNotify("edg.ui.LibraryPanel", project) {
       val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
-          .exceptNone("no visualizer panel")
-      visualizerPanel.currentDesignModifyBlock(contextPath) { _.update(
-        _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(blockType).exceptError).toPb
-      )}
+        .exceptNone("no visualizer panel")
+      visualizerPanel.currentDesignModifyBlock(contextPath) {
+        _.update(
+          _.blocks :+= (name, fastPathUtil.instantiateStubBlockLike(blockType).exceptError).toPb
+        )
+      }
       visualizerPanel.addStaleBlocks(Seq(contextPath + name))
     }
   }
 
   val (insertAction, insertItem) = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
     val insertAction: Errorable[() => Unit] = exceptable {
-      InsertBlockAction.createTemplateBlock(contextPyClass.exceptError, blockPyClass.exceptError,
-        s"Insert $blockTypeName", project, insertContinuation).exceptError
+      InsertBlockAction
+        .createTemplateBlock(
+          contextPyClass.exceptError,
+          blockPyClass.exceptError,
+          s"Insert $blockTypeName",
+          project,
+          insertContinuation
+        )
+        .exceptError
     }
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
     (insertAction, insertItem)
@@ -116,20 +133,30 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
       }.toOption
     ).flatten.flatten
 
-    val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
-      exceptable {
-        val insertBlockFlow = InsertBlockAction.createInsertBlockFlow(insertPsiElement, blockPyClass.exceptError,
-          s"Insert $blockTypeName", project, insertContinuation)
-        (insertPsiElement, insertBlockFlow.exceptError)
-      }.toOption
-    }.headOption, "no valid locations")
+    val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(
+      insertLocations.flatMap { insertPsiElement =>
+        exceptable {
+          val insertBlockFlow = InsertBlockAction.createInsertBlockFlow(
+            insertPsiElement,
+            blockPyClass.exceptError,
+            s"Insert $blockTypeName",
+            project,
+            insertContinuation
+          )
+          (insertPsiElement, insertBlockFlow.exceptError)
+        }.toOption
+      }.headOption,
+      "no valid locations"
+    )
 
     val insertFileLine = exceptable {
       PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
     }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(
-      insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+      insertAction.map(_._2),
+      s"Insert into $contextPyName$insertFileLine"
+    )
 
     (insertAction.map(_._2), insertItem)
   }
@@ -141,56 +168,77 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   // Refinements action
   private val selectedPathLibraryClass = exceptable {
     val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
-        .exceptNone("no visualizer panel")
+      .exceptNone("no visualizer panel")
     val blockClass = blockPyClass.exceptError
 
     val selectedPath = visualizerPanel.getSelectedPath.exceptNone("no selection")
-    val (resolvedPath, resolvedElt) = EdgirUtils.resolveDeepest(selectedPath, visualizerPanel.getDesign)
-        .exceptNone(s"can't resolve $selectedPath")
+    val (resolvedPath, resolvedElt) = EdgirUtils
+      .resolveDeepest(selectedPath, visualizerPanel.getDesign)
+      .exceptNone(s"can't resolve $selectedPath")
     requireExcept(selectedPath == resolvedPath, s"mismatch resolving $selectedPath")
     val selectedBlock = resolvedElt.instanceOfExcept[elem.HierarchyBlock]("selected not a block")
     val selectedType = selectedBlock.prerefineClass.getOrElse(selectedBlock.getSelfClass)
     val selectedClass = DesignAnalysisUtils.pyClassOf(selectedType, project).exceptError
 
-    requireExcept(blockClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
-      s"${blockClass.getName} not a subtype of ${selectedClass.getName}")
+    requireExcept(
+      blockClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
+      s"${blockClass.getName} not a subtype of ${selectedClass.getName}"
+    )
 
     (selectedPath, selectedType, selectedClass)
   }
   private val topClass = exceptable {
     val topType = BlockVisualizerService(project).visualizerPanelOption
-        .exceptNone("no visualizer panel")
-        .getDesign.getContents
-        .getSelfClass
+      .exceptNone("no visualizer panel")
+      .getDesign
+      .getContents
+      .getSelfClass
     DesignAnalysisUtils.pyClassOf(topType, project).exceptError
   }
   private val insertInstanceRefinementAction: Errorable[() => Unit] = exceptable {
     val (selectedPath, selectedLibrary, selectedClass) = selectedPathLibraryClass.exceptError
     val insertAction = new InsertRefinementAction(project, topClass.exceptError)
-        .createInsertRefinements(Refinements(
-          instanceRefinements=Map(selectedPath -> blockType)
-        )).exceptError
-    () => {  // TODO standardized continuation?
+      .createInsertRefinements(
+        Refinements(
+          instanceRefinements = Map(selectedPath -> blockType)
+        )
+      )
+      .exceptError
+    () => { // TODO standardized continuation?
       val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
     }
   }
   private val selectedPathName = selectedPathLibraryClass.map(_._1.toString).toOption.getOrElse("selection")
-  add(ContextMenuUtils.MenuItemFromErrorable(insertInstanceRefinementAction, s"Refine instance $selectedPathName to $blockTypeName"))
+  add(
+    ContextMenuUtils.MenuItemFromErrorable(
+      insertInstanceRefinementAction,
+      s"Refine instance $selectedPathName to $blockTypeName"
+    )
+  )
 
   private val insertClassRefinementAction: Errorable[() => Unit] = exceptable {
     val (selectedPath, selectedLibrary, selectedClass) = selectedPathLibraryClass.exceptError
     val insertAction = new InsertRefinementAction(project, topClass.exceptError)
-        .createInsertRefinements(Refinements(
+      .createInsertRefinements(
+        Refinements(
           classRefinements = Map(selectedLibrary -> blockType)
-        )).exceptError
-    () => {  // TODO standardized continuation?
+        )
+      )
+      .exceptError
+    () => { // TODO standardized continuation?
       val inserted = insertAction().head
       InsertAction.navigateToEnd(inserted)
     }
   }
-  private val selectedClassName = selectedPathLibraryClass.map(_._2.toSimpleString).toOption.getOrElse("of selection")
-  add(ContextMenuUtils.MenuItemFromErrorable(insertClassRefinementAction, s"Refine class $selectedClassName to $blockTypeName"))
+  private val selectedClassName =
+    selectedPathLibraryClass.map(_._2.toSimpleString).toOption.getOrElse("of selection")
+  add(
+    ContextMenuUtils.MenuItemFromErrorable(
+      insertClassRefinementAction,
+      s"Refine class $selectedClassName to $blockTypeName"
+    )
+  )
   addSeparator()
 
   // Create new block actions
@@ -198,15 +246,24 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     InsertAction.navigateToEnd(added)
   }
   val defineClassAfter = exceptable {
-    InsertAction.getCaretAtFileOfType(contextPyClass.exceptError.getContainingFile,
-      classOf[PsiFile], project).exceptError
+    InsertAction
+      .getCaretAtFileOfType(
+        contextPyClass.exceptError.getContainingFile,
+        classOf[PsiFile],
+        project
+      )
+      .exceptError
   }
   val defineClassAction: Errorable[() => Unit] = exceptable {
-    DefineBlockAction.createDefineBlockFlow(
-      defineClassAfter.exceptError,
-      blockPyClass.exceptError,
-      s"Define new subclass of $blockTypeName",
-      project, createBlockContinuation).exceptError
+    DefineBlockAction
+      .createDefineBlockFlow(
+        defineClassAfter.exceptError,
+        blockPyClass.exceptError,
+        s"Define new subclass of $blockTypeName",
+        project,
+        createBlockContinuation
+      )
+      .exceptError
   }
   private val defineFileLine = exceptable {
     defineClassAction.exceptError
@@ -214,7 +271,9 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
   private val createClassItem = ContextMenuUtils.MenuItemFromErrorable(
-    defineClassAction, s"Define new subclass$defineFileLine")
+    defineClassAction,
+    s"Define new subclass$defineFileLine"
+  )
   add(createClassItem)
   addSeparator()
 
@@ -223,13 +282,13 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     requireExcept(blockPyClass.exceptError.canNavigateToSource, "class not navigatable")
     () => blockPyClass.exceptError.navigate(true)
   }
-  private val blockFileLine = blockPyClass.flatMap(PsiUtils.fileLineOf(_, project))
-      .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-  private val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(gotoDefinitionAction,
-    s"Goto Definition$blockFileLine")
+  private val blockFileLine = blockPyClass
+    .flatMap(PsiUtils.fileLineOf(_, project))
+    .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+  private val gotoDefinitionItem =
+    ContextMenuUtils.MenuItemFromErrorable(gotoDefinitionAction, s"Goto Definition$blockFileLine")
   add(gotoDefinitionItem)
 }
-
 
 class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends JPopupMenu {
   val portTypeName = portType.toSimpleString
@@ -253,13 +312,17 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
 
     exceptionNotify("edg.ui.LibraryPanel", project) {
       val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
-          .exceptNone("no visualizer panel")
+        .exceptNone("no visualizer panel")
       visualizerPanel.currentDesignModifyBlock(contextPath) { block =>
         val namer = NameCreator.fromBlock(block)
         block.update(
           _.ports :+= (name, fastPathUtil.instantiatePortLike(portType).exceptError).toPb,
-          _.constraints :+= (namer.newName(s"_new_(reqd)$name"), ValueExpr.Ref(Ref.IsConnected(Ref(name)))).toPb,
-      )}
+          _.constraints :+= (
+            namer.newName(s"_new_(reqd)$name"),
+            ValueExpr.Ref(Ref.IsConnected(Ref(name)))
+          ).toPb
+        )
+      }
       visualizerPanel.addStaleBlocks(Seq(contextPath))
     }
   }
@@ -267,25 +330,41 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
   val insertLocations = Seq(
     caretPsiElement.toOption.map(Seq(_)),
     exceptable {
-      InsertAction.findInsertionElements(contextPyClass.exceptError, Seq(InsertPortAction.VALID_FUNCTION_NAME))
+      InsertAction.findInsertionElements(
+        contextPyClass.exceptError,
+        Seq(InsertPortAction.VALID_FUNCTION_NAME)
+      )
     }.toOption
   ).flatten.flatten
 
-  val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(insertLocations.flatMap { insertPsiElement =>
-    exceptable {
-      requireExcept(contextPath != DesignPath(), "can't insert port at design top")  // TODO propagate error message
-      val insertPortFlow = InsertPortAction.createInsertPortFlow(insertPsiElement, portPyClass.exceptError,
-        s"Insert $portTypeName at $contextPyName caret", project, insertContinuation)
-      (insertPsiElement, insertPortFlow.exceptError)
-    }.toOption
-  }.headOption, "no valid locations")
+  val insertAction: Errorable[(PsiElement, () => Unit)] = Errorable(
+    insertLocations.flatMap { insertPsiElement =>
+      exceptable {
+        requireExcept(
+          contextPath != DesignPath(),
+          "can't insert port at design top"
+        ) // TODO propagate error message
+        val insertPortFlow = InsertPortAction.createInsertPortFlow(
+          insertPsiElement,
+          portPyClass.exceptError,
+          s"Insert $portTypeName at $contextPyName caret",
+          project,
+          insertContinuation
+        )
+        (insertPsiElement, insertPortFlow.exceptError)
+      }.toOption
+    }.headOption,
+    "no valid locations"
+  )
 
   private val insertFileLine = exceptable {
     PsiUtils.fileNextLineOf(insertAction.exceptError._1, project).exceptError
   }.mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
 
   private val insertItem = ContextMenuUtils.MenuItemFromErrorable(
-    insertAction.map(_._2), s"Insert into $contextPyName$insertFileLine")
+    insertAction.map(_._2),
+    s"Insert into $contextPyName$insertFileLine"
+  )
   add(insertItem)
 
   addSeparator()
@@ -295,13 +374,13 @@ class LibraryPortPopupMenu(portType: ref.LibraryPath, project: Project) extends 
     requireExcept(portPyClass.exceptError.canNavigateToSource, "class not navigatable")
     () => portPyClass.exceptError.navigate(true)
   }
-  private val portFileLine = portPyClass.flatMap(PsiUtils.fileLineOf(_, project))
-      .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
-  private val gotoDefinitionItem = ContextMenuUtils.MenuItemFromErrorable(gotoDefinitionAction,
-    s"Goto Definition$portFileLine")
+  private val portFileLine = portPyClass
+    .flatMap(PsiUtils.fileLineOf(_, project))
+    .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
+  private val gotoDefinitionItem =
+    ContextMenuUtils.MenuItemFromErrorable(gotoDefinitionAction, s"Goto Definition$portFileLine")
   add(gotoDefinitionItem)
 }
-
 
 class LibraryPreview(project: Project) extends JPanel {
   // State
@@ -326,7 +405,8 @@ class LibraryPreview(project: Project) extends JPanel {
 
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
     EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()),
-    "")
+    ""
+  )
   private val graph = new JBlockDiagramVisualizer(emptyHGraph)
   splitter.setSecondComponent(graph)
 
@@ -362,79 +442,99 @@ class LibraryPreview(project: Project) extends JPanel {
     if (superclasses.isEmpty) {
       "(none)"
     } else {
-      superclasses.map { superclass =>
-        // TODO hyperlinks? s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
-        s"""<b>${superclass.toSimpleString}</b>"""
-      }.mkString(", ")
+      superclasses
+        .map { superclass =>
+          // TODO hyperlinks? s"""<a href="lib:${superclass.getTarget.getName}">${EdgirUtils.SimpleLibraryPath(superclass)}</a>"""
+          s"""<b>${superclass.toSimpleString}</b>"""
+        }
+        .mkString(", ")
     }
   }
 
   def setBlock(library: wir.Library, blockType: ref.LibraryPath): Unit = {
-    ReadAction.nonBlocking((() => {
-      exceptable {
-        val fastPath = new DesignFastPathUtil(library)
-        val block = library.getBlock(blockType).exceptError
-        val stubBlock = fastPath.instantiateStubBlock(blockType).exceptError
-        val edgirGraph = EdgirGraph.blockToNode(DesignPath(), stubBlock)
-        val transformedGraph = CollapseBridgeTransform(CollapseLinkTransform(
-          InferEdgeDirectionTransform(SimplifyPortTransform(
-            PruneDepthTransform(edgirGraph, 2)))))
-        val blockGraph = HierarchyGraphElk.HGraphNodeToElk(transformedGraph,
-          "",  // no name, the class is already shown as the class name
-          Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
-          true)  // need to make a root so root doesn't have ports
+    ReadAction
+      .nonBlocking((() => {
+        exceptable {
+          val fastPath = new DesignFastPathUtil(library)
+          val block = library.getBlock(blockType).exceptError
+          val stubBlock = fastPath.instantiateStubBlock(blockType).exceptError
+          val edgirGraph = EdgirGraph.blockToNode(DesignPath(), stubBlock)
+          val transformedGraph = CollapseBridgeTransform(
+            CollapseLinkTransform(
+              InferEdgeDirectionTransform(
+                SimplifyPortTransform(
+                  PruneDepthTransform(edgirGraph, 2)
+                )
+              )
+            )
+          )
+          val blockGraph = HierarchyGraphElk.HGraphNodeToElk(
+            transformedGraph,
+            "", // no name, the class is already shown as the class name
+            Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
+            true
+          ) // need to make a root so root doesn't have ports
 
-        val pyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
-        val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
+          val pyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
+          val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
 
-        val callString = paramsToString(initArgs, initKwargs)
-        val docstring = Option(pyClass.getDocStringValue).getOrElse("")
-        val superclassString = superclassToString(block.superclasses)
+          val callString = paramsToString(initArgs, initKwargs)
+          val docstring = Option(pyClass.getDocStringValue).getOrElse("")
+          val superclassString = superclassToString(block.superclasses)
 
-        val textFieldText = s"<b>${blockType.toSimpleString}</b> " +
+          val textFieldText = s"<b>${blockType.toSimpleString}</b> " +
             s"extends: $superclassString\n" +
             s"takes: $callString<hr>" +
             docstring
 
-        (blockGraph, textFieldText)
-      } match {
-        case Errorable.Success(value) => value
-        case Errorable.Error(errMsg) => (emptyHGraph, s"${blockType.toSimpleString}: $errMsg")
-      }
-    }): Callable[(ElkNode, String)]).finishOnUiThread(ModalityState.defaultModalityState(), { case (blockGraph, textFieldText) =>
-      graph.setGraph(blockGraph)
-      textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText, this.getFont))
-    }).submit(AppExecutorUtil.getAppExecutorService)
+          (blockGraph, textFieldText)
+        } match {
+          case Errorable.Success(value) => value
+          case Errorable.Error(errMsg) => (emptyHGraph, s"${blockType.toSimpleString}: $errMsg")
+        }
+      }): Callable[(ElkNode, String)])
+      .finishOnUiThread(
+        ModalityState.defaultModalityState(),
+        { case (blockGraph, textFieldText) =>
+          graph.setGraph(blockGraph)
+          textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText, this.getFont))
+        }
+      )
+      .submit(AppExecutorUtil.getAppExecutorService)
   }
 
   def setPort(library: wir.Library, portType: ref.LibraryPath): Unit = {
     // TODO combine w/ setBlock
-    ReadAction.nonBlocking((() => {
-      exceptable {
-        val pyClass = DesignAnalysisUtils.pyClassOf(portType, project).exceptError
-        val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
+    ReadAction
+      .nonBlocking((() => {
+        exceptable {
+          val pyClass = DesignAnalysisUtils.pyClassOf(portType, project).exceptError
+          val (initArgs, initKwargs) = DesignAnalysisUtils.initParamsOf(pyClass, project).exceptError
 
-        val callString = paramsToString(initArgs, initKwargs)
-        val docstring = Option(pyClass.getDocStringValue).getOrElse("")
+          val callString = paramsToString(initArgs, initKwargs)
+          val docstring = Option(pyClass.getDocStringValue).getOrElse("")
 
-        s"<b>${portType.toSimpleString}</b>\n" +
+          s"<b>${portType.toSimpleString}</b>\n" +
             s"takes: $callString<hr>" +
             docstring
-      } match {
-        case Errorable.Success(value) => value
-        case Errorable.Error(errMsg) => s"${portType.toSimpleString}: $errMsg"
-      }
-    }): Callable[String] ).finishOnUiThread(ModalityState.defaultModalityState(), textFieldText => {
-      graph.setGraph(emptyHGraph)
-      textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText,
-        this.getFont))
-    }).submit(AppExecutorUtil.getAppExecutorService)
+        } match {
+          case Errorable.Success(value) => value
+          case Errorable.Error(errMsg) => s"${portType.toSimpleString}: $errMsg"
+        }
+      }): Callable[String])
+      .finishOnUiThread(
+        ModalityState.defaultModalityState(),
+        textFieldText => {
+          graph.setGraph(emptyHGraph)
+          textField.setText(SwingHtmlUtil.wrapInHtml(textFieldText, this.getFont))
+        }
+      )
+      .submit(AppExecutorUtil.getAppExecutorService)
   }
 
   def clear(): Unit = {
     graph.setGraph(emptyHGraph)
-    textField.setText(SwingHtmlUtil.wrapInHtml("",
-      this.getFont))
+    textField.setText(SwingHtmlUtil.wrapInHtml("", this.getFont))
   }
 
   // Configuration State
@@ -447,7 +547,6 @@ class LibraryPreview(project: Project) extends JPanel {
     splitter.setProportion(state.libraryPreviewSplitterPos)
   }
 }
-
 
 class LibraryPanel(project: Project) extends JPanel {
   // State
@@ -472,31 +571,36 @@ class LibraryPanel(project: Project) extends JPanel {
   private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, library))
   private val libraryTree = new TreeTable(libraryTreeModel) with ProvenTreeTableMixin
   new TreeTableSpeedSearch(libraryTree)
-  private val libraryTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
-    override def valueChanged(e: TreeSelectionEvent): Unit = {
-      e.getPath.getLastPathComponent match {
-        case node: EdgirLibraryNode#BlockNode =>
-          preview.setBlock(library, node.path)
-        case node: EdgirLibraryNode#PortNode =>
-          preview.setPort(library, node.path)
-        case node =>
-          preview.clear()
+  private val libraryTreeListener =
+    new TreeSelectionListener { // an object so it can be re-used since a model change wipes everything out
+      override def valueChanged(e: TreeSelectionEvent): Unit = {
+        e.getPath.getLastPathComponent match {
+          case node: EdgirLibraryNode#BlockNode =>
+            preview.setBlock(library, node.path)
+          case node: EdgirLibraryNode#PortNode =>
+            preview.setPort(library, node.path)
+          case node =>
+            preview.clear()
+        }
       }
     }
-  }
   libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
   libraryTree.getTree.expandPath( // expand the blocks node by default
     new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head))
 
   private val libraryMouseListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
-      val selectedTreePath = TreeTableUtils.getPathForRowLocation(libraryTree, e.getX, e.getY).getOrElse(return)
+      val selectedTreePath = TreeTableUtils
+        .getPathForRowLocation(libraryTree, e.getX, e.getY)
+        .getOrElse(
+          return
+        )
       selectedTreePath.getLastPathComponent match {
         case selected: EdgirLibraryNode#BlockNode => // insert actions / menu for blocks
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryBlockPopupMenu(selected.path, project).insertAction.exceptError) ()
+              new LibraryBlockPopupMenu(selected.path, project).insertAction.exceptError()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
@@ -507,7 +611,7 @@ class LibraryPanel(project: Project) extends JPanel {
           if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) {
             // double click quick insert at caret
             exceptionPopup(e) {
-              (new LibraryPortPopupMenu(selected.path, project).insertAction.exceptError._2) ()
+              new LibraryPortPopupMenu(selected.path, project).insertAction.exceptError._2()
             }
           } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {
             // right click context menu
@@ -520,7 +624,7 @@ class LibraryPanel(project: Project) extends JPanel {
             new BlockRootPopupMenu(project).show(e.getComponent, e.getX, e.getY)
           }
 
-        case _ => return  // any other type ignored
+        case _ => return // any other type ignored
       }
     }
   }
@@ -534,7 +638,7 @@ class LibraryPanel(project: Project) extends JPanel {
 
   splitter.setFirstComponent(libraryTreePanel)
 
-  def updateFilter(): Unit = {  // TODO spinny working indicator, incremental adding
+  def updateFilter(): Unit = { // TODO spinny working indicator, incremental adding
     def recursiveExpandPath(path: TreePath): Unit = {
       if (path != null) {
         recursiveExpandPath(path.getParentPath)
@@ -542,9 +646,10 @@ class LibraryPanel(project: Project) extends JPanel {
       }
     }
 
-    val searchTerms = libraryTreeSearch.getText.split(' ')
-        .filterNot(_.isEmpty)
-        .map(_.toLowerCase())
+    val searchTerms = libraryTreeSearch.getText
+      .split(' ')
+      .filterNot(_.isEmpty)
+      .map(_.toLowerCase())
     if (searchTerms.isEmpty) {
       libraryTreeModel.setFilter(_ => true)
     } else {
@@ -583,8 +688,9 @@ class LibraryPanel(project: Project) extends JPanel {
       TreeTableUtils.updateModel(libraryTree, libraryTreeModel)
       updateFilter()
       libraryTree.getTree.addTreeSelectionListener(libraryTreeListener)
-      libraryTree.getTree.expandPath(  // TODO - this is a hack because restoring prev expanded doesn't work
-        new TreePath(libraryTreeModel.getRootNode).pathByAddingChild(libraryTreeModel.getRootNode.children.head))
+      libraryTree.getTree.expandPath( // TODO - this is a hack because restoring prev expanded doesn't work
+        new TreePath(libraryTreeModel.getRootNode)
+          .pathByAddingChild(libraryTreeModel.getRootNode.children.head))
     })
   }
 

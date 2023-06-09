@@ -17,7 +17,7 @@ import java.io.{FileNotFoundException, FileOutputStream, IOException}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-object PDFGeneratorUtil{
+object PDFGeneratorUtil {
 
   /*
     Note for future development:
@@ -29,7 +29,6 @@ object PDFGeneratorUtil{
   private final val kTableRowHeight = 23f
   final val kLinkFont = new Font(Font.HELVETICA, 12f, Font.UNDERLINE, Color.BLUE)
   final val kBoldFont = new Font(Font.HELVETICA, 12f, Font.BOLD, Color.BLACK)
-
 
   private def generatePageSize(node: ElkNode, tableRows: Int): (Float, Float) = {
     val width = node.getWidth.toFloat + 2f * ElkNodePainter.margin.toFloat + 2f * kPageMargin
@@ -53,29 +52,32 @@ object PDFGeneratorUtil{
       val className = block.getSelfClass
       dupList.getOrElseUpdate(className, ListBuffer()) += path
 
-      block.blocks.asPairs.map {
-        case (name, subblock) => (name, subblock.`type`)
-      }.collect {
-        case (name, BlockLike.Type.Hierarchy(subblock)) => (path + name, subblock)
-      }.foreach {
-        case (path, subblock) => traverseBlock(subblock, path)
-      }
+      block.blocks.asPairs
+        .map { case (name, subblock) =>
+          (name, subblock.`type`)
+        }
+        .collect { case (name, BlockLike.Type.Hierarchy(subblock)) =>
+          (path + name, subblock)
+        }
+        .foreach { case (path, subblock) =>
+          traverseBlock(subblock, path)
+        }
     }
 
     traverseBlock(block, DesignPath())
     dupList.view.mapValues(_.toList).toMap
   }
 
-
-  def generate(content: HierarchyBlock,
-               mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
-               fileName: String): Unit = {
+  def generate(
+      content: HierarchyBlock,
+      mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
+      fileName: String
+  ): Unit = {
 
     val dupList = getDuplicationList(content)
 
     val document = new Document()
     val writer = PdfWriter.getInstance(document, new FileOutputStream(fileName))
-
 
     def printNode(node: ElkNode, className: LibraryPath, path: DesignPath): Unit = {
       val dupSet = dupList.getOrElse(className, Set.empty)
@@ -88,7 +90,7 @@ object PDFGeneratorUtil{
       targetAnchor.setName(path.toString)
       val headerPhrase = new Phrase
       headerPhrase.add(targetAnchor)
-      val pageHeader = new HeaderFooter(headerPhrase,false)
+      val pageHeader = new HeaderFooter(headerPhrase, false)
       pageHeader.setAlignment(Element.ALIGN_LEFT)
       document.setHeader(pageHeader)
 
@@ -114,7 +116,7 @@ object PDFGeneratorUtil{
       graphics.dispose()
 
       // Prints out table if there are multiple usages of the same component
-      if(dupSet.size > 1) {
+      if (dupSet.size > 1) {
         val table = new PdfPTable(1)
 
         val message = new Paragraph(s"${className.toSimpleString} is also used at the following:")
@@ -129,7 +131,7 @@ object PDFGeneratorUtil{
           def generateHyperlinkPathName(hyperlinkPath: DesignPath): Unit = {
             val (parent, currentElement) = hyperlinkPath.split
 
-            if(parent != DesignPath()){
+            if (parent != DesignPath()) {
               generateHyperlinkPathName(parent)
             }
             val anchor = new Anchor
@@ -137,7 +139,7 @@ object PDFGeneratorUtil{
             anchor.add(new Phrase(parent.lastString, kLinkFont))
             anchor.add(new Phrase("."))
 
-            if(currentElement == lastElement){
+            if (currentElement == lastElement) {
               anchor.add(new Phrase(currentElement))
             }
 
@@ -157,22 +159,25 @@ object PDFGeneratorUtil{
       }
     }
 
-
     def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
       val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
       printNode(node, block.getSelfClass, path)
 
-      block.blocks.asPairs.map {
-        case (name, subblock) => (name, subblock.`type`)
-      }.collect {
-        case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty => (path + name, subblock, subblock.getSelfClass)
-      }.foreach {
-        case (path, subblock, className) => {
-          if (dupList.getOrElse(className, Set.empty).headOption.contains(path)) {
-            printNextHierarchyLevel(subblock, path)
+      block.blocks.asPairs
+        .map { case (name, subblock) =>
+          (name, subblock.`type`)
+        }
+        .collect {
+          case (name, BlockLike.Type.Hierarchy(subblock)) if subblock.blocks.nonEmpty =>
+            (path + name, subblock, subblock.getSelfClass)
+        }
+        .foreach {
+          case (path, subblock, className) => {
+            if (dupList.getOrElse(className, Set.empty).headOption.contains(path)) {
+              printNextHierarchyLevel(subblock, path)
+            }
           }
         }
-      }
     }
 
     printNextHierarchyLevel(content)

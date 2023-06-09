@@ -10,7 +10,6 @@ import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.types.TypeEvalContext
 import edg_ide.util.DesignAnalysisUtils
 
-
 class DesignTopRunMarkerContributor extends RunLineMarkerContributor {
   override def getInfo(element: PsiElement): RunLineMarkerContributor.Info = {
     element match {

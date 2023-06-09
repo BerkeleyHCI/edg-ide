@@ -5,12 +5,10 @@ import com.intellij.ui.treeStructure.treetable.TreeTableModel
 
 import scala.reflect.ClassTag
 
-
-/**
- * A TreeTableModel where all node objects are of a type, and dynamically checked in this class with non-fatal errors.
- * Presents a strongly typed (instead of Object) interface for subclasses.
- * @tparam NodeType
- */
+/** A TreeTableModel where all node objects are of a type, and dynamically checked in this class with non-fatal errors.
+  * Presents a strongly typed (instead of Object) interface for subclasses.
+  * @tparam NodeType
+  */
 abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: ClassTag[NodeType])
     extends TreeTableModel {
   val logger = Logger.getInstance(classOf[BlockTreeTableModel])
@@ -99,13 +97,12 @@ abstract class ParameterizedTreeTableModel[NodeType <: Object](implicit tag: Cla
   }
 }
 
-/**
- * TreeTable model where the children for each node is defined by a Seq. Also includes default (but overrideable)
- * isLeaf implementation based on child counts.
- */
+/** TreeTable model where the children for each node is defined by a Seq. Also includes default (but overrideable)
+  * isLeaf implementation based on child counts.
+  */
 abstract class SeqTreeTableModel[NodeType <: Object](implicit tag: ClassTag[NodeType])
     extends ParameterizedTreeTableModel[NodeType] {
-  def getNodeChildren(node: NodeType): Seq[NodeType]  // ordering must be stable!
+  def getNodeChildren(node: NodeType): Seq[NodeType] // ordering must be stable!
 
   override def isNodeLeaf(node: NodeType): Boolean = getNodeChildren(node).isEmpty
   final override def getNodeChildCount(node: NodeType): Int = getNodeChildren(node).length

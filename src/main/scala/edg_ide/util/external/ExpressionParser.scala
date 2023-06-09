@@ -2,7 +2,6 @@ package edg_ide.util.external
 
 import scala.collection.mutable.ListBuffer
 
-
 /*
 Source: https://github.com/ZenBowman/sexpr
 
@@ -27,7 +26,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-*/
+ */
 
 sealed trait Element
 case class Atom(symbol: String) extends Element
@@ -56,8 +55,7 @@ object ExpressionParser {
       if (first == "(") {
         val element = parseTokens()
         elements.append(element)
-      }
-      else if (first == ")") {
+      } else if (first == ")") {
         return SList(elements.toList)
       } else {
         elements.append(new Atom(first))
@@ -74,5 +72,3 @@ object ExpressionParser {
     }
   }
 }
-
-

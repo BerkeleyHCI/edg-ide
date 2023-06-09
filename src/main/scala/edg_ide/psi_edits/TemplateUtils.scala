@@ -6,7 +6,6 @@ import com.intellij.psi.PsiElement
 
 import scala.collection.mutable
 
-
 object TemplateUtils {
   // deletes the template text, ending the template
   // must be run within a writeCommandAction
@@ -34,13 +33,12 @@ object TemplateUtils {
         deleteElem.delete()
       }
     }
-    templateState.update()  // update to end the template
+    templateState.update() // update to end the template
   }
 }
 
-
-/** Utility on top of TemplateEditingAdapter that provides a templateFinished that provides both
-  * the TemplateState (note that some fields may be invalid) and brokenOff in one templateFinished function.
+/** Utility on top of TemplateEditingAdapter that provides a templateFinished that provides both the TemplateState (note
+  * that some fields may be invalid) and brokenOff in one templateFinished function.
   */
 abstract class TemplateFinishedListener extends TemplateEditingAdapter {
   private var finishedTemplateState: Option[TemplateState] = None

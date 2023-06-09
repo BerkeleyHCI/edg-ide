@@ -10,14 +10,15 @@ import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ListHasAsScala
 
-/** Block diagram visualizer that customizes the rendering with options specific to
- * design block diagrams:
- * - tunnel link names by heuristic matching (degenerate self-to-self links)
- * - additional setError(elts) to render elts as filled in red
- * - additional setStable(elts) to render elts as stale (???)
- */
+/** Block diagram visualizer that customizes the rendering with options specific to design block diagrams:
+  *   - tunnel link names by heuristic matching (degenerate self-to-self links)
+  *   - additional setError(elts) to render elts as filled in red
+  *   - additional setStable(elts) to render elts as stale (???)
+  */
 class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = false)
-  extends JComponent with Scrollable with Zoomable {
+    extends JComponent
+    with Scrollable
+    with Zoomable {
   private var zoomLevel: Float = 1.0f
   private var selected: Set[ElkGraphElement] = Set()
   private var highlighted: Option[Set[ElkGraphElement]] = None
@@ -75,7 +76,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   def getElementForLocation(x: Int, y: Int): Option[ElkGraphElement] = {
     def shapeContainsPoint(shape: ElkShape, point: (Double, Double)): Boolean = {
       (shape.getX <= point._1 && point._1 <= shape.getX + shape.getWidth) &&
-        (shape.getY <= point._2 && point._2 <= shape.getY + shape.getHeight)
+      (shape.getY <= point._2 && point._2 <= shape.getY + shape.getHeight)
     }
 
     def lineClosestDist(line1: (Double, Double), line2: (Double, Double), point: (Double, Double)): Double = {
@@ -88,8 +89,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
         val dot = (point._1 - line1._1) * (line2._1 - line1._1) +
           (point._2 - line1._2) * (line2._2 - line1._2)
         val t = Math.max(0, Math.min(1, dot / lengthSq))
-        val proj = (line1._1 + t * (line2._1 - line1._1),
-          line1._2 + t * (line2._2 - line1._2))
+        val proj = (line1._1 + t * (line2._1 - line1._1), line1._2 + t * (line2._2 - line1._2))
         val dist = Math.sqrt(Math.pow(point._1 - proj._1, 2) + Math.pow(point._2 - proj._2, 2))
         dist.toFloat
       }
@@ -114,11 +114,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       // Test node, and if within node, recurse into children
       val containedNodes = if (shapeContainsPoint(node, point)) {
         val containedChildren = node.getChildren.asScala.flatMap(intersectNode(_, nodePoint))
-        val edgeDistances = node.getContainedEdges.asScala.map { edge =>
-          (edge, edgeClosestDistance(edge, nodePoint) * zoomLevel) // attach distance calculation
-        }.sortBy(_._2) // sort to get closest to cursor
-        val containedEdges = edgeDistances.collect { case (edge, dist)
-          if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
+        val edgeDistances = node.getContainedEdges.asScala
+          .map { edge =>
+            (edge, edgeClosestDistance(edge, nodePoint) * zoomLevel) // attach distance calculation
+          }
+          .sortBy(_._2) // sort to get closest to cursor
+        val containedEdges = edgeDistances.collect {
+          case (edge, dist) if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
         }
 
         containedChildren ++ containedEdges ++ Seq(node)
@@ -129,12 +131,17 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       (containedPorts ++ containedNodes).headOption
     }
 
-    val elkPoint = ((x - ElkNodePainter.margin) / zoomLevel.toDouble, (y - ElkNodePainter.margin) / zoomLevel.toDouble) // transform points to elk-space
+    val elkPoint =
+      (
+        (x - ElkNodePainter.margin) / zoomLevel.toDouble,
+        (y - ElkNodePainter.margin) / zoomLevel.toDouble
+      ) // transform points to elk-space
     intersectNode(rootNode, elkPoint)
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val painter = new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
+    val painter =
+      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
     painter.paintComponent(paintGraphics, this.getBackground)
   }
 
@@ -157,10 +164,11 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   override def getToolTipText(e: MouseEvent): String = {
     getElementForLocation(e.getX, e.getY) match {
       case None => null
-      case Some(element) => elementToolTips.get(element) match {
-        case None => null
-        case Some(text) => text
-      }
+      case Some(element) =>
+        elementToolTips.get(element) match {
+          case None => null
+          case Some(text) => text
+        }
     }
   }
 
@@ -169,8 +177,10 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   // Scrollable APIs
   //
   override def getPreferredSize: Dimension =
-    new Dimension((rootNode.getWidth * zoomLevel + 2 * ElkNodePainter.margin).toInt,
-      (rootNode.getHeight * zoomLevel + 2 * ElkNodePainter.margin).toInt)
+    new Dimension(
+      (rootNode.getWidth * zoomLevel + 2 * ElkNodePainter.margin).toInt,
+      (rootNode.getHeight * zoomLevel + 2 * ElkNodePainter.margin).toInt
+    )
 
   override def getScrollableBlockIncrement(rectangle: Rectangle, i: Int, i1: Int): Int = 1
 

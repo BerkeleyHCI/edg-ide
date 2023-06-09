@@ -9,12 +9,10 @@ import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 import scala.collection.SeqMap
 
-
 sealed trait SeqNodeBase {
   def getColumns(index: Int): String
   val children: Seq[SeqNodeBase]
 }
-
 
 object DseConfigTreeNode {
   sealed trait DseConfigTreeNode extends SeqNodeBase {
@@ -87,7 +85,6 @@ object DseConfigTreeNode {
   }
 }
 
-
 class DseConfigTreeTableModel(searchConfigs: Seq[DseConfigElement], objectives: Seq[DseObjective])
     extends SeqTreeTableModel[SeqNodeBase] {
   val rootNode = new DseConfigTreeNode.Root(searchConfigs, objectives)
@@ -121,5 +118,5 @@ class DseConfigTreeTableModel(searchConfigs: Seq[DseConfigElement], objectives: 
   override def isNodeCellEditable(node: SeqNodeBase, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: SeqNodeBase, column: Int): Unit = {}
 
-  def setTree(tree: JTree): Unit = { }  // tree updates ignored
+  def setTree(tree: JTree): Unit = {} // tree updates ignored
 }
