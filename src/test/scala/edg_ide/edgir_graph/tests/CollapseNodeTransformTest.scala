@@ -5,16 +5,19 @@ import edg_ide.edgir_graph.{CollapseNodeTransform, ConnectWrapper, EdgirGraph, I
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class CollapseNodeTransformTest extends AnyFlatSpec with Matchers {
-  behavior of "CollapseNodeTransform"
+  behavior.of("CollapseNodeTransform")
 
   it should "collapse nodes and replace edges" in {
     val collapse = new CollapseNodeTransform {}
-    val transformed = collapse.collapse(InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
+    val transformed = collapse.collapse(
+      InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
       Seq("link"),
-      edges => EdgirTestUtils.Dummy.ConnectWrapper(
-        DesignPath() + "merged"))
+      edges =>
+        EdgirTestUtils.Dummy.ConnectWrapper(
+          DesignPath() + "merged"
+        )
+    )
 
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(

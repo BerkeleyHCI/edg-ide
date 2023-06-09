@@ -6,9 +6,8 @@ import edg_ide.edgir_graph.{EdgirGraph, InferEdgeDirectionTransform}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
-  behavior of "InferEdgeDirectionTransform"
+  behavior.of("InferEdgeDirectionTransform")
 
   it should "properly direction flat graphs" in {
     val transformed = InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph)

@@ -7,9 +7,8 @@ import edg_ide.dse.DsePathParameterSearch
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
-  behavior of "DsePathParameterSearch"
+  behavior.of("DsePathParameterSearch")
 
   protected def shouldRoundtrip(values: Seq[ExprValue]): Unit = {
     val parameter = DsePathParameterSearch(DesignPath(), values)
@@ -87,7 +86,8 @@ class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
     parseString(reference, "abc,\" def\"").get should equal(Seq(TextValue("abc"), TextValue(" def")))
     parseString(reference, "abc,\" def, ghi\"").get should equal(Seq(TextValue("abc"), TextValue(" def, ghi")))
     parseString(reference, "abc,\\\" def, ghi\\\"").get should equal(
-      Seq(TextValue("abc"), TextValue("\" def"), TextValue(" ghi\"")))
+      Seq(TextValue("abc"), TextValue("\" def"), TextValue(" ghi\""))
+    )
     parseString(reference, "a\\\\bc").get should equal(Seq(TextValue("a\\bc")))
 
     parseString(reference, "abc\"") shouldBe a[Errorable.Error]
@@ -123,9 +123,11 @@ class DsePathParameterSearchTest extends AnyFlatSpec with Matchers {
     parseString(reference, "±1").get should equal(Seq(RangeValue(-1, 1)))
     parseString(reference, "(-2.5, 4.2)").get should equal(Seq(RangeValue(-2.5, 4.2)))
     parseString(reference, "(-1, 1), (-2.5, 4.2)").get should equal(
-      Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2)))
+      Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2))
+    )
     parseString(reference, "(-1, 1), (-2.5, 4.2),(2,3)").get should equal(
-      Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2), RangeValue(2, 3)))
+      Seq(RangeValue(-1, 1), RangeValue(-2.5, 4.2), RangeValue(2, 3))
+    )
 
     parseString(reference, "") shouldBe a[Errorable.Error]
     parseString(reference, "(-1, 1, 1)") shouldBe a[Errorable.Error]

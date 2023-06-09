@@ -9,7 +9,6 @@ import edgir.expr.expr
 
 import scala.collection.SeqMap
 
-
 object EdgirTestUtils {
   // Some definitions that need to be kept consistent with the Python HDL / frontend
   object Ports {
@@ -23,25 +22,26 @@ object EdgirTestUtils {
 
   object Dummy {
     val Block = elem.HierarchyBlock()
-    def BlockWrapper(path: DesignPath) = edgir_graph.BlockWrapper(path,
-      elem.BlockLike(`type`=elem.BlockLike.Type.Hierarchy(Block)))
+    def BlockWrapper(path: DesignPath) =
+      edgir_graph.BlockWrapper(path, elem.BlockLike(`type` = elem.BlockLike.Type.Hierarchy(Block)))
 
     val Link = elem.Link()
     val LinkLike = elem.LinkLike(`type` = elem.LinkLike.Type.Link(Link))
-    def LinkWrapper(path: DesignPath) = edgir_graph.LinkWrapper(path,
-      elem.LinkLike(`type`=elem.LinkLike.Type.Link(Link)))
+    def LinkWrapper(path: DesignPath) =
+      edgir_graph.LinkWrapper(path, elem.LinkLike(`type` = elem.LinkLike.Type.Link(Link)))
 
     val Port = elem.Port()
-    def PortWrapper(path: DesignPath) = edgir_graph.PortWrapper(path,
-      elem.PortLike(is=elem.PortLike.Is.Port(Port)))
+    def PortWrapper(path: DesignPath) = edgir_graph.PortWrapper(path, elem.PortLike(is = elem.PortLike.Is.Port(Port)))
 
     def ConnectWrapper(path: DesignPath) = edgir_graph.ConnectWrapper(
-      path, expr.ValueExpr())
+      path,
+      expr.ValueExpr()
+    )
   }
 
   object TestGraphs {
-    /**
-      * Test graph containing a source connected to a sink through a link
+
+    /** Test graph containing a source connected to a sink through a link
       */
     val flatGraph = EdgirGraph.EdgirNode(
       data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
@@ -94,9 +94,8 @@ object EdgirTestUtils {
       )
     )
 
-    /**
-      * Test graph containing the top-level flat graph (with edges, as above)
-      * but with both the source and sink containing an inner export
+    /** Test graph containing the top-level flat graph (with edges, as above) but with both the source and sink
+      * containing an inner export
       */
     val hierarchyGraph = EdgirGraph.EdgirNode(
       data = EdgirTestUtils.Dummy.BlockWrapper(DesignPath()),
