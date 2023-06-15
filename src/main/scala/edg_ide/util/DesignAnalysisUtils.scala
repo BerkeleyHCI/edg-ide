@@ -374,6 +374,8 @@ object DesignAnalysisUtils {
         Seq("IdealBoostConverter", "Ap3012").contains(subclass.getName)
       } else if (superclass.getName == "BuckConverter") {
         Seq("IdealBuckConverter", "Ap3418").contains(subclass.getName)
+      } else if (superclass.getName == "VoltageRegulator") {
+        !Seq("IdealVoltageRegulator").contains(subclass.getName)
       } else {
         true
       }

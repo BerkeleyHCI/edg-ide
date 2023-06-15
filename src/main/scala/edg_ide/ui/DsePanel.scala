@@ -210,7 +210,7 @@ class DsePanel(project: Project) extends JPanel {
   }
   // TODO this updates all the plots even when one is displayed, this could be optimized
   private val allPlots = Seq(scatterPlot, parallelPlot)
-  mainSplitter.setFirstComponent(scatterPlot)
+  mainSplitter.setFirstComponent(parallelPlot)
 
   // GUI: Bottom tabs
   //

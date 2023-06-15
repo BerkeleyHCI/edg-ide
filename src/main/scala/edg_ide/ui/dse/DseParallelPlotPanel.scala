@@ -32,11 +32,11 @@ class DseParallelPlotPanel() extends DseBasePlot {
   }
   add(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, 3))
 
-  private val plotSwitchButton = new JButton()
-  plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
-  plotSwitchButton.setToolTipText("Switch plot type")
-  plotSwitchButton.addActionListener((actionEvent: ActionEvent) => onSwitchClick())
-  add(plotSwitchButton, Gbc(0, 1))
+//  private val plotSwitchButton = new JButton()
+//  plotSwitchButton.setIcon(AllIcons.Toolwindows.ToolWindowMessages)
+//  plotSwitchButton.setToolTipText("Switch plot type")
+//  plotSwitchButton.addActionListener((actionEvent: ActionEvent) => onSwitchClick())
+//  add(plotSwitchButton, Gbc(0, 1))
 
   // default to one axis
   private val emptyAxis = new DummyAxis("Empty")
@@ -44,7 +44,7 @@ class DseParallelPlotPanel() extends DseBasePlot {
 
   private var axisSelectors: Seq[ComboBox[PlotAxis]] = Seq(new ComboBox[PlotAxis]())
   axisSelectors.head.addItem(emptyAxis)  // don't need listener yet, does nothing
-  add(axisSelectors.head, Gbc(1, 1, GridBagConstraints.HORIZONTAL))
+  add(axisSelectors.head, Gbc(0, 1, GridBagConstraints.HORIZONTAL))
 
   private val axisAddButton = new JButton()
   axisAddButton.setIcon(AllIcons.General.Add)
@@ -56,8 +56,8 @@ class DseParallelPlotPanel() extends DseBasePlot {
         val newAxis = new ComboBox[PlotAxis]()
         newAxis.addItem(emptyAxis)
         axisSelectors = axisSelectors :+ newAxis
-        add(newAxis, Gbc(axisSelectors.size, 1, GridBagConstraints.HORIZONTAL))
-        thisLayout.setConstraints(axisAddButton, Gbc(axisSelectors.size + 1, 1))
+        add(newAxis, Gbc(axisSelectors.size - 1, 1, GridBagConstraints.HORIZONTAL))
+        thisLayout.setConstraints(axisAddButton, Gbc(axisSelectors.size, 1))
         thisLayout.setConstraints(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, axisSelectors.size + 2))
 
         // update all the axes to populate the menu items
@@ -67,7 +67,7 @@ class DseParallelPlotPanel() extends DseBasePlot {
       })
     }
   })
-  add(axisAddButton, Gbc(2, 1))
+  add(axisAddButton, Gbc(1, 1))
 
   private def updatePlot(): Unit = {
     val flatResults = combinedResults.groupedResults.flatten
@@ -141,10 +141,10 @@ class DseParallelPlotPanel() extends DseBasePlot {
               remove(axisSelector)
             }
             filteredAxisSelectors.zipWithIndex.foreach { case (axisSelector, axisIndex) =>
-              thisLayout.setConstraints(axisSelector, Gbc(axisIndex + 1, 1, GridBagConstraints.HORIZONTAL))
+              thisLayout.setConstraints(axisSelector, Gbc(axisIndex, 1, GridBagConstraints.HORIZONTAL))
               axisSelector
             }
-            thisLayout.setConstraints(axisAddButton, Gbc(axisSelectors.size + 1, 1))
+            thisLayout.setConstraints(axisAddButton, Gbc(axisSelectors.size, 1))
             thisLayout.setConstraints(parallelPlot, Gbc(0, 0, GridBagConstraints.BOTH, axisSelectors.size + 2))
           }
           revalidate()

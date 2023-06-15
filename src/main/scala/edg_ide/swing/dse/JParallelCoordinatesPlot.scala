@@ -76,10 +76,11 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
         case _ => JDsePlot.getAxisTicks(range, getHeight)
       }
       ticks.foreach { case (tickPos, tickVal) =>
+        val tickLabelX = if (index == 0) 0 else axisX
         val screenPos = ((range._2 - tickPos) * JDsePlot.dataScale(range, getHeight)).toInt
         paintGraphics.drawLine(axisX, screenPos, axisX + JDsePlot.kTickSizePx, screenPos)
         DrawAnchored.drawLabel(paintGraphics, tickVal,
-          (axisX + JDsePlot.kTickSizePx, screenPos), DrawAnchored.Left)
+          (tickLabelX + JDsePlot.kTickSizePx, screenPos), DrawAnchored.Left)
       }
     }
   }
@@ -90,7 +91,6 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     val prevValuePos = getPositionForValue(axisIndex, value)
     val nextAxisPos = getPositionForAxis(axisIndex + 1)
     val nextValuePos = getPositionForValue(axisIndex + 1, nextValue)
-
     paintGraphics.drawLine(prevAxisPos, prevValuePos, nextAxisPos, nextValuePos)
   }
 
@@ -98,6 +98,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     val axisPos = getPositionForAxis(axisIndex)
     val dataPos = getPositionForValue(axisIndex, value)
 
+    // needed for the hover outline
     paintGraphics.drawOval(axisPos - JDsePlot.kPointSizePx / 2, dataPos - JDsePlot.kPointSizePx / 2,
       JDsePlot.kPointSizePx, JDsePlot.kPointSizePx)
     paintGraphics.fillOval(axisPos - JDsePlot.kPointSizePx / 2, dataPos - JDsePlot.kPointSizePx / 2,
@@ -145,7 +146,7 @@ class JParallelCoordinatesPlot[ValueType] extends JComponent {
     paintData(paintGraphics, backgroundData.map(_._1), colorBlend = JDsePlot.kBackgroundBlend,
       alpha = JDsePlot.kBackgroundAlpha)
 
-    paintGraphics.asInstanceOf[Graphics2D].setStroke(new BasicStroke(1.5f))
+    paintGraphics.asInstanceOf[Graphics2D].setStroke(new BasicStroke(JDsePlot.kLinePx))
     paintData(paintGraphics, normalData.map(_._1), alpha = JDsePlot.kPointAlpha)
 
     val hoverGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
