@@ -56,9 +56,10 @@ class ModifiedElkNodePainter(
   // Modify the base graphics for filling some element, eg by highlighted status
   override def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
     if (errorElts.contains(element)) {
-      val newBase = base.create().asInstanceOf[Graphics2D]
-      newBase.setColor(ColorUtil.blendColor(background, Color.RED, 0.25))
-      newBase // explicitly ignores showTop invisibility if it's an error
+//      val newBase = base.create().asInstanceOf[Graphics2D]
+//      newBase.setColor(ColorUtil.blendColor(background, Color.RED, 0.25))
+//      newBase // explicitly ignores showTop invisibility if it's an error
+      base
     } else if (staleElts.contains(element)) {
       val newBase = base.create().asInstanceOf[Graphics2D]
       if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
@@ -89,9 +90,10 @@ class ModifiedElkNodePainter(
       newGraphics.setColor(new Color(0, 0, 0, 0))
       newGraphics
     } else if (selected.contains(element)) { // emphasis for selected
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setStroke(new BasicStroke(3 / zoomLevel))
-      newGraphics
+//      val newGraphics = base.create().asInstanceOf[Graphics2D]
+//      newGraphics.setStroke(new BasicStroke(3 / zoomLevel))
+//      newGraphics
+      base
     } else if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
       val newGraphics = base.create().asInstanceOf[Graphics2D]
       newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))

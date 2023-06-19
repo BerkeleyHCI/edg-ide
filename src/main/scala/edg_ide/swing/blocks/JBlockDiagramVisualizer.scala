@@ -5,7 +5,7 @@ import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{Dimension, Graphics, Rectangle}
+import java.awt.{BasicStroke, Color, Dimension, Graphics, Rectangle}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ListHasAsScala
@@ -20,7 +20,9 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     with Scrollable
     with Zoomable {
   private var zoomLevel: Float = 1.0f
-  private var selected: Set[ElkGraphElement] = Set()
+  private var mouseOver: Set[ElkGraphElement] = Set()  // elements that are moused over, maintained internally
+  private var selected: Set[ElkGraphElement] = Set()  // elements that are selected, set externally
+  // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
   private var errorElts: Set[ElkGraphElement] = Set()
   private var staleElts: Set[ElkGraphElement] = Set()
@@ -140,8 +142,19 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
+    val errorModifier = ElementGraphicsModifier(
+      fillGraphics = ElementGraphicsModifier.withColorBlendBackground(Color.RED, 0.25)
+    )
+    val selectedModifier = ElementGraphicsModifier(
+      strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
+    )
+    val elementGraphics = (
+      errorElts.map { elt => elt -> errorModifier } ++
+        selected.map { elt => elt -> selectedModifier }
+      ).toMap
     val painter =
-      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
+      new ElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics=elementGraphics)
+    //      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
     painter.paintComponent(paintGraphics, this.getBackground)
   }
 
