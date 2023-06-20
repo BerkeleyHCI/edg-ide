@@ -230,7 +230,11 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       super.mouseMoved(e)
 
       getElementForLocation(e.getX, e.getY) match {
-        case Some(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
+        case Some(mouseoverElt) => highlighted match {
+          case None => mouseoverUpdated(Seq(mouseoverElt))
+          case Some(highlighted) if highlighted.contains(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
+          case _ => mouseoverUpdated(Seq())  // dimmed items non-interactable
+        }
         case None => mouseoverUpdated(Seq())
       }
     }

@@ -19,8 +19,10 @@ case class ElementGraphicsModifier(
 object ElementGraphicsModifier {
   val kDefaultFillBlend = 0.15
 
-  def default = ElementGraphicsModifier(fillGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(
-    ElementGraphicsModifier.kDefaultFillBlend)))
+  def default = ElementGraphicsModifier(
+    strokeGraphics = Some(identity),
+    fillGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(ElementGraphicsModifier.kDefaultFillBlend)),
+    textGraphics = Some(identity))
 
   // utility functions for creating graphics transformers
   def withColorBlendBackground(color: Color, factor: Double): Graphics2D => Graphics2D = {
@@ -85,7 +87,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
 
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
   // text should be drawn.
-  def transformLabelCoords(
+  protected def transformLabelCoords(
       g: Graphics2D,
       label: ElkLabel,
       placement: Set[NodeLabelPlacement]
@@ -118,7 +120,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
   }
 
   // Render an edge, including all its sections
-  def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
+  protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
     // HACK PATCH around a (probable?) ELK bug
     // If a self-edge between parent's ports, use parent's transforms
     // TODO: is this generally correct? it's good enough for what we need though
@@ -144,7 +146,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
 
   // Render a node, including its labels, but not its ports
   // Returns its fill color, which can be used for the background of inner nodes
-  def paintNode(g: Graphics2D, node: ElkNode): Color = {
+  protected def paintNode(g: Graphics2D, node: ElkNode): Color = {
     val nodeX = node.getX.toInt
     val nodeY = node.getY.toInt
 
@@ -193,7 +195,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
   }
 
   // paints the block and its contents
-  def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
+  protected def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
     val nodeBackground = paintNode(containingG, node)
 
     val nodeG = containingG.create().asInstanceOf[Graphics2D]
@@ -208,19 +210,31 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
   }
 
   // paints the block's contents only
-  def paintBlockContents(containingG: Graphics2D, nodeG: Graphics2D, node: ElkNode): Unit = {
-    node.getChildren.asScala.foreach { childNode =>
-      paintBlock(nodeG, childNode)
+  protected def paintBlockContents(containingG: Graphics2D, nodeG: Graphics2D, node: ElkNode): Unit = {
+    // paint all mouseover outlines below the main layer
+    node.getContainedEdges.asScala.foreach { edge =>
+      (outlineGraphics(containingG, edge), outlineGraphics(nodeG, edge)) match {
+        case (Some(containingG), Some(nodeG)) =>
+          paintEdge(
+            strokeGraphics(containingG, edge),
+            strokeGraphics(nodeG, edge),
+            edge
+          )
+        case _ =>
+      }
     }
 
     node.getContainedEdges.asScala.foreach { edge =>
-      // containing is passed in here as a hack around Elk not using container coordinates
-      // for self edges
+      // containing is passed in here as a hack around Elk not using container coordinates for self edges
       paintEdge(
         strokeGraphics(containingG, edge),
         strokeGraphics(nodeG, edge),
         edge
       )
+    }
+
+    node.getChildren.asScala.foreach { childNode =>
+      paintBlock(nodeG, childNode)
     }
   }
 
