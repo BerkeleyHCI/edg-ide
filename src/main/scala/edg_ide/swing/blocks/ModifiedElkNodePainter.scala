@@ -34,77 +34,77 @@ class ModifiedElkNodePainter(
     hatchTexture
   }
 
-  // Modify the base graphics for drawing some text, eg by highlighted status
-  override def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    // Main difference is stroke isn't bolded
-    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(new Color(0, 0, 0, 0))
-      newGraphics
-    } else if (
-      !selected.contains(element) &&
-      highlighted.isDefined && !highlighted.get.contains(element)
-    ) { // dimmed out if not highlighted
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))
-      newGraphics
-    } else {
-      base
-    }
-  }
-
-  // Modify the base graphics for filling some element, eg by highlighted status
-  override def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    if (errorElts.contains(element)) {
-//      val newBase = base.create().asInstanceOf[Graphics2D]
-//      newBase.setColor(ColorUtil.blendColor(background, Color.RED, 0.25))
-//      newBase // explicitly ignores showTop invisibility if it's an error
-      base
-    } else if (staleElts.contains(element)) {
-      val newBase = base.create().asInstanceOf[Graphics2D]
-      if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-        newBase.setPaint(
-          makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.0375))
-        )
-      } else {
-        newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.15)))
-      }
-      newBase
-    } else {
-      if (element == rootNode && !showTop) { // completely transparent for root if not showing top
-        val newGraphics = base.create().asInstanceOf[Graphics2D]
-        newGraphics.setColor(new Color(0, 0, 0, 0))
-        newGraphics
-      } else { // computation is handled by the background passed in
-        val newGraphics = base.create().asInstanceOf[Graphics2D]
-        newGraphics.setColor(background)
-        newGraphics
-      }
-    }
-  }
-
-  // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
-  override def strokeGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
-    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(new Color(0, 0, 0, 0))
-      newGraphics
-    } else if (selected.contains(element)) { // emphasis for selected
+//  // Modify the base graphics for drawing some text, eg by highlighted status
+//  override def textGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+//    // Main difference is stroke isn't bolded
+//    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
 //      val newGraphics = base.create().asInstanceOf[Graphics2D]
-//      newGraphics.setStroke(new BasicStroke(3 / zoomLevel))
+//      newGraphics.setColor(new Color(0, 0, 0, 0))
 //      newGraphics
-      base
-    } else if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
-      val newGraphics = base.create().asInstanceOf[Graphics2D]
-      newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))
-      newGraphics
-    } else {
-      base
-    }
-  }
+//    } else if (
+//      !selected.contains(element) &&
+//      highlighted.isDefined && !highlighted.get.contains(element)
+//    ) { // dimmed out if not highlighted
+//      val newGraphics = base.create().asInstanceOf[Graphics2D]
+//      newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))
+//      newGraphics
+//    } else {
+//      base
+//    }
+//  }
+//
+//  // Modify the base graphics for filling some element, eg by highlighted status
+//  override def fillGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+//    if (errorElts.contains(element)) {
+////      val newBase = base.create().asInstanceOf[Graphics2D]
+////      newBase.setColor(ColorUtil.blendColor(background, Color.RED, 0.25))
+////      newBase // explicitly ignores showTop invisibility if it's an error
+//      base
+//    } else if (staleElts.contains(element)) {
+//      val newBase = base.create().asInstanceOf[Graphics2D]
+//      if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
+//        newBase.setPaint(
+//          makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.0375))
+//        )
+//      } else {
+//        newBase.setPaint(makeHatchTexture(background, ColorUtil.blendColor(background, base.getColor, 0.15)))
+//      }
+//      newBase
+//    } else {
+//      if (element == rootNode && !showTop) { // completely transparent for root if not showing top
+//        val newGraphics = base.create().asInstanceOf[Graphics2D]
+//        newGraphics.setColor(new Color(0, 0, 0, 0))
+//        newGraphics
+//      } else { // computation is handled by the background passed in
+//        val newGraphics = base.create().asInstanceOf[Graphics2D]
+//        newGraphics.setColor(background)
+//        newGraphics
+//      }
+//    }
+//  }
+//
+//  // Modify the base graphics for drawing the outline (stroke) of some element, eg by highlighted status
+//  override def strokeGraphics(base: Graphics2D, background: Color, element: ElkGraphElement): Graphics2D = {
+//    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
+//      val newGraphics = base.create().asInstanceOf[Graphics2D]
+//      newGraphics.setColor(new Color(0, 0, 0, 0))
+//      newGraphics
+//    } else if (selected.contains(element)) { // emphasis for selected
+////      val newGraphics = base.create().asInstanceOf[Graphics2D]
+////      newGraphics.setStroke(new BasicStroke(3 / zoomLevel))
+////      newGraphics
+//      base
+//    } else if (highlighted.isDefined && !highlighted.get.contains(element)) { // dimmed out if not highlighted
+//      val newGraphics = base.create().asInstanceOf[Graphics2D]
+//      newGraphics.setColor(ColorUtil.blendColor(background, newGraphics.getColor, 0.25))
+//      newGraphics
+//    } else {
+//      base
+//    }
+//  }
 
-  override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, background: Color, edge: ElkEdge): Unit = {
-    super.paintEdge(parentG, blockG, background, edge)
+  override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
+    super.paintEdge(parentG, blockG, edge)
 
     val thisG = if (edge.getSources == edge.getTargets) {
       val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect { case sourcePort: ElkPort =>
@@ -130,7 +130,7 @@ class ModifiedElkNodePainter(
         (bend.getX, bend.getY, section.getStartX, section.getStartY)
       }
 
-      val textG = textGraphics(thisG, background, edge)
+      val textG = textGraphics(thisG, edge)
       targetPointOpt match {
         case Some((x, y, x1, y1)) if (x1 == x) && (y > y1) =>
           DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Top)
@@ -147,17 +147,17 @@ class ModifiedElkNodePainter(
     }
   }
 
-  override def getNodeBackground(
-      containingG: Graphics2D,
-      containingBackground: Color,
-      node: ElkNode
-  ): Color = {
-    val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
-      ColorUtil.blendColor(containingBackground, containingG.getColor, 0.375)
-    } else {
-      ColorUtil.blendColor(containingBackground, containingG.getColor, 0.15)
-    }
-
-    nodeBackground
-  }
+//  override def getNodeBackground(
+//      containingG: Graphics2D,
+//      containingBackground: Color,
+//      node: ElkNode
+//  ): Color = {
+//    val nodeBackground = if (highlighted.isDefined && !highlighted.get.contains(node)) { // dimmed out
+//      ColorUtil.blendColor(containingBackground, containingG.getColor, 0.375)
+//    } else {
+//      ColorUtil.blendColor(containingBackground, containingG.getColor, 0.15)
+//    }
+//
+//    nodeBackground
+//  }
 }

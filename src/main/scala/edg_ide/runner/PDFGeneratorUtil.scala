@@ -111,8 +111,9 @@ object PDFGeneratorUtil {
 
       val cb = writer.getDirectContent
       val graphics = cb.createGraphics(width, height)
+      graphics.setColor(Color.white)
       val painter = new ElkNodePainter(node)
-      painter.paintComponent(graphics, Color.white)
+      painter.paintComponent(graphics)
       graphics.dispose()
 
       // Prints out table if there are multiple usages of the same component

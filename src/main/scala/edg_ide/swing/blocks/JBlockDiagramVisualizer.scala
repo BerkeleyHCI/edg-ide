@@ -5,7 +5,7 @@ import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{BasicStroke, Color, Dimension, Graphics, Rectangle}
+import java.awt.{BasicStroke, Color, Dimension, Graphics, Graphics2D, Rectangle}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ListHasAsScala
@@ -152,10 +152,12 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       errorElts.map { elt => elt -> errorModifier } ++
         selected.map { elt => elt -> selectedModifier }
       ).toMap
+    val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+    backgroundPaintGraphics.setBackground(this.getBackground)
     val painter =
       new ElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics=elementGraphics)
     //      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
-    painter.paintComponent(paintGraphics, this.getBackground)
+    painter.paintComponent(backgroundPaintGraphics)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
