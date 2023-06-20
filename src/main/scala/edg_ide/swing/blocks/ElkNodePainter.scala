@@ -80,6 +80,9 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     elementGraphics.get(element).flatMap(_.textGraphics).orElse(defaultGraphics.textGraphics)
       .map(_(base)).getOrElse(base)
 
+  protected def outlineGraphics(base: Graphics2D, element: ElkGraphElement): Option[Graphics2D] =
+    elementGraphics.get(element).flatMap(_.outlineGraphics).orElse(defaultGraphics.outlineGraphics).map(_(base))
+
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
   // text should be drawn.
   def transformLabelCoords(
@@ -145,9 +148,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     val nodeX = node.getX.toInt
     val nodeY = node.getY.toInt
 
-    elementGraphics.get(node).flatMap(_.outlineGraphics).foreach { outlineGraphics =>
-      outlineGraphics(g).fillRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
-    }
+    outlineGraphics(g, node).foreach { g => g.drawRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt) }
     val nodeFillGraphics = fillGraphics(g, node)
     nodeFillGraphics.fillRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
     strokeGraphics(g, node).drawRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
@@ -169,9 +170,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     val portX = port.getX.toInt
     val portY = port.getY.toInt
 
-    elementGraphics.get(port).flatMap(_.outlineGraphics).foreach { outlineGraphics =>
-      outlineGraphics(g).fillRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
-    }
+    outlineGraphics(g, port).foreach { g => g.drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt) }
     fillGraphics(g, port).fillRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
     strokeGraphics(g, port).drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
 

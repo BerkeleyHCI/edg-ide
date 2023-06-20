@@ -183,15 +183,15 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   )
 
   private val mouseoverModifier = ElementGraphicsModifier(
-    strokeGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(5 / zoomLevel)).compose(
+    outlineGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(9 / zoomLevel)).compose(
       ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127)))
   ))
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val elementGraphicsSeq = errorElts.map { elt => elt -> errorModifier } ++
+    val elementGraphicsSeq = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
+      errorElts.map { elt => elt -> errorModifier } ++
       selected.map { elt => elt -> selectedModifier } ++
-      staleElts.map { elt => elt -> staleModifier } ++
-      mouseOverElts.map { elt => elt -> mouseoverModifier }
+      staleElts.map { elt => elt -> staleModifier }
 
     val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     backgroundPaintGraphics.setBackground(this.getBackground)
