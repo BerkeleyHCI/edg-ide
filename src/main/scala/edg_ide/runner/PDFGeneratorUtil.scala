@@ -111,7 +111,7 @@ object PDFGeneratorUtil {
 
       val cb = writer.getDirectContent
       val graphics = cb.createGraphics(width, height)
-      graphics.setColor(Color.white)
+      graphics.setBackground(Color.white)
       val painter = new StubEdgeElkNodePainter(node)
       painter.paintComponent(graphics)
       graphics.dispose()
