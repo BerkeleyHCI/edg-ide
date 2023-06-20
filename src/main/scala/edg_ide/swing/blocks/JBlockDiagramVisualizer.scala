@@ -1,5 +1,6 @@
 package edg_ide.swing.blocks
 
+import com.intellij.ui.JBColor
 import edg_ide.swing.Zoomable
 import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
@@ -142,20 +143,36 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
+    val kDimBlend = 0.25
+
     val errorModifier = ElementGraphicsModifier(
-      fillGraphics = ElementGraphicsModifier.withColorBlendBackground(Color.RED, 0.25)
+      fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
     )
     val selectedModifier = ElementGraphicsModifier(
       strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
     )
+
     val elementGraphics = (
       errorElts.map { elt => elt -> errorModifier } ++
         selected.map { elt => elt -> selectedModifier }
       ).toMap
     val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     backgroundPaintGraphics.setBackground(this.getBackground)
-    val painter =
-      new ElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics=elementGraphics)
+    val painter = highlighted match {
+      case None =>  // normal rendering
+          new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
+      case Some(highlighted) =>  // default dim rendering
+        val dimGraphics = ElementGraphicsModifier(
+          strokeGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
+          textGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
+          fillGraphics = ElementGraphicsModifier.withColorBlendBackground(
+            ElementGraphicsModifier.kDefaultFillBlend * kDimBlend),
+        )
+
+        new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics = dimGraphics,
+          elementGraphics = elementGraphics)
+    }
+
     //      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
     painter.paintComponent(backgroundPaintGraphics)
   }

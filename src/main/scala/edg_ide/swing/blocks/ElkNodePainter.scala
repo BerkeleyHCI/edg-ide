@@ -11,12 +11,15 @@ import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
 case class ElementGraphicsModifier(
   strokeGraphics: Graphics2D => Graphics2D = Predef.identity,  // for the border
-  fillGraphics: Graphics2D => Graphics2D = ElementGraphicsModifier.withColorBlendBackground(0.15),
+  fillGraphics: Graphics2D => Graphics2D = ElementGraphicsModifier.withColorBlendBackground(
+    ElementGraphicsModifier.kDefaultFillBlend),
   textGraphics: Graphics2D => Graphics2D = Predef.identity,  // for the label (if any)
   outlineGraphics: Option[Graphics2D => Graphics2D] = None  // optional stroke below other elements, eg for hover highlight
 )
 
 object ElementGraphicsModifier {
+  val kDefaultFillBlend = 0.15
+
   def default = ElementGraphicsModifier()
 
   // utility functions for creating graphics transformers

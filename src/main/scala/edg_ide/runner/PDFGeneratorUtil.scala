@@ -1,19 +1,19 @@
 package edg_ide.runner
 
-import com.lowagie.text.{Anchor, Document, Element, Font, FontFactory, HeaderFooter, Paragraph, Phrase, Rectangle}
 import com.lowagie.text.pdf.{PdfPCell, PdfPTable, PdfWriter}
+import com.lowagie.text.{Anchor, Document, Element, Font, HeaderFooter, Paragraph, Phrase, Rectangle}
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.wir.ProtoUtil.BlockProtoToSeqMap
-import edgir.elem.elem.{BlockLike, HierarchyBlock}
-import org.eclipse.elk.graph.ElkNode
 import edg.wir.DesignPath
+import edg.wir.ProtoUtil.BlockProtoToSeqMap
 import edg_ide.edgir_graph.HierarchyGraphElk.PropertyMapper
 import edg_ide.edgir_graph.{EdgeWrapper, HierarchyGraphElk, NodeDataWrapper, PortWrapper}
-import edg_ide.swing.blocks.ElkNodePainter
+import edg_ide.swing.blocks.{ElkNodePainter, ModifiedElkNodePainter}
+import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import edgir.ref.ref.LibraryPath
+import org.eclipse.elk.graph.ElkNode
 
 import java.awt.Color
-import java.io.{FileNotFoundException, FileOutputStream, IOException}
+import java.io.FileOutputStream
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -112,7 +112,7 @@ object PDFGeneratorUtil {
       val cb = writer.getDirectContent
       val graphics = cb.createGraphics(width, height)
       graphics.setColor(Color.white)
-      val painter = new ElkNodePainter(node)
+      val painter = new ModifiedElkNodePainter(node)
       painter.paintComponent(graphics)
       graphics.dispose()
 
