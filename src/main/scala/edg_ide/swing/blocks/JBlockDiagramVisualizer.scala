@@ -147,14 +147,14 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private val kDimBlend = 0.25
 
   private val errorModifier = ElementGraphicsModifier(
-    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
+    fillGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5))
   )
   private val selectedModifier = ElementGraphicsModifier(
-    strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
+    strokeGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel)))
   )
   private val dimGraphics = ElementGraphicsModifier(
-    strokeGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
-    textGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend)
+    strokeGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(kDimBlend)),
+    textGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(kDimBlend))
   )
 
   private def hatchFillTransform(nodeGraphics: Graphics2D): Graphics2D = {
@@ -178,13 +178,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     newGraphics
   }
   private val staleModifier = ElementGraphicsModifier(
-    fillGraphics = hatchFillTransform
+    fillGraphics = Some(hatchFillTransform)
   )
 
   private val mouseoverModifier = ElementGraphicsModifier(
-    strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(5 / zoomLevel)).compose(
+    strokeGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(5 / zoomLevel)).compose(
       ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127)))
-  )
+  ))
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val elementGraphicsSeq = errorElts.map { elt => elt -> errorModifier } ++

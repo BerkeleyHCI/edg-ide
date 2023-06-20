@@ -10,17 +10,17 @@ import java.awt.geom.AffineTransform
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
 case class ElementGraphicsModifier(
-  strokeGraphics: Graphics2D => Graphics2D = Predef.identity,  // for the border
-  fillGraphics: Graphics2D => Graphics2D = ElementGraphicsModifier.withColorBlendBackground(
-    ElementGraphicsModifier.kDefaultFillBlend),
-  textGraphics: Graphics2D => Graphics2D = Predef.identity,  // for the label (if any)
+  strokeGraphics: Option[Graphics2D => Graphics2D] = None,  // for the border
+  fillGraphics: Option[Graphics2D => Graphics2D] = None,
+  textGraphics: Option[Graphics2D => Graphics2D] = None,  // for the label (if any)
   outlineGraphics: Option[Graphics2D => Graphics2D] = None  // optional stroke below other elements, eg for hover highlight
 )
 
 object ElementGraphicsModifier {
   val kDefaultFillBlend = 0.15
 
-  def default = ElementGraphicsModifier()
+  def default = ElementGraphicsModifier(fillGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(
+    ElementGraphicsModifier.kDefaultFillBlend)))
 
   // utility functions for creating graphics transformers
   def withColorBlendBackground(color: Color, factor: Double): Graphics2D => Graphics2D = {
@@ -68,17 +68,14 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
                      defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
                      elementGraphics: Map[ElkGraphElement, ElementGraphicsModifier] = Map()) {
   // Modify the base graphics for filling some element, eg by highlighted status
-  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-      elementGraphics.get(element).map(_.fillGraphics).getOrElse(defaultGraphics.fillGraphics)(base)
-  }
+  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
+    elementGraphics.get(element).map(_.fillGraphics).getOrElse(defaultGraphics.fillGraphics).map(_(base)).getOrElse(base)
 
-  protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-      elementGraphics.get(element).map(_.strokeGraphics).getOrElse(defaultGraphics.strokeGraphics)(base)
-  }
+  protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
+    elementGraphics.get(element).map(_.strokeGraphics).getOrElse(defaultGraphics.strokeGraphics).map(_(base)).getOrElse(base)
 
-  protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-      elementGraphics.get(element).map(_.textGraphics).getOrElse(defaultGraphics.textGraphics)(base)
-  }
+  protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
+    elementGraphics.get(element).map(_.textGraphics).getOrElse(defaultGraphics.textGraphics).map(_(base)).getOrElse(base)
 
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
   // text should be drawn.
