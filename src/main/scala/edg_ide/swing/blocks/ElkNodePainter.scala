@@ -57,34 +57,15 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
                      elementGraphics: Map[ElkGraphElement, ElementGraphicsModifier] = Map()) {
   // Modify the base graphics for filling some element, eg by highlighted status
   protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-//    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
-//      val newGraphics = base.create().asInstanceOf[Graphics2D]
-//      newGraphics.setColor(new Color(0, 0, 0, 0))
-//      newGraphics
-//    } else { // computation is handled by the background passed in
       elementGraphics.get(element).map(_.fillGraphics).getOrElse(defaultGraphics.fillGraphics)(base)
-//    }
   }
 
   protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-//    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
-//      val newGraphics = base.create().asInstanceOf[Graphics2D]
-//      newGraphics.setColor(new Color(0, 0, 0, 0))
-//      newGraphics
-//    } else {
       elementGraphics.get(element).map(_.strokeGraphics).getOrElse(defaultGraphics.strokeGraphics)(base)
-//    }
   }
 
   protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
-    // Main difference is stroke isn't bolded
-//    if (element == rootNode && !showTop) { // completely transparent for root if not showing top
-//      val newGraphics = base.create().asInstanceOf[Graphics2D]
-//      newGraphics.setColor(new Color(0, 0, 0, 0))
-//      newGraphics
-//    } else {
       elementGraphics.get(element).map(_.textGraphics).getOrElse(defaultGraphics.textGraphics)(base)
-//    }
   }
 
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
@@ -200,6 +181,7 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     }
   }
 
+  // paints the block and its contents
   def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
     val nodeBackground = paintNode(containingG, node)
 
@@ -210,10 +192,14 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
       paintPort(nodeG, port)
     }
 
+    nodeG.setBackground(nodeBackground)
+    paintBlockContents(containingG, nodeG, node)
+  }
+
+  // paints the block's contents only
+  def paintBlockContents(containingG: Graphics2D, nodeG: Graphics2D, node: ElkNode): Unit = {
     node.getChildren.asScala.foreach { childNode =>
-      val childG = nodeG.create().asInstanceOf[Graphics2D]
-      childG.setBackground(nodeBackground)
-      paintBlock(childG, childNode)
+      paintBlock(nodeG, childNode)
     }
 
     node.getContainedEdges.asScala.foreach { edge =>
@@ -240,6 +226,10 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
     val newFont = currentFont.deriveFont(currentFont.getSize / zoomLevel)
     scaledG.setFont(newFont)
 
-    paintBlock(scaledG, rootNode)
+    if (showTop) {
+      paintBlock(scaledG, rootNode)
+    } else {
+      paintBlockContents(scaledG, scaledG, rootNode)
+    }
   }
 }
