@@ -1,12 +1,14 @@
 package edg_ide.swing.blocks
 
 import com.intellij.ui.JBColor
-import edg_ide.swing.Zoomable
+import edg_ide.swing.{ColorUtil, Zoomable}
 import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
-import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{BasicStroke, Color, Dimension, Graphics, Graphics2D, Rectangle}
+import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter}
+import java.awt.geom.Rectangle2D
+import java.awt.image.BufferedImage
+import java.awt.{BasicStroke, Color, Dimension, Graphics, Graphics2D, Rectangle, TexturePaint}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ListHasAsScala
@@ -21,7 +23,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     with Scrollable
     with Zoomable {
   private var zoomLevel: Float = 1.0f
-  private var mouseOver: Set[ElkGraphElement] = Set()  // elements that are moused over, maintained internally
+  private var mouseOverElts: Seq[ElkGraphElement] = Seq()  // elements that are moused over, maintained internally
   private var selected: Set[ElkGraphElement] = Set()  // elements that are selected, set externally
   // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
@@ -142,38 +144,65 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     intersectNode(rootNode, elkPoint)
   }
 
+  private val kDimBlend = 0.25
+
+  private val errorModifier = ElementGraphicsModifier(
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
+  )
+  private val selectedModifier = ElementGraphicsModifier(
+    strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
+  )
+  private val dimGraphics = ElementGraphicsModifier(
+    strokeGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
+    textGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend)
+  )
+
+  private def hatchFillTransform(nodeGraphics: Graphics2D): Graphics2D = {
+    val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
+    val hatchImage =
+      new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
+    val textureGraphics = hatchImage.createGraphics()
+    val hatchTexture = new TexturePaint(hatchImage, hatchRect)
+    val nodeColor = ColorUtil.blendColor(nodeGraphics.getBackground, nodeGraphics.getColor,
+      ElementGraphicsModifier.kDefaultFillBlend)
+    textureGraphics.setColor(nodeColor)
+    textureGraphics.fill(hatchRect)
+    textureGraphics.setColor(ColorUtil.blendColor(nodeColor, nodeGraphics.getColor,
+      ElementGraphicsModifier.kDefaultFillBlend))
+    textureGraphics.setStroke(new BasicStroke(2))
+    textureGraphics.drawLine(0, 16, 16, 0)
+
+    val newGraphics = nodeGraphics.create().asInstanceOf[Graphics2D]
+    newGraphics.setColor(nodeColor)
+    newGraphics.setPaint(hatchTexture)
+    newGraphics
+  }
+  private val staleModifier = ElementGraphicsModifier(
+    fillGraphics = hatchFillTransform
+  )
+
+  private val mouseoverModifier = ElementGraphicsModifier(
+    strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(5 / zoomLevel)).compose(
+      ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127)))
+  )
+
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val kDimBlend = 0.25
+    val elementGraphicsSeq = errorElts.map { elt => elt -> errorModifier } ++
+      selected.map { elt => elt -> selectedModifier } ++
+      staleElts.map { elt => elt -> staleModifier } ++
+      mouseOverElts.map { elt => elt -> mouseoverModifier }
 
-    val errorModifier = ElementGraphicsModifier(
-      fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
-    )
-    val selectedModifier = ElementGraphicsModifier(
-      strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
-    )
-
-    val elementGraphics = (
-      errorElts.map { elt => elt -> errorModifier } ++
-        selected.map { elt => elt -> selectedModifier }
-      ).toMap
     val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     backgroundPaintGraphics.setBackground(this.getBackground)
     val painter = highlighted match {
       case None =>  // normal rendering
-          new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
+          new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphicsSeq.toMap)
       case Some(highlighted) =>  // default dim rendering
-        val dimGraphics = ElementGraphicsModifier(
-          strokeGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
-          textGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
-          fillGraphics = ElementGraphicsModifier.withColorBlendBackground(
-            ElementGraphicsModifier.kDefaultFillBlend * kDimBlend),
-        )
-
-        new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics = dimGraphics,
-          elementGraphics = elementGraphics)
+        val highlightedElementGraphicsSeq = elementGraphicsSeq ++
+          highlighted.map { elt => elt -> ElementGraphicsModifier.default }
+        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics = dimGraphics,
+          elementGraphics = highlightedElementGraphicsSeq.toMap)
     }
-
-    //      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
     painter.paintComponent(backgroundPaintGraphics)
   }
 
@@ -186,6 +215,35 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       requestFocusInWindow()
     }
   })
+
+  addMouseMotionListener(new MouseMotionAdapter {
+    private def mouseoverUpdated(newElts: Seq[ElkGraphElement]): Unit = {
+      if (mouseOverElts != newElts) {
+        mouseOverElts = newElts
+        validate()
+        repaint()
+      }
+    }
+
+    override def mouseMoved(e: MouseEvent): Unit = {
+      super.mouseMoved(e)
+
+      getElementForLocation(e.getX, e.getY) match {
+        case Some(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
+        case None => mouseoverUpdated(Seq())
+      }
+    }
+  })
+
+  addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      onClick(e, mouseOverElts)
+    }
+  })
+
+  // User hooks - can be overridden
+  def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {
+  }
 
   // Tooltip operations
   //

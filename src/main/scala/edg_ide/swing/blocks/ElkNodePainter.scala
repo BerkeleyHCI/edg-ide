@@ -41,6 +41,15 @@ object ElementGraphicsModifier {
     transform
   }
 
+  def withColor(color: Color): Graphics2D => Graphics2D = { // blends the foreground color
+    def transform(g: Graphics2D): Graphics2D = {
+      val newG = g.create().asInstanceOf[Graphics2D]
+      newG.setColor(color)
+      newG
+    }
+    transform
+  }
+
   def withStroke(stroke: Stroke): Graphics2D => Graphics2D = {
     def transform(g: Graphics2D): Graphics2D = {
       val newG = g.create().asInstanceOf[Graphics2D]

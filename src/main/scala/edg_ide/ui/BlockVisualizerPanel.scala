@@ -203,10 +203,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     "empty"
   )
 
-  private val graph = new JBlockDiagramVisualizer(emptyHGraph)
-  graph.addMouseListener(new MouseAdapter {
-    override def mouseClicked(e: MouseEvent): Unit = {
-      graph.getElementForLocation(e.getX, e.getY) match {
+  private val graph = new JBlockDiagramVisualizer(emptyHGraph) {
+    override def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {
+      elts.headOption match {  // TODO disambiguate
         case Some(clicked) =>
           clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
             case path: DesignPath => activeTool.onPathMouse(e, path)
@@ -215,8 +214,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         case None => // ignored
       }
     }
-  })
-
+  }
   private val centeringGraph = new JPanel(new GridBagLayout)
   centeringGraph.add(graph, new GridBagConstraints())
 
