@@ -18,7 +18,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object PDFGeneratorUtil {
-
   /*
     Note for future development:
       If infinite loop (and eventually StackOverflow) occurs when adding header/footer, check that the
