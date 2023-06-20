@@ -69,13 +69,16 @@ class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Flo
                      elementGraphics: Map[ElkGraphElement, ElementGraphicsModifier] = Map()) {
   // Modify the base graphics for filling some element, eg by highlighted status
   protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
-    elementGraphics.get(element).map(_.fillGraphics).getOrElse(defaultGraphics.fillGraphics).map(_(base)).getOrElse(base)
+    elementGraphics.get(element).flatMap(_.fillGraphics).orElse(defaultGraphics.fillGraphics)
+      .map(_(base)).getOrElse(base)
 
   protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
-    elementGraphics.get(element).map(_.strokeGraphics).getOrElse(defaultGraphics.strokeGraphics).map(_(base)).getOrElse(base)
+    elementGraphics.get(element).flatMap(_.strokeGraphics).orElse(defaultGraphics.strokeGraphics)
+      .map(_(base)).getOrElse(base)
 
   protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
-    elementGraphics.get(element).map(_.textGraphics).getOrElse(defaultGraphics.textGraphics).map(_(base)).getOrElse(base)
+    elementGraphics.get(element).flatMap(_.textGraphics).orElse(defaultGraphics.textGraphics)
+      .map(_(base)).getOrElse(base)
 
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
   // text should be drawn.

@@ -154,6 +154,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   )
   private val dimGraphics = ElementGraphicsModifier(
     strokeGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(kDimBlend)),
+    fillGraphics = ElementGraphicsModifier.default.fillGraphics,
     textGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(kDimBlend))
   )
 
