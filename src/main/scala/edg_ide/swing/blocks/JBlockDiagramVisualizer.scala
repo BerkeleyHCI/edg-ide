@@ -23,8 +23,8 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     with Scrollable
     with Zoomable {
   private var zoomLevel: Float = 1.0f
-  private var mouseOverElts: Seq[ElkGraphElement] = Seq()  // elements that are moused over, maintained internally
-  private var selected: Set[ElkGraphElement] = Set()  // elements that are selected, set externally
+  private var mouseOverElts: Seq[ElkGraphElement] = Seq() // elements that are moused over, maintained internally
+  private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
   // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
   private var errorElts: Set[ElkGraphElement] = Set()
@@ -164,7 +164,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
     val textureGraphics = hatchImage.createGraphics()
     val hatchTexture = new TexturePaint(hatchImage, hatchRect)
-    textureGraphics.setColor(nodeGraphics.getColor)  // use existing node color for background
+    textureGraphics.setColor(nodeGraphics.getColor) // use existing node color for background
     textureGraphics.fill(hatchRect)
     textureGraphics.setColor(ColorUtil.blendColor(nodeGraphics.getColor, JBColor.YELLOW, 0.25))
     textureGraphics.setStroke(new BasicStroke(2))
@@ -179,8 +179,9 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
   private val mouseoverModifier = ElementGraphicsModifier(
     outlineGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(9 / zoomLevel)).compose(
-      ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127)))
-  ))
+      ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127))
+    ))
+  )
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
@@ -191,16 +192,23 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     backgroundPaintGraphics.setBackground(this.getBackground)
     val painter = highlighted match {
-      case None =>  // normal rendering
-          new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
-      case Some(highlighted) =>  // default dim rendering
+      case None => // normal rendering
+        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
+      case Some(highlighted) => // default dim rendering
         val highlightedElementGraphics = elementGraphics ++
-          highlighted.map { elt => elt -> ElementGraphicsModifier(  // undo the dim rendering for highlighted
-            strokeGraphics = ElementGraphicsModifier.withColor(getForeground),
-            textGraphics = ElementGraphicsModifier.withColor(getForeground)
-          ) }
-        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics = dimGraphics,
-          elementGraphics = highlightedElementGraphics)
+          highlighted.map { elt =>
+            elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
+              strokeGraphics = ElementGraphicsModifier.withColor(getForeground),
+              textGraphics = ElementGraphicsModifier.withColor(getForeground)
+            )
+          }
+        new StubEdgeElkNodePainter(
+          rootNode,
+          showTop,
+          zoomLevel,
+          defaultGraphics = dimGraphics,
+          elementGraphics = highlightedElementGraphics
+        )
     }
     painter.paintComponent(backgroundPaintGraphics)
   }
@@ -229,10 +237,10 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
       getElementForLocation(e.getX, e.getY) match {
         case Some(mouseoverElt) => highlighted match {
-          case None => mouseoverUpdated(Seq(mouseoverElt))
-          case Some(highlighted) if highlighted.contains(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
-          case _ => mouseoverUpdated(Seq())  // dimmed items non-interactable
-        }
+            case None => mouseoverUpdated(Seq(mouseoverElt))
+            case Some(highlighted) if highlighted.contains(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
+            case _ => mouseoverUpdated(Seq()) // dimmed items non-interactable
+          }
         case None => mouseoverUpdated(Seq())
       }
     }
@@ -245,8 +253,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   })
 
   // User hooks - can be overridden
-  def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {
-  }
+  def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {}
 
   // Tooltip operations
   //

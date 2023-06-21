@@ -13,17 +13,19 @@ case class ElementGraphicsModifier(
     // each is a graphics transformer, taking the prior one and returning the new one
     // the input will either be the base graphics object, or the output of the prior transformer
     // these may modify the graphics object in-place, or return a fresh one
-  strokeGraphics: Graphics2D => Graphics2D = identity,  // for the border
-  fillGraphics: Graphics2D => Graphics2D = identity,
-  textGraphics: Graphics2D => Graphics2D = identity,  // for the label (if any)
-  outlineGraphics: Option[Graphics2D => Graphics2D] = None  // optional stroke below other elements, eg for hover highlight
+    strokeGraphics: Graphics2D => Graphics2D = identity, // for the border
+    fillGraphics: Graphics2D => Graphics2D = identity,
+    textGraphics: Graphics2D => Graphics2D = identity, // for the label (if any)
+    outlineGraphics: Option[Graphics2D => Graphics2D] =
+      None // optional stroke below other elements, eg for hover highlight
 )
 
 object ElementGraphicsModifier {
   val kDefaultFillBlend = 0.15
 
   def default = ElementGraphicsModifier(
-    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(ElementGraphicsModifier.kDefaultFillBlend))
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(ElementGraphicsModifier.kDefaultFillBlend)
+  )
 
   def makeInplaceTransformer(fn: Graphics2D => Unit): Graphics2D => Graphics2D = {
     def transform(g: Graphics2D): Graphics2D = {
@@ -38,9 +40,10 @@ object ElementGraphicsModifier {
     g.setColor(ColorUtil.blendColor(g.getBackground, color, factor))
   }
 
-  def withColorBlendBackground(factor: Double): Graphics2D => Graphics2D = makeInplaceTransformer { g => // blends the foreground color
-    g.setColor(ColorUtil.blendColor(g.getBackground, g.getColor, factor))
-  }
+  def withColorBlendBackground(factor: Double): Graphics2D => Graphics2D =
+    makeInplaceTransformer { g => // blends the foreground color
+      g.setColor(ColorUtil.blendColor(g.getBackground, g.getColor, factor))
+    }
 
   def withColor(color: Color): Graphics2D => Graphics2D = makeInplaceTransformer { g => // blends the foreground color
     g.setColor(color)
@@ -55,9 +58,13 @@ object ElkNodePainter {
   val margin: Int = 32 // margin in pixels, regardless of zoom level, so tunnel labels aren't cut off
 }
 
-class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Float = 1.0f,
-                     defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
-                     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq()) {
+class ElkNodePainter(
+    rootNode: ElkNode,
+    showTop: Boolean = false,
+    zoomLevel: Float = 1.0f,
+    defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
+    elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq()
+) {
   protected val modifiersByElement = elementGraphics.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
 
   // Modify the base graphics for filling some element, eg by highlighted status

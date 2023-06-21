@@ -205,7 +205,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   private val graph = new JBlockDiagramVisualizer(emptyHGraph) {
     override def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {
-      elts.headOption match {  // TODO disambiguate
+      elts.headOption match { // TODO disambiguate
         case Some(clicked) =>
           clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
             case path: DesignPath => activeTool.onPathMouse(e, path)
