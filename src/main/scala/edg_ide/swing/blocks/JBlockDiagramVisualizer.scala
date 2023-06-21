@@ -1,11 +1,14 @@
 package edg_ide.swing.blocks
 
-import edg_ide.swing.Zoomable
+import com.intellij.ui.JBColor
+import edg_ide.swing.{ColorUtil, Zoomable}
 import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
-import java.awt.event.{MouseAdapter, MouseEvent}
-import java.awt.{Dimension, Graphics, Rectangle}
+import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter}
+import java.awt.geom.Rectangle2D
+import java.awt.image.BufferedImage
+import java.awt.{BasicStroke, Color, Dimension, Graphics, Graphics2D, Rectangle, TexturePaint}
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ListHasAsScala
@@ -20,7 +23,9 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     with Scrollable
     with Zoomable {
   private var zoomLevel: Float = 1.0f
-  private var selected: Set[ElkGraphElement] = Set()
+  private var mouseOverElts: Seq[ElkGraphElement] = Seq() // elements that are moused over, maintained internally
+  private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
+  // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
   private var errorElts: Set[ElkGraphElement] = Set()
   private var staleElts: Set[ElkGraphElement] = Set()
@@ -139,10 +144,73 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     intersectNode(rootNode, elkPoint)
   }
 
+  private val kDimBlend = 0.25
+
+  private val errorModifier = ElementGraphicsModifier(
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
+  )
+  private val selectedModifier = ElementGraphicsModifier(
+    strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
+  )
+  private val dimGraphics = ElementGraphicsModifier(
+    fillGraphics = ElementGraphicsModifier.default.fillGraphics, // needed since this replaces default
+    strokeGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
+    textGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend)
+  )
+
+  private def hatchFillTransform(nodeGraphics: Graphics2D): Graphics2D = {
+    val hatchRect = new Rectangle2D.Double(0, 0, 16, 16)
+    val hatchImage =
+      new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
+    val textureGraphics = hatchImage.createGraphics()
+    val hatchTexture = new TexturePaint(hatchImage, hatchRect)
+    textureGraphics.setColor(nodeGraphics.getColor) // use existing node color for background
+    textureGraphics.fill(hatchRect)
+    textureGraphics.setColor(ColorUtil.blendColor(nodeGraphics.getColor, JBColor.YELLOW, 0.25))
+    textureGraphics.setStroke(new BasicStroke(2))
+    textureGraphics.drawLine(0, 16, 16, 0)
+
+    nodeGraphics.setPaint(hatchTexture)
+    nodeGraphics
+  }
+  private val staleModifier = ElementGraphicsModifier(
+    fillGraphics = hatchFillTransform
+  )
+
+  private val mouseoverModifier = ElementGraphicsModifier(
+    outlineGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(9 / zoomLevel)).compose(
+      ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127))
+    ))
+  )
+
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val painter =
-      new ModifiedElkNodePainter(rootNode, showTop, zoomLevel, errorElts, staleElts, selected, highlighted)
-    painter.paintComponent(paintGraphics, this.getBackground)
+    val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
+      errorElts.map { elt => elt -> errorModifier } ++
+      selected.map { elt => elt -> selectedModifier } ++
+      staleElts.map { elt => elt -> staleModifier }
+
+    val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
+    backgroundPaintGraphics.setBackground(this.getBackground)
+    val painter = highlighted match {
+      case None => // normal rendering
+        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
+      case Some(highlighted) => // default dim rendering
+        val highlightedElementGraphics = elementGraphics ++
+          highlighted.map { elt =>
+            elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
+              strokeGraphics = ElementGraphicsModifier.withColor(getForeground),
+              textGraphics = ElementGraphicsModifier.withColor(getForeground)
+            )
+          }
+        new StubEdgeElkNodePainter(
+          rootNode,
+          showTop,
+          zoomLevel,
+          defaultGraphics = dimGraphics,
+          elementGraphics = highlightedElementGraphics
+        )
+    }
+    painter.paintComponent(backgroundPaintGraphics)
   }
 
   // support for mouse drag: https://docs.oracle.com/javase/tutorial/uiswing/components/scrollpane.html
@@ -154,6 +222,38 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       requestFocusInWindow()
     }
   })
+
+  addMouseMotionListener(new MouseMotionAdapter {
+    private def mouseoverUpdated(newElts: Seq[ElkGraphElement]): Unit = {
+      if (mouseOverElts != newElts) {
+        mouseOverElts = newElts
+        validate()
+        repaint()
+      }
+    }
+
+    override def mouseMoved(e: MouseEvent): Unit = {
+      super.mouseMoved(e)
+
+      getElementForLocation(e.getX, e.getY) match {
+        case Some(mouseoverElt) => highlighted match {
+            case None => mouseoverUpdated(Seq(mouseoverElt))
+            case Some(highlighted) if highlighted.contains(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
+            case _ => mouseoverUpdated(Seq()) // dimmed items non-interactable
+          }
+        case None => mouseoverUpdated(Seq())
+      }
+    }
+  })
+
+  addMouseListener(new MouseAdapter {
+    override def mouseClicked(e: MouseEvent): Unit = {
+      onClick(e, mouseOverElts)
+    }
+  })
+
+  // User hooks - can be overridden
+  def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {}
 
   // Tooltip operations
   //

@@ -88,8 +88,8 @@ object EdgirGraph {
           Some(
             EdgirEdge(
               ConnectWrapper(path + name, constr),
-              source = Ref.unapply(connect.getBlockPort.getRef).get,
-              target = Ref.unapply(connect.getLinkPort.getRef).get
+              source = Ref.unapply(connect.getBlockPort.getRef).get.slice(0, 2), // only block and port, ignore arrays
+              target = Ref.unapply(connect.getLinkPort.getRef).get.slice(0, 2)
             )
           )
         case expr.ValueExpr.Expr.Exported(export) =>
@@ -97,8 +97,8 @@ object EdgirGraph {
           Some(
             EdgirEdge(
               ConnectWrapper(path + name, constr),
-              source = Ref.unapply(export.getInternalBlockPort.getRef).get,
-              target = Ref.unapply(`export`.getExteriorPort.getRef).get
+              source = Ref.unapply(export.getInternalBlockPort.getRef).get.slice(0, 2),
+              target = Ref.unapply(`export`.getExteriorPort.getRef).get.slice(0, 1)
             )
           )
         case _ => None
@@ -191,23 +191,7 @@ object EdgirGraph {
       path: DesignPath,
       name: Seq[String],
       portLike: elem.PortLike
-  ): Seq[(Seq[String], EdgirPort)] = {
-    portLike.is match {
-      case (_: elem.PortLike.Is.Port | _: elem.PortLike.Is.Bundle | _: elem.PortLike.Is.LibElem) =>
-        Seq(name -> portLikeToPort(path, portLike))
-      case elem.PortLike.Is.Array(portArray) =>
-        portArray.contains match {
-          case elem.PortArray.Contains.Ports(portArray) =>
-            // create an entry for the array itself
-            Seq((name :+ "[]") -> portLikeToPort(path, portLike)) ++
-              portArray.ports.asPairs.flatMap { case (eltName, eltPort) =>
-                expandPortsWithNames(path + eltName, name :+ eltName, eltPort)
-              }.toSeq
-          case elem.PortArray.Contains.Empty =>
-            Seq(name -> portLikeToPort(path, portLike))
-        }
-      case _ => // every other case, make a "port"
-        Seq(name -> portLikeToPort(path, portLike))
-    }
+  ): Seq[(Seq[String], EdgirPort)] = { // including in the array case, just generate one visual port
+    Seq(name -> portLikeToPort(path, portLike))
   }
 }
