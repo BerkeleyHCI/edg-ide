@@ -88,7 +88,7 @@ object EdgirGraph {
           Some(
             EdgirEdge(
               ConnectWrapper(path + name, constr),
-              source = Ref.unapply(connect.getBlockPort.getRef).get.slice(0, 2),  // only block and port, ignore arrays
+              source = Ref.unapply(connect.getBlockPort.getRef).get.slice(0, 2), // only block and port, ignore arrays
               target = Ref.unapply(connect.getLinkPort.getRef).get.slice(0, 2)
             )
           )
@@ -191,7 +191,7 @@ object EdgirGraph {
       path: DesignPath,
       name: Seq[String],
       portLike: elem.PortLike
-  ): Seq[(Seq[String], EdgirPort)] = {  // including in the array case, just generate one visual port
+  ): Seq[(Seq[String], EdgirPort)] = { // including in the array case, just generate one visual port
     Seq(name -> portLikeToPort(path, portLike))
   }
 }
