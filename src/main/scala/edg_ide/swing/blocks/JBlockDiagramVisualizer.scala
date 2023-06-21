@@ -147,15 +147,15 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private val kDimBlend = 0.25
 
   private val errorModifier = ElementGraphicsModifier(
-    fillGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5))
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
   )
   private val selectedModifier = ElementGraphicsModifier(
-    strokeGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel)))
+    strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
   )
   private val dimGraphics = ElementGraphicsModifier(
-    strokeGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(kDimBlend)),
-    fillGraphics = ElementGraphicsModifier.default.fillGraphics,
-    textGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(kDimBlend))
+    fillGraphics = ElementGraphicsModifier.default.fillGraphics, // needed since this replaces default
+    strokeGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend),
+    textGraphics = ElementGraphicsModifier.withColorBlendBackground(kDimBlend)
   )
 
   private def hatchFillTransform(nodeGraphics: Graphics2D): Graphics2D = {
@@ -164,22 +164,17 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       new BufferedImage(hatchRect.width.toInt, hatchRect.height.toInt, BufferedImage.TYPE_INT_ARGB)
     val textureGraphics = hatchImage.createGraphics()
     val hatchTexture = new TexturePaint(hatchImage, hatchRect)
-    val nodeColor = ColorUtil.blendColor(nodeGraphics.getBackground, nodeGraphics.getColor,
-      ElementGraphicsModifier.kDefaultFillBlend)
-    textureGraphics.setColor(nodeColor)
+    textureGraphics.setColor(nodeGraphics.getColor)  // use existing node color for background
     textureGraphics.fill(hatchRect)
-    textureGraphics.setColor(ColorUtil.blendColor(nodeColor, nodeGraphics.getColor,
-      ElementGraphicsModifier.kDefaultFillBlend))
+    textureGraphics.setColor(ColorUtil.blendColor(nodeGraphics.getColor, JBColor.YELLOW, 0.25))
     textureGraphics.setStroke(new BasicStroke(2))
     textureGraphics.drawLine(0, 16, 16, 0)
 
-    val newGraphics = nodeGraphics.create().asInstanceOf[Graphics2D]
-    newGraphics.setColor(nodeColor)
-    newGraphics.setPaint(hatchTexture)
-    newGraphics
+    nodeGraphics.setPaint(hatchTexture)
+    nodeGraphics
   }
   private val staleModifier = ElementGraphicsModifier(
-    fillGraphics = Some(hatchFillTransform)
+    fillGraphics = hatchFillTransform
   )
 
   private val mouseoverModifier = ElementGraphicsModifier(
@@ -188,7 +183,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   ))
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val elementGraphicsSeq = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
+    val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
       errorElts.map { elt => elt -> errorModifier } ++
       selected.map { elt => elt -> selectedModifier } ++
       staleElts.map { elt => elt -> staleModifier }
@@ -197,12 +192,15 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     backgroundPaintGraphics.setBackground(this.getBackground)
     val painter = highlighted match {
       case None =>  // normal rendering
-          new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphicsSeq.toMap)
+          new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
       case Some(highlighted) =>  // default dim rendering
-        val highlightedElementGraphicsSeq = elementGraphicsSeq ++
-          highlighted.map { elt => elt -> ElementGraphicsModifier.default }
+        val highlightedElementGraphics = elementGraphics ++
+          highlighted.map { elt => elt -> ElementGraphicsModifier(  // undo the dim rendering for highlighted
+            strokeGraphics = ElementGraphicsModifier.withColor(getForeground),
+            textGraphics = ElementGraphicsModifier.withColor(getForeground)
+          ) }
         new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics = dimGraphics,
-          elementGraphics = highlightedElementGraphicsSeq.toMap)
+          elementGraphics = highlightedElementGraphics)
     }
     painter.paintComponent(backgroundPaintGraphics)
   }

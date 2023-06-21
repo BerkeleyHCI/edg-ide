@@ -14,7 +14,7 @@ import scala.jdk.CollectionConverters.ListHasAsScala
 // ELK h-block graph painter that draws labels for stub edges (edges to self), to emulate tunnels in schematics
 class StubEdgeElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Float = 1.0f,
                              defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
-                             elementGraphics: Map[ElkGraphElement, ElementGraphicsModifier] = Map()
+                             elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq()
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
   override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
     super.paintEdge(parentG, blockG, edge)

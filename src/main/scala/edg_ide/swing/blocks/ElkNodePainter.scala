@@ -5,14 +5,17 @@ import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.graph._
 
-import java.awt._
+import java.awt.{Graphics2D, _}
 import java.awt.geom.AffineTransform
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
 
 case class ElementGraphicsModifier(
-  strokeGraphics: Option[Graphics2D => Graphics2D] = None,  // for the border
-  fillGraphics: Option[Graphics2D => Graphics2D] = None,
-  textGraphics: Option[Graphics2D => Graphics2D] = None,  // for the label (if any)
+    // each is a graphics transformer, taking the prior one and returning the new one
+    // the input will either be the base graphics object, or the output of the prior transformer
+    // these may modify the graphics object in-place, or return a fresh one
+  strokeGraphics: Graphics2D => Graphics2D = identity,  // for the border
+  fillGraphics: Graphics2D => Graphics2D = identity,
+  textGraphics: Graphics2D => Graphics2D = identity,  // for the label (if any)
   outlineGraphics: Option[Graphics2D => Graphics2D] = None  // optional stroke below other elements, eg for hover highlight
 )
 
@@ -20,45 +23,31 @@ object ElementGraphicsModifier {
   val kDefaultFillBlend = 0.15
 
   def default = ElementGraphicsModifier(
-    strokeGraphics = Some(identity),
-    fillGraphics = Some(ElementGraphicsModifier.withColorBlendBackground(ElementGraphicsModifier.kDefaultFillBlend)),
-    textGraphics = Some(identity))
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(ElementGraphicsModifier.kDefaultFillBlend))
+
+  def makeInplaceTransformer(fn: Graphics2D => Unit): Graphics2D => Graphics2D = {
+    def transform(g: Graphics2D): Graphics2D = {
+      fn(g)
+      g
+    }
+    transform
+  }
 
   // utility functions for creating graphics transformers
-  def withColorBlendBackground(color: Color, factor: Double): Graphics2D => Graphics2D = {
-    def transform(g: Graphics2D): Graphics2D = {
-      val newG = g.create().asInstanceOf[Graphics2D]
-      newG.setColor(ColorUtil.blendColor(newG.getBackground, color, factor))
-      newG
-    }
-    transform
+  def withColorBlendBackground(color: Color, factor: Double): Graphics2D => Graphics2D = makeInplaceTransformer { g =>
+    g.setColor(ColorUtil.blendColor(g.getBackground, color, factor))
   }
 
-  def withColorBlendBackground(factor: Double): Graphics2D => Graphics2D = {  // blends the foreground color
-    def transform(g: Graphics2D): Graphics2D = {
-      val newG = g.create().asInstanceOf[Graphics2D]
-      newG.setColor(ColorUtil.blendColor(newG.getBackground, newG.getColor, factor))
-      newG
-    }
-    transform
+  def withColorBlendBackground(factor: Double): Graphics2D => Graphics2D = makeInplaceTransformer { g => // blends the foreground color
+    g.setColor(ColorUtil.blendColor(g.getBackground, g.getColor, factor))
   }
 
-  def withColor(color: Color): Graphics2D => Graphics2D = { // blends the foreground color
-    def transform(g: Graphics2D): Graphics2D = {
-      val newG = g.create().asInstanceOf[Graphics2D]
-      newG.setColor(color)
-      newG
-    }
-    transform
+  def withColor(color: Color): Graphics2D => Graphics2D = makeInplaceTransformer { g => // blends the foreground color
+    g.setColor(color)
   }
 
-  def withStroke(stroke: Stroke): Graphics2D => Graphics2D = {
-    def transform(g: Graphics2D): Graphics2D = {
-      val newG = g.create().asInstanceOf[Graphics2D]
-      newG.setStroke(stroke)
-      newG
-    }
-    transform
+  def withStroke(stroke: Stroke): Graphics2D => Graphics2D = makeInplaceTransformer { g =>
+    g.setStroke(stroke)
   }
 }
 
@@ -68,22 +57,38 @@ object ElkNodePainter {
 
 class ElkNodePainter(rootNode: ElkNode, showTop: Boolean = false, zoomLevel: Float = 1.0f,
                      defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
-                     elementGraphics: Map[ElkGraphElement, ElementGraphicsModifier] = Map()) {
+                     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq()) {
+  protected val modifiersByElement = elementGraphics.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
+
   // Modify the base graphics for filling some element, eg by highlighted status
-  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
-    elementGraphics.get(element).flatMap(_.fillGraphics).orElse(defaultGraphics.fillGraphics)
-      .map(_(base)).getOrElse(base)
+  protected def fillGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+    val initialGraphics = base.create().asInstanceOf[Graphics2D]
+    val modifiers = defaultGraphics +: modifiersByElement.getOrElse(element, Seq())
+    modifiers.foldLeft(initialGraphics)((prev, elt) => elt.fillGraphics(prev))
+  }
 
-  protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
-    elementGraphics.get(element).flatMap(_.strokeGraphics).orElse(defaultGraphics.strokeGraphics)
-      .map(_(base)).getOrElse(base)
+  protected def strokeGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+    val initialGraphics = base.create().asInstanceOf[Graphics2D]
+    val modifiers = defaultGraphics +: modifiersByElement.getOrElse(element, Seq())
+    modifiers.foldLeft(initialGraphics)((prev, elt) => elt.strokeGraphics(prev))
+  }
 
-  protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D =
-    elementGraphics.get(element).flatMap(_.textGraphics).orElse(defaultGraphics.textGraphics)
-      .map(_(base)).getOrElse(base)
+  protected def textGraphics(base: Graphics2D, element: ElkGraphElement): Graphics2D = {
+    val initialGraphics = base.create().asInstanceOf[Graphics2D]
+    val modifiers = defaultGraphics +: modifiersByElement.getOrElse(element, Seq())
+    modifiers.foldLeft(initialGraphics)((prev, elt) => elt.textGraphics(prev))
+  }
 
-  protected def outlineGraphics(base: Graphics2D, element: ElkGraphElement): Option[Graphics2D] =
-    elementGraphics.get(element).flatMap(_.outlineGraphics).orElse(defaultGraphics.outlineGraphics).map(_(base))
+  protected def outlineGraphics(base: Graphics2D, element: ElkGraphElement): Option[Graphics2D] = {
+    val modifiers = defaultGraphics +: modifiersByElement.getOrElse(element, Seq())
+    val transformers = modifiers.flatMap(_.outlineGraphics)
+    transformers match {
+      case Seq() => None
+      case transformers =>
+        val initialGraphics = base.create().asInstanceOf[Graphics2D]
+        Some(transformers.foldLeft(initialGraphics)((prev, elt) => elt(prev)))
+    }
+  }
 
   // Given a ElkLabel and placement (anchoring) constraints, return the x and y coordinates for where the
   // text should be drawn.
