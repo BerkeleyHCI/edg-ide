@@ -18,10 +18,10 @@ object EdgirUtils {
   val FootprintBlockType: ref.LibraryPath =
     ElemBuilder.LibraryPath("electronics_model.CircuitBlock.CircuitBlock")
 
-  // TODO refactor into common utils elsewher
+  // TODO refactor into common utils elsewhere
   def typeOfBlockLike(blockLike: elem.BlockLike): Option[ref.LibraryPath] = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) => Some(block.getSelfClass)
-    case elem.BlockLike.Type.LibElem(lib) => Some(lib)
+    case elem.BlockLike.Type.LibElem(lib) => Some(lib.getBase)
     case _ => None
   }
 

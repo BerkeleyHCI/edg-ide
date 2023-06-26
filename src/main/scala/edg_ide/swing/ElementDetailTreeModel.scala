@@ -181,7 +181,7 @@ class ElementDetailNodes(
     block.`type` match {
       case elem.BlockLike.Type.Hierarchy(block) => new BlockNode(path, block)
       case elem.BlockLike.Type.LibElem(block) =>
-        new UnelaboratedNode(path, s"unelaborated ${block.toSimpleString}")
+        new UnelaboratedNode(path, s"unelaborated ${block.getBase.toSimpleString}")
       case _ =>
         new UnelaboratedNode(path, "unknown")
     }
