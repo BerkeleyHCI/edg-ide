@@ -12,7 +12,7 @@ import edg_ide.dse.{DseClassParameterSearch, DseFeature, DseObjectiveParameter, 
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.swing.{ElementDetailTreeModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, LibraryUtils, exceptable, requireExcept}
 import edg_ide.{EdgirUtils, swing}
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
@@ -72,9 +72,9 @@ class DetailParamPopupMenu(
     val (blockPath, block) = EdgirUtils.resolveDeepestBlock(directPath, design)
     val postfix = directPath.postfixFromOption(blockPath).get
     val paramName = postfix.steps.onlyExcept("not a block param").getName
-    val paramDefiningClass = compiler.library
-      .blockParamGetDefiningSuperclass(block.getSelfClass, paramName)
-      .exceptNone("no param-defining class")
+    val paramDefiningClass =
+      LibraryUtils.blockParamGetDefiningSuperclass(compiler.library, block.getSelfClass, paramName)
+        .exceptNone("no param-defining class")
     (paramDefiningClass, postfix)
   }
 
