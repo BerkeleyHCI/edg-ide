@@ -19,7 +19,8 @@ case class BlockWrapper(path: DesignPath, blockLike: elem.BlockLike) extends Nod
     case elem.BlockLike.Type.Hierarchy(block) =>
       block.getSelfClass.toSimpleString
     case elem.BlockLike.Type.LibElem(lib) =>
-      s"lib: ${lib.toSimpleString}"
+      val allTypes = Seq(lib.getBase) ++ lib.mixins
+      s"lib: ${allTypes.map(_.toSimpleString).mkString("+")}"
     case other => other.getClass.getName
   }
 }
