@@ -14,8 +14,11 @@ object ElkNodeUtil {
     }
     val allPoints = Seq(start) ++ bends ++ Seq(end)
 
-    allPoints.sliding(2).map { case point1 :: point2 :: Nil =>
-      (point1, point2)
-    }.toSeq
+    allPoints
+      .sliding(2)
+      .map { case point1 :: point2 :: Nil =>
+        (point1, point2)
+      }
+      .toSeq
   }
 }

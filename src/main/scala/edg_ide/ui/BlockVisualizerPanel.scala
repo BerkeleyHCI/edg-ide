@@ -38,17 +38,22 @@ import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Using
 
-
 object Gbc {
-  def apply(gridx: Int, gridy: Int, fill: Int = GridBagConstraints.NONE,
-              xsize: Int = 1, ysize: Int = 1,
-              xweight: Float = 0.0f, yweight: Float = 0.0f): GridBagConstraints = {
+  def apply(
+      gridx: Int,
+      gridy: Int,
+      fill: Int = GridBagConstraints.NONE,
+      xsize: Int = 1,
+      ysize: Int = 1,
+      xweight: Float = 0.0f,
+      yweight: Float = 0.0f
+  ): GridBagConstraints = {
     val gbc = new GridBagConstraints()
     gbc.gridx = gridx
     gbc.gridy = gridy
     gbc.fill = fill
     if (xweight == 0 && (fill == GridBagConstraints.HORIZONTAL || fill == GridBagConstraints.BOTH)) {
-      gbc.weightx = 1  // default fill weight
+      gbc.weightx = 1 // default fill weight
     } else {
       gbc.weightx = xweight
     }
@@ -63,7 +68,6 @@ object Gbc {
   }
 }
 
-
 class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends JPanel {
   // Internal State
   //
@@ -77,9 +81,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // GUI-facing state
   //
-  private var focusPath: DesignPath = DesignPath()  // visualize from root by default
-  private var ignoreSelect: Boolean = false  // ignore select operation to prevent infinite recursion
-  private var selectionPath: DesignPath = DesignPath()  // selection of detail view and graph selection
+  private var focusPath: DesignPath = DesignPath() // visualize from root by default
+  private var ignoreSelect: Boolean = false // ignore select operation to prevent infinite recursion
+  private var selectionPath: DesignPath = DesignPath() // selection of detail view and graph selection
 
   // Tool
   //
@@ -149,8 +153,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       if (!info.isDrop || !info.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
         return false
       }
-      val data = info.getTransferable.getTransferData(DataFlavor.javaFileListFlavor)
-          .asInstanceOf[java.util.List[File]].asScala.toSeq
+      val data = info.getTransferable
+        .getTransferData(DataFlavor.javaFileListFlavor)
+        .asInstanceOf[java.util.List[File]]
+        .asScala
+        .toSeq
       val file = data match {
         case Seq(file) => file
         case _ =>
@@ -192,21 +199,22 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // TODO remove library requirement
   private val emptyHGraph = HierarchyGraphElk.HGraphNodeToElk(
-    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()), "empty")
+    EdgirGraph.blockToNode(DesignPath(), elem.HierarchyBlock()),
+    "empty"
+  )
 
-  private val graph = new JBlockDiagramVisualizer(emptyHGraph)
-  graph.addMouseListener(new MouseAdapter {
-    override def mouseClicked(e: MouseEvent): Unit = {
-      graph.getElementForLocation(e.getX, e.getY) match {
-        case Some(clicked) => clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
-          case path: DesignPath => activeTool.onPathMouse(e, path)
-          case null =>  // TODO should this error out?
-        }
-        case None =>  // ignored
+  private val graph = new JBlockDiagramVisualizer(emptyHGraph) {
+    override def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {
+      elts.headOption match { // TODO disambiguate
+        case Some(clicked) =>
+          clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
+            case path: DesignPath => activeTool.onPathMouse(e, path)
+            case null => // TODO should this error out?
+          }
+        case None => // ignored
       }
     }
-  })
-
+  }
   private val centeringGraph = new JPanel(new GridBagLayout)
   centeringGraph.add(graph, new GridBagConstraints())
 
@@ -219,7 +227,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   visualizationPanel.addComponentListener(new ComponentAdapter() {
     override def componentResized(e: ComponentEvent): Unit = {
-      status.setSize(visualizationPanel.getSize)  // explicit size required for JLayeredPane which has null layout
+      status.setSize(
+        visualizationPanel.getSize
+      ) // explicit size required for JLayeredPane which has null layout
       graphScrollPane.setSize(visualizationPanel.getSize)
       visualizationPanel.revalidate()
       visualizationPanel.repaint()
@@ -234,51 +244,61 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // Regularly check the selected run config and show the DSE panel if a DSE config is selected
   private var dsePanelShown = false
-  AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(() => {
-    // can't use DseService(project) here since this keeps getting called after the panel closes
-    // and creates an error
-    // the outer Option(...) wrapper prevents an error on shutdown after RunManager has been disposed
-    val dseConfigSelected = Option(RunManager.getInstanceIfCreated(project))
+  AppExecutorUtil.getAppScheduledExecutorService.scheduleWithFixedDelay(
+    () => {
+      // can't use DseService(project) here since this keeps getting called after the panel closes
+      // and creates an error
+      // the outer Option(...) wrapper prevents an error on shutdown after RunManager has been disposed
+      val dseConfigSelected = Option(RunManager.getInstanceIfCreated(project))
         .flatMap(manager => Option(manager.getSelectedConfiguration))
         .map(_.getConfiguration)
         .collect { case config: DseRunConfiguration => config }
         .isDefined
-    if (dsePanelShown != dseConfigSelected) {
-      dsePanelShown = dseConfigSelected  // set it now, so we don't get multiple invocations of the update
-      ApplicationManager.getApplication.invokeLater(() => {
-        if (dseConfigSelected) {
-          remove(mainSplitter)
-          dseSplitter.setFirstComponent(mainSplitter)
-          add(dseSplitter)
-        } else {
-          remove(dseSplitter)
-          dseSplitter.setFirstComponent(null)
-          add(mainSplitter)
-        }
-      })
-      revalidate()
-    }
-  }, 333, 333, TimeUnit.MILLISECONDS) // seems flakey without initial delay
+      if (dsePanelShown != dseConfigSelected) {
+        dsePanelShown = dseConfigSelected // set it now, so we don't get multiple invocations of the update
+        ApplicationManager.getApplication.invokeLater(() => {
+          if (dseConfigSelected) {
+            remove(mainSplitter)
+            dseSplitter.setFirstComponent(mainSplitter)
+            add(dseSplitter)
+          } else {
+            remove(dseSplitter)
+            dseSplitter.setFirstComponent(null)
+            add(mainSplitter)
+          }
+        })
+        revalidate()
+      }
+    },
+    333,
+    333,
+    TimeUnit.MILLISECONDS
+  ) // seems flakey without initial delay
 
   private var designTreeModel = new BlockTreeTableModel(project, edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel) with ProvenTreeTableMixin
   new TreeTableSpeedSearch(designTree)
-  private val designTreeListener = new TreeSelectionListener {  // an object so it can be re-used since a model change wipes everything out
-    override def valueChanged(e: TreeSelectionEvent): Unit = {
-      import edg_ide.swing.HierarchyBlockNode
-      e.getPath.getLastPathComponent match {
-        case selectedNode: HierarchyBlockNode => selectPath(selectedNode.path)
-        case _ =>  // any other type ignored, not that there should be any other types
+  private val designTreeListener =
+    new TreeSelectionListener { // an object so it can be re-used since a model change wipes everything out
+      override def valueChanged(e: TreeSelectionEvent): Unit = {
+        import edg_ide.swing.HierarchyBlockNode
+        e.getPath.getLastPathComponent match {
+          case selectedNode: HierarchyBlockNode => selectPath(selectedNode.path)
+          case _ => // any other type ignored, not that there should be any other types
+        }
       }
     }
-  }
   designTree.getTree.addTreeSelectionListener(designTreeListener)
-  designTree.addMouseListener(new MouseAdapter {  // right click context menu
+  designTree.addMouseListener(new MouseAdapter { // right click context menu
     override def mousePressed(e: MouseEvent): Unit = {
-      val selectedTreePath = TreeTableUtils.getPathForRowLocation(designTree, e.getX, e.getY).getOrElse(return)
+      val selectedTreePath = TreeTableUtils
+        .getPathForRowLocation(designTree, e.getX, e.getY)
+        .getOrElse(
+          return
+        )
       selectedTreePath.getLastPathComponent match {
         case clickedNode: HierarchyBlockNode => activeTool.onPathMouse(e, clickedNode.path)
-        case _ =>  // any other type ignored
+        case _ => // any other type ignored
       }
     }
   })
@@ -342,7 +362,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 
   def selectPath(path: DesignPath): Unit = {
-    if (ignoreSelect) {  // setting the tree selection triggers a select event, this prevents an infinite loop
+    if (ignoreSelect) { // setting the tree selection triggers a select event, this prevents an infinite loop
       return
     }
     ignoreSelect = true
@@ -372,9 +392,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   /** Sets the design and updates displays accordingly.
     */
-  def setDesignTop(design: schema.Design, compiler: Compiler, refinements: edgrpc.Refinements,
-                   errors: Seq[CompilerError], namePrefix: Option[String] = None): Unit = {
-    this.refinements = refinements  // must be updated before updateDisplay called in setDesign
+  def setDesignTop(
+      design: schema.Design,
+      compiler: Compiler,
+      refinements: edgrpc.Refinements,
+      errors: Seq[CompilerError],
+      namePrefix: Option[String] = None
+  ): Unit = {
+    this.refinements = refinements // must be updated before updateDisplay called in setDesign
     setDesign(design, compiler)
 
     ApplicationManager.getApplication.invokeLater(() => {
@@ -389,8 +414,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     }
   }
 
-  /** Updates the design tree only, where the overall "top design" does not change.
-    * Mainly used for speculative updates on graphical edit actions.
+  /** Updates the design tree only, where the overall "top design" does not change. Mainly used for speculative updates
+    * on graphical edit actions.
     */
   def setDesign(design: schema.Design, compiler: Compiler): Unit = {
     // Update state
@@ -401,7 +426,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     ApplicationManager.getApplication.invokeLater(() => {
       designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
       TreeTableUtils.updateModel(designTree, designTreeModel)
-      designTree.getTree.addTreeSelectionListener(designTreeListener) // this seems to get overridden when the model is updated
+      designTree.getTree.addTreeSelectionListener(
+        designTreeListener
+      ) // this seems to get overridden when the model is updated
       designTree.setTreeCellRenderer(designTreeTreeRenderer)
       designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
     })
@@ -424,39 +451,45 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     detailPanel.setStale(true)
   }
 
-  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state.
-    * Does not update visualizations that are unaffected by operations that don't change the design.
+  /** Updates the visualizations / trees / other displays, without recompiling or changing (explicit) state. Does not
+    * update visualizations that are unaffected by operations that don't change the design.
     */
   def updateDisplay(): Unit = {
     val currentFocusPath = focusPath
     val currentDesign = design
     val currentCompiler = compiler
 
-    ReadAction.nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
-      val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
-      val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(
-        block, blockPath, 1,
-        // note, adding port side constraints with hierarchy seems to break ELK
-        Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
-          ElkEdgirGraphUtils.DesignPathMapper)
-      )
-      val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
-      tooltipTextMap.map(currentDesign)
+    ReadAction
+      .nonBlocking((() => { // analyses happen in the background to avoid slow ops in UI thread
+        val (blockPath, block) = EdgirUtils.resolveDeepestBlock(currentFocusPath, currentDesign)
+        val layoutGraphRoot = HierarchyGraphElk.HBlockToElkNode(
+          block,
+          blockPath,
+          1,
+          // note, adding port side constraints with hierarchy seems to break ELK
+          Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler), ElkEdgirGraphUtils.DesignPathMapper)
+        )
+        val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
+        tooltipTextMap.map(currentDesign)
 
-      (layoutGraphRoot, tooltipTextMap.getTextMap)
-    }): Callable[(ElkNode, Map[DesignPath, String])])
-        .finishOnUiThread(ModalityState.defaultModalityState(), { case (layoutGraphRoot, tooltipTextMap) =>
-      graph.setGraph(layoutGraphRoot)
+        (layoutGraphRoot, tooltipTextMap.getTextMap)
+      }): Callable[(ElkNode, Map[DesignPath, String])])
+      .finishOnUiThread(
+        ModalityState.defaultModalityState(),
+        { case (layoutGraphRoot, tooltipTextMap) =>
+          graph.setGraph(layoutGraphRoot)
 
-      tooltipTextMap.foreach { case (path, tooltipText) =>
-        pathsToGraphNodes(Set(path)).foreach { node =>
-          graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+          tooltipTextMap.foreach { case (path, tooltipText) =>
+            pathsToGraphNodes(Set(path)).foreach { node =>
+              graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+            }
+          }
+
+          updateStale()
+          updateDisconnected()
         }
-      }
-
-      updateStale()
-      updateDisconnected()
-    }).submit(AppExecutorUtil.getAppExecutorService)
+      )
+      .submit(AppExecutorUtil.getAppExecutorService)
   }
 
   protected def updateDisconnected(): Unit = {
@@ -497,7 +530,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   def updateLibrary(library: PythonInterfaceLibrary): Unit = {
     libraryPanel.setLibrary(library)
-    staleTypes.synchronized {  // assumed that upon recompiling everything is again up to date
+    staleTypes.synchronized { // assumed that upon recompiling everything is again up to date
       staleTypes.clear()
     }
     updateStale()
@@ -505,8 +538,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   // In place design tree modifications
   //
-  def currentDesignModifyBlock(blockPath: DesignPath)
-                              (blockTransformFn: elem.HierarchyBlock => elem.HierarchyBlock): Unit = {
+  def currentDesignModifyBlock(
+      blockPath: DesignPath
+  )(blockTransformFn: elem.HierarchyBlock => elem.HierarchyBlock): Unit = {
     val newDesign = ElemModifier.modifyBlock(blockPath, design)(blockTransformFn)
     setDesign(newDesign, compiler)
   }
@@ -536,7 +570,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   }
 }
 
-
 class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
   // TODO this really doesn't belong in the IDE
   // Instead there should be a way to specify short descriptions in the HDL
@@ -550,13 +583,11 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
     val classString = port.getSelfClass.toSimpleString
     textMap.put(path, s"<b>$classString</b> at $path")
   }
-  override def mapPortArray(path: DesignPath, port: elem.PortArray,
-                   ports: SeqMap[String, Unit]): Unit = {
+  override def mapPortArray(path: DesignPath, port: elem.PortArray, ports: SeqMap[String, Unit]): Unit = {
     val classString = s"Array[${port.getSelfClass.toSimpleString}]"
     textMap.put(path, s"<b>$classString</b> at $path")
   }
-  override def mapBundle(path: DesignPath, port: elem.Bundle,
-                ports: SeqMap[String, Unit]): Unit = {
+  override def mapBundle(path: DesignPath, port: elem.Bundle, ports: SeqMap[String, Unit]): Unit = {
     val classString = port.getSelfClass.toSimpleString
     textMap.put(path, s"<b>$classString</b> at $path")
   }
@@ -566,23 +597,30 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   }
 
   private def makeDescriptionString(path: DesignPath, description: Seq[elem.StringDescriptionElement]) = {
-    description.map {
-      _.elementType match {
-        case elem.StringDescriptionElement.ElementType.Param(value) =>
-          compiler.getParamValue(path.asIndirect ++ value.path.get)
+    description
+      .map {
+        _.elementType match {
+          case elem.StringDescriptionElement.ElementType.Param(value) =>
+            compiler
+              .getParamValue(path.asIndirect ++ value.path.get)
               .map(ParamToUnitsStringUtil.paramToUnitsString(_, value.unit))
               .getOrElse("unknown")
-        case elem.StringDescriptionElement.ElementType.Text(value) =>
-          value
-        case elem.StringDescriptionElement.ElementType.Empty =>
-          "ERROR"
+          case elem.StringDescriptionElement.ElementType.Text(value) =>
+            value
+          case elem.StringDescriptionElement.ElementType.Empty =>
+            "ERROR"
+        }
       }
-    }.mkString("")
+      .mkString("")
   }
 
-  override def mapBlock(path: DesignPath, block: elem.HierarchyBlock,
-               ports: SeqMap[String, Unit], blocks: SeqMap[String, Unit],
-               links: SeqMap[String, Unit]): Unit = {
+  override def mapBlock(
+      path: DesignPath,
+      block: elem.HierarchyBlock,
+      ports: SeqMap[String, Unit],
+      blocks: SeqMap[String, Unit],
+      links: SeqMap[String, Unit]
+  ): Unit = {
     val classString = block.getSelfClass.toSimpleString
     val additionalDesc = makeDescriptionString(path, block.description)
     textMap.put(path, s"<b>$classString</b> at $path\n$additionalDesc")
@@ -591,14 +629,22 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
     // does nothing
   }
 
-  override def mapLink(path: DesignPath, link: elem.Link,
-              ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
+  override def mapLink(
+      path: DesignPath,
+      link: elem.Link,
+      ports: SeqMap[String, Unit],
+      links: SeqMap[String, Unit]
+  ): Unit = {
     val classString = link.getSelfClass.toSimpleString
     val additionalDesc = makeDescriptionString(path, link.description)
     textMap.put(path, s"<b>$classString</b> at $path\n$additionalDesc")
   }
-  override def mapLinkArray(path: DesignPath, link: elem.LinkArray,
-                            ports: SeqMap[String, Unit], links: SeqMap[String, Unit]): Unit = {
+  override def mapLinkArray(
+      path: DesignPath,
+      link: elem.LinkArray,
+      ports: SeqMap[String, Unit],
+      links: SeqMap[String, Unit]
+  ): Unit = {
     val classString = link.getSelfClass.toSimpleString
     textMap.put(path, s"<b>$classString[]</b> at $path")
   }
@@ -607,7 +653,6 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
     textMap.put(path, s"<b>$classString</b> at $path")
   }
 }
-
 
 class ErrorPanel(compiler: Compiler) extends JPanel {
   private val tree = new TreeTable(new CompilerErrorTreeTableModel(Seq(), compiler))
@@ -641,9 +686,7 @@ class ErrorPanel(compiler: Compiler) extends JPanel {
 
   // Configuration State
   //
-  def saveState(state: BlockVisualizerServiceState): Unit = {
-  }
+  def saveState(state: BlockVisualizerServiceState): Unit = {}
 
-  def loadState(state: BlockVisualizerServiceState): Unit = {
-  }
+  def loadState(state: BlockVisualizerServiceState): Unit = {}
 }

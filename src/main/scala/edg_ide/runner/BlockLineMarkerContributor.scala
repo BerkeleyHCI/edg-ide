@@ -26,12 +26,10 @@ import edgir.elem.elem
 import java.util.concurrent.Callable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-
 class FocusToBlockSelectAction(identifier: PsiElement, pyClass: PyClass)
     extends AnAction(s"Visualizer Focus to ${pyClass.getName}") {
   val project = pyClass.getProject
   val editor = FileEditorManager.getInstance(project).getSelectedTextEditor
-
 
   case class NavigateNode(path: DesignPath, block: elem.HierarchyBlock) {
     override def toString: String = s"Visualizer Focus to ${block.getSelfClass.toSimpleString} at $path"
@@ -42,41 +40,53 @@ class FocusToBlockSelectAction(identifier: PsiElement, pyClass: PyClass)
     val design = visualizer.getDesign.exceptNone("no design")
     val (contextPath, contextBlock) = visualizer.getContextBlock.exceptNone("no visualizer context")
 
-    ReadAction.nonBlocking((() => {
-      val inheritors = PyClassInheritorsSearch.search(pyClass, true).findAll().asScala
-      val extendedClasses = inheritors.toSeq :+ pyClass
-      val targetTypes = extendedClasses.map { pyClass =>
-        ElemBuilder.LibraryPath(pyClass.getQualifiedName)
-      }.toSet
+    ReadAction
+      .nonBlocking((() => {
+        val inheritors = PyClassInheritorsSearch.search(pyClass, true).findAll().asScala
+        val extendedClasses = inheritors.toSeq :+ pyClass
+        val targetTypes = extendedClasses.map { pyClass =>
+          ElemBuilder.LibraryPath(pyClass.getQualifiedName)
+        }.toSet
 
-      val instancesOfClass = new DesignFindBlockOfTypes(targetTypes).map(design)
+        val instancesOfClass = new DesignFindBlockOfTypes(targetTypes)
+          .map(design)
           .sortWith { case ((blockPath1, block1), (blockPath2, block2)) =>
             FocusToElementAction.pathSortFn(contextPath)(blockPath1, blockPath2)
           }
-      instancesOfClass.map { case (path, block) => NavigateNode(path, block) }
-    }): Callable[Seq[NavigateNode]]).finishOnUiThread(ModalityState.defaultModalityState(), items => {
-      PopupUtils.createMenuPopup(s"Visualizer focus to ${pyClass.getName}", items, editor) { selected =>
-        visualizer.setContext(selected.path)
-      }
-    }).submit(AppExecutorUtil.getAppExecutorService)
+        instancesOfClass.map { case (path, block) => NavigateNode(path, block) }
+      }): Callable[Seq[NavigateNode]])
+      .finishOnUiThread(
+        ModalityState.defaultModalityState(),
+        items => {
+          PopupUtils.createMenuPopup(s"Visualizer focus to ${pyClass.getName}", items, editor) { selected =>
+            visualizer.setContext(selected.path)
+          }
+        }
+      )
+      .submit(AppExecutorUtil.getAppExecutorService)
   }
 }
 
-
-class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass) extends
-    LineMarkerInfo[PsiElement](identifier, identifier.getTextRange, AllIcons.Toolwindows.ToolWindowHierarchy,
-      {elem: PsiElement => s"Visualizer Focus to ${pyClass.getName}"}, null, GutterIconRenderer.Alignment.RIGHT,
-      () => "Visualizer Focus Block") {
-  override def createGutterRenderer(): GutterIconRenderer = new LineMarkerGutterIconRenderer[PsiElement](this) {
-    override def getClickAction: AnAction = new FocusToBlockSelectAction(identifier, pyClass)
-  }
+class BlockLineMarkerInfo(identifier: PsiElement, pyClass: PyClass)
+    extends LineMarkerInfo[PsiElement](
+      identifier,
+      identifier.getTextRange,
+      AllIcons.Toolwindows.ToolWindowHierarchy,
+      { elem: PsiElement => s"Visualizer Focus to ${pyClass.getName}" },
+      null,
+      GutterIconRenderer.Alignment.RIGHT,
+      () => "Visualizer Focus Block"
+    ) {
+  override def createGutterRenderer(): GutterIconRenderer =
+    new LineMarkerGutterIconRenderer[PsiElement](this) {
+      override def getClickAction: AnAction = new FocusToBlockSelectAction(identifier, pyClass)
+    }
 }
-
 
 // Adds the line markers for DesignTop-based classes.
 // See https://developerlife.com/2021/03/13/ij-idea-plugin-advanced/#add-line-marker-provider-in-your-plugin
 // TODO not actually sure how useful this UI is, it's definitely questionable
-class BlockLineMarkerContributor extends LineMarkerProvider  {
+class BlockLineMarkerContributor extends LineMarkerProvider {
   override def getLineMarkerInfo(element: PsiElement): LineMarkerInfo[PsiElement] = {
     element match {
       case element: LeafPsiElement if element.getElementType == PyTokenTypes.IDENTIFIER =>
@@ -88,8 +98,10 @@ class BlockLineMarkerContributor extends LineMarkerProvider  {
         // shouldn't fail, and if it does it should fail noisily
         val designTopClass = DesignAnalysisUtils.pyClassOf("edg_core.DesignTop.DesignTop", project).get
         val blockClass = DesignAnalysisUtils.pyClassOf("edg_core.HierarchyBlock.Block", project).get
-        if (parent.isSubclass(blockClass, TypeEvalContext.codeAnalysis(project, null)) &&
-            !parent.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
+        if (
+          parent.isSubclass(blockClass, TypeEvalContext.codeAnalysis(project, null)) &&
+          !parent.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))
+        ) {
           new BlockLineMarkerInfo(element, parent)
         } else {
           null

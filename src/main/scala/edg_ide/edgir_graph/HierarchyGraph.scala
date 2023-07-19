@@ -6,8 +6,7 @@ import scala.collection.SeqMap
 
 // TODO this really should be a union type instead of a trait, but because of limitations of Scala
 // this is where we are
-trait HGraphNodeMember[+NodeType, +PortType, +EdgeType] {
-}
+trait HGraphNodeMember[+NodeType, +PortType, +EdgeType] {}
 
 // TODO support undirected edges?
 trait HGraphEdge[EdgeType] {

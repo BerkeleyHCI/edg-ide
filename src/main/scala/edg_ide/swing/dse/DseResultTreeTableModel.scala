@@ -11,7 +11,6 @@ import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.{DefaultTreeCellRenderer, TreePath}
 
-
 trait DseResultNodeBase {
   val children: Seq[DseResultNodeBase]
   val config: String
@@ -31,28 +30,28 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     index + 1 -> objective
   }.toMap
 
-
   // Defines the root node
   override lazy val children = {
-    informationalHeader ++ results.groupedResults.sortBy { resultsSet =>
-      val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
-      (idealErrors.isEmpty, otherErrors.isEmpty) match {
-        case (true, true) => 0  // non-error points prioritized
-        case (_, true) => 1 // ideal points next
-        case _ => 2 // error points last
+    informationalHeader ++ results.groupedResults
+      .sortBy { resultsSet =>
+        val (idealErrors, otherErrors) = DseResultModel.partitionByIdeal(resultsSet.head.errors)
+        (idealErrors.isEmpty, otherErrors.isEmpty) match {
+          case (true, true) => 0 // non-error points prioritized
+          case (_, true) => 1 // ideal points next
+          case _ => 2 // error points last
+        }
       }
-    }.map { resultsSet =>
-      if (resultsSet.length == 1) {
-        new ResultNode(resultsSet.head, true)
-      } else {
-        new ResultSetNode(resultsSet)
+      .map { resultsSet =>
+        if (resultsSet.length == 1) {
+          new ResultNode(resultsSet.head, true)
+        } else {
+          new ResultSetNode(resultsSet)
+        }
       }
-    }
   }
 
   override val config = "" // empty, since the root node is hidden
   override def getColumns(index: Int): String = ""
-
 
   // Displays a set of equivalent results, useful for deduplicating similar results
   class ResultSetNode(val setMembers: Seq[DseResult]) extends DseResultNodeBase {
@@ -66,10 +65,11 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     // internal objectives not shown to avoid visual clutter
     override lazy val children = setMembers.map(result => new ResultNode(result, false))
     override def getColumns(index: Int): String = objectiveByColumn.get(index) match {
-      case Some(objective) => exampleResult.objectives.get(objective) match {
-        case Some(value) => DseConfigElement.valueToString(value)
-        case _ => "(unknown)"
-      }
+      case Some(objective) =>
+        exampleResult.objectives.get(objective) match {
+          case Some(value) => DseConfigElement.valueToString(value)
+          case _ => "(unknown)"
+        }
       case _ => "???"
     }
   }
@@ -81,10 +81,11 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
     override def getColumns(index: Int): String = {
       if (showObjectives) {
         objectiveByColumn.get(index) match {
-          case Some(objective) => result.objectives.get(objective) match {
-            case Some(value) => DseConfigElement.valueToString(value)
-            case _ => "(unknown)"
-          }
+          case Some(objective) =>
+            result.objectives.get(objective) match {
+              case Some(value) => DseConfigElement.valueToString(value)
+              case _ => "(unknown)"
+            }
           case _ => "???"
         }
       } else {
@@ -100,9 +101,11 @@ class DseResultTreeNode(results: CombinedDseResultSet, objective: Seq[DseObjecti
   }
 }
 
-
-class DseResultTreeTableModel(results: CombinedDseResultSet, objectives: Seq[DseObjective], inProgress: Boolean)
-    extends SeqTreeTableModel[DseResultNodeBase] {
+class DseResultTreeTableModel(
+    results: CombinedDseResultSet,
+    objectives: Seq[DseObjective],
+    inProgress: Boolean
+) extends SeqTreeTableModel[DseResultNodeBase] {
   val COLUMNS = Seq("Config") ++ objectives.map(_.objectiveToString)
 
   val rootNode: DseResultTreeNode = new DseResultTreeNode(results, objectives, inProgress)
@@ -135,9 +138,8 @@ class DseResultTreeTableModel(results: CombinedDseResultSet, objectives: Seq[Dse
   override def isNodeCellEditable(node: DseResultNodeBase, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: DseResultNodeBase, column: Int): Unit = {}
 
-  def setTree(tree: JTree): Unit = { }  // tree updates ignored
+  def setTree(tree: JTree): Unit = {} // tree updates ignored
 }
-
 
 // TODO maybe this should go elsewhere? but nothing else uses ideal errors
 // TODO Maybe this should be shared with the block diagram renderer?
@@ -148,15 +150,23 @@ object DseResultModel {
   val kColorIdealError: Color = JBColor.ORANGE
 
   // Partitions the input compiler errors as (ideal model errors, any other error)
-  def partitionByIdeal(errors: Seq[CompilerError]): (Seq[CompilerError], Seq[CompilerError]) = errors.partition {
-    case CompilerError.FailedAssertion(_, constrName, _, _, _) if constrName == kIdealConstraintName => true
-    case _ => false
-  }
+  def partitionByIdeal(errors: Seq[CompilerError]): (Seq[CompilerError], Seq[CompilerError]) =
+    errors.partition {
+      case CompilerError.FailedAssertion(_, constrName, _, _, _) if constrName == kIdealConstraintName => true
+      case _ => false
+    }
 }
 
 class DseResultTreeRenderer extends DefaultTreeCellRenderer {
-  override def getTreeCellRendererComponent(tree: JTree, value: Any, sel: Boolean, expanded: Boolean, leaf: Boolean,
-                                            row: Int, hasFocus: Boolean): Component = {
+  override def getTreeCellRendererComponent(
+      tree: JTree,
+      value: Any,
+      sel: Boolean,
+      expanded: Boolean,
+      leaf: Boolean,
+      row: Int,
+      hasFocus: Boolean
+  ): Component = {
     val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
     val example = value match {
       case node: DseResultTreeNode#ResultSetNode => Some(node.setMembers.head)

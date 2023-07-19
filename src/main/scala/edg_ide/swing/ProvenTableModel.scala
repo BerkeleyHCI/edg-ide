@@ -14,14 +14,13 @@ object EmptyProven extends ProvenNodeBase {
   override def toString = ""
 }
 
-class BlockProven(blockClass: ref.LibraryPath,
-                  val records: BlockProvenRecords) extends ProvenNodeBase {
+class BlockProven(blockClass: ref.LibraryPath, val records: BlockProvenRecords) extends ProvenNodeBase {
   private val latestData = records.getDataOfStatus(records.latestStatus)
   private val latestRecords = latestData.flatMap { case (design, records) => records }
 
   override lazy val toString: String = if (records.isEmpty) {
     ""
-  } else {  // get all instance-level records
+  } else { // get all instance-level records
     latestRecords.size.toString
   }
 

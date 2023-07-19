@@ -8,17 +8,18 @@ import edg_ide.util.ObjectSerializer
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class ObjectSerializerTest extends AnyFlatSpec with Matchers {
   "ObjectSerializer" should "roundtrip an example config object" in {
     val exampleConfig = Seq(
-      DseSubclassSearch(DesignPath() + "reg_5v",
+      DseSubclassSearch(
+        DesignPath() + "reg_5v",
         Seq(
           "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
           "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
         ).map(value => ElemBuilder.LibraryPath(value))
       ),
-      DsePathParameterSearch(DesignPath() + "reg_5v" + "ripple_current_factor",
+      DsePathParameterSearch(
+        DesignPath() + "reg_5v" + "ripple_current_factor",
         Seq(0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5).map(value => RangeValue(value - 0.05, value + 0.05))
       ),
     )
