@@ -469,26 +469,33 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           // note, adding port side constraints with hierarchy seems to break ELK
           Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler), ElkEdgirGraphUtils.DesignPathMapper)
         )
+
+        val refinementOnlyMap = new RefinementOnlyPathsMap()
+        refinementOnlyMap.map(currentDesign)
+
         val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
         tooltipTextMap.map(currentDesign)
 
-        val refinementOnlyMap = new RefinementOnlyNodeMap()
-        refinementOnlyMap.map(currentDesign)
-
-        (layoutGraphRoot, tooltipTextMap.getTextMap, refinementOnlyMap.getRefinementOnlyNodeSet)
-      }): Callable[(ElkNode, Map[DesignPath, String], Set[DesignPath])])
+        (layoutGraphRoot, refinementOnlyMap.getRefinementOnlyPaths, tooltipTextMap.getTextMap)
+      }): Callable[(ElkNode, Set[DesignPath], Map[DesignPath, String])])
       .finishOnUiThread(
         ModalityState.defaultModalityState(),
-        { case (layoutGraphRoot, tooltipTextMap, refinementOnlyNodeSet) =>
+        { case (layoutGraphRoot, refinementOnlyPaths, tooltipTextMap) =>
           graph.setGraph(layoutGraphRoot)
+
+          val refinementOnlyNodes = pathsToGraphNodes(refinementOnlyPaths)
+          graph.setUnselectable(refinementOnlyNodes)
 
           tooltipTextMap.foreach { case (path, tooltipText) =>
             pathsToGraphNodes(Set(path)).foreach { node =>
-              graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+              val combinedTooltipText = if (refinementOnlyNodes.contains(node)) {
+                "<i>Not available in pre-refinement class in HDL</i>\n" + tooltipText // add help for why it's dimmed out
+              } else {
+                tooltipText
+              }
+              graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(combinedTooltipText, this.getFont))
             }
           }
-
-          graph.setUnselectable(pathsToGraphNodes(refinementOnlyNodeSet))
 
           updateStale()
           updateDisconnected()
@@ -657,9 +664,9 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
 
 /** Returns the set of refinement-only nodes (nodes e.g. ports not present in the user HDL, but exist post-refinement)
   */
-class RefinementOnlyNodeMap() extends DesignBlockMap[Unit] {
+class RefinementOnlyPathsMap() extends DesignBlockMap[Unit] {
   private val refinementOnlyNodeSet = mutable.Set[DesignPath]()
-  def getRefinementOnlyNodeSet: Set[DesignPath] = refinementOnlyNodeSet.toSet
+  def getRefinementOnlyPaths: Set[DesignPath] = refinementOnlyNodeSet.toSet
 
   override def mapBlock(
       path: DesignPath,

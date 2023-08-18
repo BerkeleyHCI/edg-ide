@@ -121,7 +121,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       // Ports can be outside the main shape and can't be gated by the node shape test
       val nodePoint = (point._1 - node.getX, point._2 - node.getY) // transform to node space
       val containedPorts = node.getPorts.asScala.collect {
-        case port if shapeContainsPoint(port, nodePoint) && !unselectable.contains(port) => port
+        case port if shapeContainsPoint(port, nodePoint) => port
       }
 
       // Test node, and if within node, recurse into children
@@ -136,8 +136,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
           case (edge, dist) if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
         }
 
-        val containedNode = if (!unselectable.contains(node)) Seq(node) else Seq()
-        containedChildren ++ containedEdges ++ containedNode
+        containedChildren ++ containedEdges ++ Seq(node)
       } else {
         Seq()
       }
@@ -245,14 +244,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
 
-      getElementForLocation(e.getX, e.getY) match {
-        case Some(mouseoverElt) => highlighted match {
-            case None => mouseoverUpdated(Seq(mouseoverElt))
-            case Some(highlighted) if highlighted.contains(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
-            case _ => mouseoverUpdated(Seq()) // dimmed items non-interactable
-          }
-        case None => mouseoverUpdated(Seq())
-      }
+      val mouseoverElts = getElementForLocation(e.getX, e.getY).toSeq
+        .filter(!unselectable.contains(_))
+        .filter(highlighted match {
+          case None => _ => true
+          case Some(highlighted) => highlighted.contains(_) // dimmed items non-interactable
+        })
+      mouseoverUpdated(mouseoverElts)
     }
   })
 
