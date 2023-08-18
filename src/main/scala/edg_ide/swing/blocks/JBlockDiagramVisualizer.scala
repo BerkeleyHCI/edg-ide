@@ -25,6 +25,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private var zoomLevel: Float = 1.0f
   private var mouseOverElts: Seq[ElkGraphElement] = Seq() // elements that are moused over, maintained internally
   private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
+  private var unselectable: Set[ElkGraphElement] = Set() // elements that are greyed and unselectable, set externally
   // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
   private var errorElts: Set[ElkGraphElement] = Set()
@@ -39,6 +40,12 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
   def setSelected(elts: Set[ElkGraphElement]): Unit = {
     selected = elts
+    validate()
+    repaint()
+  }
+
+  def setUnselectable(elts: Set[ElkGraphElement]): Unit = {
+    unselectable = elts
     validate()
     repaint()
   }
@@ -71,6 +78,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     elementToolTips.clear()
     highlighted = None
     selected = Set()
+    unselectable = Set()
     rootNode = newGraph
     revalidate()
     repaint()
@@ -113,7 +121,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       // Ports can be outside the main shape and can't be gated by the node shape test
       val nodePoint = (point._1 - node.getX, point._2 - node.getY) // transform to node space
       val containedPorts = node.getPorts.asScala.collect {
-        case port if shapeContainsPoint(port, nodePoint) => port
+        case port if shapeContainsPoint(port, nodePoint) && !unselectable.contains(port) => port
       }
 
       // Test node, and if within node, recurse into children
@@ -128,7 +136,8 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
           case (edge, dist) if dist <= EDGE_CLICK_WIDTH => edge // filter by maximum click distance
         }
 
-        containedChildren ++ containedEdges ++ Seq(node)
+        val containedNode = if (!unselectable.contains(node)) Seq(node) else Seq()
+        containedChildren ++ containedEdges ++ containedNode
       } else {
         Seq()
       }
@@ -187,6 +196,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
       errorElts.map { elt => elt -> errorModifier } ++
       selected.map { elt => elt -> selectedModifier } ++
+      unselectable.map { elt => elt -> dimGraphics } ++
       staleElts.map { elt => elt -> staleModifier }
 
     val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]

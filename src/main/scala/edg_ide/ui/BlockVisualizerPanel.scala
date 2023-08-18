@@ -10,7 +10,7 @@ import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemModifier
-import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
+import edg.compiler.{Compiler, CompilerError, DesignBlockMap, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.edgir_graph._
@@ -472,11 +472,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
         val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
         tooltipTextMap.map(currentDesign)
 
-        (layoutGraphRoot, tooltipTextMap.getTextMap)
-      }): Callable[(ElkNode, Map[DesignPath, String])])
+        val refinementOnlyMap = new RefinementOnlyNodeMap()
+        refinementOnlyMap.map(currentDesign)
+
+        (layoutGraphRoot, tooltipTextMap.getTextMap, refinementOnlyMap.getRefinementOnlyNodeSet)
+      }): Callable[(ElkNode, Map[DesignPath, String], Set[DesignPath])])
       .finishOnUiThread(
         ModalityState.defaultModalityState(),
-        { case (layoutGraphRoot, tooltipTextMap) =>
+        { case (layoutGraphRoot, tooltipTextMap, refinementOnlyNodeSet) =>
           graph.setGraph(layoutGraphRoot)
 
           tooltipTextMap.foreach { case (path, tooltipText) =>
@@ -484,6 +487,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
               graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
             }
           }
+
+          graph.setUnselectable(pathsToGraphNodes(refinementOnlyNodeSet))
 
           updateStale()
           updateDisconnected()
@@ -571,10 +576,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 }
 
 class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
-  // TODO this really doesn't belong in the IDE
-  // Instead there should be a way to specify short descriptions in the HDL
-  // Perhaps also short names
-
   private val textMap = mutable.Map[DesignPath, String]()
 
   def getTextMap: Map[DesignPath, String] = textMap.toMap
@@ -651,6 +652,29 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
     val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
+  }
+}
+
+/** Returns the set of refinement-only nodes (nodes e.g. ports not present in the user HDL, but exist post-refinement)
+  */
+class RefinementOnlyNodeMap() extends DesignBlockMap[Unit] {
+  private val refinementOnlyNodeSet = mutable.Set[DesignPath]()
+  def getRefinementOnlyNodeSet: Set[DesignPath] = refinementOnlyNodeSet.toSet
+
+  override def mapBlock(
+      path: DesignPath,
+      block: elem.HierarchyBlock,
+      blocks: SeqMap[String, Unit]
+  ): Unit = {
+    import edg.EdgirUtils
+    EdgirUtils.metaGetItem(block.meta, "refinedNewPorts").foreach { refinedNewPortsMeta =>
+      EdgirUtils.metaToStrSeq(refinedNewPortsMeta).foreach { refinedNewPort =>
+        refinementOnlyNodeSet.add(path + refinedNewPort)
+      }
+    }
+  }
+  override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
+    // does nothing
   }
 }
 
