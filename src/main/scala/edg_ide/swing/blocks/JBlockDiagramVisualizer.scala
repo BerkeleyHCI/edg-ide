@@ -25,6 +25,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private var zoomLevel: Float = 1.0f
   private var mouseOverElts: Seq[ElkGraphElement] = Seq() // elements that are moused over, maintained internally
   private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
+  private var unselectable: Set[ElkGraphElement] = Set() // elements that are greyed and unselectable, set externally
   // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
   private var errorElts: Set[ElkGraphElement] = Set()
@@ -39,6 +40,12 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
   def setSelected(elts: Set[ElkGraphElement]): Unit = {
     selected = elts
+    validate()
+    repaint()
+  }
+
+  def setUnselectable(elts: Set[ElkGraphElement]): Unit = {
+    unselectable = elts
     validate()
     repaint()
   }
@@ -71,6 +78,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     elementToolTips.clear()
     highlighted = None
     selected = Set()
+    unselectable = Set()
     rootNode = newGraph
     revalidate()
     repaint()
@@ -187,6 +195,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
       errorElts.map { elt => elt -> errorModifier } ++
       selected.map { elt => elt -> selectedModifier } ++
+      unselectable.map { elt => elt -> dimGraphics } ++
       staleElts.map { elt => elt -> staleModifier }
 
     val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
@@ -235,14 +244,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
 
-      getElementForLocation(e.getX, e.getY) match {
-        case Some(mouseoverElt) => highlighted match {
-            case None => mouseoverUpdated(Seq(mouseoverElt))
-            case Some(highlighted) if highlighted.contains(mouseoverElt) => mouseoverUpdated(Seq(mouseoverElt))
-            case _ => mouseoverUpdated(Seq()) // dimmed items non-interactable
-          }
-        case None => mouseoverUpdated(Seq())
-      }
+      val mouseoverElts = getElementForLocation(e.getX, e.getY).toSeq
+        .filter(!unselectable.contains(_))
+        .filter(highlighted match {
+          case None => _ => true
+          case Some(highlighted) => highlighted.contains(_) // dimmed items non-interactable
+        })
+      mouseoverUpdated(mouseoverElts)
     }
   })
 

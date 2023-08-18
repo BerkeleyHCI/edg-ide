@@ -10,7 +10,7 @@ import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemModifier
-import edg.compiler.{Compiler, CompilerError, DesignMap, PythonInterfaceLibrary}
+import edg.compiler.{Compiler, CompilerError, DesignBlockMap, DesignMap, PythonInterfaceLibrary}
 import edg.wir.{DesignPath, Library}
 import edg_ide.EdgirUtils
 import edg_ide.edgir_graph._
@@ -469,19 +469,31 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           // note, adding port side constraints with hierarchy seems to break ELK
           Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler), ElkEdgirGraphUtils.DesignPathMapper)
         )
+
+        val refinementOnlyMap = new RefinementOnlyPathsMap()
+        refinementOnlyMap.map(currentDesign)
+
         val tooltipTextMap = new DesignToolTipTextMap(currentCompiler)
         tooltipTextMap.map(currentDesign)
 
-        (layoutGraphRoot, tooltipTextMap.getTextMap)
-      }): Callable[(ElkNode, Map[DesignPath, String])])
+        (layoutGraphRoot, refinementOnlyMap.getRefinementOnlyPaths, tooltipTextMap.getTextMap)
+      }): Callable[(ElkNode, Set[DesignPath], Map[DesignPath, String])])
       .finishOnUiThread(
         ModalityState.defaultModalityState(),
-        { case (layoutGraphRoot, tooltipTextMap) =>
+        { case (layoutGraphRoot, refinementOnlyPaths, tooltipTextMap) =>
           graph.setGraph(layoutGraphRoot)
+
+          val refinementOnlyNodes = pathsToGraphNodes(refinementOnlyPaths)
+          graph.setUnselectable(refinementOnlyNodes)
 
           tooltipTextMap.foreach { case (path, tooltipText) =>
             pathsToGraphNodes(Set(path)).foreach { node =>
-              graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(tooltipText, this.getFont))
+              val combinedTooltipText = if (refinementOnlyNodes.contains(node)) {
+                "<i>Not available in pre-refinement class in HDL</i>\n" + tooltipText // add help for why it's dimmed out
+              } else {
+                tooltipText
+              }
+              graph.setElementToolTip(node, SwingHtmlUtil.wrapInHtml(combinedTooltipText, this.getFont))
             }
           }
 
@@ -571,10 +583,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 }
 
 class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Unit] {
-  // TODO this really doesn't belong in the IDE
-  // Instead there should be a way to specify short descriptions in the HDL
-  // Perhaps also short names
-
   private val textMap = mutable.Map[DesignPath, String]()
 
   def getTextMap: Map[DesignPath, String] = textMap.toMap
@@ -651,6 +659,29 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
   override def mapLinkLibrary(path: DesignPath, link: ref.LibraryPath): Unit = {
     val classString = s"Unelaborated ${link.toSimpleString}"
     textMap.put(path, s"<b>$classString</b> at $path")
+  }
+}
+
+/** Returns the set of refinement-only nodes (nodes e.g. ports not present in the user HDL, but exist post-refinement)
+  */
+class RefinementOnlyPathsMap() extends DesignBlockMap[Unit] {
+  private val refinementOnlyNodeSet = mutable.Set[DesignPath]()
+  def getRefinementOnlyPaths: Set[DesignPath] = refinementOnlyNodeSet.toSet
+
+  override def mapBlock(
+      path: DesignPath,
+      block: elem.HierarchyBlock,
+      blocks: SeqMap[String, Unit]
+  ): Unit = {
+    import edg.EdgirUtils
+    EdgirUtils.metaGetItem(block.meta, "refinedNewPorts").foreach { refinedNewPortsMeta =>
+      EdgirUtils.metaToStrSeq(refinedNewPortsMeta).foreach { refinedNewPort =>
+        refinementOnlyNodeSet.add(path + refinedNewPort)
+      }
+    }
+  }
+  override def mapBlockLibrary(path: DesignPath, block: ref.LibraryPath): Unit = {
+    // does nothing
   }
 }
 
