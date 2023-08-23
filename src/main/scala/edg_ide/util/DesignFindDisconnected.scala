@@ -38,9 +38,9 @@ object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[Strin
 
     val myConnectedPorts = myConstrExprs
       .collect { // extract block side expr
-        case expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(Some(blockExpr), Some(linkExpr), _)) =>
+        case expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(Some(blockExpr), Some(linkExpr), _, _)) =>
           blockExpr.expr
-        case expr.ValueExpr.Expr.Exported(expr.ExportedExpr(Some(exteriorExpr), Some(interiorExpr), _)) =>
+        case expr.ValueExpr.Expr.Exported(expr.ExportedExpr(Some(exteriorExpr), Some(interiorExpr), _, _)) =>
           interiorExpr.expr
       }
       .collect { // extract steps

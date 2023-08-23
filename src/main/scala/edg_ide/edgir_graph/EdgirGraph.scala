@@ -84,27 +84,49 @@ object EdgirGraph {
   ): Seq[EdgirEdge] = {
     constraints.flatMap { case (name, constr) =>
       constr.expr match {
-        case expr.ValueExpr.Expr.Connected(connect) =>
-          // in the loading pass, the source is the block side and the target is the link side
-          Some(
-            EdgirEdge(
-              ConnectWrapper(path + name, constr),
-              source = Ref.unapply(connect.getBlockPort.getRef).get.slice(0, 2), // only block and port, ignore arrays
-              target = Ref.unapply(connect.getLinkPort.getRef).get.slice(0, 2)
-            )
-          )
-        case expr.ValueExpr.Expr.Exported(export) =>
-          // in the loading pass, the source is the block side and the target is the external port
-          Some(
-            EdgirEdge(
-              ConnectWrapper(path + name, constr),
-              source = Ref.unapply(export.getInternalBlockPort.getRef).get.slice(0, 2),
-              target = Ref.unapply(`export`.getExteriorPort.getRef).get.slice(0, 1)
-            )
-          )
-        case _ => None
+        case expr.ValueExpr.Expr.Connected(connected) =>
+          connectedToEdge(path, name, constr, connected)
+        case expr.ValueExpr.Expr.Exported(exported) =>
+          exportedToEdge(path, name, constr, exported)
+        case expr.ValueExpr.Expr.ConnectedArray(connectedArray) =>
+          connectedArray.expanded.flatMap(connectedToEdge(path, name, constr, _))
+        case expr.ValueExpr.Expr.ExportedArray(exportedArray) =>
+          exportedArray.expanded.flatMap(exportedToEdge(path, name, constr, _))
+        case _ => Seq()
       }
     }.toSeq
+  }
+
+  protected def connectedToEdge(
+      path: DesignPath,
+      constrName: String,
+      constr: expr.ValueExpr,
+      connected: expr.ConnectedExpr
+  ): Seq[EdgirEdge] = connected.expanded match {
+    case Seq() => Seq( // in the loading pass, the source is the block side and the target is the link side
+        EdgirEdge(
+          ConnectWrapper(path + constrName, constr),
+          source = Ref.unapply(connected.getBlockPort.getRef).get.slice(0, 2), // only block and port, ignore arrays
+          target = Ref.unapply(connected.getLinkPort.getRef).get.slice(0, 2)
+        ))
+    case Seq(expanded) => connectedToEdge(path, constrName, constr, expanded)
+    case _ => throw new IllegalArgumentException("unexpected multiple expanded")
+  }
+
+  protected def exportedToEdge(
+      path: DesignPath,
+      constrName: String,
+      constr: expr.ValueExpr,
+      exported: expr.ExportedExpr
+  ): Seq[EdgirEdge] = exported.expanded match {
+    case Seq() => Seq( // in the loading pass, the source is the block side and the target is the external port
+        EdgirEdge(
+          ConnectWrapper(path + constrName, constr),
+          source = Ref.unapply(exported.getInternalBlockPort.getRef).get.slice(0, 2),
+          target = Ref.unapply(exported.getExteriorPort.getRef).get.slice(0, 1)
+        ))
+    case Seq(expanded) => exportedToEdge(path, constrName, constr, expanded)
+    case _ => throw new IllegalArgumentException("unexpected multiple expanded")
   }
 
   def blockLikeToNode(path: DesignPath, blockLike: elem.BlockLike): EdgirNode = {
