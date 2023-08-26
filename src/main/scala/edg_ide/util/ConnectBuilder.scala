@@ -16,6 +16,9 @@ object ConnectTypes { // types of connections a port attached to a connection ca
     def getPortType(container: elem.HierarchyBlock): Option[ref.LibraryPath] // retrieves the type from the container
   }
 
+  // base trait for connect that can be generated from an IR constraint, as opposed to by GUI connects
+  sealed trait ConstraintBase extends Base
+
   sealed trait PortBase extends Base // base type for any port-valued connection
   sealed trait VectorBase extends Base // base type for any vector-valued connection
   sealed trait AmbiguousBase extends Base // base type for any connection which can be port- or vector-valued
@@ -32,7 +35,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
   }
 
   // connects to bridges show up as this, though containing no information about the boundary port
-  case class BlockPort(blockName: String, portName: String) extends PortBase {
+  case class BlockPort(blockName: String, portName: String) extends PortBase with ConstraintBase {
     override def getPortType(container: HierarchyBlock): Option[ref.LibraryPath] = {
       container.blocks.toSeqMap.get(blockName).flatMap(_.`type`.hierarchy)
         .flatMap(_.ports.get(portName))
@@ -41,7 +44,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
   }
 
   // single exported port only
-  case class BoundaryPort(portName: String, innerNames: Seq[String]) extends PortBase {
+  case class BoundaryPort(portName: String, innerNames: Seq[String]) extends PortBase with ConstraintBase {
     override def getPortType(container: HierarchyBlock): Option[ref.LibraryPath] = {
       val initPort = container.ports.get(portName)
       val finalPort = innerNames.foldLeft(initPort) { case (prev, innerName) =>
@@ -53,7 +56,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
   }
 
   // port array, connected as a unit; port array cannot be part of any other connection
-  case class BlockVectorUnit(blockName: String, portName: String) extends VectorBase {
+  case class BlockVectorUnit(blockName: String, portName: String) extends VectorBase with ConstraintBase {
     override def getPortType(container: HierarchyBlock): Option[ref.LibraryPath] = {
       container.blocks.toSeqMap.get(blockName).flatMap(_.`type`.hierarchy)
         .flatMap(_.ports.get(portName))
@@ -73,18 +76,18 @@ object ConnectTypes { // types of connections a port attached to a connection ca
 
   // port-typed slice of a port array
   case class BlockVectorSlicePort(blockName: String, portName: String, suggestedIndex: Option[String])
-      extends PortBase with BlockVectorSliceBase {}
+      extends PortBase with BlockVectorSliceBase with ConstraintBase {}
 
   // vector-typed slice of a port array, connected using allocated / requested
   case class BlockVectorSliceVector(blockName: String, portName: String, suggestedIndex: Option[String])
-      extends VectorBase with BlockVectorSliceBase {}
+      extends VectorBase with BlockVectorSliceBase with ConstraintBase {}
 
   // ambiguous slice of a port array, with no corresponding IR construct but used intuitively for GUI connections
   case class BlockVectorSlice(blockName: String, portName: String, suggestedIndex: Option[String])
       extends AmbiguousBase with BlockVectorSliceBase {}
 
   // port array, connected as a unit; port array cannot be part of any other connection
-  case class BoundaryPortVectorUnit(portName: String) extends VectorBase {
+  case class BoundaryPortVectorUnit(portName: String) extends VectorBase with ConstraintBase {
     override def getPortType(container: HierarchyBlock): Option[ref.LibraryPath] = {
       container.ports.get(portName)
         .flatMap(typeOfArrayPort)
@@ -93,7 +96,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
 
   // turns an unlowered (but optionally expanded) connect expression into a structured connect type, if the form matches
   // None means the expression failed to decode
-  def fromConnect(constr: expr.ValueExpr): Option[Seq[Base]] = constr.expr match {
+  def fromConnect(constr: expr.ValueExpr): Option[Seq[ConstraintBase]] = constr.expr match {
     case expr.ValueExpr.Expr.Connected(connected) =>
       singleBlockPortFromRef(connected.getBlockPort).map(Seq(_))
     case expr.ValueExpr.Expr.Exported(exported) =>
@@ -122,14 +125,14 @@ object ConnectTypes { // types of connections a port attached to a connection ca
     case _ => None
   }
 
-  protected def singleBlockPortFromRef(ref: expr.ValueExpr): Option[Base] = ref match {
+  protected def singleBlockPortFromRef(ref: expr.ValueExpr): Option[ConstraintBase] = ref match {
     case ValueExpr.Ref(Seq(blockName, portName)) => Some(BlockPort(blockName, portName))
     case ValueExpr.RefAllocate(Seq(blockName, portName), suggestedName) =>
       Some(BlockVectorSlicePort(blockName, portName, suggestedName))
     case _ => None // invalid / unrecognized form
   }
 
-  protected def vectorBlockPortFromRef(ref: expr.ValueExpr): Option[Base] = ref match {
+  protected def vectorBlockPortFromRef(ref: expr.ValueExpr): Option[ConstraintBase] = ref match {
     case ValueExpr.Ref(Seq(blockName, portName)) => Some(BlockVectorUnit(blockName, portName))
     case ValueExpr.RefAllocate(Seq(blockName, portName), suggestedName) =>
       Some(BlockVectorSliceVector(blockName, portName, suggestedName))
