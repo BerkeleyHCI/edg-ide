@@ -7,9 +7,6 @@ import scala.collection.{SeqMap, mutable}
 
 // provides link-level connectivity information (e.g. all connected ports in a link) for a block
 class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
-  // TODO: gather all constraints by link; exports go here too as own pseudolink for consistency
-  // TODO: infer bridges and add to separate structure
-
   // link name -> (list of connected ports, list of constrs)
   protected val linkConnectionBuilder =
     mutable.SeqMap[String, (mutable.ArrayBuffer[ConnectTypes.ConstraintBase], mutable.ArrayBuffer[expr.ValueExpr])]()
@@ -95,5 +92,6 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
 
   // returns a list of active bridges, as the boundary port and the block port (link-facing bridge port)
   // bridge arrays are not (current) a construct and not supported
+  // TODO: infer bridges and add to separate structure
   def bridges: Seq[(ConnectTypes.BoundaryPort, ConnectTypes.BlockPort)] = ???
 }
