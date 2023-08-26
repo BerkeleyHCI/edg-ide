@@ -1,4 +1,4 @@
-package edg
+package edg_ide.util
 
 import edg.ExprBuilder.ValueExpr
 import edg.util.SeqUtils

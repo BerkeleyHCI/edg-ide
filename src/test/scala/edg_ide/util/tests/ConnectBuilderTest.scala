@@ -1,8 +1,9 @@
-package edg
+package edg_ide.util.tests
 
-import edg.ElemBuilder.{Block, Constraint, LibraryPath, Link, Port}
+import edg.ElemBuilder._
 import edg.ExprBuilder.{Ref, ValInit}
 import edg.wir.ProtoUtil.ConstraintProtoToSeqMap
+import edg_ide.util.{ConnectBuilder, ConnectMode, ConnectTypes}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 
