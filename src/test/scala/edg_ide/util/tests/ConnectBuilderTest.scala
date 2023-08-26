@@ -64,6 +64,12 @@ class ConnectBuilderTest extends AnyFlatSpec {
           "port" -> Port.Port("sourcePort", params = SeqMap("param" -> ValInit.Integer)),
         ),
       ),
+      "unusedSink" -> Block.Block(
+        "sinkBlock",
+        ports = SeqMap(
+          "port" -> Port.Port("sinkPort", params = SeqMap("param" -> ValInit.Integer)),
+        ),
+      ),
     ),
     links = SeqMap(
       "link" -> Link.Link("link"),
@@ -84,13 +90,6 @@ class ConnectBuilderTest extends AnyFlatSpec {
   val exampleArrayBlock = Block.Block( // basic example using link arrays
     "topDesign",
     ports = SeqMap(
-      "port" -> Port.Port("sourcePort", params = SeqMap("param" -> ValInit.Integer)),
-      "bundle" -> Port.Bundle(
-        "sourceBundle",
-        ports = SeqMap(
-          "port" -> Port.Port("sourcePort", params = SeqMap("param" -> ValInit.Integer)),
-        )
-      ),
     ),
     blocks = SeqMap(
       "source" -> Block.Block(
@@ -124,6 +123,16 @@ class ConnectBuilderTest extends AnyFlatSpec {
         ),
       ),
       "sinkArray" -> Block.Block(
+        "sinkArrayBlock",
+        ports = SeqMap(
+          "port" -> Port.Array(
+            "sinkPort",
+            Seq("0", "1"),
+            Port.Port("sinkPort", params = SeqMap("param" -> ValInit.Integer))
+          ),
+        ),
+      ),
+      "unusedSinkArray" -> Block.Block(
         "sinkArrayBlock",
         ports = SeqMap(
           "port" -> Port.Array(
