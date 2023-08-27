@@ -5,7 +5,7 @@ import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{BlockConnectedAnalysis, ConnectBuilder, ConnectTypes, exceptable, requireExcept}
+import edg_ide.util.{BlockConnectedAnalysis, ConnectBuilder, PortConnects, exceptable, requireExcept}
 import edgir.elem.elem
 
 import java.awt.event.MouseEvent
@@ -66,18 +66,26 @@ class NewConnectTool(
     baseConnectBuilder: ConnectBuilder,
     analysis: BlockConnectedAnalysis
 ) extends BaseTool {
-  var selectedPorts = mutable.Set[Seq[String]]()
-  var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts
+  var selectedPorts = mutable.Set[Seq[String]]() // individual ports selected by the user
+  var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts, may have more ports from net joins
 
   def updateSelected(): Unit = { // updates selected in graph and text
     interface.setStatus(name)
+
+    // mark all current selections
+    val connectedPortRefs = currentConnectBuilder.connected.map(_._1.topPortRef)
+    interface.setGraphSelections(connectedPortRefs.map(containingBlockPath ++ _).toSet)
+
+    // try all connections to determine additional possible connects
+    val availablePortRefs = mutable.ArrayBuffer[Seq[String]]()
+    analysis.connectedGroups.map { case (name, (connecteds, constrs)) =>
+      val resultingConnectBuilder = currentConnectBuilder.append(connecteds)
+
+    }
 //    interface.setGraphSelections(priorConnect.getPorts.map(focusPath ++ _).toSet + portPath ++ selected.toSet)
 //    val availablePaths = connectsAvailable()
 //    val availableBlockPaths = availablePaths.map(_.split._1)
 //    interface.setGraphHighlights(Some(Set(focusPath) ++ availablePaths ++ availableBlockPaths))
-
-    val connectedPortRefs = currentConnectBuilder.connected.map(_._1.topPortRef)
-    interface.setGraphSelections(connectedPortRefs.map(containingBlockPath ++ _).toSet)
   }
 
   override def init(): Unit = {

@@ -5,7 +5,6 @@ import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.ValueExpr
 import edg.util.SeqUtils
 import edg.wir.ProtoUtil.{BlockProtoToSeqMap, PortProtoToSeqMap}
-import edg_ide.edgir_graph.HierarchyGraphElk
 import edgir.elem.elem
 import edgir.elem.elem.HierarchyBlock
 import edgir.expr.expr
@@ -13,7 +12,7 @@ import edgir.ref.ref
 
 import scala.collection.mutable
 
-object ConnectTypes { // types of connections a port attached to a connection can be a part of
+object PortConnects { // types of connections a port attached to a connection can be a part of
   // TODO materialize into constraints? - how to add tack this on to an existing IR graph
   sealed trait Base {
     def getPortType(container: elem.HierarchyBlock): Option[ref.LibraryPath] // retrieves the type from the container
@@ -150,6 +149,26 @@ object ConnectTypes { // types of connections a port attached to a connection ca
   }
 }
 
+object PortConnectTyped {
+  def fromConnect[PortConnectType <: PortConnects.Base](
+      connect: PortConnectType,
+      container: elem.HierarchyBlock
+  ): Option[PortConnectTyped[PortConnectType]] =
+    connect.getPortType(container).map(portType => PortConnectTyped(connect, portType))
+
+  // like fromConnect, but returns None if any connect could not have a type determined
+  def fromConnectsAll[PortConnectType <: PortConnects.Base](
+      connects: Seq[PortConnectType],
+      container: elem.HierarchyBlock
+  ): Option[Seq[PortConnectTyped[PortConnectType]]] =
+    SeqUtils.getAllDefined(connects.map { PortConnectTyped.fromConnect(_, container) })
+}
+
+case class PortConnectTyped[+PortConnectType <: PortConnects.Base](
+    connect: PortConnectType,
+    portType: ref.LibraryPath
+) {}
+
 object ConnectMode { // state of a connect-in-progress
   trait Base
   case object Port extends Base // connection between single ports, generates into link
@@ -177,23 +196,21 @@ object ConnectBuilder {
           None
       }.toSeq)
 
-    val constrConnectsOpt = SeqUtils.getAllDefined(constrs.map(ConnectTypes.fromConnect)).map(_.flatten)
-    val constrConnectPortsOpt = constrConnectsOpt.flatMap { constrConnects =>
-      SeqUtils.getAllDefined(constrConnects.map { constrConnect =>
-        constrConnect.getPortType(container).map(portType => (constrConnect, portType))
-      })
+    val constrConnectsOpt = SeqUtils.getAllDefined(constrs.map(PortConnects.fromConnect)).map(_.flatten)
+    val constrConnectTypedOpt = constrConnectsOpt.flatMap { constrConnects =>
+      PortConnectTyped.fromConnectsAll(constrConnects, container)
     }
 
-    (availableOpt, constrConnectPortsOpt) match {
-      case (Some(available), Some(constrConnectPorts)) =>
-        new ConnectBuilder(container, available, Seq(), ConnectMode.Ambiguous).append(constrConnectPorts)
+    (availableOpt, constrConnectTypedOpt) match {
+      case (Some(available), Some(constrConnectTyped)) =>
+        new ConnectBuilder(container, available, Seq(), ConnectMode.Ambiguous).append(constrConnectTyped)
       case _ =>
         if (availableOpt.isEmpty) {
           logger.warn(
             s"unable to compute available ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
           )
         }
-        if (constrConnectPortsOpt.isEmpty) {
+        if (constrConnectTyped.isEmpty) {
           logger.warn(
             s"unable to compute connected ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
           )
@@ -211,44 +228,44 @@ object ConnectBuilder {
 class ConnectBuilder protected (
     container: elem.HierarchyBlock,
     protected val availablePorts: Seq[(String, Boolean, ref.LibraryPath)], // name, is array, port type
-    val connected: Seq[(ConnectTypes.Base, ref.LibraryPath, String)], // connect type, used port type, port name
+    val connected: Seq[(PortConnectTyped[PortConnects.Base], String)], // connect type, used port type, port name
     val connectMode: ConnectMode.Base
 ) {
   // Attempts to append the connections (with attached port types) to the builder, returning a new builder
   // (if successful) or None (if not a legal connect).
-  def append(newConnects: Seq[(ConnectTypes.Base, ref.LibraryPath)]): Option[ConnectBuilder] = {
+  def append(newConnects: Seq[PortConnectTyped[PortConnects.Base]]): Option[ConnectBuilder] = {
     val availablePortsBuilder = availablePorts.to(mutable.ArrayBuffer)
     var connectModeBuilder = connectMode
     var failedToAllocate: Boolean = false
 
-    val newConnected = newConnects.map { case (connect, portType) =>
-      val portName = availablePortsBuilder.indexWhere(_._3 == portType) match {
+    val newConnected = newConnects.map { connectTyped =>
+      val portName = availablePortsBuilder.indexWhere(_._3 == connectTyped.portType) match {
         case -1 =>
           failedToAllocate = true
           ""
         case index =>
           val (portName, isArray, portType) = availablePortsBuilder(index)
-          connect match {
-            case _: ConnectTypes.PortBase =>
+          connectTyped.connect match {
+            case _: PortConnects.PortBase =>
               if (connectModeBuilder == ConnectMode.Vector) {
                 failedToAllocate = true
               } else {
                 connectModeBuilder = ConnectMode.Port
               }
-            case _: ConnectTypes.VectorBase =>
+            case _: PortConnects.VectorBase =>
               if (connectModeBuilder == ConnectMode.Port) {
                 failedToAllocate = true
               } else {
                 connectModeBuilder = ConnectMode.Vector
               }
-            case _: ConnectTypes.AmbiguousBase => // fine in either single or vector case
+            case _: PortConnects.AmbiguousBase => // fine in either single or vector case
           }
           if (!isArray) {
             availablePortsBuilder.remove(index)
           }
           portName
       }
-      (connect, portType, portName)
+      (connectTyped, portName)
     }
 
     if (failedToAllocate) {
