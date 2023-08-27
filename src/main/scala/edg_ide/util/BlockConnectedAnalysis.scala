@@ -76,7 +76,7 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
   // and list of constraints
   // disconnected ports returned as a single port of BlockPort (for block ports), BoundaryPort (for boundary ports),
   // BlockVectorUnit (for block arrays - even if slice capable), or BoundaryPortVectorUnit (for boundary arrays)
-  def connectedGroups: SeqMap[String, (Seq[ConnectTypes.Base], Seq[expr.ValueExpr])] =
+  val connectedGroups: SeqMap[String, (Seq[ConnectTypes.Base], Seq[expr.ValueExpr])] =
     linkConnectionBuilder.to(SeqMap).map { case (name, (connecteds, constrs)) =>
       name -> (connecteds.toSeq, constrs.toSeq)
     } ++ (disconnectedBoundaryPortConnections ++ disconnectedBlockPortConnections).map { case (name, connected) =>
@@ -86,5 +86,5 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
   // returns a list of active bridges, as the boundary port and the block port (link-facing bridge port)
   // bridge arrays are not (current) a construct and not supported
   // TODO: infer bridges and add to separate structure
-  def bridges: Seq[(ConnectTypes.BoundaryPort, ConnectTypes.BlockPort)] = ???
+  val bridges: Seq[(ConnectTypes.BoundaryPort, ConnectTypes.BlockPort)] = Seq() // TODO IMPLEMENT ME
 }
