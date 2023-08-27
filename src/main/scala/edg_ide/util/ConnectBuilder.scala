@@ -210,7 +210,7 @@ object ConnectBuilder {
             s"unable to compute available ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
           )
         }
-        if (constrConnectTyped.isEmpty) {
+        if (constrConnectTypedOpt.isEmpty) {
           logger.warn(
             s"unable to compute connected ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
           )

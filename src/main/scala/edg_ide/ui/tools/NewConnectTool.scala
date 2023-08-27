@@ -50,7 +50,7 @@ object NewConnectTool {
     val analysis = new BlockConnectedAnalysis(focusBlock)
     val (portConnectName, (_, portConstrs)) =
       analysis.connectedGroups.toSeq.find { case (name, (connecteds, constrs)) =>
-        connecteds.exists(_.topPortRef == portRef)
+        connecteds.exists(_.connect.topPortRef == portRef)
       }.exceptNone("no connection")
     val connectBuilder = ConnectBuilder(focusBlock, portLink, portConstrs)
       .exceptNone("invalid connections to port")
@@ -73,7 +73,7 @@ class NewConnectTool(
     interface.setStatus(name)
 
     // mark all current selections
-    val connectedPortRefs = currentConnectBuilder.connected.map(_._1.topPortRef)
+    val connectedPortRefs = currentConnectBuilder.connected.map(_._1.connect.topPortRef)
     interface.setGraphSelections(connectedPortRefs.map(containingBlockPath ++ _).toSet)
 
     // try all connections to determine additional possible connects

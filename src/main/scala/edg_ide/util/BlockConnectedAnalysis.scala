@@ -12,7 +12,7 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
   protected val linkConnectionBuilder =
     mutable.SeqMap[
       String,
-      (mutable.ArrayBuffer[(PortConnects.ConstraintBase, ref.LibraryPath)], mutable.ArrayBuffer[expr.ValueExpr])
+      (mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]], mutable.ArrayBuffer[expr.ValueExpr])
     ]()
 
   // here, invalid constraints are silently discarded
@@ -29,7 +29,10 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
       case _ => None // ignored
     }
     linkNameOpt.foreach { linkName => // if the link decoded successfully
-      val connectedPortsOpt = PortConnects.fromConnect(constr)
+      val connectedPortsOpt = PortConnects.fromConnect(constr).map { connecteds =>
+        // silently discard non-found port
+        connecteds.flatMap(PortConnectTyped.fromConnect(_, block))
+      }
       val (connected, constrs) =
         linkConnectionBuilder.getOrElseUpdate(linkName, (mutable.ArrayBuffer(), mutable.ArrayBuffer()))
       connectedPortsOpt.foreach { connectedPorts =>
@@ -40,11 +43,11 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
   }
 
   protected val allConnectedPorts = linkConnectionBuilder.flatMap { case (name, (connecteds, constrs)) =>
-    connecteds.map(_.topPortRef)
+    connecteds.map(_.connect.topPortRef)
   }.toSet
 
   protected val disconnectedBoundaryPortConnections =
-    mutable.SeqMap[String, (PortConnects.ConstraintBase, ref.LibraryPath)]()
+    mutable.SeqMap[String, PortConnectTyped[PortConnects.ConstraintBase]]()
   block.ports.toSeqMap.collect {
     case (portName, port) if !allConnectedPorts.contains(Seq(portName)) =>
       val connectOpt: Option[PortConnects.ConstraintBase] = port.is match {
@@ -59,7 +62,7 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
   }
 
   protected val disconnectedBlockPortConnections =
-    mutable.SeqMap[String, (PortConnects.ConstraintBase, ref.LibraryPath)]()
+    mutable.SeqMap[String, PortConnectTyped[PortConnects.ConstraintBase]]()
   block.blocks.toSeqMap.foreach { case (subBlockName, subBlock) =>
     subBlock.`type`.hierarchy.foreach { subBlock =>
       subBlock.ports.toSeqMap.collect {
@@ -82,7 +85,7 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
   // and list of constraints
   // disconnected ports returned as a single port of BlockPort (for block ports), BoundaryPort (for boundary ports),
   // BlockVectorUnit (for block arrays - even if slice capable), or BoundaryPortVectorUnit (for boundary arrays)
-  val connectedGroups: SeqMap[String, (Seq[(PortConnects.Base, ref.LibraryPath)], Seq[expr.ValueExpr])] =
+  val connectedGroups: SeqMap[String, (Seq[PortConnectTyped[PortConnects.ConstraintBase]], Seq[expr.ValueExpr])] =
     linkConnectionBuilder.to(SeqMap).map { case (name, (connecteds, constrs)) =>
       name -> (connecteds.toSeq, constrs.toSeq)
     } ++ (disconnectedBoundaryPortConnections ++ disconnectedBlockPortConnections).map { case (name, connected) =>
