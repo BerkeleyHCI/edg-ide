@@ -33,8 +33,9 @@ object NewConnectTool {
     val portLink = ???
     val portConnectedConstrs = ???
     val connectBuilder = ConnectBuilder(focusBlock, portLink, portConnectedConstrs)
+      .exceptNone("invalid connections to port")
 
-    new NewConnectTool(interface, analysis)
+    new NewConnectTool(interface, connectBuilder, analysis)
   }
 }
 

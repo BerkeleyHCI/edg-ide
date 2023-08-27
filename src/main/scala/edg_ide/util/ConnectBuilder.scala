@@ -14,6 +14,8 @@ object ConnectTypes { // types of connections a port attached to a connection ca
   // TODO materialize into constraints? - how to add tack this on to an existing IR graph
   sealed trait Base {
     def getPortType(container: elem.HierarchyBlock): Option[ref.LibraryPath] // retrieves the type from the container
+
+    def topPortRef: Seq[String] // returns the top level port path, as (block, port) or (port) for boundary ports
   }
 
   // base trait for connect that can be generated from an IR constraint, as opposed to by GUI connects
@@ -41,6 +43,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
         .flatMap(_.ports.get(portName))
         .flatMap(typeOfSinglePort)
     }
+    override def topPortRef: Seq[String] = Seq(blockName, portName)
   }
 
   // single exported port only
@@ -53,6 +56,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
       }
       finalPort.flatMap(typeOfSinglePort)
     }
+    override def topPortRef: Seq[String] = Seq(portName)
   }
 
   // port array, connected as a unit; port array cannot be part of any other connection
@@ -62,6 +66,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
         .flatMap(_.ports.get(portName))
         .flatMap(typeOfArrayPort)
     }
+    override def topPortRef: Seq[String] = Seq(blockName, portName)
   }
 
   sealed trait BlockVectorSliceBase extends Base {
@@ -72,6 +77,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
         .flatMap(_.ports.get(portName))
         .flatMap(typeOfArrayPort)
     }
+    override def topPortRef: Seq[String] = Seq(blockName, portName)
   }
 
   // port-typed slice of a port array
@@ -92,6 +98,7 @@ object ConnectTypes { // types of connections a port attached to a connection ca
       container.ports.get(portName)
         .flatMap(typeOfArrayPort)
     }
+    override def topPortRef: Seq[String] = Seq(portName)
   }
 
   // turns an unlowered (but optionally expanded) connect expression into a structured connect type, if the form matches

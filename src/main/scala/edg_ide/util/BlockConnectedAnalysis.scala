@@ -36,14 +36,7 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
   }
 
   protected val allConnectedPorts = linkConnectionBuilder.flatMap { case (name, (connecteds, constrs)) =>
-    connecteds.map {
-      case ConnectTypes.BlockPort(blockName, portName) => Seq(blockName, portName)
-      case ConnectTypes.BoundaryPort(portName, _) => Seq(portName)
-      case ConnectTypes.BlockVectorUnit(blockName, portName) => Seq(blockName, portName)
-      case ConnectTypes.BlockVectorSlicePort(blockName, portName, _) => Seq(blockName, portName)
-      case ConnectTypes.BlockVectorSliceVector(blockName, portName, _) => Seq(blockName, portName)
-      case ConnectTypes.BoundaryPortVectorUnit(portName) => Seq(portName)
-    }
+    connecteds.map(_.topPortRef)
   }.toSet
 
   protected val disconnectedBoundaryPortConnections = mutable.SeqMap[String, ConnectTypes.ConstraintBase]()
