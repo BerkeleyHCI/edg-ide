@@ -3,7 +3,7 @@ package edg_ide.util.tests
 import edg.ElemBuilder._
 import edg.ExprBuilder.{Ref, ValInit}
 import edg.wir.ProtoUtil.ConstraintProtoToSeqMap
-import edg_ide.util.{ConnectBuilder, ConnectMode, PortConnects}
+import edg_ide.util.{ConnectBuilder, ConnectMode, PortConnectTyped, PortConnects}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 
@@ -208,55 +208,55 @@ class ConnectBuilderTest extends AnyFlatSpec {
     emptyConnect.get.connectMode should equal(ConnectMode.Ambiguous)
 
     val sourceConnect = emptyConnect.get.append(Seq(
-      (PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"))
+      PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"))
     ))
     sourceConnect should not be empty
     sourceConnect.get.connectMode should equal(ConnectMode.Port)
 
     val sink0Connect = sourceConnect.get.append(Seq(
-      (PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"))
     ))
     sink0Connect should not be empty
     sink0Connect.get.connectMode should equal(ConnectMode.Port)
     sink0Connect.get.connected should equal(Seq(
-      (PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"), "source"),
-      (PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"), "sinks")
+      (PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort")), "source"),
+      (PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort")), "sinks")
     ))
   }
 
   it should "build valid port connects from empty, starting with an ambiguous vector" in {
     val emptyConnect = ConnectBuilder(exampleBlock, exampleLink, Seq())
     val sliceConnect = emptyConnect.get.append(Seq(
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
     ))
     sliceConnect should not be empty
     sliceConnect.get.connectMode should equal(ConnectMode.Ambiguous) // stays ambiguous
 
     val sink0Connect = sliceConnect.get.append(Seq(
-      (PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"))
     ))
     sink0Connect should not be empty
     sink0Connect.get.connectMode should equal(ConnectMode.Port) // connection type resolved here
     sink0Connect.get.connected should equal(Seq(
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"), "sinks"),
-      (PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"), "sinks")
+      (PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort")), "sinks"),
+      (PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort")), "sinks")
     ))
   }
 
   it should "build valid array connects from empty, starting with an ambiguous vector" in {
     val emptyConnect = ConnectBuilder(exampleArrayBlock, exampleLink, Seq())
     val sliceConnect = emptyConnect.get.append(Seq(
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
     ))
 
     val sinkArrayConnect = sliceConnect.get.append(Seq(
-      (PortConnects.BlockVectorUnit("sink0", "port"), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockVectorUnit("sink0", "port"), LibraryPath("sinkPort"))
     ))
     sinkArrayConnect should not be empty
     sinkArrayConnect.get.connectMode should equal(ConnectMode.Vector) // connection type resolved here
     sinkArrayConnect.get.connected should equal(Seq(
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"), "sinks"),
-      (PortConnects.BlockVectorUnit("sink0", "port"), LibraryPath("sinkPort"), "sinks")
+      (PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort")), "sinks"),
+      (PortConnectTyped(PortConnects.BlockVectorUnit("sink0", "port"), LibraryPath("sinkPort")), "sinks")
     ))
   }
 
@@ -295,7 +295,7 @@ class ConnectBuilderTest extends AnyFlatSpec {
       Seq(exampleBlock.constraints.toSeqMap("sourceConnect"))
     ).get
     sourceConnect.append(Seq(
-      (PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"))
+      PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"))
     )) shouldBe empty
   }
 
@@ -306,7 +306,7 @@ class ConnectBuilderTest extends AnyFlatSpec {
       Seq(exampleArrayBlock.constraints.toSeqMap("sourceConnect"))
     ).get
     sourceConnect.append(Seq(
-      (PortConnects.BlockVectorSlice("source", "port", None), LibraryPath("sourcePort"))
+      PortConnectTyped(PortConnects.BlockVectorSlice("source", "port", None), LibraryPath("sourcePort"))
     )) shouldBe empty
   }
 
@@ -317,7 +317,7 @@ class ConnectBuilderTest extends AnyFlatSpec {
       Seq(exampleArrayBlock.constraints.toSeqMap("sourceConnect"))
     ).get
     sourceConnect.append(Seq(
-      (PortConnects.BlockPort("sink", "port"), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockPort("sink", "port"), LibraryPath("sinkPort"))
     )) shouldBe empty
   }
 
@@ -331,19 +331,19 @@ class ConnectBuilderTest extends AnyFlatSpec {
       )
     ).get
     val sinkConnected = sourceConnect.append(Seq(
-      (PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort"))
     ))
     sinkConnected should not be empty
     val sliceConnected = sinkConnected.get.append(Seq(
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
     ))
     sliceConnected should not be empty
     sliceConnected.get.connectMode should equal(ConnectMode.Port)
     sliceConnected.get.connected should equal(Seq(
-      (PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"), "source"),
-      (PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"), "sinks"),
-      (PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort"), "sinks"),
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"), "sinks"),
+      (PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort")), "source"),
+      (PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort")), "sinks"),
+      (PortConnectTyped(PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort")), "sinks"),
+      (PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort")), "sinks"),
     ))
   }
 
@@ -357,19 +357,19 @@ class ConnectBuilderTest extends AnyFlatSpec {
       )
     ).get
     val sinkConnected = sourceConnect.append(Seq(
-      (PortConnects.BlockVectorUnit("sink1", "port"), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockVectorUnit("sink1", "port"), LibraryPath("sinkPort"))
     ))
     sinkConnected should not be empty
     val sliceConnected = sinkConnected.get.append(Seq(
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
+      PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"))
     ))
     sliceConnected should not be empty
     sliceConnected.get.connectMode should equal(ConnectMode.Vector)
     sliceConnected.get.connected should equal(Seq(
-      (PortConnects.BlockVectorUnit("source", "port"), LibraryPath("sourcePort"), "source"),
-      (PortConnects.BlockVectorUnit("sink0", "port"), LibraryPath("sinkPort"), "sinks"),
-      (PortConnects.BlockVectorUnit("sink1", "port"), LibraryPath("sinkPort"), "sinks"),
-      (PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort"), "sinks"),
+      (PortConnectTyped(PortConnects.BlockVectorUnit("source", "port"), LibraryPath("sourcePort")), "source"),
+      (PortConnectTyped(PortConnects.BlockVectorUnit("sink0", "port"), LibraryPath("sinkPort")), "sinks"),
+      (PortConnectTyped(PortConnects.BlockVectorUnit("sink1", "port"), LibraryPath("sinkPort")), "sinks"),
+      (PortConnectTyped(PortConnects.BlockVectorSlice("sinkArray", "port", None), LibraryPath("sinkPort")), "sinks"),
     ))
   }
 }

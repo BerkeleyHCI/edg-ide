@@ -50,13 +50,16 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
     mutable.SeqMap[String, PortConnectTyped[PortConnects.ConstraintBase]]()
   block.ports.toSeqMap.collect {
     case (portName, port) if !allConnectedPorts.contains(Seq(portName)) =>
-      val connectOpt: Option[PortConnects.ConstraintBase] = port.is match {
-        case elem.PortLike.Is.Port(port) => Some(PortConnects.BoundaryPort(portName, Seq()))
-        case elem.PortLike.Is.Bundle(port) => Some(PortConnects.BoundaryPort(portName, Seq()))
-        case elem.PortLike.Is.Array(array) => Some(PortConnects.BoundaryPortVectorUnit(portName))
+      val connectTypedOpt = port.is match {
+        case elem.PortLike.Is.Port(port) =>
+          Some(PortConnectTyped(PortConnects.BoundaryPort(portName, Seq()), port.getSelfClass))
+        case elem.PortLike.Is.Bundle(port) =>
+          Some(PortConnectTyped(PortConnects.BoundaryPort(portName, Seq()), port.getSelfClass))
+        case elem.PortLike.Is.Array(array) =>
+          Some(PortConnectTyped(PortConnects.BoundaryPortVectorUnit(portName), array.getSelfClass))
         case _ => None
       }
-      connectOpt.foreach { connect =>
+      connectTypedOpt.foreach { connect =>
         disconnectedBoundaryPortConnections.put(s"$portName", connect)
       }
   }
@@ -67,13 +70,16 @@ class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
     subBlock.`type`.hierarchy.foreach { subBlock =>
       subBlock.ports.toSeqMap.collect {
         case (subBlockPortName, subBlockPort) if !allConnectedPorts.contains(Seq(subBlockName, subBlockPortName)) =>
-          val connectOpt: Option[PortConnects.ConstraintBase] = subBlockPort.is match {
-            case elem.PortLike.Is.Port(port) => Some(PortConnects.BlockPort(subBlockName, subBlockPortName))
-            case elem.PortLike.Is.Bundle(port) => Some(PortConnects.BlockPort(subBlockName, subBlockPortName))
-            case elem.PortLike.Is.Array(array) => Some(PortConnects.BlockVectorUnit(subBlockName, subBlockPortName))
+          val connectTypedOpt = subBlockPort.is match {
+            case elem.PortLike.Is.Port(port) =>
+              Some(PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass))
+            case elem.PortLike.Is.Bundle(port) =>
+              Some(PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass))
+            case elem.PortLike.Is.Array(array) =>
+              Some(PortConnectTyped(PortConnects.BlockVectorUnit(subBlockName, subBlockPortName), array.getSelfClass))
             case _ => None
           }
-          connectOpt.foreach { connect =>
+          connectTypedOpt.foreach { connect =>
             disconnectedBlockPortConnections.put(s"$subBlockName.$subBlockPortName", connect)
           }
       }

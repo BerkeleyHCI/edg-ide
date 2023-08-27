@@ -1,6 +1,7 @@
 package edg_ide.util.tests
 
-import edg_ide.util.{BlockConnectedAnalysis, PortConnects}
+import edg.ElemBuilder._
+import edg_ide.util.{BlockConnectedAnalysis, PortConnectTyped, PortConnects}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers._
 
@@ -13,27 +14,27 @@ class BlockConnectedAnalysisTest extends AnyFlatSpec {
     val analysis = new BlockConnectedAnalysis(connectBuilderTest.exampleBlock)
     analysis.connectedGroups.keys should equal(Set("link", "port", "bundle", "unusedSink.port"))
     analysis.connectedGroups("link")._1 should equal(Seq(
-      PortConnects.BlockPort("source", "port"),
-      PortConnects.BlockPort("sink0", "port"),
-      PortConnects.BlockPort("sink1", "port"),
-      PortConnects.BlockVectorSlicePort("sinkArray", "port", None),
+      PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort")),
+      PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort")),
+      PortConnectTyped(PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort")),
+      PortConnectTyped(PortConnects.BlockVectorSlicePort("sinkArray", "port", None), LibraryPath("sinkPort")),
     ))
     analysis.connectedGroups("link")._2 should not be empty
 
     analysis.connectedGroups("port")._1 should equal(Seq( // export
-      PortConnects.BoundaryPort("port", Seq()),
-      PortConnects.BlockPort("exportSource", "port"),
+      PortConnectTyped(PortConnects.BoundaryPort("port", Seq()), LibraryPath("sourcePort")),
+      PortConnectTyped(PortConnects.BlockPort("exportSource", "port"), LibraryPath("sourcePort")),
     ))
     analysis.connectedGroups("port")._2 should not be empty
 
     analysis.connectedGroups("bundle")._1 should equal(Seq( // export into bundle elt
-      PortConnects.BoundaryPort("bundle", Seq("port")),
-      PortConnects.BlockPort("exportBundleSource", "port"),
+      PortConnectTyped(PortConnects.BoundaryPort("bundle", Seq("port")), LibraryPath("sourcePort")),
+      PortConnectTyped(PortConnects.BlockPort("exportBundleSource", "port"), LibraryPath("sourcePort")),
     ))
     analysis.connectedGroups("bundle")._2 should not be empty
 
     analysis.connectedGroups("unusedSink.port")._1 should equal(Seq( // export into bundle elt
-      PortConnects.BlockPort("unusedSink", "port")))
+      PortConnectTyped(PortConnects.BlockPort("unusedSink", "port"), LibraryPath("sinkPort"))))
     analysis.connectedGroups("unusedSink.port")._2 shouldBe empty
   }
 
@@ -41,15 +42,15 @@ class BlockConnectedAnalysisTest extends AnyFlatSpec {
     val analysis = new BlockConnectedAnalysis(connectBuilderTest.exampleArrayBlock)
     analysis.connectedGroups.keys should equal(Set("link", "unusedSinkArray.port"))
     analysis.connectedGroups("link")._1 should equal(Seq(
-      PortConnects.BlockVectorUnit("source", "port"),
-      PortConnects.BlockVectorUnit("sink0", "port"),
-      PortConnects.BlockVectorUnit("sink1", "port"),
-      PortConnects.BlockVectorSliceVector("sinkArray", "port", None),
+      PortConnectTyped(PortConnects.BlockVectorUnit("source", "port"), LibraryPath("sourcePort")),
+      PortConnectTyped(PortConnects.BlockVectorUnit("sink0", "port"), LibraryPath("sinkPort")),
+      PortConnectTyped(PortConnects.BlockVectorUnit("sink1", "port"), LibraryPath("sinkPort")),
+      PortConnectTyped(PortConnects.BlockVectorSliceVector("sinkArray", "port", None), LibraryPath("sinkPort"))
     ))
     analysis.connectedGroups("link")._2 should not be empty
 
     analysis.connectedGroups("unusedSinkArray.port")._1 should equal(Seq( // export into bundle elt
-      PortConnects.BlockVectorUnit("unusedSinkArray", "port")))
+      PortConnectTyped(PortConnects.BlockVectorUnit("unusedSinkArray", "port"), LibraryPath("sinkPort"))))
     analysis.connectedGroups("unusedSinkArray.port")._2 shouldBe empty
   }
 }
