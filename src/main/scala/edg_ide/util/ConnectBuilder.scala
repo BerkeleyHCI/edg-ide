@@ -193,7 +193,7 @@ object ConnectBuilder {
   */
 class ConnectBuilder protected (
     container: elem.HierarchyBlock,
-    val availablePorts: Seq[(String, Boolean, ref.LibraryPath)], // name, is array, port type
+    protected val availablePorts: Seq[(String, Boolean, ref.LibraryPath)], // name, is array, port type
     val connected: Seq[(ConnectTypes.Base, ref.LibraryPath, String)], // connect type, used port type, port name
     val connectMode: ConnectMode.Base
 ) {

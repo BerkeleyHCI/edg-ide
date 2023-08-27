@@ -7,6 +7,10 @@ import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, Exc
 import edg_ide.util.{BlockConnectedAnalysis, ConnectBuilder, ConnectTypes, exceptable, requireExcept}
 import edgir.elem.elem
 
+import java.awt.event.MouseEvent
+import javax.swing.SwingUtilities
+import scala.collection.mutable
+
 object NewConnectTool {
   def apply(interface: ToolInterface, portPath: DesignPath): Errorable[NewConnectTool] = exceptable {
     val focusPath = interface.getFocus
@@ -50,13 +54,42 @@ object NewConnectTool {
     val connectBuilder = ConnectBuilder(focusBlock, portLink, portConstrs)
       .exceptNone("invalid connections to port")
 
-    new NewConnectTool(interface, portConnectName, connectBuilder, analysis)
+    new NewConnectTool(interface, portConnectName, focusPath, connectBuilder, analysis)
   }
 }
 
 class NewConnectTool(
     val interface: ToolInterface,
     name: String,
+    containingBlockPath: DesignPath,
     baseConnectBuilder: ConnectBuilder,
     analysis: BlockConnectedAnalysis
-) extends BaseTool {}
+) extends BaseTool {
+  var selectedPorts = mutable.Set[Seq[String]]()
+  var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts
+
+  def updateSelected(): Unit = { // updates selected in graph and text
+    interface.setStatus(name)
+//    interface.setGraphSelections(priorConnect.getPorts.map(focusPath ++ _).toSet + portPath ++ selected.toSet)
+//    val availablePaths = connectsAvailable()
+//    val availableBlockPaths = availablePaths.map(_.split._1)
+//    interface.setGraphHighlights(Some(Set(focusPath) ++ availablePaths ++ availableBlockPaths))
+
+    val connectedPortRefs = currentConnectBuilder.connected.map(_._1.topPortRef)
+    interface.setGraphSelections(connectedPortRefs.map(containingBlockPath ++ _).toSet)
+  }
+
+  override def init(): Unit = {
+    interface.setGraphSelections(Set())
+    updateSelected()
+  }
+
+  override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
+    val resolved = EdgirUtils.resolveExact(path, interface.getDesign)
+
+    if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // toggle selected port
+    } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double-click finish shortcut
+
+    } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {}
+  }
+}
