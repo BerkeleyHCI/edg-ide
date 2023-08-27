@@ -66,7 +66,7 @@ class NewConnectTool(
     baseConnectBuilder: ConnectBuilder,
     analysis: BlockConnectedAnalysis
 ) extends BaseTool {
-  var selectedPorts = mutable.Set[Seq[String]]() // individual ports selected by the user
+  var selectedPorts = mutable.Set[DesignPath]() // individual ports selected by the user
   var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts, may have more ports from net joins
 
   def updateSelected(): Unit = { // updates selected in graph and text
@@ -77,15 +77,22 @@ class NewConnectTool(
     interface.setGraphSelections(connectedPortRefs.map(containingBlockPath ++ _).toSet)
 
     // try all connections to determine additional possible connects
-    val availablePortRefs = mutable.ArrayBuffer[Seq[String]]()
-    analysis.connectedGroups.map { case (name, (connecteds, constrs)) =>
-      val resultingConnectBuilder = currentConnectBuilder.append(connecteds)
-
+    val connectablePorts = mutable.ArrayBuffer[DesignPath]()
+    val connectableBlocks = mutable.ArrayBuffer[DesignPath]()
+    analysis.connectedGroups.foreach { case (name, (connecteds, constrs)) =>
+      currentConnectBuilder.append(connecteds) match {
+        case Some(_) => connecteds.foreach { connected =>
+            val blockName = connected.connect.topPortRef match {
+              case Seq(blockName, portName) => connectableBlocks.append(containingBlockPath + blockName)
+              case _ => None
+            }
+            connectablePorts.append(containingBlockPath ++ connected.connect.topPortRef)
+          }
+        case None => Seq()
+      }
     }
-//    interface.setGraphSelections(priorConnect.getPorts.map(focusPath ++ _).toSet + portPath ++ selected.toSet)
-//    val availablePaths = connectsAvailable()
-//    val availableBlockPaths = availablePaths.map(_.split._1)
-//    interface.setGraphHighlights(Some(Set(focusPath) ++ availablePaths ++ availableBlockPaths))
+
+    interface.setGraphHighlights(Some((Seq(containingBlockPath) ++ connectablePorts ++ connectableBlocks).toSet))
   }
 
   override def init(): Unit = {
@@ -97,8 +104,23 @@ class NewConnectTool(
     val resolved = EdgirUtils.resolveExact(path, interface.getDesign)
 
     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // toggle selected port
+      val currentSelectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
+      resolved match {
+        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) => // toggle port
+          if (selectedPorts.contains(path)) { // toggle deselect
+            selectedPorts.remove(path)
+            // TODO UPDATE CONNECT BUILDER
+            updateSelected()
+          } else if (!currentSelectedPorts.contains(path)) { // toggle select
+            selectedPorts.add(path)
+            // TODO UPDATE CONNECT BUILDER
+            updateSelected()
+          } // otherwise unselectable port / block
+        case _ => // ignored
+      }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double-click finish shortcut
-
+      // TODO implement me
+      interface.endTool()
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {}
   }
 }
