@@ -160,7 +160,7 @@ class ConnectBuilderTest extends AnyFlatSpec {
   val exampleLink = Link.Link(
     "link",
     ports = SeqMap(
-      "source" -> Port.Port("sourcePort"),
+      "source" -> Port.Library("sourcePort"),
       "sinks" -> Port.Array("sinkPort"),
     ),
     params = SeqMap(

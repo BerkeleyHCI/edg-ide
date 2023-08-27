@@ -1,5 +1,6 @@
 package edg_ide.ui.tools
 
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils

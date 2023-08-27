@@ -1,8 +1,11 @@
 package edg_ide.util
 
+import com.intellij.openapi.diagnostic.Logger
+import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.ValueExpr
 import edg.util.SeqUtils
 import edg.wir.ProtoUtil.{BlockProtoToSeqMap, PortProtoToSeqMap}
+import edg_ide.edgir_graph.HierarchyGraphElk
 import edgir.elem.elem
 import edgir.elem.elem.HierarchyBlock
 import edgir.expr.expr
@@ -155,6 +158,8 @@ object ConnectMode { // state of a connect-in-progress
 }
 
 object ConnectBuilder {
+  private val logger = Logger.getInstance(this.getClass)
+
   // creates a ConnectBuilder given all the connects to a link (found externally) and context data
   def apply(
       container: elem.HierarchyBlock,
@@ -164,11 +169,12 @@ object ConnectBuilder {
     val availableOpt = SeqUtils.getAllDefined(link.ports.toSeqMap.map { case (name, portLike) =>
       (name, portLike.is)
     }
-      .map {
-        case (name, elem.PortLike.Is.Port(port)) => port.selfClass.map((name, false, _))
-        case (name, elem.PortLike.Is.Bundle(port)) => port.selfClass.map((name, false, _))
+      .map { // link libraries are pre-elaboration
+        case (name, elem.PortLike.Is.LibElem(port)) => Some((name, false, port))
         case (name, elem.PortLike.Is.Array(array)) => array.selfClass.map((name, true, _))
-        case _ => None
+        case (name, port) =>
+          logger.warn(s"unknown port type $name = ${port.getClass} in ${link.getSelfClass.toSimpleString}")
+          None
       }.toSeq)
 
     val constrConnectsOpt = SeqUtils.getAllDefined(constrs.map(ConnectTypes.fromConnect)).map(_.flatten)
@@ -181,7 +187,18 @@ object ConnectBuilder {
     (availableOpt, constrConnectPortsOpt) match {
       case (Some(available), Some(constrConnectPorts)) =>
         new ConnectBuilder(container, available, Seq(), ConnectMode.Ambiguous).append(constrConnectPorts)
-      case _ => None
+      case _ =>
+        if (availableOpt.isEmpty) {
+          logger.warn(
+            s"unable to compute available ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
+          )
+        }
+        if (constrConnectPortsOpt.isEmpty) {
+          logger.warn(
+            s"unable to compute connected ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
+          )
+        }
+        None
     }
   }
 }
