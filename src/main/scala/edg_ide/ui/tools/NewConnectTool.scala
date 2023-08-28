@@ -191,7 +191,7 @@ class NewConnectTool(
 
         (connectedBlockOpt, containerPyClassOpt.toOption) match {
           case (Some(connectedBlock), Some(containerPyClass)) =>
-            val continuation = (x: String, y: PsiElement) => {
+            val continuation = (name: Option[String], inserted: PsiElement) => {
               interface.endTool()
             }
             LiveTemplateConnect.createTemplateConnect(
@@ -200,9 +200,10 @@ class NewConnectTool(
               interface.getProject,
               analysis.block,
               baseConnectBuilder,
+              startingPort,
               newConnects,
               continuation
-            )
+            ).exceptError()
           case _ =>
             if (connectedBlockOpt.isEmpty) {
               logger.error(s"failed to create connected IR block")

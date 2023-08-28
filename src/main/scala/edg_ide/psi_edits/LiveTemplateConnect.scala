@@ -3,23 +3,13 @@ package edg_ide.psi_edits
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
-import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{
-  LanguageLevel,
-  PyAssignmentStatement,
-  PyCallExpression,
-  PyClass,
-  PyElementGenerator,
-  PyFunction,
-  PyStatement,
-  PyStatementList,
-  PyTargetExpression
-}
-import edgir.elem.elem
+import com.intellij.psi.{PsiElement, PsiWhiteSpace}
+import com.jetbrains.python.psi._
 import edg.util.Errorable
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{ConnectBuilder, PortConnects, exceptable, requireExcept}
+import edg_ide.util.ExceptionNotifyImplicits.ExceptSeq
+import edg_ide.util.{ConnectBuilder, PortConnects, exceptable}
+import edgir.elem.elem
 
 object LiveTemplateConnect {
   // Creates an action to start a live template to insert the connection
@@ -29,11 +19,35 @@ object LiveTemplateConnect {
       project: Project,
       container: elem.HierarchyBlock,
       baseConnected: ConnectBuilder,
+      startingConnect: PortConnects.Base,
       newConnects: Seq[PortConnects.Base],
-      continuation: (String, PsiElement) => Unit,
+      continuation: (Option[String], PsiElement) => Unit,
   ): Errorable[() => Unit] = exceptable {
     val languageLevel = LanguageLevel.forElement(contextClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
+
+    def connectedToRefPyExpr(connect: PortConnects.Base): PyExpression = {
+      val exprText = connect match {
+        case PortConnects.BlockPort(blockName, portName) => s"$blockName.$portName"
+        case PortConnects.BoundaryPort(portName, _) => portName
+        case PortConnects.BlockVectorUnit(blockName, portName) => s"$blockName.$portName"
+        case PortConnects.BlockVectorSlicePort(blockName, portName, suggestedIndex) => suggestedIndex match {
+            case Some(suggestedIndex) => s"$blockName.$portName.request('$suggestedIndex')"
+            case None => s"$blockName.$portName.request()"
+          }
+        case PortConnects.BlockVectorSliceVector(blockName, portName, suggestedIndex) => suggestedIndex match {
+            case Some(suggestedIndex) => s"$blockName.$portName.request_vector('$suggestedIndex')"
+            case None => s"$blockName.$portName.request_vector()"
+          }
+        case PortConnects.BlockVectorSlice(blockName, portName, suggestedIndex) =>
+          throw new IllegalArgumentException()
+        case PortConnects.BoundaryPortVectorUnit(portName) => portName
+      }
+      psiElementGenerator.createExpressionFromText(
+        languageLevel,
+        exprText
+      )
+    }
 
     val movableLiveTemplate = new MovableLiveTemplate(actionName) {
       // TODO startTemplate should be able to fail - Errorable
@@ -62,7 +76,10 @@ object LiveTemplateConnect {
           .asInstanceOf[PyCallExpression]
           .getArgumentList
 
-        // TODO ADD ALL THE CONNECT ELTS
+        newConnectArgs.addArgument(connectedToRefPyExpr(startingConnect))
+        newConnects.foreach { newConnect =>
+          newConnectArgs.addArgument(connectedToRefPyExpr(newConnect))
+        }
 
         val nameTemplateVar = new InsertionLiveTemplate.Reference(
           "name",
@@ -83,7 +100,8 @@ object LiveTemplateConnect {
         }
 
         val insertedName = state.getVariableValue("name").getText
-        if (insertedName.isEmpty && brokenOff) { // canceled by esc while name is empty
+        val insertedNameOpt = if (insertedName.isEmpty) None else Some(insertedName)
+        if (insertedNameOpt.isEmpty && brokenOff) { // canceled by esc while name is empty
           writeCommandAction(project)
             .withName(s"cancel $actionName")
             .compute(() => {
@@ -97,7 +115,7 @@ object LiveTemplateConnect {
 
           // TODO CLEAN UP CONNECT STMT
 
-          continuation(insertedName, templateElem)
+          continuation(insertedNameOpt, templateElem)
         }
       }
     })
