@@ -6,7 +6,7 @@ import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils
 import edg_ide.psi_edits.LiveTemplateConnect
-import edg_ide.ui.PopupUtils
+import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{
   BlockConnectedAnalysis,
@@ -183,6 +183,9 @@ class NewConnectTool(
       (connectedBlockOpt, containerPyClassOpt.toOption) match {
         case (Some(connectedBlock), Some(containerPyClass)) =>
           val continuation = (name: Option[String], inserted: PsiElement) => {
+            BlockVisualizerService(interface.getProject).visualizerPanelOption.foreach {
+              _.currentDesignModifyBlock(containingBlockPath)(_ => connectedBlock)
+            }
             interface.endTool()
           }
           LiveTemplateConnect.createTemplateConnect(
