@@ -26,22 +26,22 @@ object LiveTemplateConnect {
     val languageLevel = LanguageLevel.forElement(contextClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
-    def connectedToRefPyExpr(connect: PortConnects.Base): PyExpression = {
+    def connectedToRefPyExpr(selfName: String, connect: PortConnects.Base): PyExpression = {
       val exprText = connect match {
-        case PortConnects.BlockPort(blockName, portName) => s"$blockName.$portName"
-        case PortConnects.BoundaryPort(portName, _) => portName
-        case PortConnects.BlockVectorUnit(blockName, portName) => s"$blockName.$portName"
+        case PortConnects.BlockPort(blockName, portName) => s"$selfName.$blockName.$portName"
+        case PortConnects.BoundaryPort(portName, _) => s"$selfName.$portName"
+        case PortConnects.BlockVectorUnit(blockName, portName) => s"$selfName.$blockName.$portName"
         case PortConnects.BlockVectorSlicePort(blockName, portName, suggestedIndex) => suggestedIndex match {
-            case Some(suggestedIndex) => s"$blockName.$portName.request('$suggestedIndex')"
-            case None => s"$blockName.$portName.request()"
+            case Some(suggestedIndex) => s"$selfName.$blockName.$portName.request('$suggestedIndex')"
+            case None => s"$selfName.$blockName.$portName.request()"
           }
         case PortConnects.BlockVectorSliceVector(blockName, portName, suggestedIndex) => suggestedIndex match {
-            case Some(suggestedIndex) => s"$blockName.$portName.request_vector('$suggestedIndex')"
-            case None => s"$blockName.$portName.request_vector()"
+            case Some(suggestedIndex) => s"$selfName.$blockName.$portName.request_vector('$suggestedIndex')"
+            case None => s"$selfName.$blockName.$portName.request_vector()"
           }
         case PortConnects.BlockVectorSlice(blockName, portName, suggestedIndex) =>
           throw new IllegalArgumentException()
-        case PortConnects.BoundaryPortVectorUnit(portName) => portName
+        case PortConnects.BoundaryPortVectorUnit(portName) => s"$selfName.$portName"
       }
       psiElementGenerator.createExpressionFromText(
         languageLevel,
@@ -54,6 +54,7 @@ object LiveTemplateConnect {
       override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
         val validCaretEltOpt = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
         // TODO support append to existing connect
+        // TODO VALIDATE INSERT POSITION
         val insertAfter = validCaretEltOpt
           .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
 
@@ -76,15 +77,14 @@ object LiveTemplateConnect {
           .asInstanceOf[PyCallExpression]
           .getArgumentList
 
-        newConnectArgs.addArgument(connectedToRefPyExpr(startingConnect))
+        newConnectArgs.addArgument(connectedToRefPyExpr(selfName, startingConnect))
         newConnects.foreach { newConnect =>
-          newConnectArgs.addArgument(connectedToRefPyExpr(newConnect))
+          newConnectArgs.addArgument(connectedToRefPyExpr(selfName, newConnect))
         }
 
         val nameTemplateVar = new InsertionLiveTemplate.Reference(
           "name",
           newConnect.getTargets.head.asInstanceOf[PyTargetExpression],
-          InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
           defaultValue = Some("")
         )
 
@@ -113,7 +113,18 @@ object LiveTemplateConnect {
             templateElem = templateElem.getNextSibling
           }
 
-          // TODO CLEAN UP CONNECT STMT
+          if (insertedNameOpt.isEmpty) { // if name not specified, make the connect anonymous
+            try {
+              val templateAssign = templateElem.asInstanceOf[PyAssignmentStatement]
+              writeCommandAction(project)
+                .withName(s"clean $actionName")
+                .compute(() => {
+                  templateElem.replace(templateAssign.getAssignedValue)
+                })
+            } catch {
+              case _: Throwable => // ignore
+            }
+          }
 
           continuation(insertedNameOpt, templateElem)
         }

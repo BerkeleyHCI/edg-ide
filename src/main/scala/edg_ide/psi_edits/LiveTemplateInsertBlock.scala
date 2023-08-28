@@ -122,9 +122,10 @@ object LiveTemplateInsertBlock {
               .compute(() => {
                 deleteArgs.foreach(_.delete())
               })
-          } finally {
-            continuation(insertedName, templateElem)
+          } catch {
+            case _: Throwable => // ignore
           }
+          continuation(insertedName, templateElem)
         }
       }
     })
