@@ -2,11 +2,12 @@ package edg_ide.psi_edits
 
 import com.intellij.codeInsight.template.{Template, TemplateEditingAdapter}
 import com.intellij.codeInsight.template.impl.TemplateState
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatement}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
-import edg_ide.util.requireExcept
+import edg_ide.util.{DesignAnalysisUtils, requireExcept}
 
 import scala.collection.mutable
 
@@ -51,6 +52,15 @@ object TemplateUtils {
     if (containingPsiClass == null) return None
     if (containingPsiClass != requiredContextClass) return None
     Some(caretStatement)
+  }
+
+  // given a class and a list of attributes, returns the last attribute assignment, if any
+  def getLastAttributeAssignment(psiClass: PyClass, attrs: Seq[String], project: Project): Option[PyStatement] = {
+    attrs.flatMap { attr =>
+      DesignAnalysisUtils.findAssignmentsTo(psiClass, attr, project)
+    }.sortWith { case (a, b) =>
+      DesignAnalysisUtils.elementAfterEdg(a, b, project).getOrElse(false)
+    }.lastOption
   }
 }
 

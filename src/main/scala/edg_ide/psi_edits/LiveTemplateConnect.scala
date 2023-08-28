@@ -8,7 +8,7 @@ import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.jetbrains.python.psi._
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.ExceptSeq
-import edg_ide.util.{ConnectBuilder, PortConnects, exceptable}
+import edg_ide.util.{ConnectBuilder, DesignAnalysisUtils, PortConnects, exceptable}
 import edgir.elem.elem
 
 object LiveTemplateConnect {
@@ -59,12 +59,22 @@ object LiveTemplateConnect {
       override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
         val validCaretEltOpt = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
         // TODO support append to existing connect
-        // TODO VALIDATE INSERT POSITION
-        val insertAfter = validCaretEltOpt
+        val preInsertAfter = validCaretEltOpt
           .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
 
+        // adjust insertion position to be after all assignments to required references
+        val allConnects = startingConnect +: newConnects
+        val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
+        val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
+        val insertAfter = earliestPosition.map { earliestPosition =>
+          if (!DesignAnalysisUtils.elementAfterEdg(preInsertAfter, earliestPosition, project).getOrElse(true)) {
+            preInsertAfter
+          } else {
+            earliestPosition
+          }
+        }.getOrElse(preInsertAfter)
+
         val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
-        val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
         val selfName = containingPsiFn.getParameterList.getParameters.toSeq
           .exceptEmpty(s"function ${containingPsiFn.getName} has no self")
           .head
@@ -83,11 +93,7 @@ object LiveTemplateConnect {
           .asInstanceOf[PyCallExpression]
           .getArgumentList
 
-        newConnectArgs.addArgument(psiElementGenerator.createExpressionFromText(
-          languageLevel,
-          connectedToRefCode(selfName, startingConnect)
-        ))
-        newConnects.foreach { newConnect =>
+        allConnects.foreach { newConnect =>
           newConnectArgs.addArgument(psiElementGenerator.createExpressionFromText(
             languageLevel,
             connectedToRefCode(selfName, newConnect)
