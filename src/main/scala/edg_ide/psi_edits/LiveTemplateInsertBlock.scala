@@ -7,8 +7,8 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.jetbrains.python.psi._
 import edg.util.Errorable
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
+import edg_ide.util.ExceptionNotifyImplicits.ExceptSeq
+import edg_ide.util.{DesignAnalysisUtils, exceptable}
 
 object LiveTemplateInsertBlock {
 
