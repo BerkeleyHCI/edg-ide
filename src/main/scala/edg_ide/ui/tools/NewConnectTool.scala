@@ -114,6 +114,42 @@ class NewConnectTool(
     updateSelected()
   }
 
+  def removeConnect(portPath: DesignPath): Unit = {
+    // remove all connections to the port path (should really only be one)
+    selectedConnects.filterInPlace(containingBlockPath ++ _.topPortRef != portPath)
+    // recompute from scratch on removal, for simplicity
+    val allConnected = analysis.connectedGroups.filter { case (name, (connecteds, constrs)) =>
+      connecteds.exists(connected => selectedConnects.contains(connected.connect))
+    }.flatMap(_._2._1).toSeq
+    // update state
+    baseConnectBuilder.append(allConnected) match {
+      case Some(newConnectBuilder) =>
+        currentConnectBuilder = newConnectBuilder
+      case None => // if the connect is invalid (shouldn't be possible), revert to the empty connect
+        logger.error(s"invalid connect from removal of $portPath")
+        currentConnectBuilder = baseConnectBuilder
+        selectedConnects.clear()
+    }
+    updateSelected()
+  }
+
+  def addConnect(portPath: DesignPath): Unit = {
+    val newConnectedNet = analysis.connectedGroups.filter { case (name, (connecteds, constrs)) =>
+      connecteds.exists(connected => containingBlockPath ++ connected.connect.topPortRef == portPath)
+    }.flatMap(_._2._1).toSeq
+    val newConnected = // get single connected of this port
+      newConnectedNet.filter(containingBlockPath ++ _.connect.topPortRef == portPath)
+    val newConnectBuilder = currentConnectBuilder.append(newConnectedNet)
+    (newConnected, newConnectBuilder) match {
+      case (Seq(newConnected), Some(newConnectBuilder)) => // valid connect, commit and update UI
+        selectedConnects.append(newConnected.connect)
+        currentConnectBuilder = newConnectBuilder
+        updateSelected()
+      case _ =>
+        logger.warn(s"invalid connect from added port $portPath") // invalid connect, ignore
+    }
+  }
+
   override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
     val resolved = EdgirUtils.resolveExact(path, interface.getDesign)
 
@@ -121,38 +157,10 @@ class NewConnectTool(
       val currentSelectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
       resolved match {
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) => // toggle port
-          val selectedConnectIndex = selectedConnects.indexWhere(containingBlockPath ++ _.topPortRef == path)
-          if (selectedConnectIndex >= 0) { // toggle de-select
-            selectedConnects.remove(selectedConnectIndex)
-            // recompute from scratch on removal, for simplicity
-            val allConnected = analysis.connectedGroups.filter { case (name, (connecteds, constrs)) =>
-              connecteds.exists(connected => selectedConnects.contains(connected.connect))
-            }.flatMap(_._2._1).toSeq
-            // update state
-            baseConnectBuilder.append(allConnected) match {
-              case Some(newConnectBuilder) =>
-                currentConnectBuilder = newConnectBuilder
-              case None => // if the connect is invalid (shouldn't be possible), revert to the empty connect
-                logger.error(s"invalid connect from removal of $path")
-                currentConnectBuilder = baseConnectBuilder
-                selectedConnects.clear()
-            }
-            updateSelected()
+          if (selectedConnects.exists(containingBlockPath ++ _.topPortRef == path)) { // toggle de-select
+            removeConnect(path)
           } else if (!currentSelectedPorts.contains(path) && path != startingPortPath) { // toggle select
-            val newConnectedNet = analysis.connectedGroups.filter { case (name, (connecteds, constrs)) =>
-              connecteds.exists(connected => containingBlockPath ++ connected.connect.topPortRef == path)
-            }.flatMap(_._2._1).toSeq
-            val newConnected = // get single connected of this port
-              newConnectedNet.filter(containingBlockPath ++ _.connect.topPortRef == path)
-            val newConnectBuilder = currentConnectBuilder.append(newConnectedNet)
-            (newConnected, newConnectBuilder) match {
-              case (Seq(newConnected), Some(newConnectBuilder)) => // valid connect, commit and update UI
-                selectedConnects.append(newConnected.connect)
-                currentConnectBuilder = newConnectBuilder
-                updateSelected()
-              case _ =>
-                logger.warn(s"invalid connect from added port $path") // invalid connect, ignore
-            }
+            addConnect(path)
           } // otherwise unselectable port / block
         case _ => // ignored
       }
