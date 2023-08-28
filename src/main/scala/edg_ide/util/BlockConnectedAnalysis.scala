@@ -3,7 +3,7 @@ import edg.wir.ProtoUtil.{BlockProtoToSeqMap, ConstraintProtoToSeqMap, PortProto
 import edgir.elem.elem
 import edgir.expr.expr
 
-import scala.collection.{SeqMap, mutable}
+import scala.collection.mutable
 
 // provides link-level connectivity information (e.g. all connected ports in a link) for a block
 class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
@@ -31,7 +31,7 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
           case Some(index) =>
             (connectionsBuilder(index)._2, connectionsBuilder(index)._3)
           case None =>
-            connectionsBuilder.append((None, mutable.ArrayBuffer(), mutable.ArrayBuffer()))
+            connectionsBuilder.append((Some(linkName), mutable.ArrayBuffer(), mutable.ArrayBuffer()))
             linkNameToConnectionIndex(linkName) = connectionsBuilder.length - 1
             (connectionsBuilder.last._2, connectionsBuilder.last._3)
         }
