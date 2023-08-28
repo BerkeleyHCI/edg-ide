@@ -36,6 +36,7 @@ object LiveTemplateConnect {
           .exceptNull(s"caret not in a class")
         requireExcept(containingPsiClass == contextClass, s"caret not in class of type ${contextClass.getName}")
         caretStatement
+        ???
       }
     }
 
