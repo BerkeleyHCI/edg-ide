@@ -7,7 +7,7 @@ import edgir.ref.ref
 import scala.collection.{SeqMap, mutable}
 
 // provides link-level connectivity information (e.g. all connected ports in a link) for a block
-class BlockConnectedAnalysis(block: elem.HierarchyBlock) {
+class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
   // link name -> (list of connected ports, list of constrs)
   protected val linkConnectionBuilder =
     mutable.SeqMap[

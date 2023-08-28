@@ -8,9 +8,10 @@ object EdgirConnectExecutor {
   def apply(
       container: elem.HierarchyBlock,
       baseConnected: ConnectBuilder,
-      newConnects: PortConnects.ConstraintBase
-  ): elem.HierarchyBlock = {
+      newConnects: Seq[PortConnects.Base]
+  ): Option[elem.HierarchyBlock] = {
     // TODO needs link name, if prior link exists?
-    ???
+    // TODO IMPLEMENT ME
+    Some(container)
   }
 }

@@ -17,7 +17,7 @@ object LiveTemplateConnect {
       project: Project,
       container: elem.HierarchyBlock,
       baseConnected: ConnectBuilder,
-      newConnects: PortConnects.ConstraintBase,
+      newConnects: Seq[PortConnects.Base],
       continuation: (String, PsiElement) => Unit
   ): Errorable[() => Unit] = exceptable {
 

@@ -1,11 +1,22 @@
 package edg_ide.ui.tools
 
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.psi.PsiElement
 import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils
+import edg_ide.psi_edits.LiveTemplateConnect
+import edg_ide.ui.PopupUtils
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{BlockConnectedAnalysis, ConnectBuilder, PortConnects, exceptable, requireExcept}
+import edg_ide.util.{
+  BlockConnectedAnalysis,
+  ConnectBuilder,
+  DesignAnalysisUtils,
+  EdgirConnectExecutor,
+  PortConnects,
+  exceptable,
+  requireExcept
+}
 import edgir.elem.elem
 
 import java.awt.event.MouseEvent
@@ -76,9 +87,17 @@ class NewConnectTool(
   var selectedConnects = mutable.ArrayBuffer[PortConnects.Base]() // individual ports selected by the user
   var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts, may have more ports from net joins
 
+  def getCurrentName(): String = {
+    if (selectedConnects.nonEmpty) {
+      val connectedPortNames = selectedConnects.map(_.topPortRef.mkString("."))
+      s"Connect ${connectedPortNames.mkString(", ")} to ${startingPort.topPortRef.mkString(".")}"
+    } else {
+      s"Connect to ${startingPort.topPortRef.mkString(".")}"
+    }
+  }
+
   def updateSelected(): Unit = { // updates selected in graph and text
-    val connectedPortNames = selectedConnects.map(_.topPortRef.mkString("."))
-    interface.setStatus(s"Connect to ${startingPort.topPortRef.mkString(".")}: ${connectedPortNames.mkString(", ")}")
+    interface.setStatus(getCurrentName())
 
     // mark all current selections
     val connectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
@@ -165,8 +184,39 @@ class NewConnectTool(
         case _ => // ignored
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double-click finish shortcut
-      // TODO implement me
-      interface.endTool()
+      if (selectedConnects.nonEmpty) {
+        val newConnects = selectedConnects.toSeq
+        val connectedBlockOpt = EdgirConnectExecutor(analysis.block, baseConnectBuilder, newConnects)
+        val containerPyClassOpt = DesignAnalysisUtils.pyClassOf(analysis.block.getSelfClass, interface.getProject)
+
+        (connectedBlockOpt, containerPyClassOpt.toOption) match {
+          case (Some(connectedBlock), Some(containerPyClass)) =>
+            val continuation = (x: String, y: PsiElement) => {
+              interface.endTool()
+            }
+            LiveTemplateConnect.createTemplateConnect(
+              containerPyClass,
+              getCurrentName(),
+              interface.getProject,
+              analysis.block,
+              baseConnectBuilder,
+              newConnects,
+              continuation
+            )
+          case _ =>
+            if (connectedBlockOpt.isEmpty) {
+              logger.error(s"failed to create connected IR block")
+            }
+            containerPyClassOpt match {
+              case Errorable.Error(msg) => logger.error(s"failed to get container pyclass: $msg")
+              case _ => // ignored
+            }
+            PopupUtils.createErrorPopup(s"internal error", e)
+            interface.endTool()
+        }
+      } else { // nothing to do, cancel
+        interface.endTool()
+      }
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {}
   }
 }
