@@ -189,7 +189,6 @@ class NewConnectTool(
             containerPyClass,
             getCurrentName(),
             interface.getProject,
-            analysis.block,
             baseConnectBuilder,
             startingPort,
             newConnects,

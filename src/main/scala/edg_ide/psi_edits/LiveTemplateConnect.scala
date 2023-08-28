@@ -12,12 +12,40 @@ import edg_ide.util.{ConnectBuilder, PortConnects, exceptable}
 import edgir.elem.elem
 
 object LiveTemplateConnect {
+  // generate the reference Python HDL code for a PortConnect
+  protected def connectedToRefCode(selfName: String, connect: PortConnects.Base): String = connect match {
+    case PortConnects.BlockPort(blockName, portName) => s"$selfName.$blockName.$portName"
+    case PortConnects.BoundaryPort(portName, _) => s"$selfName.$portName"
+    case PortConnects.BlockVectorUnit(blockName, portName) => s"$selfName.$blockName.$portName"
+    case PortConnects.BlockVectorSlicePort(blockName, portName, suggestedIndex) => suggestedIndex match {
+        case Some(suggestedIndex) => s"$selfName.$blockName.$portName.request('$suggestedIndex')"
+        case None => s"$selfName.$blockName.$portName.request()"
+      }
+    case PortConnects.BlockVectorSliceVector(blockName, portName, suggestedIndex) => suggestedIndex match {
+        case Some(suggestedIndex) => s"$selfName.$blockName.$portName.request_vector('$suggestedIndex')"
+        case None => s"$selfName.$blockName.$portName.request_vector()"
+      }
+    case PortConnects.BlockVectorSlice(blockName, portName, suggestedIndex) =>
+      throw new IllegalArgumentException()
+    case PortConnects.BoundaryPortVectorUnit(portName) => s"$selfName.$portName"
+  }
+
+  // gets the class member variable (if any) for a PortConnect
+  protected def connectedToRequiredAttr(connect: PortConnects.Base): Option[String] = connect match {
+    case PortConnects.BlockPort(blockName, portName) => Some(blockName)
+    case PortConnects.BoundaryPort(portName, _) => Some(portName)
+    case PortConnects.BlockVectorUnit(blockName, portName) => Some(blockName)
+    case PortConnects.BlockVectorSlicePort(blockName, portName, _) => Some(portName)
+    case PortConnects.BlockVectorSliceVector(blockName, portName, _) => Some(portName)
+    case PortConnects.BlockVectorSlice(blockName, portName, _) => Some(blockName)
+    case PortConnects.BoundaryPortVectorUnit(portName) => Some(portName)
+  }
+
   // Creates an action to start a live template to insert the connection
   def createTemplateConnect(
       contextClass: PyClass,
       actionName: String,
       project: Project,
-      container: elem.HierarchyBlock,
       baseConnected: ConnectBuilder,
       startingConnect: PortConnects.Base,
       newConnects: Seq[PortConnects.Base],
@@ -25,29 +53,6 @@ object LiveTemplateConnect {
   ): Errorable[() => Unit] = exceptable {
     val languageLevel = LanguageLevel.forElement(contextClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
-
-    def connectedToRefPyExpr(selfName: String, connect: PortConnects.Base): PyExpression = {
-      val exprText = connect match {
-        case PortConnects.BlockPort(blockName, portName) => s"$selfName.$blockName.$portName"
-        case PortConnects.BoundaryPort(portName, _) => s"$selfName.$portName"
-        case PortConnects.BlockVectorUnit(blockName, portName) => s"$selfName.$blockName.$portName"
-        case PortConnects.BlockVectorSlicePort(blockName, portName, suggestedIndex) => suggestedIndex match {
-            case Some(suggestedIndex) => s"$selfName.$blockName.$portName.request('$suggestedIndex')"
-            case None => s"$selfName.$blockName.$portName.request()"
-          }
-        case PortConnects.BlockVectorSliceVector(blockName, portName, suggestedIndex) => suggestedIndex match {
-            case Some(suggestedIndex) => s"$selfName.$blockName.$portName.request_vector('$suggestedIndex')"
-            case None => s"$selfName.$blockName.$portName.request_vector()"
-          }
-        case PortConnects.BlockVectorSlice(blockName, portName, suggestedIndex) =>
-          throw new IllegalArgumentException()
-        case PortConnects.BoundaryPortVectorUnit(portName) => s"$selfName.$portName"
-      }
-      psiElementGenerator.createExpressionFromText(
-        languageLevel,
-        exprText
-      )
-    }
 
     val movableLiveTemplate = new MovableLiveTemplate(actionName) {
       // TODO startTemplate should be able to fail - Errorable
@@ -66,6 +71,7 @@ object LiveTemplateConnect {
           .getName
         val containingStmtList = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyStatementList])
 
+        // TODO don't allow name when appending to a named connect (?)
         val newConnectTemplate = psiElementGenerator.createFromText(
           languageLevel,
           classOf[PyAssignmentStatement],
@@ -77,9 +83,15 @@ object LiveTemplateConnect {
           .asInstanceOf[PyCallExpression]
           .getArgumentList
 
-        newConnectArgs.addArgument(connectedToRefPyExpr(selfName, startingConnect))
+        newConnectArgs.addArgument(psiElementGenerator.createExpressionFromText(
+          languageLevel,
+          connectedToRefCode(selfName, startingConnect)
+        ))
         newConnects.foreach { newConnect =>
-          newConnectArgs.addArgument(connectedToRefPyExpr(selfName, newConnect))
+          newConnectArgs.addArgument(psiElementGenerator.createExpressionFromText(
+            languageLevel,
+            connectedToRefCode(selfName, newConnect)
+          ))
         }
 
         val nameTemplateVar = new InsertionLiveTemplate.Reference(
