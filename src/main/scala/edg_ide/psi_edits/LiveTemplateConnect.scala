@@ -3,7 +3,7 @@ package edg_ide.psi_edits
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiElement
+import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi.{
   LanguageLevel,
@@ -30,7 +30,7 @@ object LiveTemplateConnect {
       container: elem.HierarchyBlock,
       baseConnected: ConnectBuilder,
       newConnects: Seq[PortConnects.Base],
-      continuation: (String, PsiElement) => Unit
+      continuation: (String, PsiElement) => Unit,
   ): Errorable[() => Unit] = exceptable {
     val languageLevel = LanguageLevel.forElement(contextClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
@@ -62,7 +62,7 @@ object LiveTemplateConnect {
           .asInstanceOf[PyCallExpression]
           .getArgumentList
 
-        // TODO ADD ALL THE CONNECTS
+        // TODO ADD ALL THE CONNECT ELTS
 
         val nameTemplateVar = new InsertionLiveTemplate.Reference(
           "name",
@@ -77,7 +77,28 @@ object LiveTemplateConnect {
 
     movableLiveTemplate.addTemplateStateListener(new TemplateFinishedListener {
       override def templateFinished(state: TemplateState, brokenOff: Boolean): Unit = {
-        ???
+        val expr = state.getExpressionContextForSegment(0)
+        if (expr.getTemplateEndOffset <= expr.getTemplateStartOffset) {
+          return // ignored if template was deleted, including through moving the template
+        }
+
+        val insertedName = state.getVariableValue("name").getText
+        if (insertedName.isEmpty && brokenOff) { // canceled by esc while name is empty
+          writeCommandAction(project)
+            .withName(s"cancel $actionName")
+            .compute(() => {
+              TemplateUtils.deleteTemplate(state)
+            })
+        } else { // commit
+          var templateElem = state.getExpressionContextForSegment(0).getPsiElementAtStartOffset
+          while (templateElem.isInstanceOf[PsiWhiteSpace]) { // ignore inserted whitespace before the statement
+            templateElem = templateElem.getNextSibling
+          }
+
+          // TODO CLEAN UP CONNECT STMT
+
+          continuation(insertedName, templateElem)
+        }
       }
     })
 
