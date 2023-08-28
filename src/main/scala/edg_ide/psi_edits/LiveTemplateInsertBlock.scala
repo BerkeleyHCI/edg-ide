@@ -24,29 +24,11 @@ object LiveTemplateInsertBlock {
     val languageLevel = LanguageLevel.forElement(libClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
-    // given some caret position, returns the best insertion position
-    def getInsertionElt(caretEltOpt: Option[PsiElement]): PsiElement = {
-      exceptable { // TODO better propagation of error messages
-        val caretElt = caretEltOpt.exceptNone("no elt at caret")
-        val caretStatement = InsertAction.snapInsertionEltOfType[PyStatement](caretElt).get
-        val containingPsiFn = PsiTreeUtil
-          .getParentOfType(caretStatement, classOf[PyFunction])
-          .exceptNull(s"caret not in a function")
-        val containingPsiClass = PsiTreeUtil
-          .getParentOfType(containingPsiFn, classOf[PyClass])
-          .exceptNull(s"caret not in a class")
-        requireExcept(containingPsiClass == contextClass, s"caret not in class of type ${libClass.getName}")
-        caretStatement
-      }.toOption.orElse {
-        val candidates =
-          InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES)
-        candidates.headOption
-      }.get // TODO insert contents() if needed
-    }
-
     val movableLiveTemplate = new MovableLiveTemplate(actionName) {
+      // TODO startTemplate should be able to fail - Errorable
       override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
-        val insertAfter = getInsertionElt(caretEltOpt)
+        val insertAfter = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
+          .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
         val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
         val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
         val selfName = containingPsiFn.getParameterList.getParameters.toSeq
