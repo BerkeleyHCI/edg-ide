@@ -4,7 +4,7 @@ import com.intellij.openapi.project.Project
 import edg.wir.{DesignPath, Library}
 import edgir.schema.schema
 
-import java.awt.event.MouseEvent
+import java.awt.event.{KeyEvent, MouseEvent}
 
 trait ToolInterface {
   // Returns the top-level visualization (focus / context) path
@@ -47,4 +47,7 @@ trait BaseTool {
 
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
   def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {}
+
+  // Keyboard event generated on any key even in the graph layout
+  def onKeyPress(e: KeyEvent): Unit = {}
 }

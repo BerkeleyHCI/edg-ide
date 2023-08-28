@@ -19,7 +19,8 @@ import edg_ide.util.{
 }
 import edgir.elem.elem
 
-import java.awt.event.MouseEvent
+import java.awt.Component
+import java.awt.event.{KeyEvent, MouseEvent}
 import javax.swing.SwingUtilities
 import scala.collection.mutable
 
@@ -97,7 +98,11 @@ class NewConnectTool(
   }
 
   def updateSelected(): Unit = { // updates selected in graph and text
-    interface.setStatus(getCurrentName())
+    if (selectedConnects.isEmpty) {
+      interface.setStatus("[Esc] cancel;" + getCurrentName())
+    } else {
+      interface.setStatus("[Esc] cancel; [Enter/DblClick] complete;" + getCurrentName())
+    }
 
     // mark all current selections
     val connectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
@@ -169,6 +174,43 @@ class NewConnectTool(
     }
   }
 
+  protected def completeConnect(component: Component): Unit = {
+    if (selectedConnects.nonEmpty) {
+      val newConnects = selectedConnects.toSeq
+      val connectedBlockOpt = EdgirConnectExecutor(analysis.block, baseConnectBuilder, newConnects)
+      val containerPyClassOpt = DesignAnalysisUtils.pyClassOf(analysis.block.getSelfClass, interface.getProject)
+
+      (connectedBlockOpt, containerPyClassOpt.toOption) match {
+        case (Some(connectedBlock), Some(containerPyClass)) =>
+          val continuation = (name: Option[String], inserted: PsiElement) => {
+            interface.endTool()
+          }
+          LiveTemplateConnect.createTemplateConnect(
+            containerPyClass,
+            getCurrentName(),
+            interface.getProject,
+            analysis.block,
+            baseConnectBuilder,
+            startingPort,
+            newConnects,
+            continuation
+          ).exceptError()
+        case _ =>
+          if (connectedBlockOpt.isEmpty) {
+            logger.error(s"failed to create connected IR block")
+          }
+          containerPyClassOpt match {
+            case Errorable.Error(msg) => logger.error(s"failed to get container pyclass: $msg")
+            case _ => // ignored
+          }
+          PopupUtils.createErrorPopupAtMouse(s"internal error", component)
+          interface.endTool()
+      }
+    } else { // nothing to do, cancel
+      interface.endTool()
+    }
+  }
+
   override def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {
     val resolved = EdgirUtils.resolveExact(path, interface.getDesign)
 
@@ -184,40 +226,17 @@ class NewConnectTool(
         case _ => // ignored
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double-click finish shortcut
-      if (selectedConnects.nonEmpty) {
-        val newConnects = selectedConnects.toSeq
-        val connectedBlockOpt = EdgirConnectExecutor(analysis.block, baseConnectBuilder, newConnects)
-        val containerPyClassOpt = DesignAnalysisUtils.pyClassOf(analysis.block.getSelfClass, interface.getProject)
-
-        (connectedBlockOpt, containerPyClassOpt.toOption) match {
-          case (Some(connectedBlock), Some(containerPyClass)) =>
-            val continuation = (name: Option[String], inserted: PsiElement) => {
-              interface.endTool()
-            }
-            LiveTemplateConnect.createTemplateConnect(
-              containerPyClass,
-              getCurrentName(),
-              interface.getProject,
-              analysis.block,
-              baseConnectBuilder,
-              startingPort,
-              newConnects,
-              continuation
-            ).exceptError()
-          case _ =>
-            if (connectedBlockOpt.isEmpty) {
-              logger.error(s"failed to create connected IR block")
-            }
-            containerPyClassOpt match {
-              case Errorable.Error(msg) => logger.error(s"failed to get container pyclass: $msg")
-              case _ => // ignored
-            }
-            PopupUtils.createErrorPopup(s"internal error", e)
-            interface.endTool()
-        }
-      } else { // nothing to do, cancel
-        interface.endTool()
-      }
+      completeConnect(e.getComponent)
     } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {}
+  }
+
+  override def onKeyPress(e: KeyEvent): Unit = {
+    if (e.getKeyCode == KeyEvent.VK_ESCAPE) {
+      interface.endTool()
+      e.consume()
+    } else if (e.getKeyCode == KeyEvent.VK_ENTER) {
+      completeConnect(e.getComponent)
+      e.consume()
+    }
   }
 }

@@ -27,7 +27,7 @@ import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
-import java.awt.event.{ComponentAdapter, ComponentEvent, MouseAdapter, MouseEvent}
+import java.awt.event.{ComponentAdapter, ComponentEvent, KeyAdapter, KeyEvent, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
@@ -215,6 +215,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       }
     }
   }
+  graph.addKeyListener(new KeyAdapter {
+    override def keyPressed(e: KeyEvent): Unit = {
+      activeTool.onKeyPress(e)
+    }
+  })
+
   private val centeringGraph = new JPanel(new GridBagLayout)
   centeringGraph.add(graph, new GridBagConstraints())
 
