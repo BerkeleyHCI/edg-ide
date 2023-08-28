@@ -2,18 +2,17 @@ package edg_ide.util
 import edg.wir.ProtoUtil.{BlockProtoToSeqMap, ConstraintProtoToSeqMap, PortProtoToSeqMap}
 import edgir.elem.elem
 import edgir.expr.expr
-import edgir.ref.ref
 
 import scala.collection.{SeqMap, mutable}
 
 // provides link-level connectivity information (e.g. all connected ports in a link) for a block
 class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
-  // link name -> (list of connected ports, list of constrs)
-  protected val linkConnectionBuilder =
-    mutable.SeqMap[
-      String,
-      (mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]], mutable.ArrayBuffer[expr.ValueExpr])
-    ]()
+  protected val connectionsBuilder = mutable.ArrayBuffer[(
+      Option[String], // link name, if part of a link
+      mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]],
+      mutable.ArrayBuffer[expr.ValueExpr]
+  )]()
+  protected val linkNameToConnectionIndex = mutable.Map[String, Int]() // allows quick indexing
 
   // here, invalid constraints are silently discarded
   block.constraints.toSeqMap.foreach { case (name, constr) =>
@@ -22,32 +21,41 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
         Some(connected.getLinkPort.getRef.steps.head.getName)
       case expr.ValueExpr.Expr.ConnectedArray(connected) =>
         Some(connected.getLinkPort.getRef.steps.head.getName)
-      case expr.ValueExpr.Expr.Exported(exported) => // note, can have multiple exports to a top level port for bundles
-        Some(exported.getExteriorPort.getRef.steps.head.getName)
-      case expr.ValueExpr.Expr.ExportedArray(exported) =>
-        Some(exported.getExteriorPort.getRef.steps.head.getName)
+      case expr.ValueExpr.Expr.Exported(exported) => None
+      case expr.ValueExpr.Expr.ExportedArray(exported) => None
       case _ => None // ignored
     }
-    linkNameOpt.foreach { linkName => // if the link decoded successfully
-      val connectedPortsOpt = PortConnects.fromConnect(constr).map { connecteds =>
-        // silently discard non-found port
-        connecteds.flatMap(PortConnectTyped.fromConnect(_, block))
-      }
-      val (connected, constrs) =
-        linkConnectionBuilder.getOrElseUpdate(linkName, (mutable.ArrayBuffer(), mutable.ArrayBuffer()))
-      connectedPortsOpt.foreach { connectedPorts =>
-        connected.addAll(connectedPorts)
-      }
-      constrs.append(constr)
+    val (connectedBuilder, constrBuilder) = linkNameOpt match {
+      case Some(linkName) => // is a link, need to fetch the existing link entry or add a new one
+        linkNameToConnectionIndex.get(linkName) match {
+          case Some(index) =>
+            (connectionsBuilder(index)._2, connectionsBuilder(index)._3)
+          case None =>
+            connectionsBuilder.append((None, mutable.ArrayBuffer(), mutable.ArrayBuffer()))
+            linkNameToConnectionIndex(linkName) = connectionsBuilder.length - 1
+            (connectionsBuilder.last._2, connectionsBuilder.last._3)
+        }
+      case None => // anonymous
+        connectionsBuilder.append((None, mutable.ArrayBuffer(), mutable.ArrayBuffer()))
+        (connectionsBuilder.last._2, connectionsBuilder.last._3)
     }
+
+    val connectedPortsOpt = PortConnects.fromConnect(constr).map { connecteds =>
+      // silently discard non-found port
+      connecteds.flatMap(PortConnectTyped.fromConnect(_, block))
+    }
+    connectedPortsOpt.foreach { connectedPorts =>
+      connectedBuilder.addAll(connectedPorts)
+    }
+    constrBuilder.append(constr)
   }
 
-  protected val allConnectedPorts = linkConnectionBuilder.flatMap { case (name, (connecteds, constrs)) =>
+  protected val allConnectedPorts = connectionsBuilder.flatMap { case (name, connecteds, constrs) =>
     connecteds.map(_.connect.topPortRef)
   }.toSet
 
   protected val disconnectedBoundaryPortConnections =
-    mutable.SeqMap[String, PortConnectTyped[PortConnects.ConstraintBase]]()
+    mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]]()
   block.ports.toSeqMap.collect {
     case (portName, port) if !allConnectedPorts.contains(Seq(portName)) =>
       val connectTypedOpt = port.is match {
@@ -60,12 +68,12 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
         case _ => None
       }
       connectTypedOpt.foreach { connect =>
-        disconnectedBoundaryPortConnections.put(s"$portName", connect)
+        disconnectedBoundaryPortConnections.append(connect)
       }
   }
 
   protected val disconnectedBlockPortConnections =
-    mutable.SeqMap[String, PortConnectTyped[PortConnects.ConstraintBase]]()
+    mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]]()
   block.blocks.toSeqMap.foreach { case (subBlockName, subBlock) =>
     subBlock.`type`.hierarchy.foreach { subBlock =>
       subBlock.ports.toSeqMap.collect {
@@ -80,22 +88,21 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
             case _ => None
           }
           connectTypedOpt.foreach { connect =>
-            disconnectedBlockPortConnections.put(s"$subBlockName.$subBlockPortName", connect)
+            disconnectedBlockPortConnections.append(connect)
           }
       }
-
     }
   }
 
-  // returns all connections for this block, each connection being the ports attached (as ConnectTypes.Base)
-  // and list of constraints
+  // returns all connections for this block, each connection being the link name (if part of a link),
+  // ports attached (as ConnectTypes.Base), and list of constraints
   // disconnected ports returned as a single port of BlockPort (for block ports), BoundaryPort (for boundary ports),
   // BlockVectorUnit (for block arrays - even if slice capable), or BoundaryPortVectorUnit (for boundary arrays)
-  val connectedGroups: SeqMap[String, (Seq[PortConnectTyped[PortConnects.ConstraintBase]], Seq[expr.ValueExpr])] =
-    linkConnectionBuilder.to(SeqMap).map { case (name, (connecteds, constrs)) =>
-      name -> (connecteds.toSeq, constrs.toSeq)
-    } ++ (disconnectedBoundaryPortConnections ++ disconnectedBlockPortConnections).map { case (name, connected) =>
-      name -> (Seq(connected), Seq())
+  val connectedGroups: Seq[(Option[String], Seq[PortConnectTyped[PortConnects.ConstraintBase]], Seq[expr.ValueExpr])] =
+    connectionsBuilder.toSeq.map { case (linkNameOpt, connecteds, constrs) =>
+      (linkNameOpt, connecteds.toSeq, constrs.toSeq)
+    } ++ (disconnectedBoundaryPortConnections ++ disconnectedBlockPortConnections).map { connected =>
+      (None, Seq(connected), Seq())
     }
 
   // returns a list of active bridges, as the boundary port and the block port (link-facing bridge port)
