@@ -1,6 +1,6 @@
 package edg_ide.ui.tools
 
-import edg.EdgirUtils.SimpleLibraryPath
+import com.intellij.openapi.diagnostic.Logger
 import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils
@@ -52,12 +52,12 @@ object NewConnectTool {
       analysis.connectedGroups.toSeq.find { case (name, (connecteds, constrs)) =>
         connecteds.exists(_.connect.topPortRef == portRef)
       }.exceptNone("no connection")
+    val portConnected = portConnecteds.filter(_.connect.topPortRef == portRef)
+      .onlyExcept("multiple connections")
     val connectBuilder = ConnectBuilder(focusBlock, portLink, Seq())
       .exceptNone("invalid connections to port")
-      .append(portConnecteds) // use connecteds, which supports the first port in a connect
-      .exceptNone("invalid connections to port")
 
-    new NewConnectTool(interface, portConnectName, focusPath, connectBuilder, analysis)
+    new NewConnectTool(interface, portConnectName, focusPath, portConnected.connect, connectBuilder, analysis)
   }
 }
 
@@ -65,18 +65,24 @@ class NewConnectTool(
     val interface: ToolInterface,
     name: String,
     containingBlockPath: DesignPath,
+    startingPort: PortConnects.Base,
     baseConnectBuilder: ConnectBuilder,
     analysis: BlockConnectedAnalysis
 ) extends BaseTool {
-  var selectedPorts = mutable.Set[DesignPath]() // individual ports selected by the user
+  private val logger = Logger.getInstance(this.getClass)
+
+  val startingPortPath = containingBlockPath ++ startingPort.topPortRef
+
+  var selectedConnects = mutable.ArrayBuffer[PortConnects.Base]() // individual ports selected by the user
   var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts, may have more ports from net joins
 
   def updateSelected(): Unit = { // updates selected in graph and text
-    interface.setStatus(name)
+    val connectedPortNames = selectedConnects.map(_.topPortRef.mkString("."))
+    interface.setStatus(s"Connect to ${startingPort.topPortRef.mkString(".")}: ${connectedPortNames.mkString(", ")}")
 
     // mark all current selections
     val connectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
-    interface.setGraphSelections(connectedPorts.toSet)
+    interface.setGraphSelections((startingPortPath +: connectedPorts).toSet)
 
     // try all connections to determine additional possible connects
     val connectablePorts = mutable.ArrayBuffer[DesignPath]()
@@ -84,9 +90,9 @@ class NewConnectTool(
     analysis.connectedGroups.foreach { case (name, (connecteds, constrs)) =>
       currentConnectBuilder.append(connecteds) match {
         case Some(_) => connecteds.foreach { connected =>
-            val blockName = connected.connect.topPortRef match {
+            connected.connect.topPortRef match { // add containing block, if a block port
               case Seq(blockName, portName) => connectableBlocks.append(containingBlockPath + blockName)
-              case _ => None
+              case _ => // ignored
             }
             connectablePorts.append(containingBlockPath ++ connected.connect.topPortRef)
           }
@@ -96,7 +102,10 @@ class NewConnectTool(
 
     // enable selection of existing ports in connection (toggle-able) and connect-able ports
     interface.setGraphHighlights(
-      Some((Seq(containingBlockPath) ++ connectedPorts ++ connectablePorts ++ connectableBlocks).toSet)
+      Some((Seq(
+        containingBlockPath,
+        containingBlockPath ++ startingPort.topPortRef
+      ) ++ connectedPorts ++ connectablePorts ++ connectableBlocks).toSet)
     )
   }
 
@@ -112,28 +121,37 @@ class NewConnectTool(
       val currentSelectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
       resolved match {
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) => // toggle port
-          if (selectedPorts.contains(path)) { // toggle deselect
-            selectedPorts.remove(path)
+          val selectedConnectIndex = selectedConnects.indexWhere(containingBlockPath ++ _.topPortRef == path)
+          if (selectedConnectIndex >= 0) { // toggle de-select
+            selectedConnects.remove(selectedConnectIndex)
             // recompute from scratch on removal, for simplicity
             val allConnected = analysis.connectedGroups.filter { case (name, (connecteds, constrs)) =>
-              connecteds.exists(connected =>
-                selectedPorts.contains(containingBlockPath ++ connected.connect.topPortRef)
-              )
+              connecteds.exists(connected => selectedConnects.contains(connected.connect))
             }.flatMap(_._2._1).toSeq
-            // if the connect is invalid (shouldn't be possible), revert to the empty connect
-            currentConnectBuilder = baseConnectBuilder.append(allConnected).getOrElse(baseConnectBuilder)
+            // update state
+            baseConnectBuilder.append(allConnected) match {
+              case Some(newConnectBuilder) =>
+                currentConnectBuilder = newConnectBuilder
+              case None => // if the connect is invalid (shouldn't be possible), revert to the empty connect
+                logger.error(s"invalid connect from removal of $path")
+                currentConnectBuilder = baseConnectBuilder
+                selectedConnects.clear()
+            }
             updateSelected()
-          } else if (!currentSelectedPorts.contains(path)) { // toggle select
-            val newConnected = analysis.connectedGroups.filter { case (name, (connecteds, constrs)) =>
+          } else if (!currentSelectedPorts.contains(path) && path != startingPortPath) { // toggle select
+            val newConnectedNet = analysis.connectedGroups.filter { case (name, (connecteds, constrs)) =>
               connecteds.exists(connected => containingBlockPath ++ connected.connect.topPortRef == path)
             }.flatMap(_._2._1).toSeq
-            val newConnectBuilder = currentConnectBuilder.append(newConnected)
-            newConnectBuilder match {
-              case Some(newConnectBuilder) => // valid connect, commit and update UI
-                selectedPorts.add(path)
+            val newConnected = // get single connected of this port
+              newConnectedNet.filter(containingBlockPath ++ _.connect.topPortRef == path)
+            val newConnectBuilder = currentConnectBuilder.append(newConnectedNet)
+            (newConnected, newConnectBuilder) match {
+              case (Seq(newConnected), Some(newConnectBuilder)) => // valid connect, commit and update UI
+                selectedConnects.append(newConnected.connect)
                 currentConnectBuilder = newConnectBuilder
                 updateSelected()
-              case None => // invalid connect, ignore
+              case _ =>
+                logger.warn(s"invalid connect from added port $path") // invalid connect, ignore
             }
           } // otherwise unselectable port / block
         case _ => // ignored
