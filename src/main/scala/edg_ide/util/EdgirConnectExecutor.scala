@@ -38,7 +38,7 @@ object EdgirConnectExecutor {
       return None
     }
     val constr = connect.connect match {
-      // TODO: this produces a constraint that might not be valid (port arrays may not have the element),
+      // TODO: this produces a constraint that might not be valid (port arrays may not have the element, needs allocate),
       // but is good enough for the visualizer
       case PortConnects.BlockPort(blockName, portName) =>
         Constraint.Connected(Ref(blockName, portName), Ref(linkName, linkPortName))
@@ -47,7 +47,7 @@ object EdgirConnectExecutor {
       case PortConnects.BlockVectorUnit(blockName, portName) =>
         throw new IllegalArgumentException("TODO IMPLEMENT ME link array connect")
       case PortConnects.BlockVectorSlicePort(blockName, portName, _) =>
-        Constraint.Connected(Ref.Allocate(Ref(blockName, portName)), Ref(linkName, linkPortName))
+        Constraint.Connected(Ref(blockName, portName), Ref(linkName, linkPortName)) // TODO allocate on block side
       case PortConnects.BlockVectorSliceVector(blockName, portName, _) =>
         throw new IllegalArgumentException("TODO IMPLEMENT ME link array connect")
       case PortConnects.BlockVectorSlice(blockPort, portName, _) =>

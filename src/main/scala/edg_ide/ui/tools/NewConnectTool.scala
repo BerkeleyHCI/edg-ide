@@ -61,10 +61,12 @@ object NewConnectTool {
     }
 
     val analysis = new BlockConnectedAnalysis(focusBlock)
-    val (portConnectName, portConnecteds, portConstrs) =
-      analysis.connectedGroups.find { case (linkNameOpt, connecteds, constrs) =>
+    val (portConnectName, portConnecteds, portConstrs) = {
+      // TODO findLast is a hack to prioritize the new vector slice (as opposed to prior connected ones)
+      analysis.connectedGroups.findLast { case (linkNameOpt, connecteds, constrs) =>
         connecteds.exists(_.connect.topPortRef == portRef)
       }.exceptNone("no connection")
+    }
     val portConnected = portConnecteds.filter(_.connect.topPortRef == portRef)
       .onlyExcept("multiple connections")
     var connectBuilder = ConnectBuilder(focusBlock, portLink, portConstrs)
@@ -117,6 +119,8 @@ class NewConnectTool(
     interface.setGraphSelections(connectedPorts.toSet)
 
     // try all connections to determine additional possible connects
+    // note, vector slices may overlap and appear in multiple connect groups (and a new connection),
+    // but in this case it doesn't matter since this takes the most available port for marking highlights
     val connectablePorts = mutable.ArrayBuffer[DesignPath]()
     val connectableBlocks = mutable.ArrayBuffer[DesignPath]()
     analysis.connectedGroups.foreach { case (linkNameOpt, connecteds, constrs) =>
@@ -146,9 +150,15 @@ class NewConnectTool(
   def removeConnect(portPath: DesignPath): Unit = {
     // remove all connections to the port path (should really only be one)
     selectedConnects.filterInPlace(containingBlockPath ++ _.connect.topPortRef != portPath)
+    val selectedConnectConnects = selectedConnects.map(_.connect)
     // recompute from scratch on removal, for simplicity
     val allConnected = analysis.connectedGroups.filter { case (linkNameOpt, connecteds, constrs) =>
-      connecteds.exists(connected => selectedConnects.contains(connected.connect))
+      connecteds.exists(connected =>
+        selectedConnectConnects.contains(connected.connect) &&
+          !((connected.connect.isInstanceOf[PortConnects.BlockVectorSlicePort] ||
+            connected.connect.isInstanceOf[PortConnects.BlockVectorSliceVector]) &&
+            connecteds.length > 1) // only keep individual BlockVectorSlice, TODO should not be hardcoded
+      )
     }.flatMap(_._2)
     // update state
     baseConnectBuilder.append(allConnected) match {
@@ -164,7 +174,12 @@ class NewConnectTool(
 
   def addConnect(portPath: DesignPath): Unit = {
     val newConnectedNet = analysis.connectedGroups.filter { case (linkNameOpt, connecteds, constrs) =>
-      connecteds.exists(connected => containingBlockPath ++ connected.connect.topPortRef == portPath)
+      connecteds.exists(connected =>
+        containingBlockPath ++ connected.connect.topPortRef == portPath &&
+          !((connected.connect.isInstanceOf[PortConnects.BlockVectorSlicePort] ||
+            connected.connect.isInstanceOf[PortConnects.BlockVectorSliceVector]) &&
+            connecteds.length > 1) // only keep individual BlockVectorSlice, TODO should not be hardcoded
+      )
     }.flatMap(_._2)
     val newConnected = // get single connected of this port
       newConnectedNet.filter(containingBlockPath ++ _.connect.topPortRef == portPath)
