@@ -195,16 +195,18 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
       errorElts.map { elt => elt -> errorModifier } ++
       selected.map { elt => elt -> selectedModifier } ++
-      unselectable.map { elt => elt -> dimGraphics } ++
       staleElts.map { elt => elt -> staleModifier }
+    // unselectable handled separately - when highlighting is active, it is treated as dimmed with the rest
 
     val backgroundPaintGraphics = paintGraphics.create().asInstanceOf[Graphics2D]
     backgroundPaintGraphics.setBackground(this.getBackground)
     val painter = highlighted match {
       case None => // normal rendering
-        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
+        val innerElementGraphics = elementGraphics ++
+          unselectable.map { elt => elt -> dimGraphics }
+        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = innerElementGraphics)
       case Some(highlighted) => // default dim rendering
-        val highlightedElementGraphics = highlighted.toSeq.map { elt =>
+        val highlightedElementGraphics = (highlighted -- unselectable).toSeq.map { elt =>
           elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
             strokeGraphics = ElementGraphicsModifier.withColor(getForeground),
             textGraphics = ElementGraphicsModifier.withColor(getForeground)
