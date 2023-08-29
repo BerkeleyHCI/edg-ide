@@ -100,7 +100,7 @@ object LiveTemplateConnect {
         }
 
         val nameTemplateVar = new InsertionLiveTemplate.Reference(
-          "name",
+          "name (optional)",
           newConnect.getTargets.head.asInstanceOf[PyTargetExpression],
           defaultValue = Some("")
         )
