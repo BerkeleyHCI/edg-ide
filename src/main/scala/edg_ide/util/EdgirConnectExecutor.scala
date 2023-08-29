@@ -1,6 +1,5 @@
 package edg_ide.util
 
-import com.intellij.openapi.diagnostic.Logger
 import edg.util.NameCreator
 import edgir.elem.elem
 import edgir.expr.expr
@@ -29,8 +28,17 @@ object EdgirConnectExecutor {
       connect: PortConnectTyped[PortConnects.Base],
       connectBuilder: ConnectBuilder,
       linkName: String
-  ): expr.ValueExpr = {
-    ???
+  ): expr.ValueExpr = connect.connect match {
+    // TODO: this produces a constraint that might not be valid (port arrays may not have the element),
+    // but is good enough for the visualizer
+    case PortConnects.BlockPort(blockName, portName) =>
+    case PortConnects.BoundaryPort(portName, _) =>
+      throw new IllegalArgumentException("TODO IMPLEMENT ME bridge connect")
+    case PortConnects.BlockVectorUnit(blockName, portName) =>
+    case PortConnects.BlockVectorSlicePort(blockName, portName, _) =>
+    case PortConnects.BlockVectorSliceVector(blockName, portName, _) =>
+    case PortConnects.BoundaryPortVectorUnit(portName) =>
+      throw new IllegalArgumentException("TODO IMPLEMENT ME bridge connect")
   }
 
   // modifies the Block to add a link, or add connections to a link
