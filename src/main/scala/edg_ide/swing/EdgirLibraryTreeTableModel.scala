@@ -5,6 +5,7 @@ import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.EdgirUtils.SimpleLibraryPath
 import edg_ide.EdgirUtils
 import edg_ide.ui.{BlockVisualizerService, EdgSettingsState}
+import edg.ElemBuilder.LibraryPath
 import edgir.elem.elem
 import edgir.ref.ref
 
@@ -117,7 +118,21 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
         .getOrElse(rootPath, Set())
         .map { childPath => new BlockNode(childPath, library.allBlocks(childPath), this) }
         .toSeq
-        .sortBy(_.toString)
+        .sortWith { case (a, b) =>
+          if (
+            a.path == EdgirLibraryTreeTableModel.kInternalBlockPath &&
+            b.path != EdgirLibraryTreeTableModel.kInternalBlockPath
+          ) {
+            false
+          } else if (
+            a.path != EdgirLibraryTreeTableModel.kInternalBlockPath &&
+            b.path == EdgirLibraryTreeTableModel.kInternalBlockPath
+          ) {
+            true
+          } else {
+            a.toString < b.toString
+          }
+        }
 
       // display blocks that are unreachable from the root (eg, if superclasses are missing, because of bad compile)
       val rootReachable = graphReachable(childMap, rootPath)
@@ -156,6 +171,10 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
       library.allLinks.map { case (path, _) => new LinkNode(path) }
     }.toSeq.sortBy { _.toString }
   }
+}
+
+object EdgirLibraryTreeTableModel {
+  val kInternalBlockPath = LibraryPath("edg_core.Categories.InternalBlock")
 }
 
 class EdgirLibraryTreeTableModel(project: Project, library: edg.wir.Library)
