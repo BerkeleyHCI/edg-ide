@@ -46,7 +46,6 @@ object LiveTemplateConnect {
       contextClass: PyClass,
       actionName: String,
       project: Project,
-      baseConnected: ConnectBuilder,
       startingConnect: PortConnects.Base,
       newConnects: Seq[PortConnects.Base],
       continuation: (Option[String], PsiElement) => Unit,

@@ -62,13 +62,18 @@ object NewConnectTool {
 
     val analysis = new BlockConnectedAnalysis(focusBlock)
     val (portConnectName, portConnecteds, portConstrs) =
-      analysis.connectedGroups.toSeq.find { case (linkNameOpt, connecteds, constrs) =>
+      analysis.connectedGroups.find { case (linkNameOpt, connecteds, constrs) =>
         connecteds.exists(_.connect.topPortRef == portRef)
       }.exceptNone("no connection")
     val portConnected = portConnecteds.filter(_.connect.topPortRef == portRef)
       .onlyExcept("multiple connections")
-    val connectBuilder = ConnectBuilder(focusBlock, portLink, Seq())
+    var connectBuilder = ConnectBuilder(focusBlock, portLink, portConstrs)
       .exceptNone("invalid connections to port")
+
+    if (portConstrs.isEmpty) { // if no constraints (no prior link) start with the port itself
+      connectBuilder = connectBuilder.append(Seq(portConnected))
+        .exceptNone("invalid connections to port")
+    }
 
     new NewConnectTool(interface, portConnectName, focusPath, portConnected, connectBuilder, analysis)
   }
@@ -79,7 +84,7 @@ class NewConnectTool(
     linkNameOpt: Option[String],
     containingBlockPath: DesignPath,
     startingPort: PortConnectTyped[PortConnects.Base],
-    baseConnectBuilder: ConnectBuilder,
+    baseConnectBuilder: ConnectBuilder, // including startingPort, even if it's the only item (new link)
     analysis: BlockConnectedAnalysis
 ) extends BaseTool {
   private val logger = Logger.getInstance(this.getClass)
@@ -108,7 +113,7 @@ class NewConnectTool(
 
     // mark all current selections
     val connectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
-    interface.setGraphSelections((startingPortPath +: connectedPorts).toSet)
+    interface.setGraphSelections(connectedPorts.toSet)
 
     // try all connections to determine additional possible connects
     val connectablePorts = mutable.ArrayBuffer[DesignPath]()
@@ -128,10 +133,7 @@ class NewConnectTool(
 
     // enable selection of existing ports in connection (toggle-able) and connect-able ports
     interface.setGraphHighlights(
-      Some((Seq(
-        containingBlockPath,
-        containingBlockPath ++ startingPort.connect.topPortRef
-      ) ++ connectedPorts ++ connectablePorts ++ connectableBlocks).toSet)
+      Some((Seq(containingBlockPath) ++ connectedPorts ++ connectablePorts ++ connectableBlocks).toSet)
     )
   }
 
@@ -201,7 +203,6 @@ class NewConnectTool(
             containerPyClass,
             getCurrentName(),
             interface.getProject,
-            baseConnectBuilder,
             startingPort.connect,
             newConnects.map(_.connect),
             continuation
