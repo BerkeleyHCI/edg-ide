@@ -47,7 +47,7 @@ object EdgirConnectExecutor {
       case PortConnects.BlockVectorUnit(blockName, portName) =>
         throw new IllegalArgumentException("TODO IMPLEMENT ME link array connect")
       case PortConnects.BlockVectorSlicePort(blockName, portName, _) =>
-        Constraint.ConnectedArray(Ref.Allocate(Ref(blockName, portName)), Ref(linkName, linkPortName))
+        Constraint.Connected(Ref.Allocate(Ref(blockName, portName)), Ref(linkName, linkPortName))
       case PortConnects.BlockVectorSliceVector(blockName, portName, _) =>
         throw new IllegalArgumentException("TODO IMPLEMENT ME link array connect")
       case PortConnects.BlockVectorSlice(blockPort, portName, _) =>
