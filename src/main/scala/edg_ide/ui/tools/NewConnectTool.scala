@@ -183,7 +183,6 @@ class NewConnectTool(
         EdgirConnectExecutor(
           analysis.block,
           linkNameOpt,
-          baseConnectBuilder,
           currentConnectBuilder,
           startingPort,
           newConnects
