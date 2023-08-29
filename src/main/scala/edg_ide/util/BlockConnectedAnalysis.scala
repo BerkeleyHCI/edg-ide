@@ -50,9 +50,13 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
     constrBuilder.append(constr)
   }
 
-  protected val allConnectedPorts = connectionsBuilder.flatMap { case (name, connecteds, constrs) =>
-    connecteds.map(_.connect.topPortRef)
-  }.toSet
+  protected val connectedsByPortRef = // all PortConnects by port ref, not including others in the connection
+    mutable.HashMap[Seq[String], mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]]]()
+  connectionsBuilder.foreach { case (name, connecteds, constrs) =>
+    connecteds.foreach { connected =>
+      connectedsByPortRef.getOrElseUpdate(connected.connect.topPortRef, mutable.ArrayBuffer()).append(connected)
+    }
+  }
 
   protected val disconnectedBoundaryPortConnections =
     mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]]()
@@ -77,23 +81,31 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
     mutable.ArrayBuffer[PortConnectTyped[PortConnects.ConstraintBase]]()
   block.blocks.toSeqMap.foreach { case (subBlockName, subBlock) =>
     subBlock.`type`.hierarchy.foreach { subBlock =>
-      subBlock.ports.toSeqMap.map { case (name, port) => (name, port.is) }.foreach {
-        case (subBlockPortName, elem.PortLike.Is.Port(port))
-          if !allConnectedPorts.contains(Seq(subBlockName, subBlockPortName)) =>
-          disconnectedBlockPortConnections.append(
-            PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass)
-          )
-        case (subBlockPortName, elem.PortLike.Is.Bundle(port))
-          if !allConnectedPorts.contains(Seq(subBlockName, subBlockPortName)) =>
-          disconnectedBlockPortConnections.append(
-            PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass)
-          )
-        case (subBlockPortName, elem.PortLike.Is.Array(array))
-          if !allConnectedPorts.contains(Seq(subBlockName, subBlockPortName)) =>
-          disconnectedBlockPortConnections.append(
-            PortConnectTyped(PortConnects.BlockVectorUnit(subBlockName, subBlockPortName), array.getSelfClass)
-          )
-        case _ => None
+      subBlock.ports.toSeqMap.foreach { case (subBlockPortName, port) =>
+        val disconnectedConnectOpt = port.is match {
+          case elem.PortLike.Is.Port(port) if !connectedsByPortRef.contains(Seq(subBlockName, subBlockPortName)) =>
+            Some(PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass))
+          case elem.PortLike.Is.Bundle(port) if !connectedsByPortRef.contains(Seq(subBlockName, subBlockPortName)) =>
+            Some(PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass))
+          case elem.PortLike.Is.Array(array) => // arrays can have multiple connections
+            val connectOpt = connectedsByPortRef.get(Seq(subBlockName, subBlockPortName)) match {
+              case None => // no prior connect, add default connect
+                Some(PortConnects.BlockVectorSlicePort(subBlockName, subBlockPortName, None))
+              case Some(connecteds) => // prior connect, see if it's a slice and more can be appended
+                if (connecteds.forall(_.connect.isInstanceOf[PortConnects.BlockVectorSlicePort])) {
+                  Some(PortConnects.BlockVectorSlicePort(subBlockName, subBlockPortName, None))
+                } else if (connecteds.forall(_.connect.isInstanceOf[PortConnects.BlockVectorSliceVector])) {
+                  Some(PortConnects.BlockVectorSliceVector(subBlockName, subBlockPortName, None))
+                } else {
+                  None
+                }
+            }
+            connectOpt.map(connect => PortConnectTyped(connect, array.getSelfClass))
+          case _ => None
+        }
+        disconnectedConnectOpt.foreach {
+          disconnectedBlockPortConnections.append
+        }
       }
     }
   }
