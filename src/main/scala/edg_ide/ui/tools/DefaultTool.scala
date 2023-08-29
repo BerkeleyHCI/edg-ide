@@ -9,7 +9,7 @@ import edg.util.Errorable
 import edg.wir.DesignPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg_ide.dse._
-import edg_ide.ui.{BlockVisualizerService, ContextMenuUtils, DseService, PopupUtils}
+import edg_ide.ui.{BlockVisualizerService, ContextMenuUtils, DseService, EdgSettingsState, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
@@ -278,7 +278,11 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   addSeparator()
 
   val startConnectAction = exceptable {
-    val connectTool = ConnectTool(interface, path).exceptError
+    val connectTool = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
+      NewConnectTool(interface, path).exceptError
+    } else {
+      ConnectTool(interface, path).exceptError
+    }
     () => interface.startNewTool(connectTool)
   }
   private val startConnectItem = ContextMenuUtils.MenuItemFromErrorable(startConnectAction, "Start Connect")

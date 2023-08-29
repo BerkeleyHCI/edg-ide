@@ -44,6 +44,7 @@ object InsertAction {
 
     // given the leaf element at the caret, returns the rootmost element right before the caret
     def prevElementOf(element: PsiElement): PsiElement = {
+      requireExcept(element.getTextRange != null, "element with null range") // if traversing beyond file level
       if (element.getTextRange.getStartOffset == caretOffset) { // caret at beginning of element, so take the previous
         val prev = PsiTreeUtil.prevLeaf(element)
         prevElementOf(prev.exceptNull("no element before caret"))

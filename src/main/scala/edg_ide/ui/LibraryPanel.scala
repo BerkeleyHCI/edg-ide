@@ -112,7 +112,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
   val (insertAction, insertItem) = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
     val insertAction: Errorable[() => Unit] = exceptable {
-      InsertBlockAction
+      LiveTemplateInsertBlock
         .createTemplateBlock(
           contextPyClass.exceptError,
           blockPyClass.exceptError,

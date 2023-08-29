@@ -247,9 +247,10 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     // if the editor just started, it isn't marked as showing and the tooltip creation crashes
     // TODO the positioning is still off, but at least it doesn't crash
     UIUtil.markAsShowing(editor.getContentComponent, true)
+    val firstVariableName = variables.headOption.map(_.name).getOrElse("")
     val tooltipString = initialTooltip match {
-      case Some(initialTooltip) => f"${variables.head.name} | $initialTooltip"
-      case None => f"${variables.head.name}"
+      case Some(initialTooltip) => f"$firstVariableName | $initialTooltip"
+      case None => firstVariableName
     }
     val tooltip = createTemplateTooltip(tooltipString, editor)
 
