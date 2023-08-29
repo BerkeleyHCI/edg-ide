@@ -7,7 +7,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.jetbrains.python.psi._
 import edg.util.Errorable
-import edg_ide.util.ExceptionNotifyImplicits.ExceptSeq
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, PortConnects, exceptable}
 
 object LiveTemplateConnect {
@@ -54,31 +54,16 @@ object LiveTemplateConnect {
   ): Errorable[() => Unit] = exceptable {
     val languageLevel = LanguageLevel.forElement(contextClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
+    val allConnects = startingConnect +: newConnects
 
     val movableLiveTemplate = new MovableLiveTemplate(actionName) {
-      // TODO startTemplate should be able to fail - Errorable
-      override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
-        val validCaretEltOpt = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
-        // TODO support append to existing connect
-        val preInsertAfter = validCaretEltOpt
-          .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
-
-        // adjust insertion position to be after all assignments to required references
-        val allConnects = startingConnect +: newConnects
-        val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
-        val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
-        val insertAfter = earliestPosition.map { earliestPosition =>
-          if (!DesignAnalysisUtils.elementAfterEdg(preInsertAfter, earliestPosition, project).getOrElse(true)) {
-            preInsertAfter
-          } else {
-            earliestPosition
-          }
-        }.getOrElse(preInsertAfter)
-
+      // starts the live template insertion as a statement
+      protected def startStatementInsertionTemplate(
+          insertAfter: PsiElement
+      ): InsertionLiveTemplate = {
         val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
         val selfName = containingPsiFn.getParameterList.getParameters.toSeq
-          .exceptEmpty(s"function ${containingPsiFn.getName} has no self")
-          .head
+          .headOption.exceptNone(s"function ${containingPsiFn.getName} has no self")
           .getName
         val containingStmtList = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyStatementList])
 
@@ -108,6 +93,76 @@ object LiveTemplateConnect {
         )
 
         new InsertionLiveTemplate(newConnect, IndexedSeq(nameTemplateVar))
+      }
+
+      // if caretElt is in a PyCallExpression that is a connect involving any of the ports in this connection,
+      // return the InsertionLiveTemplate, otherwise None
+      protected def tryStartStatementInsertionTemplate(
+          caretElt: PsiElement,
+          earliestPosition: Option[PsiElement]
+      ): Option[InsertionLiveTemplate] = {
+        val callCandidate = PsiTreeUtil.getParentOfType(caretElt, classOf[PyCallExpression])
+        if (callCandidate == null) { println("not call candidate"); return None }
+
+        val containingPsiFn = PsiTreeUtil.getParentOfType(caretElt, classOf[PyFunction])
+        val selfName = containingPsiFn.getParameterList.getParameters.toSeq
+          .headOption.getOrElse(return None)
+          .getName
+        val connectReference = psiElementGenerator.createExpressionFromText(languageLevel, s"$selfName.connect")
+        if (!callCandidate.getCallee.textMatches(connectReference)) return None
+
+        val isAfterEarliest = earliestPosition.flatMap( // aka is in valid position
+          DesignAnalysisUtils.elementAfterEdg(_, callCandidate, project)).getOrElse(true)
+        if (!isAfterEarliest) { println("not after earliest"); return None }
+
+        val matchingConnects = callCandidate.getArgumentList.getArguments.flatMap(arg =>
+          allConnects.flatMap { connect =>
+            if (arg.textMatches(connectedToRefCode(selfName, connect))) {
+              Some(connect)
+            } else {
+              None
+            }
+          }
+        )
+        if (matchingConnects.isEmpty) { println("no matching port"); return None }
+
+        // validation complete, start the template
+        val connectsToAdd = allConnects.filter(!matchingConnects.contains(_))
+        val newArgs = connectsToAdd.map { newConnect =>
+          callCandidate.getArgumentList.addArgument(psiElementGenerator.createExpressionFromText(
+            languageLevel,
+            connectedToRefCode(selfName, newConnect)
+          ))
+        }
+
+        Some(new InsertionLiveTemplate(callCandidate, IndexedSeq()))
+      }
+
+      // TODO startTemplate should be able to fail - Errorable
+      override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
+        // find earliest insertion position (after all refs are defined)
+        val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
+        val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
+
+        caretEltOpt.foreach { caretElt => // check if caret is in a connect
+          tryStartStatementInsertionTemplate(caretElt, earliestPosition).foreach {
+            return _
+          }
+        } // otherwise continue to stmt insertion
+
+        val validCaretEltOpt = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
+        val preInsertAfter = validCaretEltOpt
+          .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
+
+        // adjust insertion position to be after all assignments to required references
+        val insertAfter = earliestPosition.map { earliestPosition =>
+          if (!DesignAnalysisUtils.elementAfterEdg(preInsertAfter, earliestPosition, project).getOrElse(true)) {
+            preInsertAfter
+          } else {
+            earliestPosition
+          }
+        }.getOrElse(preInsertAfter)
+        startStatementInsertionTemplate(insertAfter)
       }
     }
 
