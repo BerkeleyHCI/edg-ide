@@ -102,7 +102,7 @@ object LiveTemplateConnect {
           earliestPosition: Option[PsiElement]
       ): Option[InsertionLiveTemplate] = {
         val callCandidate = PsiTreeUtil.getParentOfType(caretElt, classOf[PyCallExpression])
-        if (callCandidate == null) { println("not call candidate"); return None }
+        if (callCandidate == null) return None
 
         val containingPsiFn = PsiTreeUtil.getParentOfType(caretElt, classOf[PyFunction])
         val selfName = containingPsiFn.getParameterList.getParameters.toSeq
@@ -113,7 +113,7 @@ object LiveTemplateConnect {
 
         val isAfterEarliest = earliestPosition.flatMap( // aka is in valid position
           DesignAnalysisUtils.elementAfterEdg(_, callCandidate, project)).getOrElse(true)
-        if (!isAfterEarliest) { println("not after earliest"); return None }
+        if (!isAfterEarliest) return None
 
         val matchingConnects = callCandidate.getArgumentList.getArguments.flatMap(arg =>
           allConnects.flatMap { connect =>
@@ -124,7 +124,7 @@ object LiveTemplateConnect {
             }
           }
         )
-        if (matchingConnects.isEmpty) { println("no matching port"); return None }
+        if (matchingConnects.isEmpty) return None
 
         // validation complete, start the template
         val connectsToAdd = allConnects.filter(!matchingConnects.contains(_))
@@ -173,8 +173,8 @@ object LiveTemplateConnect {
           return // ignored if template was deleted, including through moving the template
         }
 
-        val insertedName = state.getVariableValue(kTemplateVariableName).getText
-        val insertedNameOpt = if (insertedName.isEmpty) None else Some(insertedName)
+        val nameVar = Option(state.getVariableValue(kTemplateVariableName))
+        val insertedNameOpt = nameVar.map(_.getText).filter(_.nonEmpty)
         if (insertedNameOpt.isEmpty && brokenOff) { // canceled by esc while name is empty
           writeCommandAction(project)
             .withName(s"cancel $actionName")
@@ -187,7 +187,7 @@ object LiveTemplateConnect {
             templateElem = templateElem.getNextSibling
           }
 
-          if (insertedNameOpt.isEmpty) { // if name not specified, make the connect anonymous
+          if (nameVar.nonEmpty && insertedNameOpt.isEmpty) { // if name not specified, make the connect anonymous
             try {
               val templateAssign = templateElem.asInstanceOf[PyAssignmentStatement]
               writeCommandAction(project)
