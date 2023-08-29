@@ -162,6 +162,19 @@ object PortConnectTyped {
       container: elem.HierarchyBlock
   ): Option[Seq[PortConnectTyped[PortConnectType]]] =
     SeqUtils.getAllDefined(connects.map { PortConnectTyped.fromConnect(_, container) })
+
+  // returns whether the sequence of connects with port types is a direct export
+  def connectsIsExport(connects: Seq[PortConnectTyped[PortConnects.Base]]): Boolean = connects match {
+    case Seq(
+        PortConnectTyped(PortConnects.BoundaryPort(_, _), boundaryType),
+        PortConnectTyped(PortConnects.BlockPort(_, _), blockType)
+      ) if boundaryType == blockType => true
+    case Seq(
+        PortConnectTyped(PortConnects.BlockPort(_, _), blockType),
+        PortConnectTyped(PortConnects.BoundaryPort(_, _), boundaryType)
+      ) if boundaryType == blockType => true
+    case _ => false
+  }
 }
 
 case class PortConnectTyped[+PortConnectType <: PortConnects.Base](
@@ -182,17 +195,17 @@ object ConnectBuilder {
   // creates a ConnectBuilder given all the connects to a link (found externally) and context data
   def apply(
       container: elem.HierarchyBlock,
-      link: elem.Link, // link is needed to determine available connects
+      linkLib: elem.Link, // link is needed to determine available connects
       constrs: Seq[expr.ValueExpr]
   ): Option[ConnectBuilder] = {
-    val availableOpt = SeqUtils.getAllDefined(link.ports.toSeqMap.map { case (name, portLike) =>
+    val availableOpt = SeqUtils.getAllDefined(linkLib.ports.toSeqMap.map { case (name, portLike) =>
       (name, portLike.is)
     }
       .map { // link libraries are pre-elaboration
         case (name, elem.PortLike.Is.LibElem(port)) => Some((name, false, port))
         case (name, elem.PortLike.Is.Array(array)) => array.selfClass.map((name, true, _))
         case (name, port) =>
-          logger.warn(s"unknown port type $name = ${port.getClass} in ${link.getSelfClass.toSimpleString}")
+          logger.warn(s"unknown port type $name = ${port.getClass} in ${linkLib.getSelfClass.toSimpleString}")
           None
       }.toSeq)
 
@@ -203,16 +216,16 @@ object ConnectBuilder {
 
     (availableOpt, constrConnectTypedOpt) match {
       case (Some(available), Some(constrConnectTyped)) =>
-        new ConnectBuilder(container, available, Seq(), ConnectMode.Ambiguous).append(constrConnectTyped)
+        new ConnectBuilder(linkLib, container, available, Seq(), ConnectMode.Ambiguous).append(constrConnectTyped)
       case _ =>
         if (availableOpt.isEmpty) {
           logger.warn(
-            s"unable to compute available ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
+            s"unable to compute available ports for ${linkLib.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
           )
         }
         if (constrConnectTypedOpt.isEmpty) {
           logger.warn(
-            s"unable to compute connected ports for ${link.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
+            s"unable to compute connected ports for ${linkLib.getSelfClass.toSimpleString} in ${container.getSelfClass.toSimpleString}"
           )
         }
         None
@@ -226,6 +239,7 @@ object ConnectBuilder {
   * bridges.
   */
 class ConnectBuilder protected (
+    val linkLib: elem.Link, // library
     container: elem.HierarchyBlock,
     protected val availablePorts: Seq[(String, Boolean, ref.LibraryPath)], // name, is array, port type
     val connected: Seq[(PortConnectTyped[PortConnects.Base], String)], // connect type, used port type, port name
@@ -271,7 +285,13 @@ class ConnectBuilder protected (
     if (failedToAllocate) {
       None
     } else {
-      Some(new ConnectBuilder(container, availablePortsBuilder.toSeq, connected ++ newConnected, connectModeBuilder))
+      Some(new ConnectBuilder(
+        linkLib,
+        container,
+        availablePortsBuilder.toSeq,
+        connected ++ newConnected,
+        connectModeBuilder
+      ))
     }
   }
 }

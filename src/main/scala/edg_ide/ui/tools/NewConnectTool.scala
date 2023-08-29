@@ -13,6 +13,7 @@ import edg_ide.util.{
   ConnectBuilder,
   DesignAnalysisUtils,
   EdgirConnectExecutor,
+  PortConnectTyped,
   PortConnects,
   exceptable,
   requireExcept
@@ -69,7 +70,7 @@ object NewConnectTool {
     val connectBuilder = ConnectBuilder(focusBlock, portLink, Seq())
       .exceptNone("invalid connections to port")
 
-    new NewConnectTool(interface, portConnectName, focusPath, portConnected.connect, connectBuilder, analysis)
+    new NewConnectTool(interface, portConnectName, focusPath, portConnected, connectBuilder, analysis)
   }
 }
 
@@ -77,23 +78,24 @@ class NewConnectTool(
     val interface: ToolInterface,
     linkNameOpt: Option[String],
     containingBlockPath: DesignPath,
-    startingPort: PortConnects.Base,
+    startingPort: PortConnectTyped[PortConnects.Base],
     baseConnectBuilder: ConnectBuilder,
     analysis: BlockConnectedAnalysis
 ) extends BaseTool {
   private val logger = Logger.getInstance(this.getClass)
 
-  val startingPortPath = containingBlockPath ++ startingPort.topPortRef
+  val startingPortPath = containingBlockPath ++ startingPort.connect.topPortRef
 
-  var selectedConnects = mutable.ArrayBuffer[PortConnects.Base]() // individual ports selected by the user
+  var selectedConnects =
+    mutable.ArrayBuffer[PortConnectTyped[PortConnects.Base]]() // individual ports selected by the user
   var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts, may have more ports from net joins
 
   def getCurrentName(): String = {
     if (selectedConnects.nonEmpty) {
-      val connectedPortNames = selectedConnects.map(_.topPortRef.mkString("."))
-      s"Connect ${connectedPortNames.mkString(", ")} to ${startingPort.topPortRef.mkString(".")}"
+      val connectedPortNames = selectedConnects.map(_.connect.topPortRef.mkString("."))
+      s"Connect ${connectedPortNames.mkString(", ")} to ${startingPort.connect.topPortRef.mkString(".")}"
     } else {
-      s"Connect to ${startingPort.topPortRef.mkString(".")}"
+      s"Connect to ${startingPort.connect.topPortRef.mkString(".")}"
     }
   }
 
@@ -128,7 +130,7 @@ class NewConnectTool(
     interface.setGraphHighlights(
       Some((Seq(
         containingBlockPath,
-        containingBlockPath ++ startingPort.topPortRef
+        containingBlockPath ++ startingPort.connect.topPortRef
       ) ++ connectedPorts ++ connectablePorts ++ connectableBlocks).toSet)
     )
   }
@@ -140,7 +142,7 @@ class NewConnectTool(
 
   def removeConnect(portPath: DesignPath): Unit = {
     // remove all connections to the port path (should really only be one)
-    selectedConnects.filterInPlace(containingBlockPath ++ _.topPortRef != portPath)
+    selectedConnects.filterInPlace(containingBlockPath ++ _.connect.topPortRef != portPath)
     // recompute from scratch on removal, for simplicity
     val allConnected = analysis.connectedGroups.filter { case (linkNameOpt, connecteds, constrs) =>
       connecteds.exists(connected => selectedConnects.contains(connected.connect))
@@ -166,7 +168,7 @@ class NewConnectTool(
     val newConnectBuilder = currentConnectBuilder.append(newConnectedNet)
     (newConnected, newConnectBuilder) match {
       case (Seq(newConnected), Some(newConnectBuilder)) => // valid connect, commit and update UI
-        selectedConnects.append(newConnected.connect)
+        selectedConnects.append(newConnected)
         currentConnectBuilder = newConnectBuilder
         updateSelected()
       case _ =>
@@ -177,7 +179,15 @@ class NewConnectTool(
   protected def completeConnect(component: Component): Unit = {
     if (selectedConnects.nonEmpty) {
       val newConnects = selectedConnects.toSeq
-      val connectedBlockOpt = EdgirConnectExecutor(analysis.block, baseConnectBuilder, newConnects)
+      val connectedBlockOpt =
+        EdgirConnectExecutor(
+          analysis.block,
+          linkNameOpt,
+          baseConnectBuilder,
+          currentConnectBuilder,
+          startingPort,
+          newConnects
+        )
       val containerPyClassOpt = DesignAnalysisUtils.pyClassOf(analysis.block.getSelfClass, interface.getProject)
 
       (connectedBlockOpt, containerPyClassOpt.toOption) match {
@@ -193,8 +203,8 @@ class NewConnectTool(
             getCurrentName(),
             interface.getProject,
             baseConnectBuilder,
-            startingPort,
-            newConnects,
+            startingPort.connect,
+            newConnects.map(_.connect),
             continuation
           ).exceptError()
         case _ =>
@@ -220,7 +230,7 @@ class NewConnectTool(
       val currentSelectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
       resolved match {
         case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) => // toggle port
-          if (selectedConnects.exists(containingBlockPath ++ _.topPortRef == path)) { // toggle de-select
+          if (selectedConnects.exists(containingBlockPath ++ _.connect.topPortRef == path)) { // toggle de-select
             removeConnect(path)
           } else if (!currentSelectedPorts.contains(path) && path != startingPortPath) { // toggle select
             addConnect(path)
