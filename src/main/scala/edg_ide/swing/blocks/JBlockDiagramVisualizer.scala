@@ -204,13 +204,12 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       case None => // normal rendering
         new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = elementGraphics)
       case Some(highlighted) => // default dim rendering
-        val highlightedElementGraphics = elementGraphics ++
-          highlighted.map { elt =>
-            elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
-              strokeGraphics = ElementGraphicsModifier.withColor(getForeground),
-              textGraphics = ElementGraphicsModifier.withColor(getForeground)
-            )
-          }
+        val highlightedElementGraphics = highlighted.toSeq.map { elt =>
+          elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
+            strokeGraphics = ElementGraphicsModifier.withColor(getForeground),
+            textGraphics = ElementGraphicsModifier.withColor(getForeground)
+          )
+        } ++ elementGraphics
         new StubEdgeElkNodePainter(
           rootNode,
           showTop,
