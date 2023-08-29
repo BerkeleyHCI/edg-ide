@@ -128,7 +128,7 @@ object LiveTemplateConnect {
 
         // validation complete, start the template
         val connectsToAdd = allConnects.filter(!matchingConnects.contains(_))
-        val newArgs = connectsToAdd.map { newConnect =>
+        connectsToAdd.foreach { newConnect =>
           callCandidate.getArgumentList.addArgument(psiElementGenerator.createExpressionFromText(
             languageLevel,
             connectedToRefCode(selfName, newConnect)
@@ -144,11 +144,12 @@ object LiveTemplateConnect {
         val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
         val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
 
-        caretEltOpt.foreach { caretElt => // check if caret is in a connect
-          tryStartStatementInsertionTemplate(caretElt, earliestPosition).foreach {
-            return _
-          }
-        } // otherwise continue to stmt insertion
+        // TODO live template insertion needs to support modifying AST nodes (instead of only addition)
+//        caretEltOpt.foreach { caretElt => // check if caret is in a connect
+//          tryStartStatementInsertionTemplate(caretElt, earliestPosition).foreach {
+//            return _
+//          }
+//        } // otherwise continue to stmt insertion
 
         val validCaretEltOpt = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
         val preInsertAfter = validCaretEltOpt
