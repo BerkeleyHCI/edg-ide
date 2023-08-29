@@ -31,7 +31,7 @@ class BlockConnectedAnalysisTest extends AnyFlatSpec {
 
     analysis.connectedGroups(2)._1 should equal(None)
     analysis.connectedGroups(2)._2 should equal(Seq( // export into bundle elt
-      PortConnectTyped(PortConnects.BoundaryPort("bundle", Seq("port")), LibraryPath("sourcePort")),
+      PortConnectTyped(PortConnects.BoundaryPort("bundle", Seq("port")), LibraryPath("sourceBundle")),
       PortConnectTyped(PortConnects.BlockPort("exportBundleSource", "port"), LibraryPath("sourcePort")),
     ))
     analysis.connectedGroups(2)._3 should not be empty

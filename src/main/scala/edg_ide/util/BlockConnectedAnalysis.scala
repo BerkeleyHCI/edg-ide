@@ -120,9 +120,4 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
     } ++ (disconnectedBoundaryPortConnections ++ disconnectedBlockPortConnections).map { connected =>
       (None, Seq(connected), Seq())
     }
-
-  // returns a list of active bridges, as the boundary port and the block port (link-facing bridge port)
-  // bridge arrays are not (current) a construct and not supported
-  // TODO: infer bridges and add to separate structure
-  val bridges: Seq[(PortConnects.BoundaryPort, PortConnects.BlockPort)] = Seq() // TODO IMPLEMENT ME
 }

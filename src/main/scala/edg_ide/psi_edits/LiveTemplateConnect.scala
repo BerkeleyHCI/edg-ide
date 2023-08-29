@@ -37,8 +37,8 @@ object LiveTemplateConnect {
     case PortConnects.BlockPort(blockName, portName) => Some(blockName.takeWhile(_ != '['))
     case PortConnects.BoundaryPort(portName, _) => Some(portName)
     case PortConnects.BlockVectorUnit(blockName, portName) => Some(blockName.takeWhile(_ != '['))
-    case PortConnects.BlockVectorSlicePort(blockName, portName, _) => Some(portName)
-    case PortConnects.BlockVectorSliceVector(blockName, portName, _) => Some(portName)
+    case PortConnects.BlockVectorSlicePort(blockName, portName, _) => Some(blockName.takeWhile(_ != '['))
+    case PortConnects.BlockVectorSliceVector(blockName, portName, _) => Some(blockName.takeWhile(_ != '['))
     case PortConnects.BlockVectorSlice(blockName, portName, _) => Some(blockName.takeWhile(_ != '['))
     case PortConnects.BoundaryPortVectorUnit(portName) => Some(portName)
   }

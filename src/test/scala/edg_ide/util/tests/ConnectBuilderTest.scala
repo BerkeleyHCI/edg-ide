@@ -195,7 +195,7 @@ class ConnectBuilderTest extends AnyFlatSpec {
       PortConnects.BlockPort("exportBundleSource", "port")
     )))
     PortConnects.BoundaryPort("bundle", Seq("port")).getPortType(exampleBlock) should equal(
-      Some(LibraryPath("sourcePort"))
+      Some(LibraryPath("sourceBundle"))
     )
     PortConnects.BlockPort("exportBundleSource", "port").getPortType(exampleBlock) should equal(
       Some(LibraryPath("sourcePort"))

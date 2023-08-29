@@ -111,7 +111,7 @@ class NewConnectTool(
     if (selectedConnects.isEmpty) {
       interface.setStatus("[Esc] cancel;" + getCurrentName())
     } else {
-      interface.setStatus("[Esc] cancel; [Enter/DblClick] complete;" + getCurrentName())
+      interface.setStatus("[Esc] cancel; [Enter/DblClick] complete; " + getCurrentName())
     }
 
     // mark all current selections
@@ -143,7 +143,6 @@ class NewConnectTool(
   }
 
   override def init(): Unit = {
-    interface.setGraphSelections(Set())
     updateSelected()
   }
 
@@ -255,7 +254,7 @@ class NewConnectTool(
       }
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double-click finish shortcut
       completeConnect(e.getComponent)
-    } else if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) {}
+    }
   }
 
   override def onKeyPress(e: KeyEvent): Unit = {

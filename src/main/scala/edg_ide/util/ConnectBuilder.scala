@@ -47,15 +47,11 @@ object PortConnects { // types of connections a port attached to a connection ca
     override def topPortRef: Seq[String] = Seq(blockName, portName)
   }
 
-  // single exported port only
+  // single exported port only, getPortType ignores the inner names
   case class BoundaryPort(portName: String, innerNames: Seq[String]) extends PortBase with ConstraintBase {
     override def getPortType(container: HierarchyBlock): Option[ref.LibraryPath] = {
-      val initPort = container.ports.get(portName)
-      val finalPort = innerNames.foldLeft(initPort) { case (prev, innerName) =>
-        prev.flatMap(_.is.bundle)
-          .flatMap(_.ports.get(innerName))
-      }
-      finalPort.flatMap(typeOfSinglePort)
+      container.ports.get(portName)
+        .flatMap(typeOfSinglePort)
     }
     override def topPortRef: Seq[String] = Seq(portName)
   }
@@ -253,10 +249,7 @@ class ConnectBuilder protected (
 
     val newConnected = newConnects.map { connectTyped =>
       val portName = availablePortsBuilder.indexWhere(_._3 == connectTyped.portType) match {
-        case -1 =>
-          failedToAllocate = true
-          ""
-        case index =>
+        case index if index >= 0 =>
           val (portName, isArray, portType) = availablePortsBuilder(index)
           connectTyped.connect match {
             case _: PortConnects.PortBase =>
@@ -277,6 +270,9 @@ class ConnectBuilder protected (
             availablePortsBuilder.remove(index)
           }
           portName
+        case _ =>
+          failedToAllocate = true
+          ""
       }
       (connectTyped, portName)
     }
