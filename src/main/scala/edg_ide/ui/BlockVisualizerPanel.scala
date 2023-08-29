@@ -418,6 +418,9 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     if (activeTool != defaultTool) { // revert to the default tool
       toolInterface.endTool() // TODO should we also preserve state like selected?
     }
+
+    stalePaths.clear()
+    updateStale()
   }
 
   /** Updates the design tree only, where the overall "top design" does not change. Mainly used for speculative updates
