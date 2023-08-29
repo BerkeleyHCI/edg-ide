@@ -3,7 +3,6 @@ package edg_ide.util
 import com.intellij.openapi.diagnostic.Logger
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ExprBuilder.ValueExpr
-import edg.util.SeqUtils
 import edg.wir.ProtoUtil.{BlockProtoToSeqMap, PortProtoToSeqMap}
 import edgir.elem.elem
 import edgir.elem.elem.HierarchyBlock

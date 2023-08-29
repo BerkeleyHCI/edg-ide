@@ -103,10 +103,7 @@ class EdgirConnectExecutorTest extends AnyFlatSpec {
     ))
     connected.constraints.toSeqMap should equal(SeqMap(
       "_new2" -> Constraint.Connected(Ref("source", "port"), Ref("_new", "source")),
-      "_new3" -> Constraint.Connected(
-        Ref.Allocate(Ref("sinkArray", "port")),
-        Ref("_new", "sinks")
-      ), // TODO link allocate
+      "_new3" -> Constraint.Connected(Ref("sinkArray", "port"), Ref("_new", "sinks")), // TODO link and block allocate
     ))
   }
 
