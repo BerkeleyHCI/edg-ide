@@ -91,9 +91,10 @@ class NewConnectTool(
 
   val startingPortPath = containingBlockPath ++ startingPort.connect.topPortRef
 
-  var selectedConnects =
-    mutable.ArrayBuffer[PortConnectTyped[PortConnects.Base]]() // individual ports selected by the user
-  var currentConnectBuilder = baseConnectBuilder // corresponding to selectedPorts, may have more ports from net joins
+  // individual ports selected by the user
+  var selectedConnects = mutable.ArrayBuffer[PortConnectTyped[PortConnects.Base]]()
+  // corresponding to selectedPorts, may have more ports from net joins
+  var currentConnectBuilder = baseConnectBuilder
 
   def getCurrentName(): String = {
     if (selectedConnects.nonEmpty) {
