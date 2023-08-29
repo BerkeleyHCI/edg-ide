@@ -40,7 +40,7 @@ lazy val root = (project in file("."))
     },
 
     intellijVMOptions := intellijVMOptions.value.copy(
-      xmx = 4096,
+      xmx = 10240,
       xms = 1024
     ),
   ).enablePlugins(BuildInfoPlugin)
