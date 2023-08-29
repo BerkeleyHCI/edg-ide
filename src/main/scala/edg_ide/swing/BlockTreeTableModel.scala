@@ -12,21 +12,24 @@ import javax.swing.JTree
 import javax.swing.event.TreeModelListener
 import javax.swing.tree._
 
-
 class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem.HierarchyBlock) {
   import edgir.elem.elem.BlockLike
 
-  lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs.filter { case (name, subblock) =>
-    if (!EdgSettingsState.getInstance().showInternalBlocks) {
-      !(name.startsWith("(bridge)") || name.startsWith("(adapter)") || name.startsWith("(not_connected)"))
-    } else {
-      true
+  lazy val children: Seq[HierarchyBlockNode] = block.blocks.asPairs
+    .filter { case (name, subblock) =>
+      if (!EdgSettingsState.getInstance().showInternalBlocks) {
+        !(name.startsWith("(bridge)") || name.startsWith("(adapter)") || name.startsWith("(not_connected)"))
+      } else {
+        true
+      }
     }
-  }.map { case (name, subblock) =>
-    (name, subblock.`type`)
-  }.collect {
-    case (name, BlockLike.Type.Hierarchy(subblock)) => new HierarchyBlockNode(project, path + name, subblock)
-  }.toSeq
+    .map { case (name, subblock) =>
+      (name, subblock.`type`)
+    }
+    .collect { case (name, BlockLike.Type.Hierarchy(subblock)) =>
+      new HierarchyBlockNode(project, path + name, subblock)
+    }
+    .toSeq
 
   override def equals(other: Any): Boolean = other match {
     case other: HierarchyBlockNode => other.block == block
@@ -38,24 +41,32 @@ class HierarchyBlockNode(project: Project, val path: DesignPath, val block: elem
   lazy val classString = block.getSelfClass.toSimpleString
 
   lazy val proven = {
-    new BlockProven(block.getSelfClass, BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass))
+    new BlockProven(
+      block.getSelfClass,
+      BlockVisualizerService(project).getProvenDatabase.getRecords(block.getSelfClass)
+    )
   }
 }
 
-
 object BlockTreeTableModel {
-  def follow(path: DesignPath, model: BlockTreeTableModel): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
+  def follow(
+      path: DesignPath,
+      model: BlockTreeTableModel
+  ): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
 
-    def inner(nodePrefix: Seq[HierarchyBlockNode], node: HierarchyBlockNode): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
+    def inner(
+        nodePrefix: Seq[HierarchyBlockNode],
+        node: HierarchyBlockNode
+    ): (Seq[HierarchyBlockNode], Option[HierarchyBlockNode]) = {
       if (node.path == path) {
         (nodePrefix :+ node, Some(node))
       } else {
         val nextChildNodes = node.children.filter { node => path.steps.startsWith(node.path.steps) }
         nextChildNodes match {
-          case Seq() => (nodePrefix :+ node, None)  // no further steps possible
-          case Seq(childNode) => inner(nodePrefix :+ node, childNode)  // exactly one next step
-          case Seq(childNode, _) => inner(nodePrefix :+ node, childNode)  // multiple possible, just pick one
-            // TODO maybe this should error or warn
+          case Seq() => (nodePrefix :+ node, None) // no further steps possible
+          case Seq(childNode) => inner(nodePrefix :+ node, childNode) // exactly one next step
+          case Seq(childNode, _) => inner(nodePrefix :+ node, childNode) // multiple possible, just pick one
+          // TODO maybe this should error or warn
         }
       }
     }
@@ -64,8 +75,8 @@ object BlockTreeTableModel {
   }
 }
 
-
-class BlockTreeTableModel(project: Project, root: elem.HierarchyBlock) extends SeqTreeTableModel[HierarchyBlockNode] {
+class BlockTreeTableModel(project: Project, root: elem.HierarchyBlock)
+    extends SeqTreeTableModel[HierarchyBlockNode] {
   val rootNode: HierarchyBlockNode = new HierarchyBlockNode(project, DesignPath(), root)
   val COLUMNS = if (EdgSettingsState.getInstance().showProvenStatus) {
     Seq("Path", "Class", "Proven")
@@ -107,5 +118,5 @@ class BlockTreeTableModel(project: Project, root: elem.HierarchyBlock) extends S
   override def isNodeCellEditable(node: HierarchyBlockNode, column: Int): Boolean = false
   override def setNodeValueAt(aValue: Any, node: HierarchyBlockNode, column: Int): Unit = {}
 
-  def setTree(tree: JTree): Unit = { }  // tree updates ignored
+  def setTree(tree: JTree): Unit = {} // tree updates ignored
 }

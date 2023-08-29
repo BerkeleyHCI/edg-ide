@@ -4,9 +4,8 @@ import edg_ide.util.CrossProductUtils.crossProduct
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class CrossProductUtilsTest extends AnyFlatSpec with Matchers {
-  behavior of "CrossProductUtils"
+  behavior.of("CrossProductUtils")
 
   it should "work on empty input" in {
     crossProduct(Seq(Seq())) should equal(Seq())
@@ -22,7 +21,10 @@ class CrossProductUtilsTest extends AnyFlatSpec with Matchers {
 
   it should "work on 2x2 inputs including producing ordered outputs" in {
     crossProduct(Seq(Seq(0, 1), Seq(10, 11))) should equal(Seq(
-      Seq(0, 10), Seq(0, 11),
-      Seq(1, 10), Seq(1, 11)))
+      Seq(0, 10),
+      Seq(0, 11),
+      Seq(1, 10),
+      Seq(1, 11)
+    ))
   }
 }

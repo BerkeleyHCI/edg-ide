@@ -5,9 +5,8 @@ import edg_ide.edgir_graph.{CollapseLinkTransform, EdgeLinkWrapper, EdgirGraph, 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class CollapseLinkTransformTest extends AnyFlatSpec with Matchers {
-  behavior of "CollapseLinkTransform"
+  behavior.of("CollapseLinkTransform")
 
   it should "collapse links" in {
     val transformed = CollapseLinkTransform(InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph))

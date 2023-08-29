@@ -12,8 +12,15 @@ import javax.swing.{JTable, JTree}
 import javax.swing.tree.DefaultTreeCellRenderer
 
 class EdgirLibraryTreeRenderer extends DefaultTreeCellRenderer {
-  override def getTreeCellRendererComponent(tree: JTree, value: Any, sel: Boolean, expanded: Boolean, leaf: Boolean,
-                                            row: Int, hasFocus: Boolean): Component = {
+  override def getTreeCellRendererComponent(
+      tree: JTree,
+      value: Any,
+      sel: Boolean,
+      expanded: Boolean,
+      leaf: Boolean,
+      row: Int,
+      hasFocus: Boolean
+  ): Component = {
     val component = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
     value match {
       case node: EdgirLibraryNodeBase =>
@@ -24,7 +31,7 @@ class EdgirLibraryTreeRenderer extends DefaultTreeCellRenderer {
         } else {
           setIcon(null)
         }
-      case _ =>  // ignored
+      case _ => // ignored
     }
     component
   }

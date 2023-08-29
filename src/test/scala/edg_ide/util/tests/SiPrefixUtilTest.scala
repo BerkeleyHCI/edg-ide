@@ -4,9 +4,8 @@ import edg_ide.util.SiPrefixUtil
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class SiPrefixUtilTest extends AnyFlatSpec with Matchers {
-  behavior of "SiPrefixUtil"
+  behavior.of("SiPrefixUtil")
 
   it should "display no prefixes with values [1, 1000)" in {
     SiPrefixUtil.unitsToString(1, "A") should equal("1.00 A")

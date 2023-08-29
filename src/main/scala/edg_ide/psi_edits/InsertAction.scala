@@ -5,7 +5,7 @@ import com.intellij.openapi.editor.CaretState
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.psi.{PsiElement, PsiFile}
+import com.intellij.psi.{PsiElement, PsiFile, PsiWhiteSpace}
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatementList}
 import edg.util.Errorable
@@ -16,11 +16,10 @@ import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 import scala.reflect.ClassTag
 
-
 object InsertAction {
   def getPyClassOfContext(project: Project): Errorable[PyClass] = exceptable {
-    val (contextPath, contextBlock) = BlockVisualizerService(project)
-        .getContextBlock.exceptNone("no context block")
+    val (contextPath, contextBlock) =
+      BlockVisualizerService(project).getContextBlock.exceptNone("no context block")
     DesignAnalysisUtils.pyClassOf(contextBlock.getSelfClass, project).exceptError
   }
 
@@ -29,18 +28,24 @@ object InsertAction {
   // or fails if there is no containing containerPsiType.
   // TODO this does the wrong thing if at the beginning of containerPsiType, eg right at first line of a statement-list
   // TODO this needs a return type that supports the first element
-  def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project)
-                                           (implicit tag: ClassTag[T]): Errorable[PsiElement] = exceptable {
-    val editors = FileEditorManager.getInstance(project).getSelectedEditors
-        .filter { editor => editor.getFile == file.getVirtualFile }.toSeq
-    val editor = editors.onlyExcept(s"not exactly one editor open for ${file.getName}")
-        .instanceOfExcept[TextEditor]("not a text editor")
+  def getCaretAtFileOfType[T <: PsiElement](file: PsiFile, containerPsiType: Class[T], project: Project)(
+      implicit tag: ClassTag[T]
+  ): Errorable[PsiElement] = exceptable {
+    val editors = FileEditorManager
+      .getInstance(project)
+      .getSelectedEditors
+      .filter { editor => editor.getFile == file.getVirtualFile }
+      .toSeq
+    val editor = editors
+      .onlyExcept(s"not exactly one editor open for ${file.getName}")
+      .instanceOfExcept[TextEditor]("not a text editor")
     val caretOffset = editor.getEditor.getCaretModel.getOffset
     val element = file.findElementAt(caretOffset).exceptNull(s"invalid caret position in ${file.getName}")
 
     // given the leaf element at the caret, returns the rootmost element right before the caret
     def prevElementOf(element: PsiElement): PsiElement = {
-      if (element.getTextRange.getStartOffset == caretOffset) {  // caret at beginning of element, so take the previous
+      requireExcept(element.getTextRange != null, "element with null range") // if traversing beyond file level
+      if (element.getTextRange.getStartOffset == caretOffset) { // caret at beginning of element, so take the previous
         val prev = PsiTreeUtil.prevLeaf(element)
         prevElementOf(prev.exceptNull("no element before caret"))
       } else {
@@ -54,25 +59,46 @@ object InsertAction {
     prevElementOf(element)
   }
 
+  // Given a PSI element, returns the insertion point element of type PsiType.
+  // Snaps to previous if in whitespace, otherwise returns a parent of type PsiType
+  def snapInsertionEltOfType[PsiType <: PsiElement](
+      elt: PsiElement
+  )(implicit tag: ClassTag[PsiType]): Errorable[PsiType] = {
+    elt match {
+      case elt: PsiWhiteSpace => snapInsertionEltOfType[PsiType](elt.getPrevSibling)
+      case elt: PsiType => Errorable.Success(elt)
+      case null => Errorable.Error(s"element not in a ${tag.getClass.getName}")
+      case elt => snapInsertionEltOfType[PsiType](elt.getParent)
+    }
+  }
+
   /** Returns the PSI element immediately before the cursor of a given file.
     *
     * TODO: this is PyStatementList-aware (generates an insertion location). Needs a more specific name!
     */
-  def getCaretForNewClassStatement(expectedClass: PyClass, project: Project): Errorable[PsiElement] = exceptable {
-    val file = expectedClass.getContainingFile.exceptNull("no file")
-    val prevElement = getCaretAtFileOfType(file, classOf[PyStatementList], project).exceptError
+  def getCaretForNewClassStatement(expectedClass: PyClass, project: Project): Errorable[PsiElement] =
+    exceptable {
+      val file = expectedClass.getContainingFile.exceptNull("no file")
+      val prevElement = getCaretAtFileOfType(file, classOf[PyStatementList], project).exceptError
 
-    val containingPsiClass = PsiTreeUtil.getParentOfType(prevElement, classOf[PyClass])
+      val containingPsiClass = PsiTreeUtil
+        .getParentOfType(prevElement, classOf[PyClass])
         .exceptNull(s"not in a class in ${file.getName}")
-    requireExcept(containingPsiClass == expectedClass, s"not in expected class ${expectedClass.getName} in ${file.getName}")
+      requireExcept(
+        containingPsiClass == expectedClass,
+        s"not in expected class ${expectedClass.getName} in ${file.getName}"
+      )
 
-    prevElement
-  }
+      prevElement
+    }
 
   def navigateToEnd(element: PsiElement): Unit = {
-    new OpenFileDescriptor(element.getProject, element.getContainingFile.getVirtualFile,
-      element.getTextRange.getEndOffset)
-        .navigate(true)
+    new OpenFileDescriptor(
+      element.getProject,
+      element.getContainingFile.getVirtualFile,
+      element.getTextRange.getEndOffset
+    )
+      .navigate(true)
   }
 
   def selectAndNavigate(elements: Seq[PsiElement]): Unit = {
@@ -82,7 +108,10 @@ object InsertAction {
     }
     val exampleElement = elements.head
     val project = exampleElement.getProject
-    val fileEditor = FileEditorManager.getInstance(project).getSelectedEditor(exampleElement.getContainingFile.getVirtualFile)
+    val fileEditor =
+      FileEditorManager
+        .getInstance(project)
+        .getSelectedEditor(exampleElement.getContainingFile.getVirtualFile)
     val editor = fileEditor match {
       case editor: TextEditor => editor.getEditor
       case _ => return
@@ -99,45 +128,59 @@ object InsertAction {
   // Returns the same format as getCaretAtFileOfType
   def findInsertionElements(container: PyClass, validFunctions: Seq[String]): Seq[PsiElement] = {
     container.getMethods.toSeq.collect {
-      case method if validFunctions.contains(method.getName) => method.getStatementList.getStatements.lastOption
+      case method if validFunctions.contains(method.getName) =>
+        method.getStatementList.getStatements.lastOption
     }.flatten
   }
 
   // TODO deprcated, use the above instead
-  def findInsertionPoints(container: PyClass, validFunctions: Seq[String]): Errorable[Seq[PyFunction]] = exceptable {
-    val methods = container.getMethods.toSeq.collect {
-      case method if validFunctions.contains(method.getName) => method
-    }.exceptEmpty(s"class ${container.getName} contains no insertion methods")
+  def findInsertionPoints(container: PyClass, validFunctions: Seq[String]): Errorable[Seq[PyFunction]] =
+    exceptable {
+      val methods = container.getMethods.toSeq
+        .collect {
+          case method if validFunctions.contains(method.getName) => method
+        }
+        .exceptEmpty(s"class ${container.getName} contains no insertion methods")
 
-    methods
-  }
+      methods
+    }
 
   /** Name entry popup that checks for name legality */
-  def createNameEntryPopup(title: String,
-                           project: Project)(accept: String => Errorable[Unit]): Unit = exceptable {
-    PopupUtils.createStringEntryPopup(title, project) { name => exceptable {
-      LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)
-          .exceptFalse("not an identifier")
+  def createNameEntryPopup(title: String, project: Project)(accept: String => Errorable[Unit]): Unit =
+    exceptable {
+      PopupUtils.createStringEntryPopup(title, project) { name =>
+        exceptable {
+          LanguageNamesValidation
+            .isIdentifier(PythonLanguage.getInstance(), name)
+            .exceptFalse("not an identifier")
 
-      accept(name).exceptError
-    }}
-  }
+          accept(name).exceptError
+        }
+      }
+    }
 
   /** Name entry popup that checks for name legality and collisions with other class members */
-  def createClassMemberNameEntryPopup(title: String, containingPsiClass: PyClass,
-                                      project: Project,
-                                      allowEmpty: Boolean = false)(accept: String => Errorable[Unit]): Unit = exceptable {
+  def createClassMemberNameEntryPopup(
+      title: String,
+      containingPsiClass: PyClass,
+      project: Project,
+      allowEmpty: Boolean = false
+  )(accept: String => Errorable[Unit]): Unit = exceptable {
     val contextAttributeNames = containingPsiClass.getInstanceAttributes.asScala.map(_.getName)
 
-    PopupUtils.createStringEntryPopup(title, project) { name => exceptable {
-      if (!(allowEmpty && name.isEmpty)) {
-        LanguageNamesValidation.isIdentifier(PythonLanguage.getInstance(), name)
+    PopupUtils.createStringEntryPopup(title, project) { name =>
+      exceptable {
+        if (!(allowEmpty && name.isEmpty)) {
+          LanguageNamesValidation
+            .isIdentifier(PythonLanguage.getInstance(), name)
             .exceptFalse("not an identifier")
-      }
-      contextAttributeNames.contains(name)
+        }
+        contextAttributeNames
+          .contains(name)
           .exceptTrue(s"attribute already exists in ${containingPsiClass.getName}")
 
-      accept(name).exceptError
-    }}
+        accept(name).exceptError
+      }
+    }
   }
 }

@@ -29,14 +29,15 @@ import javax.swing._
 import javax.swing.event.{DocumentEvent, DocumentListener}
 import javax.swing.tree.TreePath
 
-
 class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.KicadVizPanel")
 
   // State
   //
-  var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] = None  // should be a Block with a footprint and pinning field
-  var footprintSynced: Boolean = false  // whether the footprint is assigned to the block (as opposed to preview mode)
+  var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] =
+    None // should be a Block with a footprint and pinning field
+  var footprintSynced: Boolean =
+    false // whether the footprint is assigned to the block (as opposed to preview mode)
 
   object FootprintBrowser extends JPanel {
     // TODO flatten out into parent? Or make this its own class with meaningful interfaces / abstractions?
@@ -65,7 +66,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
           case _ => return
         }
 
-        if (mouseEvent.getClickCount == 1) {  // single click opens the footprint for preview
+        if (mouseEvent.getClickCount == 1) { // single click opens the footprint for preview
           footprintSynced = false
           visualizer.pinmap = Map()
 
@@ -74,17 +75,26 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
             case Some(footprintName) =>
               visualizer.kicadFootprint = KicadParser.parseKicadFile(node.file)
               visualizer.repaint()
-              val footprintStr = footprintName.replace(":", ": ")  // TODO this allows a line break but is hacky
-              status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint preview: ${footprintStr}",
-                KicadVizPanel.this.getFont))
+              val footprintStr =
+                footprintName.replace(":", ": ") // TODO this allows a line break but is hacky
+              status.setText(
+                SwingHtmlUtil.wrapInHtml(
+                  s"Footprint preview: ${footprintStr}",
+                  KicadVizPanel.this.getFont
+                )
+              )
             case _ =>
-              status.setText(SwingHtmlUtil.wrapInHtml(s"Invalid file: ${node.file.getName}",
-                KicadVizPanel.this.getFont))
+              status.setText(
+                SwingHtmlUtil.wrapInHtml(
+                  s"Invalid file: ${node.file.getName}",
+                  KicadVizPanel.this.getFont
+                )
+              )
           }
-        } else if (mouseEvent.getClickCount == 2) {  // double click assigns the footprint to the opened block
+        } else if (mouseEvent.getClickCount == 2) { // double click assigns the footprint to the opened block
           exceptionPopup(mouseEvent) {
             val footprint = pathToFootprintName(node.file).exceptNone(s"invalid file ${node.file.getName}")
-            (insertBlockFootprint(footprint).exceptError)()
+            insertBlockFootprint(footprint).exceptError()
           }
         }
       }
@@ -96,7 +106,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     })
 
     // Filter menu
-    def updateFilter(): Unit = {  // TODO DEDUP w/ LibraryPanel - perhaps we should have a FilteredTreePanel or something?
+    def updateFilter()
+        : Unit = { // TODO DEDUP w/ LibraryPanel - perhaps we should have a FilteredTreePanel or something?
       // TODO spinny working indicator, incremental adding
       def recursiveExpandPath(path: TreePath): Unit = {
         if (path != null) {
@@ -105,9 +116,10 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
         }
       }
 
-      val searchTerms = filterTextBox.getText.split(' ')
-          .filterNot(_.isEmpty)
-          .map(_.toLowerCase())
+      val searchTerms = filterTextBox.getText
+        .split(' ')
+        .filterNot(_.isEmpty)
+        .map(_.toLowerCase())
       if (searchTerms.isEmpty) {
         model.setFilter(_ => true)
       } else {
@@ -149,8 +161,8 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
 
   splitter.setFirstComponent(FootprintBrowser)
 
-  private val status = new JEditorPane("text/html",
-      SwingHtmlUtil.wrapInHtml("No footprint selected", this.getFont))
+  private val status =
+    new JEditorPane("text/html", SwingHtmlUtil.wrapInHtml("No footprint selected", this.getFont))
   status.setEditable(false)
   status.setBackground(null)
   private val visualizer = new KicadVizDrawPanel()
@@ -159,23 +171,27 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       if (e.getClickCount == 2) {
         exceptionPopup(e) {
           requireExcept(footprintSynced, "footprint not synced")
-          val selectedComp = visualizer.getComponentForLocation(e.getX, e.getY)
-              .onlyExcept("must select exactly one pad")
+          val selectedComp = visualizer
+            .getComponentForLocation(e.getX, e.getY)
+            .onlyExcept("must select exactly one pad")
           val selectedPin = selectedComp.instanceOfExcept[Rectangle]("selected not a pad").name
-          val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
+          val (blockPath, blockType, block, pinning) =
+            currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
 
           def continuation(portPath: ref.LocalPath, added: PsiElement): Unit = {
             InsertAction.navigateToEnd(added)
 
             val newPinning = pinning.updated(selectedPin, portPath)
             currentBlockPathTypePin = Some((blockPath, blockType, block, newPinning))
-            visualizer.pinmap = newPinning.view.mapValues(ExprToString(_)).toMap  // TODO dedup
+            visualizer.pinmap = newPinning.view.mapValues(ExprToString(_)).toMap // TODO dedup
             visualizer.repaint()
 
             // TODO actually modify the Design ... once a better API for that exists
           }
 
-          InsertPinningAction.createInsertPinningFlow(block, selectedPin, pinning, e, project, continuation).exceptError
+          InsertPinningAction
+            .createInsertPinningFlow(block, selectedPin, pinning, e, project, continuation)
+            .exceptError
         }
       }
     }
@@ -186,38 +202,44 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
   visualizerPanel.add(visualizer, Gbc(0, 1, GridBagConstraints.BOTH))
   splitter.setSecondComponent(visualizerPanel)
 
-
   setLayout(new BorderLayout())
   add(splitter)
 
-
-  override def mouseWheelMoved(mouseWheelEvent: MouseWheelEvent): Unit = {
-  }
+  override def mouseWheelMoved(mouseWheelEvent: MouseWheelEvent): Unit = {}
 
   // Actions
   //
   def pinningFromBlock(block: elem.HierarchyBlock): Option[Map[String, ref.LocalPath]] = {
     // TODO better error handling, Option[ref.LocalPath]?
     // TODO move into EdgirUtils or something?
-    block.meta.map(_.meta).collect {
-      case common.Metadata.Meta.Members(members) => members.node.get("pinning")
-    }.flatten.map(_.meta).collect {
-      case common.Metadata.Meta.Members(members) =>
-        members.node.map { case (pin, pinValue) =>
-          pin -> pinValue.meta
-        } .collect { case (pin, common.Metadata.Meta.BinLeaf(bin)) =>
-          pin -> expr.ValueExpr.parseFrom(bin.toByteArray).expr
-        } .collect { case (pin, expr.ValueExpr.Expr.Ref(ref)) =>
-          pin -> ref
-        }
-    }
+    block.meta
+      .map(_.meta)
+      .collect { case common.Metadata.Meta.Members(members) =>
+        members.node.get("pinning")
+      }
+      .flatten
+      .map(_.meta)
+      .collect { case common.Metadata.Meta.Members(members) =>
+        members.node
+          .map { case (pin, pinValue) =>
+            pin -> pinValue.meta
+          }
+          .collect { case (pin, common.Metadata.Meta.BinLeaf(bin)) =>
+            pin -> expr.ValueExpr.parseFrom(bin.toByteArray).expr
+          }
+          .collect { case (pin, expr.ValueExpr.Expr.Ref(ref)) =>
+            pin -> ref
+          }
+      }
   }
 
-  def footprintFromBlock(blockPath: DesignPath, block: elem.HierarchyBlock, compiler: Compiler):
-      Option[(String, Map[String, ref.LocalPath])] = {
-    compiler.getParamValue(blockPath.asIndirect + "fp_footprint").collect {
-      case TextValue(value) =>
-        (value, pinningFromBlock(block).getOrElse(Map()))
+  def footprintFromBlock(
+      blockPath: DesignPath,
+      block: elem.HierarchyBlock,
+      compiler: Compiler
+  ): Option[(String, Map[String, ref.LocalPath])] = {
+    compiler.getParamValue(blockPath.asIndirect + "fp_footprint").collect { case TextValue(value) =>
+      (value, pinningFromBlock(block).getOrElse(Map()))
     }
   }
 
@@ -227,7 +249,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
       (block, footprintFromBlock(blockPath, block, compiler))
     } match {
       case Some((block, Some((footprint, pinning)))) =>
-        val footprintStr = footprint.replace(":", ": ")  // TODO this allows a line break but is hacky
+        val footprintStr = footprint.replace(":", ": ") // TODO this allows a line break but is hacky
         currentBlockPathTypePin = Some((blockPath, block.getSelfClass, block, pinning))
         footprintSynced = true
         // TODO the proper way might be to fix the stylesheet to allow linebreaks on these characters?
@@ -236,58 +258,72 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
             visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
             visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap
             visualizer.repaint()
-            status.setText(SwingHtmlUtil.wrapInHtml(s"Footprint ${footprintStr} at ${blockPath.lastString}",
-              this.getFont))
+            status.setText(
+              SwingHtmlUtil.wrapInHtml(
+                s"Footprint ${footprintStr} at ${blockPath.lastString}",
+                this.getFont
+              )
+            )
 
           case _ =>
             visualizer.pinmap = Map()
-            status.setText(SwingHtmlUtil.wrapInHtml(s"Unknown footprint ${footprintStr} at ${blockPath.lastString}",
-              this.getFont))
+            status.setText(
+              SwingHtmlUtil.wrapInHtml(
+                s"Unknown footprint ${footprintStr} at ${blockPath.lastString}",
+                this.getFont
+              )
+            )
         }
       case Some((block, None)) =>
         currentBlockPathTypePin = Some((blockPath, block.getSelfClass, block, Map()))
         footprintSynced = false
         visualizer.pinmap = Map()
-        status.setText(SwingHtmlUtil.wrapInHtml(s"No footprint at ${blockPath.lastString}",
-          this.getFont))
+        status.setText(SwingHtmlUtil.wrapInHtml(s"No footprint at ${blockPath.lastString}", this.getFont))
       case None =>
         currentBlockPathTypePin = None
         footprintSynced = false
         visualizer.pinmap = Map()
-        status.setText(SwingHtmlUtil.wrapInHtml(s"Not a block at ${blockPath.lastString}",
-          this.getFont))
+        status.setText(SwingHtmlUtil.wrapInHtml(s"Not a block at ${blockPath.lastString}", this.getFont))
     }
   }
 
-  /** Returns an action to insert code to set the current block's footprint to something.
-    * FootprintBlock detection is done here, so code edit actions are as consistent as possible. */
+  /** Returns an action to insert code to set the current block's footprint to something. FootprintBlock detection is
+    * done here, so code edit actions are as consistent as possible.
+    */
   def insertBlockFootprint(footprintName: String): Errorable[() => Unit] = exceptable {
-    val (blockPath, blockType, block, pinning) = currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
+    val (blockPath, blockType, block, pinning) =
+      currentBlockPathTypePin.exceptNone("no FootprintBlock selected")
     val blockPyClass = DesignAnalysisUtils.pyClassOf(blockType, project).exceptError
 
     val footprintFile = KicadFootprintUtil.getFootprintFile(footprintName).exceptError
-    val footprintBlockType = ElemBuilder.LibraryPath("electronics_model.CircuitBlock.FootprintBlock")  // TODO belongs in shared place?
+    val footprintBlockType =
+      ElemBuilder.LibraryPath(
+        "electronics_model.CircuitBlock.FootprintBlock"
+      ) // TODO belongs in shared place?
     val footprintBlockClass = DesignAnalysisUtils.pyClassOf(footprintBlockType, project).get
-    requireExcept(blockPyClass.isSubclass(footprintBlockClass, TypeEvalContext.codeAnalysis(project, null)),
-      s"${blockPyClass.getName} not a FootprintBlock")
+    requireExcept(
+      blockPyClass.isSubclass(footprintBlockClass, TypeEvalContext.codeAnalysis(project, null)),
+      s"${blockPyClass.getName} not a FootprintBlock"
+    )
 
     def continuation(added: PsiElement): Unit = {
       InsertAction.navigateToEnd(added)
       visualizer.kicadFootprint = KicadParser.parseKicadFile(footprintFile)
-      visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap  // TODO dedup
+      visualizer.pinmap = pinning.view.mapValues(ExprToString(_)).toMap // TODO dedup
       footprintSynced = true
       visualizer.repaint()
 
       // TODO update in design itself - but this requires changing Compiler params which isn't well supported
     }
 
-    InsertFootprintAction.createInsertFootprintFlow(blockPyClass, footprintName,
-      project, continuation).exceptError
+    InsertFootprintAction
+      .createInsertFootprintFlow(blockPyClass, footprintName, project, continuation)
+      .exceptError
   }
 
   // Configuration State
   //
-  def saveState(state: BlockVisualizerServiceState): Unit = { }  // none currently
+  def saveState(state: BlockVisualizerServiceState): Unit = {} // none currently
 
-  def loadState(state: BlockVisualizerServiceState): Unit = { }  // none currently
+  def loadState(state: BlockVisualizerServiceState): Unit = {} // none currently
 }

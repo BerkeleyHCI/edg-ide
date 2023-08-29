@@ -11,14 +11,16 @@ import edg_ide.util.DesignAnalysisUtils
 
 import java.io.File
 
-
 class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[DesignTopRunConfiguration] {
   override def getConfigurationFactory: ConfigurationFactory = {
     new DesignTopConfigurationFactory(new DesignTopRunConfigurationType)
   }
 
-  override def setupConfigurationFromContext(configuration: DesignTopRunConfiguration, context: ConfigurationContext,
-                                             sourceElement: Ref[PsiElement]): Boolean = {
+  override def setupConfigurationFromContext(
+      configuration: DesignTopRunConfiguration,
+      context: ConfigurationContext,
+      sourceElement: Ref[PsiElement]
+  ): Boolean = {
     Option(PsiTreeUtil.getParentOfType(sourceElement.get(), classOf[PyClass])) match {
       case Some(psiPyClass) =>
         val project = psiPyClass.getProject
@@ -27,10 +29,13 @@ class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[Des
         if (psiPyClass.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
           configuration.setName(psiPyClass.getQualifiedName)
           configuration.options.designName = psiPyClass.getQualifiedName
-          val containingDirectory = new File(psiPyClass.getContainingFile.getContainingDirectory.getVirtualFile.getPath)
-          val netlistFile = new File(containingDirectory, psiPyClass.getName + ".net")
+          val containingDirectory = new File(
+            psiPyClass.getContainingFile.getContainingDirectory.getVirtualFile.getPath
+          )
+          val designDirectory = new File(containingDirectory, psiPyClass.getName)
+          val netlistFile = new File(designDirectory, psiPyClass.getName + ".net")
           configuration.options.netlistFile = netlistFile.getAbsolutePath
-          val bomFile = new File(containingDirectory, psiPyClass.getName + ".csv")
+          val bomFile = new File(designDirectory, psiPyClass.getName + ".csv")
           configuration.options.bomFile = bomFile.getAbsolutePath
           configuration.options.pdfFile = ""
           true
@@ -41,8 +46,10 @@ class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[Des
     }
   }
 
-  override def isConfigurationFromContext(configuration: DesignTopRunConfiguration,
-                                          context: ConfigurationContext): Boolean = {
+  override def isConfigurationFromContext(
+      configuration: DesignTopRunConfiguration,
+      context: ConfigurationContext
+  ): Boolean = {
     Option(PsiTreeUtil.getParentOfType(context.getLocation.getPsiElement, classOf[PyClass])) match {
       case Some(psiPyClass) =>
         psiPyClass.getQualifiedName == configuration.options.designName

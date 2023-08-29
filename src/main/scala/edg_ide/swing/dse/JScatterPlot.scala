@@ -7,29 +7,35 @@ import java.awt.event._
 import java.awt.{Color, Graphics, Point}
 import javax.swing.{JComponent, SwingUtilities}
 
-
-/** Scatterplot widget with two numerical axes, with labels inside the plot.
-  * Data is structured as (x, y, data) coordinates, with some arbitrary data attached to each point.
-  *
+/** Scatterplot widget with two numerical axes, with labels inside the plot. Data is structured as (x, y, data)
+  * coordinates, with some arbitrary data attached to each point.
   */
 class JScatterPlot[ValueType] extends JComponent {
-  /** Scatterplot data point. Value (arbitrary data associated with this point), X, Y are required,
-    * others are optional with defaults.
-    * This allows future extensibility with additional parameters, eg size or marks.
+
+  /** Scatterplot data point. Value (arbitrary data associated with this point), X, Y are required, others are optional
+    * with defaults. This allows future extensibility with additional parameters, eg size or marks.
     */
-  class Data(val value: ValueType, val x: Float, val y: Float,
-             val zOrder: Int = 1, val color: Option[Color] = None, val tooltipText: Option[String] = None) {
-  }
+  class Data(
+      val value: ValueType,
+      val x: Float,
+      val y: Float,
+      val zOrder: Int = 1,
+      val color: Option[Color] = None,
+      val tooltipText: Option[String] = None
+  ) {}
 
   // data state
-  private var xAxis: PlotAxis.AxisType = Some(Seq())  // if text labels are specified, instead of dynamic numbers
+  private var xAxis: PlotAxis.AxisType = Some(
+    Seq()
+  ) // if text labels are specified, instead of dynamic numbers
   private var yAxis: PlotAxis.AxisType = Some(Seq())
 
   private var data: IndexedSeq[Data] = IndexedSeq()
-  private var mouseOverIndices: Seq[Int] = Seq()  // sorted by increasing index
-  private var selectedIndices: Seq[Int] = Seq()  // unsorted
+  private var mouseOverIndices: Seq[Int] = Seq() // sorted by increasing index
+  private var selectedIndices: Seq[Int] = Seq() // unsorted
 
-  private var dragRange: Option[((Float, Float), Option[(Float, Float)])] = None  // (start, current) in data-space if in drag
+  private var dragRange: Option[((Float, Float), Option[(Float, Float)])] =
+    None // (start, current) in data-space if in drag
 
   // UI state
   private var xRange = (-1.0f, 1.0f)
@@ -45,13 +51,19 @@ class JScatterPlot[ValueType] extends JComponent {
     case Float.NegativeInfinity => getHeight - 2
     case _ => ((yRange._2 - dataVal) * JDsePlot.dataScale(yRange, getHeight)).toInt
   }
-  private def screenToDataX(screenPos: Int): Float = screenPos / JDsePlot.dataScale(xRange, getWidth) + xRange._1
-  private def screenToDataY(screenPos: Int): Float = -(screenPos / JDsePlot.dataScale(yRange, getHeight) - yRange._2)
+  private def screenToDataX(screenPos: Int): Float =
+    screenPos / JDsePlot.dataScale(xRange, getWidth) + xRange._1
+  private def screenToDataY(screenPos: Int): Float =
+    -(screenPos / JDsePlot.dataScale(yRange, getHeight) - yRange._2)
 
-  def setData(xys: IndexedSeq[Data], xAxis: PlotAxis.AxisType = None, yAxis: PlotAxis.AxisType = None): Unit = {
+  def setData(
+      xys: IndexedSeq[Data],
+      xAxis: PlotAxis.AxisType = None,
+      yAxis: PlotAxis.AxisType = None
+  ): Unit = {
     data = xys
-    mouseOverIndices = Seq()  // clear
-    selectedIndices = Seq()  // clear
+    mouseOverIndices = Seq() // clear
+    selectedIndices = Seq() // clear
     dragRange = None
 
     xRange = JDsePlot.defaultValuesRange(data.map(_.x))
@@ -68,10 +80,10 @@ class JScatterPlot[ValueType] extends JComponent {
   // Unlike the other functions, this just takes values for simplicity and does not require X/Y/etc data.
   // Values not in rendered data are ignored.
   def setSelected(values: Seq[ValueType]): Unit = {
-    selectedIndices = values flatMap { value =>
+    selectedIndices = values.flatMap { value =>
       data.indexWhere(_.value == value) match {
-        case index if (index >= 0) => Some(index)
-        case _ => None  // ignored
+        case index if index >= 0 => Some(index)
+        case _ => None // ignored
       }
     }
 
@@ -91,8 +103,12 @@ class JScatterPlot[ValueType] extends JComponent {
     xTicks.foreach { case (tickPos, tickVal) =>
       val screenX = dataToScreenX(tickPos)
       paintGraphics.drawLine(screenX, getHeight - 1, screenX, getHeight - 1 - JDsePlot.kTickSizePx)
-      DrawAnchored.drawLabel(paintGraphics, tickVal,
-        (screenX, getHeight - 1 - JDsePlot.kTickSizePx), DrawAnchored.Bottom)
+      DrawAnchored.drawLabel(
+        paintGraphics,
+        tickVal,
+        (screenX, getHeight - 1 - JDsePlot.kTickSizePx),
+        DrawAnchored.Bottom
+      )
     }
 
     if (yAxis.isEmpty) { // bottom horizontal axis - only on numeric axis
@@ -106,15 +122,14 @@ class JScatterPlot[ValueType] extends JComponent {
     yTicks.foreach { case (tickPos, tickVal) =>
       val screenY = dataToScreenY(tickPos)
       paintGraphics.drawLine(0, screenY, JDsePlot.kTickSizePx, screenY)
-      DrawAnchored.drawLabel(paintGraphics, tickVal,
-        (JDsePlot.kTickSizePx, screenY), DrawAnchored.Left)
+      DrawAnchored.drawLabel(paintGraphics, tickVal, (JDsePlot.kTickSizePx, screenY), DrawAnchored.Left)
     }
   }
 
   private def paintData(paintGraphics: Graphics): Unit = {
     data.zipWithIndex.sortBy(_._1.zOrder).foreach { case (data, index) =>
       val dataGraphics = paintGraphics.create()
-      data.color.foreach { color =>  // if color is specified, set the color
+      data.color.foreach { color => // if color is specified, set the color
         dataGraphics.setColor(color)
       }
       val screenX = dataToScreenX(data.x)
@@ -122,23 +137,43 @@ class JScatterPlot[ValueType] extends JComponent {
 
       if (mouseOverIndices.contains(index)) { // mouseover: highlight
         val hoverGraphics = paintGraphics.create()
-        hoverGraphics.setColor(ColorUtil.blendColor(getBackground, JDsePlot.kHoverOutlineColor, JDsePlot.kHoverOutlineBlend))
-        hoverGraphics.fillOval(screenX - JDsePlot.kPointHoverOutlinePx / 2, screenY - JDsePlot.kPointHoverOutlinePx / 2,
-          JDsePlot.kPointHoverOutlinePx, JDsePlot.kPointHoverOutlinePx)
+        hoverGraphics.setColor(
+          ColorUtil.blendColor(
+            getBackground,
+            JDsePlot.kHoverOutlineColor,
+            JDsePlot.kHoverOutlineBlend
+          )
+        )
+        hoverGraphics.fillOval(
+          screenX - JDsePlot.kPointHoverOutlinePx / 2,
+          screenY - JDsePlot.kPointHoverOutlinePx / 2,
+          JDsePlot.kPointHoverOutlinePx,
+          JDsePlot.kPointHoverOutlinePx
+        )
       }
       if (selectedIndices.contains(index)) { // selected: thicker
-        dataGraphics.fillOval(screenX - JDsePlot.kPointSelectedSizePx / 2, screenY - JDsePlot.kPointSelectedSizePx / 2,
-          JDsePlot.kPointSelectedSizePx, JDsePlot.kPointSelectedSizePx)
+        dataGraphics.fillOval(
+          screenX - JDsePlot.kPointSelectedSizePx / 2,
+          screenY - JDsePlot.kPointSelectedSizePx / 2,
+          JDsePlot.kPointSelectedSizePx,
+          JDsePlot.kPointSelectedSizePx
+        )
       } else {
-        dataGraphics.fillOval(screenX - JDsePlot.kPointSizePx / 2, screenY - JDsePlot.kPointSizePx / 2,
-          JDsePlot.kPointSizePx, JDsePlot.kPointSizePx)
+        dataGraphics.fillOval(
+          screenX - JDsePlot.kPointSizePx / 2,
+          screenY - JDsePlot.kPointSizePx / 2,
+          JDsePlot.kPointSizePx,
+          JDsePlot.kPointSizePx
+        )
       }
     }
   }
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
     val axesGraphics = paintGraphics.create()
-    axesGraphics.setColor(ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness))
+    axesGraphics.setColor(
+      ColorUtil.blendColor(getBackground, paintGraphics.getColor, JDsePlot.kTickBrightness)
+    )
     paintAxes(axesGraphics)
 
     paintData(paintGraphics)
@@ -184,9 +219,9 @@ class JScatterPlot[ValueType] extends JComponent {
   addMouseMotionListener(new MouseMotionAdapter {
     override def mouseMoved(e: MouseEvent): Unit = {
       super.mouseMoved(e)
-      if (dragRange.isEmpty) {  // only runs on non-drag
+      if (dragRange.isEmpty) { // only runs on non-drag
         val newPoints = getPointsForLocation(e.getX, e.getY, JDsePlot.kSnapDistancePx)
-        val sortedIndices = newPoints.sortBy(_._2).map(pair => pair._1)  // sort by distance
+        val sortedIndices = newPoints.sortBy(_._2).map(pair => pair._1) // sort by distance
         hoverUpdated(sortedIndices)
       }
     }
@@ -241,8 +276,8 @@ class JScatterPlot[ValueType] extends JComponent {
       }
     }
   }
-  addMouseListener(dragPanListener)  // this registers the press / release
-  addMouseMotionListener(dragPanListener)  // this registers the dragged
+  addMouseListener(dragPanListener) // this registers the press / release
+  addMouseMotionListener(dragPanListener) // this registers the dragged
 
   private val dragSelectListener = new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
@@ -294,7 +329,7 @@ class JScatterPlot[ValueType] extends JComponent {
           hoverUpdated(newIndices)
 
           validate()
-          repaint()  // repaint the selection box regardless
+          repaint() // repaint the selection box regardless
         }
       }
     }
@@ -313,9 +348,9 @@ class JScatterPlot[ValueType] extends JComponent {
   //
   // called when this widget clicked, for all points within some hover radius of the cursor
   // sorted by distance from cursor (earlier = closer), and may be empty
-  def onClick(e: MouseEvent, data: Seq[Data]): Unit = { }
+  def onClick(e: MouseEvent, data: Seq[Data]): Unit = {}
 
   // called when the hovered-over data changes, for all points within some hover radius of the cursor
   // may be empty (when hovering over nothing)
-  def onHoverChange(data: Seq[Data]): Unit = { }
+  def onHoverChange(data: Seq[Data]): Unit = {}
 }

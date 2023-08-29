@@ -4,20 +4,17 @@ import java.awt.Point
 import java.awt.event.{MouseAdapter, MouseEvent, MouseWheelEvent}
 import javax.swing.{JComponent, JScrollPane, SwingUtilities}
 
-
 trait Zoomable extends JComponent {
-  /**
-    * Sets the zoom level of this component. 1 is default.
-    * Origin should stay constant across zoom levels.
+
+  /** Sets the zoom level of this component. 1 is default. Origin should stay constant across zoom levels.
     */
   def setZoom(zoom: Float): Unit
   def getZoom: Float
 }
 
-
 trait ZoomDragScrollPanel extends JScrollPane {
   val zoomable: Zoomable
-  var dragOrigin: Option[Point] = None  // mouse origin, viewport origin
+  var dragOrigin: Option[Point] = None // mouse origin, viewport origin
 
   override protected def processMouseWheelEvent(e: MouseWheelEvent): Unit = {
     val zoomFactor = Math.pow(1.1, -1 * e.getPreciseWheelRotation)

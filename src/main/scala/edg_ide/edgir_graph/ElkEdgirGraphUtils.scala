@@ -8,7 +8,6 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import scala.jdk.CollectionConverters._
 
-
 object ElkEdgirGraphUtils {
   import org.eclipse.elk.graph.properties.IProperty
 
@@ -47,16 +46,18 @@ object ElkEdgirGraphUtils {
 
     override def nodeConv(node: NodeDataWrapper): Option[String] = node match {
       case BlockWrapper(path, block) =>
-        val refdesStringMaybe = block.`type`.hierarchy.flatMap { block =>
-          EdgirAnalysisUtils.getInnermostSubblock(node.path, block)
-        }.flatMap { case (innerPath, innerBlock) =>
-          compiler.getParamValue((innerPath + "fp_refdes").asIndirect)
-        } match {
+        val refdesStringMaybe = block.`type`.hierarchy
+          .flatMap { block =>
+            EdgirAnalysisUtils.getInnermostSubblock(node.path, block)
+          }
+          .flatMap { case (innerPath, innerBlock) =>
+            compiler.getParamValue((innerPath + "fp_refdes").asIndirect)
+          } match {
           case Some(TextValue(refdes)) => Some(f"${node.path.lastString}, $refdes")
           case _ => None
         }
         Some(refdesStringMaybe.getOrElse(node.path.lastString))
-      case _ => None  // use default for non-blocks
+      case _ => None // use default for non-blocks
     }
 
     // port name not supported, since ports are not hierarchical (can't just use the last path component)
@@ -68,8 +69,7 @@ object ElkEdgirGraphUtils {
   }
 
   import org.eclipse.elk.core.options.PortSide
-  object PortSideMapper
-      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+  object PortSideMapper extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
     import org.eclipse.elk.core.options.CoreOptions.PORT_SIDE
     type PropertyType = PortSide
 
@@ -82,10 +82,11 @@ object ElkEdgirGraphUtils {
 
       portType.toSimpleString match {
         case "VoltageSource" => Some(PortSide.EAST)
-        case "VoltageSink" => portName match {
-          case "gnd" | "vss" => Some(PortSide.SOUTH)
-          case _ => Some(PortSide.NORTH)
-        }
+        case "VoltageSink" =>
+          portName match {
+            case "gnd" | "vss" => Some(PortSide.SOUTH)
+            case _ => Some(PortSide.NORTH)
+          }
 
         case "DigitalSource" => Some(PortSide.EAST)
         case "DigitalSingleSource" => Some(PortSide.EAST)
@@ -140,22 +141,24 @@ object ElkEdgirGraphUtils {
     override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
   }
 
-  /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath.
-    * Returns target node(s) matching the path.
+  /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath. Returns target
+    * node(s) matching the path.
     */
   def follow(path: DesignPath, root: ElkNode): Seq[ElkGraphElement] = {
     def inner(elkNode: ElkNode): Seq[ElkGraphElement] = {
-      if (elkNode.getProperty(DesignPathMapper.property) == path) {  // reached target node
+      if (elkNode.getProperty(DesignPathMapper.property) == path) { // reached target node
         Seq(elkNode)
       } else {
-        val nextNodeResults = elkNode.getChildren.asScala.toSeq.filter { node =>
-          node.getProperty(DesignPathMapper.property) match {
-            case DesignPath(steps) => path.steps.startsWith(steps)
-            case _ => false
+        val nextNodeResults = elkNode.getChildren.asScala.toSeq
+          .filter { node =>
+            node.getProperty(DesignPathMapper.property) match {
+              case DesignPath(steps) => path.steps.startsWith(steps)
+              case _ => false
+            }
           }
-        }.flatMap { childNode =>
-          inner(childNode)
-        }
+          .flatMap { childNode =>
+            inner(childNode)
+          }
 
         val nextPorts = elkNode.getPorts.asScala.toSeq.filter { node =>
           node.getProperty(DesignPathMapper.property) == path
