@@ -8,8 +8,7 @@ import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.jetbrains.python.psi._
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.ExceptSeq
-import edg_ide.util.{ConnectBuilder, DesignAnalysisUtils, PortConnects, exceptable}
-import edgir.elem.elem
+import edg_ide.util.{DesignAnalysisUtils, PortConnects, exceptable}
 
 object LiveTemplateConnect {
   // generate the reference Python HDL code for a PortConnect
@@ -32,12 +31,13 @@ object LiveTemplateConnect {
 
   // gets the class member variable (if any) for a PortConnect
   protected def connectedToRequiredAttr(connect: PortConnects.Base): Option[String] = connect match {
-    case PortConnects.BlockPort(blockName, portName) => Some(blockName)
+    // for blocks that are part of an ElementDict (by heuristic), only take the non-index part
+    case PortConnects.BlockPort(blockName, portName) => Some(blockName.takeWhile(_ != '['))
     case PortConnects.BoundaryPort(portName, _) => Some(portName)
-    case PortConnects.BlockVectorUnit(blockName, portName) => Some(blockName)
+    case PortConnects.BlockVectorUnit(blockName, portName) => Some(blockName.takeWhile(_ != '['))
     case PortConnects.BlockVectorSlicePort(blockName, portName, _) => Some(portName)
     case PortConnects.BlockVectorSliceVector(blockName, portName, _) => Some(portName)
-    case PortConnects.BlockVectorSlice(blockName, portName, _) => Some(blockName)
+    case PortConnects.BlockVectorSlice(blockName, portName, _) => Some(blockName.takeWhile(_ != '['))
     case PortConnects.BoundaryPortVectorUnit(portName) => Some(portName)
   }
 
@@ -116,7 +116,7 @@ object LiveTemplateConnect {
           return // ignored if template was deleted, including through moving the template
         }
 
-        val insertedName = state.getVariableValue("name").getText
+        val insertedName = state.getVariableValue("name (optional)").getText
         val insertedNameOpt = if (insertedName.isEmpty) None else Some(insertedName)
         if (insertedNameOpt.isEmpty && brokenOff) { // canceled by esc while name is empty
           writeCommandAction(project)
