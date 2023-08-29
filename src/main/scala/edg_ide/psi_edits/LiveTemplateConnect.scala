@@ -11,6 +11,8 @@ import edg_ide.util.ExceptionNotifyImplicits.ExceptSeq
 import edg_ide.util.{DesignAnalysisUtils, PortConnects, exceptable}
 
 object LiveTemplateConnect {
+  protected val kTemplateVariableName = "name (optional)"
+
   // generate the reference Python HDL code for a PortConnect
   protected def connectedToRefCode(selfName: String, connect: PortConnects.Base): String = connect match {
     case PortConnects.BlockPort(blockName, portName) => s"$selfName.$blockName.$portName"
@@ -100,7 +102,7 @@ object LiveTemplateConnect {
         }
 
         val nameTemplateVar = new InsertionLiveTemplate.Reference(
-          "name (optional)",
+          kTemplateVariableName,
           newConnect.getTargets.head.asInstanceOf[PyTargetExpression],
           defaultValue = Some("")
         )
@@ -116,7 +118,7 @@ object LiveTemplateConnect {
           return // ignored if template was deleted, including through moving the template
         }
 
-        val insertedName = state.getVariableValue("name (optional)").getText
+        val insertedName = state.getVariableValue(kTemplateVariableName).getText
         val insertedNameOpt = if (insertedName.isEmpty) None else Some(insertedName)
         if (insertedNameOpt.isEmpty && brokenOff) { // canceled by esc while name is empty
           writeCommandAction(project)
