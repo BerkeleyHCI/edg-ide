@@ -659,11 +659,16 @@ class LibraryPanel(project: Project) extends JPanel {
         case node: EdgirLibraryNode#PortNode =>
           searchTerms.forall(searchTerm => node.path.toSimpleString.toLowerCase().contains(searchTerm))
         case other => false
+      }.filter { path =>
+        !path.getPath.exists {
+          case node: EdgirLibraryNode#BlockNode
+            if node.path == EdgirLibraryTreeTableModel.kInternalBlockPath => true // don't expand InternalBlock
+          case _ => false
+        }
       }
       filteredPaths.foreach { filteredPath =>
         recursiveExpandPath(filteredPath)
       }
-
     }
   }
   libraryTreeSearch.getDocument.addDocumentListener(new DocumentListener() {
