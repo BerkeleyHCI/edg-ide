@@ -37,9 +37,15 @@ class BlockConnectedAnalysisTest extends AnyFlatSpec {
     analysis.connectedGroups(2)._3 should not be empty
 
     analysis.connectedGroups(3)._1 should equal(None)
-    analysis.connectedGroups(3)._2 should equal(Seq( // export into bundle elt
-      PortConnectTyped(PortConnects.BlockPort("unusedSink", "port"), LibraryPath("sinkPort"))))
+    analysis.connectedGroups(3)._2 should equal(Seq( // array can have additional allocates
+      PortConnectTyped(PortConnects.BlockVectorSlicePort("sinkArray", "port", None), LibraryPath("sinkPort"))))
     analysis.connectedGroups(3)._3 shouldBe empty
+
+    analysis.connectedGroups(4)._1 should equal(None)
+    analysis.connectedGroups(4)._2 should equal(Seq(
+      PortConnectTyped(PortConnects.BlockPort("unusedSink", "port"), LibraryPath("sinkPort"))
+    ))
+    analysis.connectedGroups(4)._3 shouldBe empty
   }
 
   it should "decode connections for array example" in {
@@ -56,8 +62,14 @@ class BlockConnectedAnalysisTest extends AnyFlatSpec {
     analysis.connectedGroups(0)._3 should not be empty
 
     analysis.connectedGroups(1)._1 should equal(None)
-    analysis.connectedGroups(1)._2 should equal(Seq( // export into bundle elt
-      PortConnectTyped(PortConnects.BlockVectorUnit("unusedSinkArray", "port"), LibraryPath("sinkPort"))))
+    analysis.connectedGroups(1)._2 should equal(Seq( // array can have additional allocates
+      PortConnectTyped(PortConnects.BlockVectorSliceVector("sinkArray", "port", None), LibraryPath("sinkPort"))))
     analysis.connectedGroups(1)._3 shouldBe empty
+
+    analysis.connectedGroups(2)._1 should equal(None)
+    analysis.connectedGroups(2)._2 should equal(Seq(
+      PortConnectTyped(PortConnects.BlockVectorUnit("unusedSinkArray", "port"), LibraryPath("sinkPort"))
+    ))
+    analysis.connectedGroups(2)._3 shouldBe empty
   }
 }
