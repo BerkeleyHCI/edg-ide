@@ -15,6 +15,9 @@ import com.intellij.psi.{PsiDocumentManager, PsiElement}
 import com.intellij.util.ui.UIUtil
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
+import edg.util.Errorable
+import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
+import edg_ide.util.exceptable
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
@@ -188,18 +191,20 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     popup
   }
 
-  // starts this template and returns the TemplateState
+  // starts this template and returns the TemplateState if successfully started
   // must run in a write command action
   def run(
       initialTooltip: Option[String] = None,
       overrideTemplateVarValues: Option[Seq[String]] = None
-  ): TemplateState = {
+  ): Errorable[TemplateState] = exceptable {
     val project = elt.getProject
-
-    // opens / sets the focus onto the relevant text editor, so the user can start typing
     val fileDescriptor =
       new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile, elt.getTextRange.getStartOffset)
     val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
+
+    TemplateManager.getInstance(project).getActiveTemplate(editor).exceptEquals(null, "another template active")
+
+    // opens / sets the focus onto the relevant text editor, so the user can start typing
     editor.getCaretModel.moveToOffset(
       elt.getTextOffset
     ) // needed so the template is placed at the right location

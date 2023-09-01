@@ -20,7 +20,7 @@ object LiveTemplateInsertBlock {
       actionName: String,
       project: Project,
       continuation: (String, PsiElement) => Unit
-  ): Errorable[() => Unit] = exceptable {
+  ): Errorable[MovableLiveTemplate] = exceptable {
     val languageLevel = LanguageLevel.forElement(libClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
 
@@ -130,16 +130,6 @@ object LiveTemplateInsertBlock {
       }
     })
 
-    val caretElt = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
-
-    def insertBlockFlow: Unit = {
-      writeCommandAction(project)
-        .withName(s"$actionName")
-        .compute(() => {
-          movableLiveTemplate.run(caretElt)
-        })
-    }
-
-    () => insertBlockFlow
+    movableLiveTemplate
   }
 }

@@ -1,11 +1,12 @@
 package edg_ide.ui.tools
 
+import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.PsiElement
 import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils
-import edg_ide.psi_edits.LiveTemplateConnect
+import edg_ide.psi_edits.{InsertAction, LiveTemplateConnect}
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{
@@ -16,6 +17,7 @@ import edg_ide.util.{
   PortConnectTyped,
   PortConnects,
   exceptable,
+  exceptionPopup,
   requireExcept
 }
 import edgir.elem.elem
@@ -214,14 +216,20 @@ class NewConnectTool(
             }
             interface.endTool()
           }
-          LiveTemplateConnect.createTemplateConnect(
-            containerPyClass,
-            getCurrentName(),
-            interface.getProject,
-            startingPort.connect,
-            newConnects.map(_.connect),
-            continuation
-          ).exceptError()
+
+          exceptionPopup.atMouse(component) {
+            val movableLiveTemplate = LiveTemplateConnect.createTemplateConnect(
+              containerPyClass,
+              getCurrentName(),
+              interface.getProject,
+              startingPort.connect,
+              newConnects.map(_.connect),
+              continuation
+            ).exceptError
+
+            val caretElt = InsertAction.getCaretForNewClassStatement(containerPyClass, interface.getProject).toOption
+            movableLiveTemplate.start(interface.getProject, caretElt).exceptError
+          }
         case _ =>
           if (connectedBlockOpt.isEmpty) {
             logger.error(s"failed to create connected IR block")

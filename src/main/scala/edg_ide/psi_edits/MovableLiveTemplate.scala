@@ -4,7 +4,11 @@ import com.intellij.codeInsight.template.TemplateEditingAdapter
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
+import com.intellij.openapi.project.Project
 import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiWhiteSpace}
+import edg.util.Errorable
+import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
+import edg_ide.util.exceptable
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
@@ -65,12 +69,18 @@ abstract class MovableLiveTemplate(actionName: String) {
 
   // starts the movable live template, given the PSI element at the current caret
   // must be called within a writeCommandAction
-  def run(caretEltOpt: Option[PsiElement], priorTemplateValues: Option[(Int, Seq[String])] = None): Unit = {
+  protected def run(
+      caretEltOpt: Option[PsiElement],
+      priorTemplateValues: Option[(Int, Seq[String])] = None
+  ): Errorable[TemplateState] = exceptable {
     val tooltipString = priorTemplateValues match {
       case Some(_) => None // tooltip only shows on initial template insertion, not on moves
       case None => Some(kHelpTooltip)
     }
+
+    // on error, this fails without updating state variables, as if it wasn't started
     val templateState = startTemplate(caretEltOpt).run(tooltipString, priorTemplateValues.map(_._2))
+      .exceptError
     currentTemplateState = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
     priorTemplateValues.foreach { case (templatePos, _) => // advance to the previous variable position
@@ -83,6 +93,7 @@ abstract class MovableLiveTemplate(actionName: String) {
     movingTemplateListener.foreach(editor.removeEditorMouseListener)
     movingTemplateListener = Some(new MovingMouseListener(templateState))
     editor.addEditorMouseListener(movingTemplateListener.get)
+    templateState
   }
 
   // Adds a template state listener, installed into the current template (if active) and into
@@ -91,5 +102,15 @@ abstract class MovableLiveTemplate(actionName: String) {
   def addTemplateStateListener(listener: TemplateEditingAdapter): Unit = {
     currentTemplateState.foreach(_.addTemplateStateListener(listener))
     templateStateListeners.append(listener)
+  }
+
+  // call externally to start the live template
+  // TODO refactor to not require project, project should be inferred from startTemplate
+  def start(project: Project, caretEltOpt: Option[PsiElement]): Errorable[Unit] = exceptable {
+    writeCommandAction(project)
+      .withName(actionName)
+      .compute(() => {
+        run(caretEltOpt).exceptError
+      })
   }
 }

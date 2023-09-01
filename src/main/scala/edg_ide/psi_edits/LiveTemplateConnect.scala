@@ -7,7 +7,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiWhiteSpace}
 import com.jetbrains.python.psi._
 import edg.util.Errorable
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptOption, ExceptSeq}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignAnalysisUtils, PortConnects, exceptable}
 
 object LiveTemplateConnect {
@@ -51,7 +51,7 @@ object LiveTemplateConnect {
       startingConnect: PortConnects.Base,
       newConnects: Seq[PortConnects.Base],
       continuation: (Option[String], PsiElement) => Unit,
-  ): Errorable[() => Unit] = exceptable {
+  ): Errorable[MovableLiveTemplate] = exceptable {
     val languageLevel = LanguageLevel.forElement(contextClass)
     val psiElementGenerator = PyElementGenerator.getInstance(project)
     val allConnects = startingConnect +: newConnects
@@ -205,16 +205,6 @@ object LiveTemplateConnect {
         }
       }
     })
-
-    val caretElt = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
-    def insertBlockFlow: Unit = {
-      writeCommandAction(project)
-        .withName(s"$actionName")
-        .compute(() => {
-          movableLiveTemplate.run(caretElt)
-        })
-    }
-
-    () => insertBlockFlow
+    movableLiveTemplate
   }
 }
