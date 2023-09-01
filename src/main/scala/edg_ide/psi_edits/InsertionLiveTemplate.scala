@@ -202,7 +202,9 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
       new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile, elt.getTextRange.getStartOffset)
     val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
 
-    TemplateManager.getInstance(project).getActiveTemplate(editor).exceptEquals(null, "another template active")
+    if (TemplateManager.getInstance(project).getActiveTemplate(editor) != null) {
+      exceptable.fail("another template active")
+    }
 
     // opens / sets the focus onto the relevant text editor, so the user can start typing
     editor.getCaretModel.moveToOffset(
