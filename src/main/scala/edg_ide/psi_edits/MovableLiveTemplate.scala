@@ -29,10 +29,12 @@ abstract class MovableLiveTemplate(actionName: String) {
   // inserts the new element for this template and returns the inserted element
   // this is run in the same writeCommandAction as the template creation
   // implement me
-  def createTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate
+  def createTemplate(): InsertionLiveTemplate
 
   class MovingMouseListener(template: InsertionLiveTemplate, templateState: TemplateState) extends EditorMouseListener {
     override def mouseClicked(event: EditorMouseEvent): Unit = {
+      // note: when the mouse is clocked, the caret moves to the new position, so the position / element
+      // does not need to be explicitly managed (instead, createTemplate() should be position-aware)
       if (!event.getMouseEvent.isAltDown) { // only move on mod+click, to allow copy-paste flows
         return
       }
@@ -48,13 +50,6 @@ abstract class MovableLiveTemplate(actionName: String) {
       event.consume()
 
       val project = templateState.getProject
-      val psiFile = PsiDocumentManager.getInstance(project).getPsiFile(event.getEditor.getDocument)
-      val caretElement =
-        psiFile.findElementAt(offset) match { // get the caret element before modifying the AST
-          // whitespace may be modified by the template delete and become invalid
-          case caretElement: PsiWhiteSpace => caretElement.getPrevSibling
-          case caretElement => caretElement
-        }
 
       // save template state before deleting the template
       val templatePrev = (0 until templateState.getCurrentVariableNumber).map {
@@ -69,7 +64,7 @@ abstract class MovableLiveTemplate(actionName: String) {
         .compute(() => {
           template.deleteTemplate()
           templateState.update() // update to end the template, and avoid overlapping templates
-          run(Some(caretElement), Some((templatePrev, persistTemplateVariableValues.toMap)))
+          run(Some((templatePrev, persistTemplateVariableValues.toMap)))
         })
     }
   }
@@ -83,12 +78,11 @@ abstract class MovableLiveTemplate(actionName: String) {
   //
   // must be called within a writeCommandAction
   protected def run(
-      caretEltOpt: Option[PsiElement] = None,
       priorTemplatePosValues: Option[(Seq[String], Map[String, String])] = None
   ): Errorable[TemplateState] = exceptable {
     // on error, this fails without updating state variables, as if it wasn't started
     val priorTemplateValues = priorTemplatePosValues.map(_._2).getOrElse(Map())
-    val newTemplate = createTemplate(caretEltOpt)
+    val newTemplate = createTemplate()
     val templateState = newTemplate.run(kHelpTooltip, priorTemplateValues).exceptError
     currentTemplate = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
@@ -116,11 +110,9 @@ abstract class MovableLiveTemplate(actionName: String) {
 
   // call externally to start the live template
   // TODO refactor to not require project, project should be inferred from startTemplate
-  def start(project: Project, caretEltOpt: Option[PsiElement]): Errorable[Unit] = exceptable {
-    writeCommandAction(project)
-      .withName(actionName)
-      .compute(() => {
-        run(caretEltOpt).exceptError
-      })
+  def start(project: Project): Errorable[Unit] = exceptable {
+    writeCommandAction(project).withName(actionName).compute(() => {
+      run().exceptError
+    })
   }
 }

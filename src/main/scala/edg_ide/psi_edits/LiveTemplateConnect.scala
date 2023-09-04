@@ -141,31 +141,32 @@ object LiveTemplateConnect {
       }
 
       // TODO startTemplate should be able to fail - Errorable
-      override def createTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
-        // find earliest insertion position (after all refs are defined)
-        val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
-        val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
-
-        // TODO live template insertion needs to support modifying AST nodes (instead of only addition)
-//        caretEltOpt.foreach { caretElt => // check if caret is in a connect
-//          tryStartStatementInsertionTemplate(caretElt, earliestPosition).foreach {
-//            return _
+      override def createTemplate(): InsertionLiveTemplate = {
+//        // find earliest insertion position (after all refs are defined)
+//        val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
+//        val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
+//
+//        // TODO live template insertion needs to support modifying AST nodes (instead of only addition)
+////        caretEltOpt.foreach { caretElt => // check if caret is in a connect
+////          tryStartStatementInsertionTemplate(caretElt, earliestPosition).foreach {
+////            return _
+////          }
+////        } // otherwise continue to stmt insertion
+//
+//        val validCaretEltOpt = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
+//        val preInsertAfter = validCaretEltOpt
+//          .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
+//
+//        // adjust insertion position to be after all assignments to required references
+//        val insertAfter = earliestPosition.map { earliestPosition =>
+//          if (!DesignAnalysisUtils.elementAfterEdg(preInsertAfter, earliestPosition, project).getOrElse(true)) {
+//            preInsertAfter
+//          } else {
+//            earliestPosition
 //          }
-//        } // otherwise continue to stmt insertion
-
-        val validCaretEltOpt = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
-        val preInsertAfter = validCaretEltOpt
-          .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
-
-        // adjust insertion position to be after all assignments to required references
-        val insertAfter = earliestPosition.map { earliestPosition =>
-          if (!DesignAnalysisUtils.elementAfterEdg(preInsertAfter, earliestPosition, project).getOrElse(true)) {
-            preInsertAfter
-          } else {
-            earliestPosition
-          }
-        }.getOrElse(preInsertAfter)
-        startStatementInsertionTemplate(insertAfter)
+//        }.getOrElse(preInsertAfter)
+//        startStatementInsertionTemplate(insertAfter)
+        ???
       }
     }
 

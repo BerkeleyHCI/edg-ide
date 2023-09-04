@@ -227,8 +227,7 @@ class NewConnectTool(
               continuation
             ).exceptError
 
-            val caretElt = InsertAction.getCaretForNewClassStatement(containerPyClass, interface.getProject).toOption
-            movableLiveTemplate.start(interface.getProject, caretElt).exceptError
+            movableLiveTemplate.start(interface.getProject).exceptError
           }
         case _ =>
           if (connectedBlockOpt.isEmpty) {

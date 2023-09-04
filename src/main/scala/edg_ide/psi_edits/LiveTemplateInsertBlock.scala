@@ -136,7 +136,7 @@ object LiveTemplateInsertBlock {
       continuation: (String, PsiElement) => Unit
   ): MovableLiveTemplate = {
     new MovableLiveTemplate(actionName) {
-      override def createTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
+      override def createTemplate(): InsertionLiveTemplate = {
         new BlockInsertionLiveTemplate(contextClass, libClass, actionName, continuation)
       }
     }

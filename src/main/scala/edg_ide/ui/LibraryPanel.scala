@@ -122,8 +122,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
       () =>
         movableLiveTemplate.start(
-          project,
-          InsertAction.getCaretForNewClassStatement(contextPyClass.exceptError, project).toOption
+          project
         ).exceptError
     }
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
