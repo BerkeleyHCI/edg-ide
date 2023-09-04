@@ -114,6 +114,15 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
   // this happens in (and must be called from) an externally-scoped write command action
   def deleteTemplate(): Unit
 
+  // IMPLEMENT ME - optional
+  // called when the template is completed (not broken off), to optionally do any cleaning up
+  protected def cleanCompletedTemplate(state: TemplateState): Unit = {}
+
+  // IMPLEMENT ME - optional
+  // called when the template is cancelled (esc), to optionally do any cleaning up
+  // NOT triggered when making an edit outside the template
+  protected def cleanCanceledTemplate(state: TemplateState): Unit = {}
+
   private class TemplateListener(
       editor: Editor,
       variables: Seq[InsertionLiveTemplateVariable],
@@ -188,6 +197,16 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
       currentTooltip.closeOk(null)
       highlighters.foreach { highlighter =>
         HighlightManager.getInstance(editor.getProject).removeSegmentHighlighter(editor, highlighter)
+      }
+    }
+  }
+
+  private class CleanCompletedListener extends TemplateFinishedListener {
+    override def templateFinished(state: TemplateState, brokenOff: Boolean): Unit = {
+      if (!brokenOff) {
+        cleanCompletedTemplate(state)
+      } else {
+        cleanCanceledTemplate(state)
       }
     }
   }
@@ -282,8 +301,8 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
     val tooltip = createTemplateTooltip(tooltipString, editor)
 
     // note, waitingForInput won't get called since the listener seems to be attached afterwards
-    val templateListener = new TemplateListener(editor, variables, tooltip, highlighters.asScala)
-    templateState.addTemplateStateListener(templateListener)
+    templateState.addTemplateStateListener(new TemplateListener(editor, variables, tooltip, highlighters.asScala))
+    templateState.addTemplateStateListener(new CleanCompletedListener)
     templateState
   }
 }

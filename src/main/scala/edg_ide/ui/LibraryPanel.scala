@@ -118,7 +118,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
           blockPyClass.exceptError,
           s"Insert $blockTypeName",
           insertContinuation
-        ).exceptError
+        )
 
       () =>
         movableLiveTemplate.start(
