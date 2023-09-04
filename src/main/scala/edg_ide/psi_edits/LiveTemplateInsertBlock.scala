@@ -18,11 +18,11 @@ class BlockInsertionLiveTemplate(
 ) extends InsertionLiveTemplate(contextClass.getContainingFile) {
   private lazy val logger = Logger.getInstance(this.getClass)
 
-  val languageLevel = LanguageLevel.forElement(libClass)
-  val project = contextClass.getProject
-  val psiElementGenerator = PyElementGenerator.getInstance(project)
+  protected val languageLevel = LanguageLevel.forElement(libClass)
+  protected val project = contextClass.getProject
+  protected val psiElementGenerator = PyElementGenerator.getInstance(project)
 
-  var newAssignStmt: Option[PyAssignmentStatement] = None
+  protected var newAssignStmt: Option[PyAssignmentStatement] = None
 
   override protected def buildTemplateAst(): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])] = exceptable {
     val insertAfter = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
@@ -32,8 +32,7 @@ class BlockInsertionLiveTemplate(
     val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
     val selfName = containingPsiFn.getParameterList.getParameters.toSeq
       .exceptEmpty(s"function ${containingPsiFn.getName} has no self")
-      .head
-      .getName
+      .head.getName
 
     val newAssignTemplate = psiElementGenerator.createFromText(
       languageLevel,
@@ -89,6 +88,7 @@ class BlockInsertionLiveTemplate(
 
   override def deleteTemplate(): Unit = {
     newAssignStmt.foreach(_.delete())
+    newAssignStmt = None
   }
 
   override protected def cleanCompletedTemplate(state: TemplateState): Unit = {
