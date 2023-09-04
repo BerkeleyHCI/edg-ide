@@ -4,6 +4,7 @@ import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
 import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
 import com.intellij.lang.LanguageNamesValidation
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.markup.RangeHighlighter
@@ -16,10 +17,7 @@ import com.intellij.util.ui.UIUtil
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
 import edg.util.Errorable
-import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
-import edg_ide.util.exceptable
 
-import scala.collection.mutable
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 trait InsertionLiveTemplateVariable {
@@ -93,7 +91,7 @@ object InsertionLiveTemplate {
   }
 }
 
-/** Utilities for insertion live templates.
+/** Wrapper around the vanilla live template that adds variable validation, tooltips, and a nicer API.
   *
   * @param elt
   *   existing PsiElement to instantiate the template around
@@ -101,6 +99,8 @@ object InsertionLiveTemplate {
   *   list of variables for the live template, see variable definition
   */
 class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLiveTemplateVariable]) {
+  private lazy val logger = Logger.getInstance(this.getClass)
+
   private class TemplateListener(editor: Editor, tooltip: JBPopup, highlighters: Iterable[RangeHighlighter])
       extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
@@ -196,14 +196,16 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
   def run(
       initialTooltip: Option[String] = None,
       overrideTemplateVarValues: Option[Seq[String]] = None
-  ): Errorable[TemplateState] = exceptable {
+  ): TemplateState = {
     val project = elt.getProject
     val fileDescriptor =
       new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile, elt.getTextRange.getStartOffset)
     val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
 
-    if (TemplateManager.getInstance(project).getActiveTemplate(editor) != null) {
-      exceptable.fail("another template active")
+    val templateManager = TemplateManager.getInstance(project)
+    Option(templateManager.getActiveTemplate(editor)).foreach { activeTemplate =>
+      logger.error("overlapping template, finishing prior template")
+      templateManager.finishTemplate(editor) // upper layers should avoid overlapping templates, but this cleans up
     }
 
     // opens / sets the focus onto the relevant text editor, so the user can start typing
