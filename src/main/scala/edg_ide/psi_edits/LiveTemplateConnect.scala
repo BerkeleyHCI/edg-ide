@@ -92,7 +92,8 @@ object LiveTemplateConnect {
           defaultValue = Some("")
         )
 
-        new InsertionLiveTemplate(newConnect, IndexedSeq(nameTemplateVar))
+//        new InsertionLiveTemplate(newConnect, IndexedSeq(nameTemplateVar))
+        ???
       }
 
       // if caretElt is in a PyCallExpression that is a connect involving any of the ports in this connection,
@@ -135,7 +136,8 @@ object LiveTemplateConnect {
           ))
         }
 
-        Some(new InsertionLiveTemplate(callCandidate, IndexedSeq()))
+//        Some(new InsertionLiveTemplate(callCandidate, IndexedSeq()))
+        ???
       }
 
       // TODO startTemplate should be able to fail - Errorable

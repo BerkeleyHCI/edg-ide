@@ -25,7 +25,7 @@ abstract class MovableLiveTemplate(actionName: String) {
   // inserts the new element for this template and returns the inserted element
   // this is run in the same writeCommandAction as the template creation
   // implement me
-  def createTemplate(caretEltOpt: Option[PsiElement], priorVariableValues: Map[String, String]): InsertionLiveTemplate
+  def createTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate
 
   class MovingMouseListener(templateState: TemplateState) extends EditorMouseListener {
     override def mouseClicked(event: EditorMouseEvent): Unit = {
@@ -83,7 +83,7 @@ abstract class MovableLiveTemplate(actionName: String) {
   ): Errorable[TemplateState] = exceptable {
     // on error, this fails without updating state variables, as if it wasn't started
     val priorTemplateValues = priorTemplatePosValues.map(_._2).getOrElse(Map())
-    val templateState = createTemplate(caretEltOpt, priorTemplateValues).run().exceptError
+    val templateState = createTemplate(caretEltOpt).run(kHelpTooltip, priorTemplateValues).exceptError
     currentTemplateState = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
     priorTemplatePosValues.foreach { case (templatePrev, _) => // advance to the previous variable position

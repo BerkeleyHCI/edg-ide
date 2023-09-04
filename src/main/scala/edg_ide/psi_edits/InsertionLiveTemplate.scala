@@ -101,13 +101,7 @@ object InsertionLiveTemplate {
   *   - tooltips
   *   - better API
   */
-abstract class InsertionLiveTemplate(
-    containingFile: PsiFile,
-    overrideVariableValues: Map[String, String],
-    helpTooltip: String
-) {
-  private lazy val logger = Logger.getInstance(this.getClass)
-
+abstract class InsertionLiveTemplate(containingFile: PsiFile) {
   // IMPLEMENT ME
   // insert the AST for the template, storing whatever state is needed for deletion
   // this happens in an externally-scoped write command action
@@ -218,7 +212,7 @@ abstract class InsertionLiveTemplate(
   // starts this template and returns the TemplateState if successfully started
   // caller should make sure another template isn't active in the same editor, otherwise weird things can happen
   // must be called from an externally-scoped writeCommandAction
-  def run(): Errorable[TemplateState] = exceptable {
+  def run(helpTooltip: String, overrideVariableValues: Map[String, String]): Errorable[TemplateState] = exceptable {
     val project = containingFile.getProject
     val fileDescriptor =
       new OpenFileDescriptor(project, containingFile.getVirtualFile, 0)

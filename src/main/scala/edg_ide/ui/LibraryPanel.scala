@@ -117,7 +117,6 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
           contextPyClass.exceptError,
           blockPyClass.exceptError,
           s"Insert $blockTypeName",
-          project,
           insertContinuation
         ).exceptError
 
