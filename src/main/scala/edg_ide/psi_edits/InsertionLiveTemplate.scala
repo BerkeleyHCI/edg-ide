@@ -12,11 +12,13 @@ import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.openapi.util.TextRange
-import com.intellij.psi.{PsiDocumentManager, PsiElement}
+import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiFile}
 import com.intellij.util.ui.UIUtil
 import com.jetbrains.python.PythonLanguage
 import com.jetbrains.python.psi._
 import edg.util.Errorable
+import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
+import edg_ide.util.exceptable
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
@@ -91,18 +93,39 @@ object InsertionLiveTemplate {
   }
 }
 
-/** Wrapper around the vanilla live template that adds variable validation, tooltips, and a nicer API.
+/** Insertion live template that manages the full live template lifecycle, from AST insertion, to new features, to
+  * optional deletion.
   *
-  * @param elt
-  *   existing PsiElement to instantiate the template around
-  * @param variables
-  *   list of variables for the live template, see variable definition
+  * On top of the existing vanilla live template functionality, adds these:
+  *   - variable validation
+  *   - tooltips
+  *   - better API
   */
-class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLiveTemplateVariable]) {
+abstract class InsertionLiveTemplate(
+    containingFile: PsiFile,
+    overrideVariableValues: Map[String, String],
+    helpTooltip: String
+) {
   private lazy val logger = Logger.getInstance(this.getClass)
 
-  private class TemplateListener(editor: Editor, tooltip: JBPopup, highlighters: Iterable[RangeHighlighter])
-      extends TemplateEditingAdapter {
+  // IMPLEMENT ME
+  // insert the AST for the template, storing whatever state is needed for deletion
+  // this happens in an externally-scoped write command action
+  // can fail (returns an error message), in which case no AST changes should happen
+  def buildTemplateAst(): Errorable[(PsiElement, IndexedSeq[InsertionLiveTemplateVariable])]
+
+  // IMPLEMENT ME
+  // deletes the AST for the template, assuming the template has started (can read state from buildTemplateAst)
+  // and is still active (only variables have been modified)
+  // may throw an error if called when those conditions are not met
+  def deleteTemplate(): Unit
+
+  private class TemplateListener(
+      editor: Editor,
+      variables: IndexedSeq[InsertionLiveTemplateVariable],
+      tooltip: JBPopup,
+      highlighters: Iterable[RangeHighlighter]
+  ) extends TemplateEditingAdapter {
     private var currentTooltip = tooltip
 
     override def templateFinished(template: Template, brokenOff: Boolean): Unit = {
@@ -192,25 +215,24 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
   }
 
   // starts this template and returns the TemplateState if successfully started
+  // caller should make sure another template isn't active in the same editor, otherwise weird things can happen
   // must run in a write command action
-  def run(
-      initialTooltip: Option[String] = None,
-      overrideTemplateVarValues: Option[Seq[String]] = None
-  ): TemplateState = {
-    val project = elt.getProject
+  def run(): Errorable[TemplateState] = exceptable {
+    val project = containingFile.getProject
     val fileDescriptor =
-      new OpenFileDescriptor(project, elt.getContainingFile.getVirtualFile, elt.getTextRange.getStartOffset)
+      new OpenFileDescriptor(project, containingFile.getVirtualFile, 0)
     val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
 
     val templateManager = TemplateManager.getInstance(project)
     Option(templateManager.getActiveTemplate(editor)).foreach { activeTemplate =>
-      logger.error("overlapping template, finishing prior template")
-      templateManager.finishTemplate(editor) // upper layers should avoid overlapping templates, but this cleans up
+      exceptable.fail("another template is already active")
     }
+
+    val (templateElt, variables) = buildTemplateAst().exceptError
 
     // opens / sets the focus onto the relevant text editor, so the user can start typing
     editor.getCaretModel.moveToOffset(
-      elt.getTextOffset
+      templateElt.getTextOffset
     ) // needed so the template is placed at the right location
 
     // these must be constructed before template creation, other template creation messes up the locations
@@ -220,18 +242,17 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
       .getInstance(project)
       .addOccurrenceHighlight(
         editor,
-        elt.getTextRange.getStartOffset,
-        elt.getTextRange.getEndOffset,
+        templateElt.getTextRange.getStartOffset,
+        templateElt.getTextRange.getEndOffset,
         EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT,
         0,
         highlighters
       )
 
-    val builder = new TemplateBuilderImpl(elt)
-    variables.zipWithIndex.foreach { case (variable, variableIndex) =>
-      val variableValue = overrideTemplateVarValues match {
-        case Some(overrideTemplateVarValues) if overrideTemplateVarValues.length > variableIndex =>
-          overrideTemplateVarValues(variableIndex)
+    val builder = new TemplateBuilderImpl(templateElt)
+    variables.foreach { variable =>
+      val variableValue = overrideVariableValues.get(variable.name) match {
+        case Some(overrideVariableValue) => overrideVariableValue
         case _ => variable.getDefaultValue
       }
       val variableExpr = new ConstantNode(variableValue)
@@ -242,9 +263,9 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
       }
     }
     // this guard variable allows validation on the last element by preventing the template from ending
-    val endRelativeOffset = elt.getTextRange.getEndOffset - elt.getTextRange.getStartOffset
+    val endRelativeOffset = templateElt.getTextRange.getEndOffset - templateElt.getTextRange.getStartOffset
     builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset), "")
-    builder.setEndVariableAfter(elt.getLastChild)
+    builder.setEndVariableAfter(templateElt.getLastChild)
 
     // must be called before building the template
     PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)
@@ -256,15 +277,14 @@ class InsertionLiveTemplate(elt: PsiElement, variables: IndexedSeq[InsertionLive
     // if the editor just started, it isn't marked as showing and the tooltip creation crashes
     // TODO the positioning is still off, but at least it doesn't crash
     UIUtil.markAsShowing(editor.getContentComponent, true)
-    val firstVariableName = variables.headOption.map(_.name).getOrElse("")
-    val tooltipString = initialTooltip match {
-      case Some(initialTooltip) => f"$firstVariableName | $initialTooltip"
-      case None => firstVariableName
+    val tooltipString = variables.headOption match {
+      case Some(firstVariable) => f"${firstVariable.name} | $helpTooltip"
+      case None => helpTooltip
     }
     val tooltip = createTemplateTooltip(tooltipString, editor)
 
     // note, waitingForInput won't get called since the listener seems to be attached afterwards
-    val templateListener = new TemplateListener(editor, tooltip, highlighters.asScala)
+    val templateListener = new TemplateListener(editor, variables, tooltip, highlighters.asScala)
     templateState.addTemplateStateListener(templateListener)
     templateState
   }
