@@ -2,6 +2,7 @@ package edg_ide.psi_edits
 
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
+import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.python.psi._
@@ -103,21 +104,25 @@ class ConnectInsertionLiveTemplate(
       caretElt: PsiElement,
       earliestPosition: Option[PsiElement]
   ): Option[(PsiElement, Seq[InsertionLiveTemplateVariable])] = {
-    val callCandidate = PsiTreeUtil.getParentOfType(caretElt, classOf[PyCallExpression])
-    if (callCandidate == null) return None
+    val callExpr = Option(PsiTreeUtil.getParentOfType(caretElt, classOf[PyCallExpression]))
+      .orElse(Option(PsiTreeUtil.getParentOfType(caretElt, classOf[PyAssignmentStatement])).map(_.getAssignedValue))
+      .getOrElse(caretElt) match {
+      case caretElt: PyCallExpression => caretElt
+      case _ => return None
+    }
 
     val containingPsiFn = PsiTreeUtil.getParentOfType(caretElt, classOf[PyFunction])
     val selfName = containingPsiFn.getParameterList.getParameters.toSeq
       .headOption.getOrElse(return None)
       .getName
     val connectReference = psiElementGenerator.createExpressionFromText(languageLevel, s"$selfName.connect")
-    if (!callCandidate.getCallee.textMatches(connectReference)) return None
+    if (!callExpr.getCallee.textMatches(connectReference)) return None
 
     val isAfterEarliest = earliestPosition.flatMap( // aka is in valid position
-      DesignAnalysisUtils.elementAfterEdg(_, callCandidate, project)).getOrElse(true)
+      DesignAnalysisUtils.elementAfterEdg(_, callExpr, project)).getOrElse(true)
     if (!isAfterEarliest) return None
 
-    val matchingConnects = callCandidate.getArgumentList.getArguments.flatMap(arg =>
+    val matchingConnects = callExpr.getArgumentList.getArguments.flatMap(arg =>
       allConnects.flatMap { connect =>
         if (arg.textMatches(connectedToRefCode(selfName, connect))) {
           Some(connect)
@@ -131,33 +136,36 @@ class ConnectInsertionLiveTemplate(
     // validation complete, start the template
     val connectsToAdd = allConnects.filter(!matchingConnects.contains(_))
     connectsToAdd.foreach { newConnect =>
-      callCandidate.getArgumentList.addArgument(psiElementGenerator.createExpressionFromText(
+      callExpr.getArgumentList.addArgument(psiElementGenerator.createExpressionFromText(
         languageLevel,
         connectedToRefCode(selfName, newConnect)
-      ))
+      )) // unfortunately doesn't return added
+      createdPsiElts += callExpr.getArgumentList.getArguments.last
     }
 
-    Some((callCandidate, Seq()))
+    Some((callExpr, Seq()))
   }
 
-  override protected def buildTemplateAst(): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])] = {
+  override protected def buildTemplateAst(editor: Editor)
+      : Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])] = {
     // find earliest insertion position (after all refs are defined)
     val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
     val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
 
-    val caretInsertAfterOpt = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
-      .flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
+    val caretEltOpt = Option(contextClass.getContainingFile.findElementAt(editor.getCaretModel.getOffset))
 
-    caretInsertAfterOpt.foreach { caretElt => // check if caret is in a connect
+    caretEltOpt.foreach { caretElt => // check if caret is in a connect
       tryStartAppendTemplate(caretElt, earliestPosition).foreach { rtn =>
         return Errorable.Success(rtn)
       }
     } // otherwise continue to stmt insertion
 
-    val insertAfter = caretInsertAfterOpt.getOrElse(InsertAction.findInsertionElements(
-      contextClass,
-      InsertBlockAction.VALID_FUNCTION_NAMES
-    ).head)
+    val insertAfter = caretEltOpt
+      .flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
+      .getOrElse(InsertAction.findInsertionElements(
+        contextClass,
+        InsertBlockAction.VALID_FUNCTION_NAMES
+      ).head)
 
     // adjust insertion position to be after all assignments to required references
     val validInsertAfter = earliestPosition.map { earliestPosition =>
@@ -172,7 +180,9 @@ class ConnectInsertionLiveTemplate(
   }
 
   override def deleteTemplate(): Unit = {
+    println("DeleteTemplate")
     createdPsiElts.foreach { createdPsiElt =>
+      println(s"  elt ${createdPsiElt.getText}")
       createdPsiElt.delete()
     }
     createdPsiElts.clear()

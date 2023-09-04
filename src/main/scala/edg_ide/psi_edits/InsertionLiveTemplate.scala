@@ -105,7 +105,7 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
   // insert the AST for the template, storing whatever state is needed for deletion
   // this happens in an externally-scoped write command action
   // can fail (returns an error message), in which case no AST changes should happen
-  protected def buildTemplateAst(): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])]
+  protected def buildTemplateAst(editor: Editor): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])]
 
   // IMPLEMENT ME
   // deletes the AST for the template, assuming the template has started (can read state from buildTemplateAst)
@@ -246,7 +246,7 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
       exceptable.fail("another template is already active")
     }
 
-    val (templateElt, variables) = buildTemplateAst().exceptError
+    val (templateElt, variables) = buildTemplateAst(editor).exceptError
 
     editor.getCaretModel.moveToOffset(
       templateElt.getTextOffset
