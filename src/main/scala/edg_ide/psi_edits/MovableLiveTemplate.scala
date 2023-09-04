@@ -1,9 +1,10 @@
 package edg_ide.psi_edits
 
-import com.intellij.codeInsight.template.TemplateEditingAdapter
+import com.intellij.codeInsight.template.{TemplateEditingAdapter, TemplateManager}
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
+import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiWhiteSpace}
 import edg.util.Errorable
@@ -17,7 +18,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 abstract class MovableLiveTemplate(actionName: String) {
   protected val kHelpTooltip = "[Enter] next; [Esc] end; [Alt+click] move"
 
-  protected var currentTemplateState: Option[TemplateState] = None
+  protected var currentTemplate: Option[TemplateState] = None
   protected var movingTemplateListener: Option[EditorMouseListener] = None
   protected val templateStateListeners = mutable.ListBuffer[TemplateEditingAdapter]()
 
@@ -27,7 +28,7 @@ abstract class MovableLiveTemplate(actionName: String) {
   // implement me
   def createTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate
 
-  class MovingMouseListener(templateState: TemplateState) extends EditorMouseListener {
+  class MovingMouseListener(template: InsertionLiveTemplate, templateState: TemplateState) extends EditorMouseListener {
     override def mouseClicked(event: EditorMouseEvent): Unit = {
       if (!event.getMouseEvent.isAltDown) { // only move on mod+click, to allow copy-paste flows
         return
@@ -63,7 +64,8 @@ abstract class MovableLiveTemplate(actionName: String) {
       writeCommandAction(project)
         .withName(s"move $actionName")
         .compute(() => {
-          TemplateUtils.deleteTemplate(templateState)
+          template.deleteTemplate()
+          templateState.update() // update to end the template, and avoid overlapping templates
           run(Some(caretElement), Some((templatePrev, templateValues)))
         })
     }
@@ -83,8 +85,9 @@ abstract class MovableLiveTemplate(actionName: String) {
   ): Errorable[TemplateState] = exceptable {
     // on error, this fails without updating state variables, as if it wasn't started
     val priorTemplateValues = priorTemplatePosValues.map(_._2).getOrElse(Map())
-    val templateState = createTemplate(caretEltOpt).run(kHelpTooltip, priorTemplateValues).exceptError
-    currentTemplateState = Some(templateState)
+    val newTemplate = createTemplate(caretEltOpt)
+    val templateState = newTemplate.run(kHelpTooltip, priorTemplateValues).exceptError
+    currentTemplate = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
     priorTemplatePosValues.foreach { case (templatePrev, _) => // advance to the previous variable position
       val variables = templateState.getTemplate.getVariables.asScala
@@ -95,7 +98,7 @@ abstract class MovableLiveTemplate(actionName: String) {
 
     val editor = templateState.getEditor
     movingTemplateListener.foreach(editor.removeEditorMouseListener)
-    movingTemplateListener = Some(new MovingMouseListener(templateState))
+    movingTemplateListener = Some(new MovingMouseListener(newTemplate, templateState))
     editor.addEditorMouseListener(movingTemplateListener.get)
     templateState
   }
@@ -104,7 +107,7 @@ abstract class MovableLiveTemplate(actionName: String) {
   // any further instantiated moved templates.
   // Not thread-safe, should not be interleaved with run().
   def addTemplateStateListener(listener: TemplateEditingAdapter): Unit = {
-    currentTemplateState.foreach(_.addTemplateStateListener(listener))
+    currentTemplate.foreach(_.addTemplateStateListener(listener))
     templateStateListeners.append(listener)
   }
 

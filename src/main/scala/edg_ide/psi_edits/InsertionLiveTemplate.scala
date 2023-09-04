@@ -8,7 +8,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.markup.RangeHighlighter
-import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
+import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.openapi.util.TextRange
@@ -214,9 +214,13 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
   // must be called from an externally-scoped writeCommandAction
   def run(helpTooltip: String, overrideVariableValues: Map[String, String]): Errorable[TemplateState] = exceptable {
     val project = containingFile.getProject
-    val fileDescriptor =
-      new OpenFileDescriptor(project, containingFile.getVirtualFile, 0)
-    val editor = FileEditorManager.getInstance(project).openTextEditor(fileDescriptor, true)
+
+    // only open a new editor (which messes with the caret position) if needed
+    val fileEditorManager = FileEditorManager.getInstance(project)
+    val containingVirtualFile = containingFile.getVirtualFile
+    val editor = fileEditorManager.openFile(containingVirtualFile, true)
+      .collect { case editor: TextEditor => editor.getEditor }
+      .head
 
     val templateManager = TemplateManager.getInstance(project)
     Option(templateManager.getActiveTemplate(editor)).foreach { activeTemplate =>
@@ -226,7 +230,6 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
 
     val (templateElt, variables) = buildTemplateAst().exceptError
 
-    // opens / sets the focus onto the relevant text editor, so the user can start typing
     editor.getCaretModel.moveToOffset(
       templateElt.getTextOffset
     ) // needed so the template is placed at the right location
