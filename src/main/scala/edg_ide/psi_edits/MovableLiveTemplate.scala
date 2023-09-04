@@ -1,10 +1,9 @@
 package edg_ide.psi_edits
 
-import com.intellij.codeInsight.template.{TemplateEditingAdapter, TemplateManager}
+import com.intellij.codeInsight.template.TemplateEditingAdapter
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
-import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiWhiteSpace}
 import edg.util.Errorable
@@ -21,6 +20,10 @@ abstract class MovableLiveTemplate(actionName: String) {
   protected var currentTemplate: Option[TemplateState] = None
   protected var movingTemplateListener: Option[EditorMouseListener] = None
   protected val templateStateListeners = mutable.ListBuffer[TemplateEditingAdapter]()
+
+  // this tracks template variables values, by variable name, between movements
+  // and by design persists values of variables that may disappear and reappear across movements
+  protected val persistTemplateVariableValues = mutable.HashMap[String, String]()
 
   // given the PSI element at the current caret,
   // inserts the new element for this template and returns the inserted element
@@ -57,16 +60,16 @@ abstract class MovableLiveTemplate(actionName: String) {
       val templatePrev = (0 until templateState.getCurrentVariableNumber).map {
         templateState.getTemplate.getVariables.get(_).getName
       }
-      val templateValues = templateState.getTemplate.getVariables.asScala.map { variable =>
-        variable.getName -> templateState.getVariableValue(variable.getName).getText
-      }.toMap
+      templateState.getTemplate.getVariables.asScala.foreach { variable =>
+        persistTemplateVariableValues.update(variable.getName, templateState.getVariableValue(variable.getName).getText)
+      }
 
       writeCommandAction(project)
         .withName(s"move $actionName")
         .compute(() => {
           template.deleteTemplate()
           templateState.update() // update to end the template, and avoid overlapping templates
-          run(Some(caretElement), Some((templatePrev, templateValues)))
+          run(Some(caretElement), Some((templatePrev, persistTemplateVariableValues.toMap)))
         })
     }
   }
