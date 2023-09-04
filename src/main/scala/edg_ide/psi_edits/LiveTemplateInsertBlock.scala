@@ -17,69 +17,68 @@ class BlockInsertionLiveTemplate(contextClass: PyClass, libClass: PyClass)
 
   var newAssignStmt: Option[PsiElement] = None
 
-  override protected def buildTemplateAst(): Errorable[(PsiElement, IndexedSeq[InsertionLiveTemplateVariable])] =
-    exceptable {
-      val caretEltOpt = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
-      val insertAfter = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
-        .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
-      val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
-      val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
-      val selfName = containingPsiFn.getParameterList.getParameters.toSeq
-        .exceptEmpty(s"function ${containingPsiFn.getName} has no self")
-        .head
-        .getName
+  override protected def buildTemplateAst(): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])] = exceptable {
+    val insertAfter = InsertAction.getCaretForNewClassStatement(contextClass, project).toOption
+      .flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
+      .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
+    val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
+    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
+    val selfName = containingPsiFn.getParameterList.getParameters.toSeq
+      .exceptEmpty(s"function ${containingPsiFn.getName} has no self")
+      .head
+      .getName
 
-      val newAssignTemplate = psiElementGenerator.createFromText(
-        languageLevel,
-        classOf[PyAssignmentStatement],
-        s"$selfName.name = $selfName.Block(${libClass.getName}())"
-      )
-      val containingStmtList = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyStatementList])
+    val newAssignTemplate = psiElementGenerator.createFromText(
+      languageLevel,
+      classOf[PyAssignmentStatement],
+      s"$selfName.name = $selfName.Block(${libClass.getName}())"
+    )
+    val containingStmtList = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyStatementList])
 
-      val newAssign =
-        containingStmtList.addAfter(newAssignTemplate, insertAfter).asInstanceOf[PyAssignmentStatement]
-      newAssignStmt = Some(newAssign)
+    val newAssign =
+      containingStmtList.addAfter(newAssignTemplate, insertAfter).asInstanceOf[PyAssignmentStatement]
+    newAssignStmt = Some(newAssign)
 
-      val newArgList = newAssign.getAssignedValue
-        .asInstanceOf[PyCallExpression]
-        .getArgument(0, classOf[PyCallExpression])
-        .getArgumentList
+    val newArgList = newAssign.getAssignedValue
+      .asInstanceOf[PyCallExpression]
+      .getArgument(0, classOf[PyCallExpression])
+      .getArgumentList
 
-      val initParams =
-        DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
-      val allParams = initParams._1 ++ initParams._2
+    val initParams =
+      DesignAnalysisUtils.initParamsOf(libClass, project).toOption.getOrElse((Seq(), Seq()))
+    val allParams = initParams._1 ++ initParams._2
 
-      val nameTemplateVar = new InsertionLiveTemplate.Reference(
-        "name",
-        newAssign.getTargets.head.asInstanceOf[PyTargetExpression],
-        InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
-        defaultValue = Some("")
-      )
+    val nameTemplateVar = new InsertionLiveTemplate.Reference(
+      "name",
+      newAssign.getTargets.head.asInstanceOf[PyTargetExpression],
+      InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
+      defaultValue = Some("")
+    )
 
-      val argTemplateVars = allParams.map { initParam =>
-        val paramName = initParam.getName() + (Option(initParam.getAnnotationValue) match {
-          case Some(typed) => f": $typed"
-          case None => ""
-        })
+    val argTemplateVars = allParams.map { initParam =>
+      val paramName = initParam.getName() + (Option(initParam.getAnnotationValue) match {
+        case Some(typed) => f": $typed"
+        case None => ""
+      })
 
-        if (initParam.getDefaultValue == null) { // required argument, needs ellipsis
-          newArgList.addArgument(psiElementGenerator.createEllipsis())
-          new InsertionLiveTemplate.Variable(paramName, newArgList.getArguments.last)
-        } else { // optional argument
-          // ellipsis is generated in the AST to give the thing a handle, the template replaces it with an empty
-          newArgList.addArgument(
-            psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "...")
-          )
-          new InsertionLiveTemplate.Variable(
-            f"$paramName (optional)",
-            newArgList.getArguments.last.asInstanceOf[PyKeywordArgument].getValueExpression,
-            defaultValue = Some("")
-          )
-        }
+      if (initParam.getDefaultValue == null) { // required argument, needs ellipsis
+        newArgList.addArgument(psiElementGenerator.createEllipsis())
+        new InsertionLiveTemplate.Variable(paramName, newArgList.getArguments.last)
+      } else { // optional argument
+        // ellipsis is generated in the AST to give the thing a handle, the template replaces it with an empty
+        newArgList.addArgument(
+          psiElementGenerator.createKeywordArgument(languageLevel, initParam.getName, "...")
+        )
+        new InsertionLiveTemplate.Variable(
+          f"$paramName (optional)",
+          newArgList.getArguments.last.asInstanceOf[PyKeywordArgument].getValueExpression,
+          defaultValue = Some("")
+        )
       }
-
-      (newAssign, IndexedSeq(nameTemplateVar) ++ argTemplateVars)
     }
+
+    (newAssign, nameTemplateVar +: argTemplateVars)
+  }
 
   override def deleteTemplate(): Unit = {
     newAssignStmt.foreach(_.delete())

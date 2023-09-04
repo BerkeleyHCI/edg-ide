@@ -4,11 +4,10 @@ import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.codeInsight.template.impl.{ConstantNode, TemplateState}
 import com.intellij.codeInsight.template.{Template, TemplateBuilderImpl, TemplateEditingAdapter, TemplateManager}
 import com.intellij.lang.LanguageNamesValidation
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColors
 import com.intellij.openapi.editor.markup.RangeHighlighter
-import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
+import com.intellij.openapi.fileEditor.{FileEditorManager, TextEditor}
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.{ComponentValidator, ValidationInfo}
 import com.intellij.openapi.util.TextRange
@@ -106,7 +105,7 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
   // insert the AST for the template, storing whatever state is needed for deletion
   // this happens in an externally-scoped write command action
   // can fail (returns an error message), in which case no AST changes should happen
-  protected def buildTemplateAst(): Errorable[(PsiElement, IndexedSeq[InsertionLiveTemplateVariable])]
+  protected def buildTemplateAst(): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])]
 
   // IMPLEMENT ME
   // deletes the AST for the template, assuming the template has started (can read state from buildTemplateAst)
@@ -117,7 +116,7 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
 
   private class TemplateListener(
       editor: Editor,
-      variables: IndexedSeq[InsertionLiveTemplateVariable],
+      variables: Seq[InsertionLiveTemplateVariable],
       tooltip: JBPopup,
       highlighters: Iterable[RangeHighlighter]
   ) extends TemplateEditingAdapter {
