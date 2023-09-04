@@ -139,7 +139,7 @@ object LiveTemplateConnect {
       }
 
       // TODO startTemplate should be able to fail - Errorable
-      override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
+      override def createTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
         // find earliest insertion position (after all refs are defined)
         val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
         val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)

@@ -15,7 +15,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /** Wrapper around a Template that allows the template to move by user clicks */
 abstract class MovableLiveTemplate(actionName: String) {
-  private val kHelpTooltip = "[Enter] next; [Esc] end; [Alt+click] move"
+  protected val kHelpTooltip = "[Enter] next; [Esc] end; [Alt+click] move"
 
   protected var currentTemplateState: Option[TemplateState] = None
   protected var movingTemplateListener: Option[EditorMouseListener] = None
@@ -25,7 +25,7 @@ abstract class MovableLiveTemplate(actionName: String) {
   // inserts the new element for this template and returns the inserted element
   // this is run in the same writeCommandAction as the template creation
   // implement me
-  def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate
+  def createTemplate(caretEltOpt: Option[PsiElement], priorVariableValues: Map[String, String]): InsertionLiveTemplate
 
   class MovingMouseListener(templateState: TemplateState) extends EditorMouseListener {
     override def mouseClicked(event: EditorMouseEvent): Unit = {
@@ -52,39 +52,43 @@ abstract class MovableLiveTemplate(actionName: String) {
           case caretElement => caretElement
         }
 
-      val templatePos =
-        templateState.getCurrentVariableNumber // save template state before deleting the template
+      // save template state before deleting the template
+      val templatePrev = (0 until templateState.getCurrentVariableNumber).map {
+        templateState.getTemplate.getVariables.get(_).getName
+      }
       val templateValues = templateState.getTemplate.getVariables.asScala.map { variable =>
-        templateState.getVariableValue(variable.getName).getText
-      }.toSeq
+        variable.getName -> templateState.getVariableValue(variable.getName).getText
+      }.toMap
 
       writeCommandAction(project)
         .withName(s"move $actionName")
         .compute(() => {
           TemplateUtils.deleteTemplate(templateState)
-          run(Some(caretElement), Some((templatePos, templateValues)))
+          run(Some(caretElement), Some((templatePrev, templateValues)))
         })
     }
   }
 
-  // starts the movable live template, given the PSI element at the current caret
+  // starts the movable live template, optionally given the PSI element at the current caret
+  // and the prior template state (on a move)
+  //
+  // prior template state specified as a list of prior variable names (indicating variable position),
+  // and map of names to values - this allows the template to do the right thing even as the variable
+  // list changes
+  //
   // must be called within a writeCommandAction
   protected def run(
-      caretEltOpt: Option[PsiElement],
-      priorTemplateValues: Option[(Int, Seq[String])] = None
+      caretEltOpt: Option[PsiElement] = None,
+      priorTemplatePosValues: Option[(Seq[String], Map[String, String])] = None
   ): Errorable[TemplateState] = exceptable {
-    val tooltipString = priorTemplateValues match {
-      case Some(_) => None // tooltip only shows on initial template insertion, not on moves
-      case None => Some(kHelpTooltip)
-    }
-
     // on error, this fails without updating state variables, as if it wasn't started
-    val templateState = startTemplate(caretEltOpt).run(tooltipString, priorTemplateValues.map(_._2))
-      .exceptError
+    val priorTemplateValues = priorTemplatePosValues.map(_._2).getOrElse(Map())
+    val templateState = createTemplate(caretEltOpt, priorTemplateValues).run().exceptError
     currentTemplateState = Some(templateState)
     templateStateListeners.foreach(templateState.addTemplateStateListener(_))
-    priorTemplateValues.foreach { case (templatePos, _) => // advance to the previous variable position
-      (0 until templatePos).foreach { i =>
+    priorTemplatePosValues.foreach { case (templatePrev, _) => // advance to the previous variable position
+      val variables = templateState.getTemplate.getVariables.asScala
+      variables.takeWhile(variable => templatePrev.contains(variable.getName)).foreach { variable =>
         templateState.nextTab()
       }
     }

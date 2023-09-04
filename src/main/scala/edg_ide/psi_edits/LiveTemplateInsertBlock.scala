@@ -26,7 +26,7 @@ object LiveTemplateInsertBlock {
 
     val movableLiveTemplate = new MovableLiveTemplate(actionName) {
       // TODO startTemplate should be able to fail - Errorable
-      override def startTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
+      override def createTemplate(caretEltOpt: Option[PsiElement]): InsertionLiveTemplate = {
         val insertAfter = caretEltOpt.flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
           .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
         val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])

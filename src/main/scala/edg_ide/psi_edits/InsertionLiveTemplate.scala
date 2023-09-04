@@ -112,12 +112,13 @@ abstract class InsertionLiveTemplate(
   // insert the AST for the template, storing whatever state is needed for deletion
   // this happens in an externally-scoped write command action
   // can fail (returns an error message), in which case no AST changes should happen
-  def buildTemplateAst(): Errorable[(PsiElement, IndexedSeq[InsertionLiveTemplateVariable])]
+  protected def buildTemplateAst(): Errorable[(PsiElement, IndexedSeq[InsertionLiveTemplateVariable])]
 
   // IMPLEMENT ME
   // deletes the AST for the template, assuming the template has started (can read state from buildTemplateAst)
   // and is still active (only variables have been modified)
   // may throw an error if called when those conditions are not met
+  // this happens in (and must be called from) an externally-scoped write command action
   def deleteTemplate(): Unit
 
   private class TemplateListener(
@@ -216,7 +217,7 @@ abstract class InsertionLiveTemplate(
 
   // starts this template and returns the TemplateState if successfully started
   // caller should make sure another template isn't active in the same editor, otherwise weird things can happen
-  // must run in a write command action
+  // must be called from an externally-scoped writeCommandAction
   def run(): Errorable[TemplateState] = exceptable {
     val project = containingFile.getProject
     val fileDescriptor =
@@ -225,6 +226,7 @@ abstract class InsertionLiveTemplate(
 
     val templateManager = TemplateManager.getInstance(project)
     Option(templateManager.getActiveTemplate(editor)).foreach { activeTemplate =>
+      // multiple simultaneous templates does the wrong thing
       exceptable.fail("another template is already active")
     }
 
