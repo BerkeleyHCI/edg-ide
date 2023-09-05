@@ -5,6 +5,7 @@ import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir.DesignPath
 import edg.ElemBuilder
+import edg.ElemBuilder.LibraryPath
 import edg.wir.ProtoUtil._
 
 object EdgirUtils {
@@ -13,6 +14,10 @@ object EdgirUtils {
   // TODO this needs better flagging
   def isCategory(blockType: ref.LibraryPath): Boolean = {
     blockType.getTarget.getName.contains("Categories")
+  }
+
+  def isInternal(blockType: ref.LibraryPath): Boolean = {
+    blockType == LibraryPath("edg_core.Categories.InternalBlock")
   }
 
   val FootprintBlockType: ref.LibraryPath =
