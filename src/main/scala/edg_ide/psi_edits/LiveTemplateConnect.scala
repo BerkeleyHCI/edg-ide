@@ -195,10 +195,15 @@ class ConnectInsertionLiveTemplate(
     if (nameOpt.isEmpty && newAssignStmt.nonEmpty) { // if name not specified, make the connect anonymous
       try {
         val templateAssign = newAssignStmt.get
+        val replacement = psiElementGenerator.createFromText( // must be wrapped in PyExprStatement
+          languageLevel,
+          classOf[PyStatement],
+          templateAssign.getAssignedValue.getText
+        )
         writeCommandAction(project)
           .withName(s"clean $actionName")
           .compute(() => {
-            templateAssign.replace(templateAssign.getAssignedValue)
+            templateAssign.replace(replacement)
           })
       } catch {
         case _: Throwable => // ignore
