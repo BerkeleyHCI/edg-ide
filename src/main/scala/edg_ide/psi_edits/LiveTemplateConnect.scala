@@ -2,6 +2,7 @@ package edg_ide.psi_edits
 
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
@@ -18,6 +19,8 @@ class ConnectInsertionLiveTemplate(
     continuation: (Option[String], PsiElement) => Unit
 ) extends InsertionLiveTemplate(contextClass.getContainingFile) {
   protected val kTemplateVariableName = "name (optional)"
+
+  private lazy val logger = Logger.getInstance(this.getClass)
 
   protected val project = contextClass.getProject
   protected val languageLevel = LanguageLevel.forElement(contextClass)
@@ -206,7 +209,7 @@ class ConnectInsertionLiveTemplate(
             templateAssign.replace(replacement)
           })
       } catch {
-        case _: Throwable => // ignore
+        case exc: Throwable => logger.error("error while completing template", exc)
       }
     }
 
