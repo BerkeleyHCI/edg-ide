@@ -20,9 +20,6 @@ object EdgirUtils {
     blockType == LibraryPath("edg_core.Categories.InternalBlock")
   }
 
-  val FootprintBlockType: ref.LibraryPath =
-    ElemBuilder.LibraryPath("electronics_model.CircuitBlock.CircuitBlock")
-
   // TODO refactor into common utils elsewhere
   def typeOfBlockLike(blockLike: elem.BlockLike): Option[ref.LibraryPath] = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) => Some(block.getSelfClass)
