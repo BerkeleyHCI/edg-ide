@@ -10,6 +10,7 @@ import edg.compiler._
 import edg.util.{StreamUtils, timeExec}
 import edg.wir.Refinements
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
+import edg_ide.swing.dse.DseResultModel
 import edg_ide.ui.{BlockVisualizerService, DseService, EdgCompilerService}
 import edgir.schema.schema
 import edgir.schema.schema.Design
@@ -265,7 +266,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                   searchRefinements,
                   compiler,
                   compiled,
-                  errors,
+                  DseResultModel.filterUnrelatedIdeal(errors, options.searchConfigs),
                   objectiveValues,
                   compileTime
                 )

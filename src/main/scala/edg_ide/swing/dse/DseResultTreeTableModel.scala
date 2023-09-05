@@ -3,7 +3,7 @@ package edg_ide.swing.dse
 import com.intellij.ui.JBColor
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
 import edg.compiler.CompilerError
-import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseResult}
+import edg_ide.dse.{CombinedDseResultSet, DseConfigElement, DseObjective, DseResult, DseSubclassSearch}
 import edg_ide.swing.SeqTreeTableModel
 
 import java.awt.{Color, Component}
@@ -155,6 +155,18 @@ object DseResultModel {
       case CompilerError.FailedAssertion(_, constrName, _, _, _) if constrName == kIdealConstraintName => true
       case _ => false
     }
+
+  // Filters the error set and removes ideal errors that are unrelated to the current search
+  def filterUnrelatedIdeal(errors: Seq[CompilerError], configs: Seq[DseConfigElement]): Seq[CompilerError] = {
+    val subclassSearchPaths = configs.collect {
+      case DseSubclassSearch(path, _) => path
+    }
+    errors.filter {
+      case CompilerError.FailedAssertion(path, constrName, _, _, _)
+        if constrName == kIdealConstraintName && !subclassSearchPaths.contains(path) => false
+      case _ => true
+    }
+  }
 }
 
 class DseResultTreeRenderer extends DefaultTreeCellRenderer {
