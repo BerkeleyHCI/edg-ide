@@ -243,6 +243,9 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
       .collect { case editor: TextEditor => editor.getEditor }
       .head
 
+    // if the editor just started, it isn't marked as showing and the tooltip creation crashes
+    UIUtil.markAsShowing(editor.getContentComponent, true)
+
     val templateManager = TemplateManager.getInstance(project)
     Option(templateManager.getActiveTemplate(editor)).foreach { activeTemplate =>
       // multiple simultaneous templates does the wrong thing
@@ -255,8 +258,17 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
       case _ => templateEltsOpt
     }
 
+    // create the tooltip at the start of the template
+    editor.getCaretModel.moveToOffset(templateElts.head.getTextRange.getStartOffset)
+    val tooltipString = variables.headOption match {
+      case Some(firstVariable) => f"${firstVariable.name} | $helpTooltip"
+      case None => helpTooltip
+    }
+    val tooltip = createTemplateTooltip(tooltipString, editor)
+
+    // move the caret to the beginning of the container, since the template is (inexplicably) caret sensitive
     val startingOffset = templateContainer.getTextRange.getStartOffset
-    editor.getCaretModel.moveToOffset(startingOffset) // needed so the template is placed at the right location
+    editor.getCaretModel.moveToOffset(startingOffset)
 
     // these must be constructed before template creation, other template creation messes up the locations
     val highlighters = new java.util.ArrayList[RangeHighlighter]()
@@ -296,15 +308,6 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
     // specifically must be an inline template (actually replace the PSI elements), otherwise the block of new code is inserted at the caret
     val template = builder.buildInlineTemplate()
     val templateState = TemplateManager.getInstance(project).runTemplate(editor, template)
-
-    // if the editor just started, it isn't marked as showing and the tooltip creation crashes
-    // TODO the positioning is still off, but at least it doesn't crash
-    UIUtil.markAsShowing(editor.getContentComponent, true)
-    val tooltipString = variables.headOption match {
-      case Some(firstVariable) => f"${firstVariable.name} | $helpTooltip"
-      case None => helpTooltip
-    }
-    val tooltip = createTemplateTooltip(tooltipString, editor)
 
     // note, waitingForInput won't get called since the listener seems to be attached afterwards
     templateState.addTemplateStateListener(new TemplateListener(editor, variables, tooltip, highlighters.asScala))
