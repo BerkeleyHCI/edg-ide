@@ -105,7 +105,10 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
   // insert the AST for the template, storing whatever state is needed for deletion
   // this happens in an externally-scoped write command action
   // can fail (returns an error message), in which case no AST changes should happen
-  protected def buildTemplateAst(editor: Editor): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])]
+  // on success, returns the container PSI element (which may contain more than the inserted elements),
+  // a Seq of the inserted elements (can be empty if just the container), and the variables
+  protected def buildTemplateAst(editor: Editor)
+      : Errorable[(PsiElement, Seq[PsiElement], Seq[InsertionLiveTemplateVariable])]
 
   // IMPLEMENT ME
   // deletes the AST for the template, assuming the template has started (can read state from buildTemplateAst)
@@ -246,11 +249,14 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
       exceptable.fail("another template is already active")
     }
 
-    val (templateElt, variables) = buildTemplateAst(editor).exceptError
+    val (templateContainer, templateEltsOpt, variables) = buildTemplateAst(editor).exceptError
+    val templateElts = templateEltsOpt match { // guaranteed nonempty
+      case Seq() => Seq(templateContainer)
+      case _ => templateEltsOpt
+    }
 
-    editor.getCaretModel.moveToOffset(
-      templateElt.getTextOffset
-    ) // needed so the template is placed at the right location
+    val startingOffset = templateContainer.getTextRange.getStartOffset
+    editor.getCaretModel.moveToOffset(startingOffset) // needed so the template is placed at the right location
 
     // these must be constructed before template creation, other template creation messes up the locations
     val highlighters = new java.util.ArrayList[RangeHighlighter]()
@@ -259,14 +265,14 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
       .getInstance(project)
       .addOccurrenceHighlight(
         editor,
-        templateElt.getTextRange.getStartOffset,
-        templateElt.getTextRange.getEndOffset,
+        templateElts.head.getTextRange.getStartOffset,
+        templateElts.last.getTextRange.getEndOffset,
         EditorColors.LIVE_TEMPLATE_INACTIVE_SEGMENT,
         0,
         highlighters
       )
 
-    val builder = new TemplateBuilderImpl(templateElt)
+    val builder = new TemplateBuilderImpl(templateContainer)
     variables.foreach { variable =>
       val variableValue = overrideVariableValues.get(variable.name) match {
         case Some(overrideVariableValue) => overrideVariableValue
@@ -280,9 +286,9 @@ abstract class InsertionLiveTemplate(containingFile: PsiFile) {
       }
     }
     // this guard variable allows validation on the last element by preventing the template from ending
-    val endRelativeOffset = templateElt.getTextRange.getEndOffset - templateElt.getTextRange.getStartOffset
+    val endRelativeOffset = templateElts.last.getTextRange.getEndOffset - startingOffset
     builder.replaceRange(new TextRange(endRelativeOffset, endRelativeOffset), "")
-    builder.setEndVariableAfter(templateElt.getLastChild)
+    builder.setEndVariableAfter(templateElts.last)
 
     // must be called before building the template
     PsiDocumentManager.getInstance(project).doPostponedOperationsAndUnblockDocument(editor.getDocument)

@@ -1,11 +1,11 @@
 package edg_ide.psi_edits
 
-import com.intellij.codeInsight.template.TemplateEditingAdapter
+import com.intellij.codeInsight.template.{TemplateEditingAdapter, TemplateManager}
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.event.{EditorMouseEvent, EditorMouseListener}
 import com.intellij.openapi.project.Project
-import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiWhiteSpace}
 import edg.util.Errorable
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.util.exceptable
@@ -15,6 +15,8 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /** Wrapper around a Template that allows the template to move by user clicks */
 abstract class MovableLiveTemplate(actionName: String) {
+  private lazy val logger = Logger.getInstance(this.getClass)
+
   protected val kHelpTooltip = "[Enter] next; [Esc] end; [Alt+click] move"
 
   protected var currentTemplate: Option[TemplateState] = None
@@ -49,8 +51,6 @@ abstract class MovableLiveTemplate(actionName: String) {
       }
       event.consume()
 
-      val project = templateState.getProject
-
       // save template state before deleting the template
       val templatePrev = (0 until templateState.getCurrentVariableNumber).map {
         templateState.getTemplate.getVariables.get(_).getName
@@ -59,12 +59,15 @@ abstract class MovableLiveTemplate(actionName: String) {
         persistTemplateVariableValues.update(variable.getName, templateState.getVariableValue(variable.getName).getText)
       }
 
-      writeCommandAction(project)
+      writeCommandAction(templateState.getProject)
         .withName(s"move $actionName")
         .compute(() => {
           template.deleteTemplate()
-          templateState.update() // update to end the template, and avoid overlapping templates
-          run(Some((templatePrev, persistTemplateVariableValues.toMap)))
+          templateState.gotoEnd(true) // end the template to avoid overlapping templates
+          run(Some((templatePrev, persistTemplateVariableValues.toMap))) match {
+            case Errorable.Error(message) => logger.error(message)
+            case _ =>
+          }
         })
     }
   }

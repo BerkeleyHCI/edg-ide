@@ -61,7 +61,7 @@ class ConnectInsertionLiveTemplate(
   // starts the live template insertion as a statement
   protected def startStatementInsertionTemplate(
       insertAfter: PsiElement
-  ): Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])] = exceptable {
+  ): Errorable[(PsiElement, Seq[PsiElement], Seq[InsertionLiveTemplateVariable])] = exceptable {
     val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
     val selfName = containingPsiFn.getParameterList.getParameters.toSeq
       .head.getName
@@ -95,7 +95,7 @@ class ConnectInsertionLiveTemplate(
       defaultValue = Some("")
     )
 
-    (newConnect, Seq(nameTemplateVar))
+    (newConnect, Seq(), Seq(nameTemplateVar))
   }
 
   // if caretElt is in a PyCallExpression that is a connect involving any of the ports in this connection,
@@ -103,7 +103,7 @@ class ConnectInsertionLiveTemplate(
   protected def tryStartAppendTemplate(
       caretElt: PsiElement,
       earliestPosition: Option[PsiElement]
-  ): Option[(PsiElement, Seq[InsertionLiveTemplateVariable])] = {
+  ): Option[(PsiElement, Seq[PsiElement], Seq[InsertionLiveTemplateVariable])] = {
     val callExpr = Option(PsiTreeUtil.getParentOfType(caretElt, classOf[PyCallExpression]))
       .orElse(Option(PsiTreeUtil.getParentOfType(caretElt, classOf[PyAssignmentStatement])).map(_.getAssignedValue))
       .getOrElse(caretElt) match {
@@ -143,11 +143,11 @@ class ConnectInsertionLiveTemplate(
       createdPsiElts += callExpr.getArgumentList.getArguments.last
     }
 
-    Some((callExpr, Seq()))
+    Some((callExpr.getArgumentList, createdPsiElts.toSeq, Seq()))
   }
 
   override protected def buildTemplateAst(editor: Editor)
-      : Errorable[(PsiElement, Seq[InsertionLiveTemplateVariable])] = {
+      : Errorable[(PsiElement, Seq[PsiElement], Seq[InsertionLiveTemplateVariable])] = {
     // find earliest insertion position (after all refs are defined)
     val allRequiredAttrs = allConnects.flatMap(connectedToRequiredAttr)
     val earliestPosition = TemplateUtils.getLastAttributeAssignment(contextClass, allRequiredAttrs, project)
@@ -180,9 +180,7 @@ class ConnectInsertionLiveTemplate(
   }
 
   override def deleteTemplate(): Unit = {
-    println("DeleteTemplate")
     createdPsiElts.foreach { createdPsiElt =>
-      println(s"  elt ${createdPsiElt.getText}")
       createdPsiElt.delete()
     }
     createdPsiElts.clear()
