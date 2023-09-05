@@ -8,16 +8,7 @@ import edg_ide.EdgirUtils
 import edg_ide.psi_edits.LiveTemplateConnect
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{
-  BlockConnectedAnalysis,
-  ConnectBuilder,
-  DesignAnalysisUtils,
-  EdgirConnectExecutor,
-  PortConnectTyped,
-  PortConnects,
-  exceptable,
-  requireExcept
-}
+import edg_ide.util._
 import edgir.elem.elem
 
 import java.awt.Component
@@ -77,13 +68,12 @@ object NewConnectTool {
         .exceptNone("invalid connections to port")
     }
 
-    new NewConnectTool(interface, portConnectName, focusPath, portConnected, connectBuilder, analysis)
+    new NewConnectTool(interface, focusPath, portConnected, connectBuilder, analysis)
   }
 }
 
 class NewConnectTool(
     val interface: ToolInterface,
-    linkNameOpt: Option[String],
     containingBlockPath: DesignPath,
     startingPort: PortConnectTyped[PortConnects.Base],
     baseConnectBuilder: ConnectBuilder, // including startingPort, even if it's the only item (new link)
@@ -199,10 +189,9 @@ class NewConnectTool(
       val connectedBlockOpt =
         EdgirConnectExecutor(
           analysis.block,
-          linkNameOpt,
+          analysis,
           currentConnectBuilder,
-          startingPort,
-          newConnects
+          startingPort +: newConnects
         )
       val containerPyClassOpt = DesignAnalysisUtils.pyClassOf(analysis.block.getSelfClass, interface.getProject)
 
@@ -214,14 +203,15 @@ class NewConnectTool(
             }
             interface.endTool()
           }
-          LiveTemplateConnect.createTemplateConnect(
-            containerPyClass,
-            getCurrentName(),
-            interface.getProject,
-            startingPort.connect,
-            newConnects.map(_.connect),
-            continuation
-          ).exceptError()
+
+          exceptionPopup.atMouse(component) {
+            LiveTemplateConnect.createTemplateConnect(
+              containerPyClass,
+              startingPort.connect +: newConnects.map(_.connect),
+              getCurrentName(),
+              continuation
+            ).start(interface.getProject).exceptError
+          }
         case _ =>
           if (connectedBlockOpt.isEmpty) {
             logger.error(s"failed to create connected IR block")

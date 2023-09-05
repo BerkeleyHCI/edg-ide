@@ -35,7 +35,9 @@ object InferEdgeDirectionTransform {
       "sinks",
       "crystal",
       "device",
-      "devices", // SWD, USB, SPI
+      "devices", // SWD, USB
+      "targets", // I2C
+      "peripherals", // SPI
       "transceiver" // CAN logic
     )
     val bidirs = Set(
@@ -54,7 +56,7 @@ object InferEdgeDirectionTransform {
         linkPort
     }
     if (unknownPorts.nonEmpty) {
-      logger.warn(s"unknown port ${unknownPorts.mkString(", ")}")
+      logger.warn(s"unknown port ${unknownPorts.mkString(", ")} in ${link.path}")
     }
 
     val strongSourcePorts = ports.collect {

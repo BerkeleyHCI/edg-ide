@@ -5,6 +5,7 @@ import edgir.ref.ref
 import edgir.schema.schema
 import edg.wir.DesignPath
 import edg.ElemBuilder
+import edg.ElemBuilder.LibraryPath
 import edg.wir.ProtoUtil._
 
 object EdgirUtils {
@@ -15,8 +16,9 @@ object EdgirUtils {
     blockType.getTarget.getName.contains("Categories")
   }
 
-  val FootprintBlockType: ref.LibraryPath =
-    ElemBuilder.LibraryPath("electronics_model.CircuitBlock.CircuitBlock")
+  def isInternal(blockType: ref.LibraryPath): Boolean = {
+    blockType == LibraryPath("edg_core.Categories.InternalBlock")
+  }
 
   // TODO refactor into common utils elsewhere
   def typeOfBlockLike(blockLike: elem.BlockLike): Option[ref.LibraryPath] = blockLike.`type` match {

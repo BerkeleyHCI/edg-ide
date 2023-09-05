@@ -20,7 +20,7 @@ import edg_ide.edgir_graph._
 import edg_ide.psi_edits._
 import edg_ide.swing._
 import edg_ide.swing.blocks.JBlockDiagramVisualizer
-import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption}
+import edg_ide.util.ExceptionNotifyImplicits.{ExceptBoolean, ExceptErrorable, ExceptNotify, ExceptOption}
 import edg_ide.util._
 import edg_ide.{EdgirUtils, PsiUtils}
 import edgir.elem.elem
@@ -112,15 +112,15 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
   val (insertAction, insertItem) = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
     val insertAction: Errorable[() => Unit] = exceptable {
-      LiveTemplateInsertBlock
-        .createTemplateBlock(
-          contextPyClass.exceptError,
-          blockPyClass.exceptError,
-          s"Insert $blockTypeName",
-          project,
-          insertContinuation
-        )
-        .exceptError
+      EdgirUtils.isCategory(blockType).exceptTrue("can't insert category")
+      () =>
+        LiveTemplateInsertBlock
+          .createTemplateBlock(
+            contextPyClass.exceptError,
+            blockPyClass.exceptError,
+            s"Insert $blockTypeName",
+            insertContinuation
+          ).start(project).exceptError
     }
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
     (insertAction, insertItem)
@@ -661,8 +661,8 @@ class LibraryPanel(project: Project) extends JPanel {
         case other => false
       }.filter { path =>
         !path.getPath.exists {
-          case node: EdgirLibraryNode#BlockNode
-            if node.path == EdgirLibraryTreeTableModel.kInternalBlockPath => true // don't expand InternalBlock
+          case node: EdgirLibraryNode#BlockNode if EdgirUtils.isInternal(node.path) =>
+            true // don't expand InternalBlock
           case _ => false
         }
       }

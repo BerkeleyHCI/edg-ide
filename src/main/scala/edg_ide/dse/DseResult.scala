@@ -14,7 +14,7 @@ case class DseResult(
     searchRefinements: Refinements,
     compiler: Compiler,
     compiled: Design,
-    errors: Seq[CompilerError],
+    errors: Seq[CompilerError], // excluding unrelated ideal errors
     objectives: SeqMap[DseObjective, Any],
     compileTime: Long
 ) {

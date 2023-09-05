@@ -27,6 +27,7 @@ object PortConnects { // types of connections a port attached to a connection ca
   sealed trait AmbiguousBase extends Base // base type for any connection which can be port- or vector-valued
 
   protected def typeOfSinglePort(portLike: elem.PortLike): Option[ref.LibraryPath] = portLike.is match {
+    case elem.PortLike.Is.LibElem(lib) => Some(lib)
     case elem.PortLike.Is.Port(port) => port.selfClass
     case elem.PortLike.Is.Bundle(port) => port.selfClass
     case _ => None

@@ -13,6 +13,7 @@ import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits._
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 import scala.reflect.ClassTag
 
@@ -57,6 +58,20 @@ object InsertAction {
       }
     }
     prevElementOf(element)
+  }
+
+  // given a PSI element, returns the closest element (self or towards root) that is an immediate child of
+  // a containerPsiType; or None if containerPsiType is not in its parents
+  @tailrec
+  def snapToContainerChild(element: PsiElement, containerPsiType: Class[_ <: PsiElement]): Option[PsiElement] = {
+    if (element.getParent == null) {
+      return None
+    }
+    if (containerPsiType.isAssignableFrom(element.getParent.getClass)) {
+      Some(element)
+    } else {
+      snapToContainerChild(element.getParent, containerPsiType)
+    }
   }
 
   // Given a PSI element, returns the insertion point element of type PsiType.

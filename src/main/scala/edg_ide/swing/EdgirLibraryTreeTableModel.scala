@@ -119,15 +119,9 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
         .map { childPath => new BlockNode(childPath, library.allBlocks(childPath), this) }
         .toSeq
         .sortWith { case (a, b) =>
-          if (
-            a.path == EdgirLibraryTreeTableModel.kInternalBlockPath &&
-            b.path != EdgirLibraryTreeTableModel.kInternalBlockPath
-          ) {
+          if (EdgirUtils.isInternal(a.path) && !EdgirUtils.isInternal(b.path)) {
             false
-          } else if (
-            a.path != EdgirLibraryTreeTableModel.kInternalBlockPath &&
-            b.path == EdgirLibraryTreeTableModel.kInternalBlockPath
-          ) {
+          } else if (!EdgirUtils.isInternal(a.path) && EdgirUtils.isInternal(b.path)) {
             true
           } else {
             a.toString < b.toString
@@ -171,10 +165,6 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
       library.allLinks.map { case (path, _) => new LinkNode(path) }
     }.toSeq.sortBy { _.toString }
   }
-}
-
-object EdgirLibraryTreeTableModel {
-  val kInternalBlockPath = LibraryPath("edg_core.Categories.InternalBlock")
 }
 
 class EdgirLibraryTreeTableModel(project: Project, library: edg.wir.Library)
