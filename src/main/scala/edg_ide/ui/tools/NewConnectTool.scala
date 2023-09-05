@@ -205,14 +205,12 @@ class NewConnectTool(
           }
 
           exceptionPopup.atMouse(component) {
-            val movableLiveTemplate = LiveTemplateConnect.createTemplateConnect(
+            LiveTemplateConnect.createTemplateConnect(
               containerPyClass,
               startingPort.connect +: newConnects.map(_.connect),
               getCurrentName(),
               continuation
-            )
-
-            movableLiveTemplate.start(interface.getProject).exceptError
+            ).start(interface.getProject).exceptError
           }
         case _ =>
           if (connectedBlockOpt.isEmpty) {

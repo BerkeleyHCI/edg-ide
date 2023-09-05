@@ -113,19 +113,14 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   val (insertAction, insertItem) = if (EdgSettingsState.getInstance().useInsertionLiveTemplates) {
     val insertAction: Errorable[() => Unit] = exceptable {
       EdgirUtils.isCategory(blockType).exceptTrue("can't insert category")
-
-      val movableLiveTemplate = LiveTemplateInsertBlock
-        .createTemplateBlock(
-          contextPyClass.exceptError,
-          blockPyClass.exceptError,
-          s"Insert $blockTypeName",
-          insertContinuation
-        )
-
       () =>
-        movableLiveTemplate.start(
-          project
-        ).exceptError
+        LiveTemplateInsertBlock
+          .createTemplateBlock(
+            contextPyClass.exceptError,
+            blockPyClass.exceptError,
+            s"Insert $blockTypeName",
+            insertContinuation
+          ).start(project).exceptError
     }
     val insertItem = ContextMenuUtils.MenuItemFromErrorable(insertAction, s"Insert into $contextPyName")
     (insertAction, insertItem)
