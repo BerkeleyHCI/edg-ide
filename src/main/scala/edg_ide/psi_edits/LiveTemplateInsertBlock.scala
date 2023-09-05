@@ -31,7 +31,6 @@ class BlockInsertionLiveTemplate(
       .flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
       .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
     val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
-    val containingPsiClass = PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass])
     val selfName = containingPsiFn.getParameterList.getParameters.toSeq
       .exceptEmpty(s"function ${containingPsiFn.getName} has no self")
       .head.getName
@@ -59,7 +58,7 @@ class BlockInsertionLiveTemplate(
     val nameTemplateVar = new InsertionLiveTemplate.Reference(
       "name",
       newAssign.getTargets.head.asInstanceOf[PyTargetExpression],
-      InsertionLiveTemplate.validatePythonName(_, _, Some(containingPsiClass)),
+      InsertionLiveTemplate.validatePythonName(_, _, Some(contextClass)),
       defaultValue = Some("")
     )
 

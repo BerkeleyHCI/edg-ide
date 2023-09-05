@@ -1,26 +1,22 @@
 package edg_ide.psi_edits
 
-import com.intellij.codeInsight.template.{Template, TemplateEditingAdapter}
 import com.intellij.codeInsight.template.impl.TemplateState
+import com.intellij.codeInsight.template.{Template, TemplateEditingAdapter}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatement}
-import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
-import edg_ide.util.{DesignAnalysisUtils, requireExcept}
-
-import scala.collection.mutable
+import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatement, PyStatementList}
+import edg_ide.util.DesignAnalysisUtils
 
 object TemplateUtils {
   // given some caret position, returns the top-level statement if it's valid for statement insertion
-  def getInsertionStmt(caretElt: PsiElement, requiredContextClass: PyClass): Option[PyStatement] = {
-    val caretStatement = InsertAction.snapInsertionEltOfType[PyStatement](caretElt).get
-    val containingPsiFn = PsiTreeUtil
-      .getParentOfType(caretStatement, classOf[PyFunction])
-    if (containingPsiFn == null) return None
-    val containingPsiClass = PsiTreeUtil
-      .getParentOfType(containingPsiFn, classOf[PyClass])
-    if (containingPsiClass == null) return None
+  def getInsertionStmt(caretElt: PsiElement, requiredContextClass: PyClass): Option[PsiElement] = {
+    val caretStatement = InsertAction.snapToContainerChild(caretElt, classOf[PyStatementList])
+      .getOrElse(return None)
+    val containingPsiFn = Option(PsiTreeUtil.getParentOfType(caretStatement, classOf[PyFunction]))
+      .getOrElse(return None)
+    val containingPsiClass = Option(PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass]))
+      .getOrElse(return None)
     if (containingPsiClass != requiredContextClass) return None
     Some(caretStatement)
   }
