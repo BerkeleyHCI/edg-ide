@@ -106,8 +106,8 @@ object EdgirGraph {
     case Seq() => Seq( // in the loading pass, the source is the block side and the target is the link side
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = Ref.unapply(connected.getBlockPort.getRef).get.slice(0, 2), // only block and port, ignore arrays
-          target = Ref.unapply(connected.getLinkPort.getRef).get.slice(0, 2)
+          source = connected.getBlockPort.getRef.steps.slice(0, 2).map(_.getName), // only block and port, ignore arrays
+          target = connected.getLinkPort.getRef.steps.slice(0, 2).map(_.getName)
         ))
     case Seq(expanded) => connectedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")
@@ -119,11 +119,12 @@ object EdgirGraph {
       constr: expr.ValueExpr,
       exported: expr.ExportedExpr
   ): Seq[EdgirEdge] = exported.expanded match {
-    case Seq() => Seq( // in the loading pass, the source is the block side and the target is the external port
+    case Seq() =>
+      Seq( // in the loading pass, the source is the block side and the target is the external port
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = Ref.unapply(exported.getInternalBlockPort.getRef).get.slice(0, 2),
-          target = Ref.unapply(exported.getExteriorPort.getRef).get.slice(0, 1)
+          source = exported.getInternalBlockPort.getRef.steps.slice(0, 2).map(_.getName),
+          target = exported.getExteriorPort.getRef.steps.slice(0, 1).map(_.getName)
         ))
     case Seq(expanded) => exportedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")

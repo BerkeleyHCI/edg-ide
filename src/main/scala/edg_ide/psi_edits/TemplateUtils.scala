@@ -1,55 +1,22 @@
 package edg_ide.psi_edits
 
-import com.intellij.codeInsight.template.{Template, TemplateEditingAdapter}
 import com.intellij.codeInsight.template.impl.TemplateState
+import com.intellij.codeInsight.template.{Template, TemplateEditingAdapter}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatement}
-import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
-import edg_ide.util.{DesignAnalysisUtils, requireExcept}
-
-import scala.collection.mutable
+import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatement, PyStatementList}
+import edg_ide.util.DesignAnalysisUtils
 
 object TemplateUtils {
-  // deletes the template text, ending the template
-  // must be run within a writeCommandAction
-  def deleteTemplate(templateState: TemplateState): Unit = {
-    val templateExpression = templateState.getExpressionContextForSegment(0)
-    val templateEndOffset = templateExpression.getTemplateEndOffset
-    var templateElem = templateExpression.getPsiElementAtStartOffset
-
-    // separate the traversal from deletion, so the end offsets are stable as we build the deletion list
-    val deleteElems = mutable.ListBuffer[PsiElement]()
-    while (templateElem != null && templateElem.getTextOffset <= templateEndOffset) {
-      if (templateElem.getTextRange.getStartOffset < templateExpression.getTemplateStartOffset) {
-        // getPsiElementAtStartOffset may return a non-contained element if the template is empty
-        templateElem = templateElem.getNextSibling
-      } else if (templateElem.getTextRange.getEndOffset <= templateExpression.getTemplateEndOffset) {
-        deleteElems.append(templateElem)
-        templateElem = templateElem.getNextSibling
-      } else { // otherwise recurse into element to get a partial range
-        templateElem = templateElem.getFirstChild
-      }
-    }
-
-    deleteElems.foreach { deleteElem =>
-      if (deleteElem.isValid) { // guard in case the element changed from a prior deletion
-        deleteElem.delete()
-      }
-    }
-    templateState.update() // update to end the template
-  }
-
   // given some caret position, returns the top-level statement if it's valid for statement insertion
-  def getInsertionStmt(caretElt: PsiElement, requiredContextClass: PyClass): Option[PyStatement] = {
-    val caretStatement = InsertAction.snapInsertionEltOfType[PyStatement](caretElt).get
-    val containingPsiFn = PsiTreeUtil
-      .getParentOfType(caretStatement, classOf[PyFunction])
-    if (containingPsiFn == null) return None
-    val containingPsiClass = PsiTreeUtil
-      .getParentOfType(containingPsiFn, classOf[PyClass])
-    if (containingPsiClass == null) return None
+  def getInsertionStmt(caretElt: PsiElement, requiredContextClass: PyClass): Option[PsiElement] = {
+    val caretStatement = InsertAction.snapToContainerChild(caretElt, classOf[PyStatementList])
+      .getOrElse(return None)
+    val containingPsiFn = Option(PsiTreeUtil.getParentOfType(caretStatement, classOf[PyFunction]))
+      .getOrElse(return None)
+    val containingPsiClass = Option(PsiTreeUtil.getParentOfType(containingPsiFn, classOf[PyClass]))
+      .getOrElse(return None)
     if (containingPsiClass != requiredContextClass) return None
     Some(caretStatement)
   }
