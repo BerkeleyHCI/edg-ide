@@ -13,8 +13,7 @@ import scala.collection.mutable
 
 class ConnectInsertionLiveTemplate(
     contextClass: PyClass,
-    startingConnect: PortConnects.Base,
-    newConnects: Seq[PortConnects.Base],
+    allConnects: Seq[PortConnects.Base],
     actionName: String,
     continuation: (Option[String], PsiElement) => Unit
 ) extends InsertionLiveTemplate(contextClass.getContainingFile) {
@@ -23,7 +22,6 @@ class ConnectInsertionLiveTemplate(
   protected val project = contextClass.getProject
   protected val languageLevel = LanguageLevel.forElement(contextClass)
   protected val psiElementGenerator = PyElementGenerator.getInstance(project)
-  protected val allConnects = startingConnect +: newConnects
 
   protected var createdPsiElts = mutable.ArrayBuffer[PsiElement]()
   protected var newAssignStmt: Option[PyAssignmentStatement] = None // only if an assign was inserted
@@ -226,14 +224,13 @@ object LiveTemplateConnect {
   // Creates an action to start a live template to insert the connection
   def createTemplateConnect(
       contextClass: PyClass,
-      startingConnect: PortConnects.Base,
-      newConnects: Seq[PortConnects.Base],
+      allConnects: Seq[PortConnects.Base],
       actionName: String,
       continuation: (Option[String], PsiElement) => Unit,
   ): MovableLiveTemplate = {
     new MovableLiveTemplate(actionName) {
       override def createTemplate(): InsertionLiveTemplate = {
-        new ConnectInsertionLiveTemplate(contextClass, startingConnect, newConnects, actionName, continuation)
+        new ConnectInsertionLiveTemplate(contextClass, allConnects, actionName, continuation)
       }
     }
   }

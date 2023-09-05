@@ -14,17 +14,29 @@ object EdgirConnectExecutor {
   // this is only for visualization purposes, does not need to handle constraint prop and whatnot
   def apply(
       container: elem.HierarchyBlock,
-      linkNameOpt: Option[String],
+      analysis: BlockConnectedAnalysis,
       newConnected: ConnectBuilder,
-      startingPort: PortConnectTyped[PortConnects.Base],
-      newConnects: Seq[PortConnectTyped[PortConnects.Base]]
+      allConnects: Seq[PortConnectTyped[PortConnects.Base]]
   ): Option[elem.HierarchyBlock] = {
-    if (newConnects.isEmpty) { // nop
-      Some(container)
-    } else if (PortConnectTyped.connectsIsExport(newConnected.connected.map(_._1))) { // export
+    if (PortConnectTyped.connectsIsExport(newConnected.connected.map(_._1))) { // export
       throw new IllegalArgumentException("TODO IMPLEMENT ME new direct export connect")
     } else { // everything else is a link
-      applyLink(container, linkNameOpt, newConnected, startingPort, newConnects)
+      val allConnecteds = allConnects.flatMap { connected =>
+        analysis.connectedGroups.findLast(_._2.exists(_.connect == connected.connect))
+          .map { case (linkNameOpt, connecteds, _) =>
+            (linkNameOpt, connecteds.find(_.connect == connected.connect).get)
+          }
+      }
+      val nonLinked = allConnecteds.collect {
+        case (None, connected) => connected
+      }
+      val allLinks = allConnecteds.collect {
+        case (Some(linkName), _) => linkName
+      }.distinct
+      if (allLinks.length > 1) {
+        logger.warn(s"merging nets not supported: ${allLinks.distinct.mkString(", ")})}")
+      }
+      applyLink(container, allLinks.headOption, newConnected, nonLinked)
     }
   }
 
@@ -61,10 +73,9 @@ object EdgirConnectExecutor {
   // modifies the Block to add a link, or add connections to a link
   protected def applyLink(
       container: elem.HierarchyBlock,
-      linkNameOpt: Option[String],
+      linkNameOpt: Option[String], // if None, create a new link
       newConnected: ConnectBuilder,
-      startingPort: PortConnectTyped[PortConnects.Base],
-      newConnects: Seq[PortConnectTyped[PortConnects.Base]]
+      newConnects: Seq[PortConnectTyped[PortConnects.Base]] // all ports to be connected to this link
   ): Option[elem.HierarchyBlock] = {
     var containerBuilder = container
     val namer = NameCreator.fromBlock(container)
@@ -72,20 +83,11 @@ object EdgirConnectExecutor {
       case Some(linkName) => linkName // link already exists, add to it
       case None => // no link exists, instantiate one
         val linkNewName = namer.newName("_new")
-        val newConstrOpt = portConnectToConstraint(startingPort, newConnected, linkNewName)
-        val newConstrSeq = newConstrOpt.map(newConstr =>
-          elem.NamedValueExpr(
-            name = namer.newName("_new"),
-            value = Some(newConstr)
-          )
-        ).toSeq
-
         containerBuilder = containerBuilder.update(
           _.links :+= elem.NamedLinkLike(
             name = linkNewName,
             value = Some(elem.LinkLike(elem.LinkLike.Type.Link(newConnected.linkLib)))
-          ),
-          _.constraints :++= newConstrSeq
+          )
         )
         linkNewName
     }

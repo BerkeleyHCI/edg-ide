@@ -1,25 +1,14 @@
 package edg_ide.ui.tools
 
-import com.intellij.openapi.command.WriteCommandAction.writeCommandAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.PsiElement
 import edg.util.Errorable
 import edg.wir.{DesignPath, LibraryConnectivityAnalysis}
 import edg_ide.EdgirUtils
-import edg_ide.psi_edits.{InsertAction, LiveTemplateConnect}
+import edg_ide.psi_edits.LiveTemplateConnect
 import edg_ide.ui.{BlockVisualizerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
-import edg_ide.util.{
-  BlockConnectedAnalysis,
-  ConnectBuilder,
-  DesignAnalysisUtils,
-  EdgirConnectExecutor,
-  PortConnectTyped,
-  PortConnects,
-  exceptable,
-  exceptionPopup,
-  requireExcept
-}
+import edg_ide.util._
 import edgir.elem.elem
 
 import java.awt.Component
@@ -79,13 +68,12 @@ object NewConnectTool {
         .exceptNone("invalid connections to port")
     }
 
-    new NewConnectTool(interface, portConnectName, focusPath, portConnected, connectBuilder, analysis)
+    new NewConnectTool(interface, focusPath, portConnected, connectBuilder, analysis)
   }
 }
 
 class NewConnectTool(
     val interface: ToolInterface,
-    linkNameOpt: Option[String],
     containingBlockPath: DesignPath,
     startingPort: PortConnectTyped[PortConnects.Base],
     baseConnectBuilder: ConnectBuilder, // including startingPort, even if it's the only item (new link)
@@ -201,10 +189,9 @@ class NewConnectTool(
       val connectedBlockOpt =
         EdgirConnectExecutor(
           analysis.block,
-          linkNameOpt,
+          analysis,
           currentConnectBuilder,
-          startingPort,
-          newConnects
+          startingPort +: newConnects
         )
       val containerPyClassOpt = DesignAnalysisUtils.pyClassOf(analysis.block.getSelfClass, interface.getProject)
 
@@ -220,8 +207,7 @@ class NewConnectTool(
           exceptionPopup.atMouse(component) {
             val movableLiveTemplate = LiveTemplateConnect.createTemplateConnect(
               containerPyClass,
-              startingPort.connect,
-              newConnects.map(_.connect),
+              startingPort.connect +: newConnects.map(_.connect),
               getCurrentName(),
               continuation
             )

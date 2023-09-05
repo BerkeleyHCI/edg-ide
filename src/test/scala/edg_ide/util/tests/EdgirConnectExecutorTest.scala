@@ -51,16 +51,17 @@ class EdgirConnectExecutorTest extends AnyFlatSpec {
       ),
     ),
   ).getHierarchy
+  val analysis = new BlockConnectedAnalysis(emptyBlock)
 
   it should "create a new link, source first" in {
-    val startingPort = PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"))
-    val newConnects = Seq(
+    val allConnects = Seq(
+      PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort")),
       PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort")),
       PortConnectTyped(PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort")),
     )
     val newConnected = ConnectBuilder(emptyBlock, connectBuilderTest.exampleLink, Seq()).get
-      .append(startingPort +: newConnects).get
-    val connected = EdgirConnectExecutor(emptyBlock, None, newConnected, startingPort, newConnects).get
+      .append(allConnects).get
+    val connected = EdgirConnectExecutor(emptyBlock, analysis, newConnected, allConnects).get
     connected.links.toSeqMap should equal(SeqMap(
       "_new" -> elem.LinkLike(elem.LinkLike.Type.Link(connectBuilderTest.exampleLink))
     ))
@@ -72,14 +73,14 @@ class EdgirConnectExecutorTest extends AnyFlatSpec {
   }
 
   it should "create a new link, sink first" in {
-    val startingPort = PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort"))
-    val newConnects = Seq(
+    val allConnects = Seq(
+      PortConnectTyped(PortConnects.BlockPort("sink0", "port"), LibraryPath("sinkPort")),
       PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort")),
       PortConnectTyped(PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort")),
     )
     val newConnected = ConnectBuilder(emptyBlock, connectBuilderTest.exampleLink, Seq()).get
-      .append(startingPort +: newConnects).get
-    val connected = EdgirConnectExecutor(emptyBlock, None, newConnected, startingPort, newConnects).get
+      .append(allConnects).get
+    val connected = EdgirConnectExecutor(emptyBlock, analysis, newConnected, allConnects).get
     connected.links.toSeqMap should equal(SeqMap(
       "_new" -> elem.LinkLike(elem.LinkLike.Type.Link(connectBuilderTest.exampleLink))
     ))
@@ -91,13 +92,13 @@ class EdgirConnectExecutorTest extends AnyFlatSpec {
   }
 
   it should "create a new link, with vector slice port" in {
-    val startingPort = PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"))
-    val newConnects = Seq(
+    val allConnects = Seq(
+      PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort")),
       PortConnectTyped(PortConnects.BlockVectorSlicePort("sinkArray", "port", None), LibraryPath("sinkPort")),
     )
     val newConnected = ConnectBuilder(emptyBlock, connectBuilderTest.exampleLink, Seq()).get
-      .append(startingPort +: newConnects).get
-    val connected = EdgirConnectExecutor(emptyBlock, None, newConnected, startingPort, newConnects).get
+      .append(allConnects).get
+    val connected = EdgirConnectExecutor(emptyBlock, analysis, newConnected, allConnects).get
     connected.links.toSeqMap should equal(SeqMap(
       "_new" -> elem.LinkLike(elem.LinkLike.Type.Link(connectBuilderTest.exampleLink))
     ))
@@ -150,19 +151,19 @@ class EdgirConnectExecutorTest extends AnyFlatSpec {
       "sink0Connect" -> Constraint.Connected(Ref("sink0", "port"), Ref.Allocate(Ref("link", "sinks"))),
     ),
   ).getHierarchy
+  val connectedAnalysis = new BlockConnectedAnalysis(connectedBlock)
 
   it should "append to existing link" in {
-    val startingPort = PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort"))
-    val newConnects = Seq(
-      PortConnectTyped(PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort")),
-    )
+    val newConnects = Seq(PortConnectTyped(PortConnects.BlockPort("sink1", "port"), LibraryPath("sinkPort")))
+    val allConnects = Seq(
+      PortConnectTyped(PortConnects.BlockPort("source", "port"), LibraryPath("sourcePort")),
+    ) ++ newConnects
     val newConnected = ConnectBuilder(
       connectedBlock,
       connectBuilderTest.exampleLink,
       connectedBlock.constraints.toSeqMap.values.toSeq
-    ).get
-      .append(newConnects).get
-    val connected = EdgirConnectExecutor(connectedBlock, Some("link"), newConnected, startingPort, newConnects).get
+    ).get.append(newConnects).get
+    val connected = EdgirConnectExecutor(connectedBlock, connectedAnalysis, newConnected, allConnects).get
     connected.links.toSeqMap.keys should equal(Set("link")) // no new port should be added
     connected.constraints.toSeqMap should equal(SeqMap(
       "sourceConnect" -> Constraint.Connected(Ref("source", "port"), Ref("link", "source")),
