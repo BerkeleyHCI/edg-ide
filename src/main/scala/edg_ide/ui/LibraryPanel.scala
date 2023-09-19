@@ -39,10 +39,10 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   add(new JLabel(s"Library Block: $blockTypeName"))
   addSeparator()
 
-  private val blockPyClass = DesignAnalysisUtils.pyClassOf(blockType, project)
+  private val blockPyClassOpt = DesignAnalysisUtils.pyClassOf(blockType, project)
   private val (contextPath, _) = BlockVisualizerService(project).getContextBlock.get
-  private val contextPyClass = InsertAction.getPyClassOfContext(project)
-  private val contextPyName = contextPyClass.mapToString(_.getName)
+  private val contextPyClassOpt = InsertAction.getPyClassOfContext(project)
+  private val contextPyName = contextPyClassOpt.mapToString(_.getName)
 
   // Edit actions
   private def insertContinuation(name: String, added: PsiElement): Unit = {
@@ -64,12 +64,14 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   }
 
   val insertAction: Errorable[() => Unit] = exceptable {
+    val contextPyClass = contextPyClassOpt.exceptError
+    val blockPyClass = blockPyClassOpt.exceptError
     EdgirUtils.isCategory(blockType).exceptTrue("can't insert category")
     () =>
       LiveTemplateInsertBlock
         .createTemplateBlock(
-          contextPyClass.exceptError,
-          blockPyClass.exceptError,
+          contextPyClass,
+          blockPyClass,
           s"Insert $blockTypeName",
           insertContinuation
         ).start(project).exceptError
@@ -82,7 +84,7 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
   private val selectedPathLibraryClass = exceptable {
     val visualizerPanel = BlockVisualizerService(project).visualizerPanelOption
       .exceptNone("no visualizer panel")
-    val blockClass = blockPyClass.exceptError
+    val blockPyClass = blockPyClassOpt.exceptError
 
     val selectedPath = visualizerPanel.getSelectedPath.exceptNone("no selection")
     val (resolvedPath, resolvedElt) = EdgirUtils
@@ -94,8 +96,8 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
     val selectedClass = DesignAnalysisUtils.pyClassOf(selectedType, project).exceptError
 
     requireExcept(
-      blockClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
-      s"${blockClass.getName} not a subtype of ${selectedClass.getName}"
+      blockPyClass.isSubclass(selectedClass, TypeEvalContext.codeCompletion(project, null)),
+      s"${blockPyClass.getName} not a subtype of ${selectedClass.getName}"
     )
 
     (selectedPath, selectedType, selectedClass)
@@ -156,10 +158,11 @@ class LibraryBlockPopupMenu(blockType: ref.LibraryPath, project: Project) extend
 
   // Navigation actions
   val gotoDefinitionAction: Errorable[() => Unit] = exceptable {
-    requireExcept(blockPyClass.exceptError.canNavigateToSource, "class not navigatable")
-    () => blockPyClass.exceptError.navigate(true)
+    val blockPyClass = blockPyClassOpt.exceptError
+    requireExcept(blockPyClass.canNavigateToSource, "class not navigatable")
+    () => blockPyClass.navigate(true)
   }
-  private val blockFileLine = blockPyClass
+  private val blockFileLine = blockPyClassOpt
     .flatMap(PsiUtils.fileLineOf(_, project))
     .mapToStringOrElse(fileLine => s" ($fileLine)", err => "")
   private val gotoDefinitionItem =
