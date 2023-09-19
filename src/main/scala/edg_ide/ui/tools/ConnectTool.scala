@@ -16,8 +16,8 @@ import java.awt.event.{KeyEvent, MouseEvent}
 import javax.swing.SwingUtilities
 import scala.collection.mutable
 
-object NewConnectTool {
-  def apply(interface: ToolInterface, portPath: DesignPath): Errorable[NewConnectTool] = exceptable {
+object ConnectTool {
+  def apply(interface: ToolInterface, portPath: DesignPath): Errorable[ConnectTool] = exceptable {
     val focusPath = interface.getFocus
     val focusBlock = EdgirUtils
       .resolveExact(focusPath, interface.getDesign)
@@ -68,11 +68,11 @@ object NewConnectTool {
         .exceptNone("invalid connections to port")
     }
 
-    new NewConnectTool(interface, focusPath, portConnected, connectBuilder, analysis)
+    new ConnectTool(interface, focusPath, portConnected, connectBuilder, analysis)
   }
 }
 
-class NewConnectTool(
+class ConnectTool(
     val interface: ToolInterface,
     containingBlockPath: DesignPath,
     startingPort: PortConnectTyped[PortConnects.Base],

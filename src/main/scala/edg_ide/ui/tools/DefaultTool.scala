@@ -278,7 +278,7 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   addSeparator()
 
   val startConnectAction = exceptable {
-    val connectTool = NewConnectTool(interface, path).exceptError
+    val connectTool = ConnectTool(interface, path).exceptError
     () => interface.startNewTool(connectTool)
   }
   private val startConnectItem = ContextMenuUtils.MenuItemFromErrorable(startConnectAction, "Start Connect")
