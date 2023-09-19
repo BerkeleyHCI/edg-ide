@@ -1,23 +1,24 @@
 package edg_ide.psi_edits
 
-import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.editor.CaretState
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor, TextEditor}
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.{PsiElement, PsiFile, PsiWhiteSpace}
-import com.jetbrains.python.PythonLanguage
-import com.jetbrains.python.psi.{PyClass, PyFunction, PyStatementList}
+import com.jetbrains.python.psi.PyClass
 import edg.util.Errorable
-import edg_ide.ui.{BlockVisualizerService, PopupUtils}
+import edg_ide.ui.BlockVisualizerService
 import edg_ide.util.ExceptionNotifyImplicits._
 import edg_ide.util.{DesignAnalysisUtils, exceptable, requireExcept}
 
 import scala.annotation.tailrec
-import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
+import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.reflect.ClassTag
 
 object InsertAction {
+  // valid functions to insert block definition statements, sorted by preference
+  val kValidDunctionNames = Seq("contents", "__init__") // TODO support generators
+
   def getPyClassOfContext(project: Project): Errorable[PyClass] = exceptable {
     val (contextPath, contextBlock) =
       BlockVisualizerService(project).getContextBlock.exceptNone("no context block")
@@ -87,26 +88,6 @@ object InsertAction {
     }
   }
 
-  /** Returns the PSI element immediately before the cursor of a given file.
-    *
-    * TODO: this is PyStatementList-aware (generates an insertion location). Needs a more specific name!
-    */
-  def getCaretForNewClassStatement(expectedClass: PyClass, project: Project): Errorable[PsiElement] =
-    exceptable {
-      val file = expectedClass.getContainingFile.exceptNull("no file")
-      val prevElement = getCaretAtFileOfType(file, classOf[PyStatementList], project).exceptError
-
-      val containingPsiClass = PsiTreeUtil
-        .getParentOfType(prevElement, classOf[PyClass])
-        .exceptNull(s"not in a class in ${file.getName}")
-      requireExcept(
-        containingPsiClass == expectedClass,
-        s"not in expected class ${expectedClass.getName} in ${file.getName}"
-      )
-
-      prevElement
-    }
-
   def navigateToEnd(element: PsiElement): Unit = {
     new OpenFileDescriptor(
       element.getProject,
@@ -146,56 +127,5 @@ object InsertAction {
       case method if validFunctions.contains(method.getName) =>
         method.getStatementList.getStatements.lastOption
     }.flatten
-  }
-
-  // TODO deprcated, use the above instead
-  def findInsertionPoints(container: PyClass, validFunctions: Seq[String]): Errorable[Seq[PyFunction]] =
-    exceptable {
-      val methods = container.getMethods.toSeq
-        .collect {
-          case method if validFunctions.contains(method.getName) => method
-        }
-        .exceptEmpty(s"class ${container.getName} contains no insertion methods")
-
-      methods
-    }
-
-  /** Name entry popup that checks for name legality */
-  def createNameEntryPopup(title: String, project: Project)(accept: String => Errorable[Unit]): Unit =
-    exceptable {
-      PopupUtils.createStringEntryPopup(title, project) { name =>
-        exceptable {
-          LanguageNamesValidation
-            .isIdentifier(PythonLanguage.getInstance(), name)
-            .exceptFalse("not an identifier")
-
-          accept(name).exceptError
-        }
-      }
-    }
-
-  /** Name entry popup that checks for name legality and collisions with other class members */
-  def createClassMemberNameEntryPopup(
-      title: String,
-      containingPsiClass: PyClass,
-      project: Project,
-      allowEmpty: Boolean = false
-  )(accept: String => Errorable[Unit]): Unit = exceptable {
-    val contextAttributeNames = containingPsiClass.getInstanceAttributes.asScala.map(_.getName)
-
-    PopupUtils.createStringEntryPopup(title, project) { name =>
-      exceptable {
-        if (!(allowEmpty && name.isEmpty)) {
-          LanguageNamesValidation
-            .isIdentifier(PythonLanguage.getInstance(), name)
-            .exceptFalse("not an identifier")
-        }
-        contextAttributeNames
-          .contains(name)
-          .exceptTrue(s"attribute already exists in ${containingPsiClass.getName}")
-
-        accept(name).exceptError
-      }
-    }
   }
 }

@@ -29,7 +29,7 @@ class BlockInsertionLiveTemplate(
       : Errorable[(PsiElement, Seq[PsiElement], Seq[InsertionLiveTemplateVariable])] = exceptable {
     val insertAfter = Option(contextClass.getContainingFile.findElementAt(editor.getCaretModel.getOffset))
       .flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
-      .getOrElse(InsertAction.findInsertionElements(contextClass, InsertBlockAction.VALID_FUNCTION_NAMES).head)
+      .getOrElse(InsertAction.findInsertionElements(contextClass, InsertAction.kValidDunctionNames).head)
     val containingPsiFn = PsiTreeUtil.getParentOfType(insertAfter, classOf[PyFunction])
     val selfName = containingPsiFn.getParameterList.getParameters.toSeq
       .exceptEmpty(s"function ${containingPsiFn.getName} has no self")

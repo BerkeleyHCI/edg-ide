@@ -165,7 +165,7 @@ class ConnectInsertionLiveTemplate(
       .flatMap(TemplateUtils.getInsertionStmt(_, contextClass))
       .getOrElse(InsertAction.findInsertionElements(
         contextClass,
-        InsertBlockAction.VALID_FUNCTION_NAMES
+        InsertAction.kValidDunctionNames
       ).head)
 
     // adjust insertion position to be after all assignments to required references
