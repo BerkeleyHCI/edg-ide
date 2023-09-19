@@ -55,10 +55,6 @@ class EdgSettingsComponent {
   )
   showIdeErrorsHelp.setEnabled(false)
 
-  val useInsertionLiveTemplates = new JCheckBox()
-  val useInsertionLiveTemplatesHelp = new JBLabel("Experimental alternative to caret-based edits.")
-  useInsertionLiveTemplatesHelp.setEnabled(false)
-
   val versionLabel = new JBLabel(
     s"Version ${BuildInfo.version}, built at ${BuildInfo.builtAtString}, " +
       s"scala ${BuildInfo.scalaVersion}, sbt ${BuildInfo.sbtVersion}"
@@ -77,8 +73,6 @@ class EdgSettingsComponent {
     .addComponent(showInternalBlocksHelp)
     .addLabeledComponent(new JBLabel("Show IDE Errors"), showIdeErrors, false)
     .addComponent(showIdeErrorsHelp)
-    .addLabeledComponent(new JBLabel("Use Insertion Live Templates"), useInsertionLiveTemplates, false)
-    .addComponent(useInsertionLiveTemplatesHelp)
     .addComponentFillVertically(new JPanel(), 0)
     .addComponent(versionLabel)
     .getPanel
@@ -98,8 +92,7 @@ class EdgSettingsConfigurable extends Configurable {
     settings.persistBlockCache != component.persistBlockCache.isSelected ||
     settings.showProvenStatus != component.showProvenStatus.isSelected ||
     settings.showInternalBlocks != component.showInternalBlocks.isSelected ||
-    settings.showIdeErrors != component.showIdeErrors.isSelected ||
-    settings.useInsertionLiveTemplates != component.useInsertionLiveTemplates.isSelected
+    settings.showIdeErrors != component.showIdeErrors.isSelected
   }
 
   override def apply(): Unit = {
@@ -109,7 +102,6 @@ class EdgSettingsConfigurable extends Configurable {
     settings.showProvenStatus = component.showProvenStatus.isSelected
     settings.showInternalBlocks = component.showInternalBlocks.isSelected
     settings.showIdeErrors = component.showIdeErrors.isSelected
-    settings.useInsertionLiveTemplates = component.useInsertionLiveTemplates.isSelected
   }
 
   override def reset(): Unit = {
@@ -119,6 +111,5 @@ class EdgSettingsConfigurable extends Configurable {
     component.showProvenStatus.setSelected(settings.showProvenStatus)
     component.showInternalBlocks.setSelected(settings.showInternalBlocks)
     component.showIdeErrors.setSelected(settings.showIdeErrors)
-    component.useInsertionLiveTemplates.setSelected(settings.useInsertionLiveTemplates)
   }
 }

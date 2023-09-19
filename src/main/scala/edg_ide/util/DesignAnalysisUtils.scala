@@ -13,7 +13,6 @@ import edg.wir.DesignPath
 import edg.util.Errorable
 import edg.ElemBuilder.LibraryPath
 import edg_ide.EdgirUtils
-import edg_ide.psi_edits.InsertConnectAction
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala}
@@ -270,6 +269,11 @@ object DesignAnalysisUtils {
         .exceptEmpty(s"no connects to $parentName.$portName")
     }
 
+  protected def elementPairToText(selfName: String, pair: (String, String)): String = pair match {
+    case ("", portName) => s"$selfName.$portName"
+    case (blockName, portName) => s"$selfName.$blockName.$portName"
+  }
+
   /** Returns all connections involving a port, specified relative from the container as a pair. TODO: dedup w/
     * InsertConnectAction? But this is more general, and finds (some!) chains TODO needs to be aware of implicit port
     * semantics, including chain TODO needs to find exports
@@ -299,7 +303,7 @@ object DesignAnalysisUtils {
             )
           val portReference = psiElementGenerator.createExpressionFromText(
             LanguageLevel.forElement(container),
-            InsertConnectAction.elementPairToText(selfName, pair)
+            elementPairToText(selfName, pair)
           )
 
           // Traverse w/ recursive visitor to find all port references inside a self.connect
