@@ -17,7 +17,7 @@ import scala.reflect.ClassTag
 
 object InsertAction {
   // valid functions to insert block definition statements, sorted by preference
-  val kValidDunctionNames = Seq("contents", "__init__") // TODO support generators
+  val kValidFunctionNames = Seq("contents", "__init__") // TODO support generators
 
   def getPyClassOfContext(project: Project): Errorable[PyClass] = exceptable {
     val (contextPath, contextBlock) =
