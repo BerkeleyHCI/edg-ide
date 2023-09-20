@@ -7,7 +7,7 @@ import com.intellij.openapi.project.Project
 import de.siegmar.fastcsv.writer.CsvWriter
 import edg.ElemBuilder
 import edg.compiler._
-import edg.util.{StreamUtils, timeExec}
+import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.Refinements
 import edg_ide.dse.{DseConfigElement, DseObjective, DseResult, DseSearchGenerator}
 import edg_ide.swing.dse.DseResultModel
@@ -182,6 +182,20 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       }
       val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console)
       pythonInterfaceOption = Some(pythonInterface)
+
+      (pythonInterface.getProtoVersion() match {
+        case Errorable.Success(pyVersion) if pyVersion == Compiler.kExpectedProtoVersion => None
+        case Errorable.Success(pyMismatchVersion) => Some(pyMismatchVersion.toString)
+        case Errorable.Error(errMsg) => Some(s"error $errMsg")
+      }).foreach { pyMismatchVersion =>
+        console.print(
+          f"WARNING: Python HDL version mismatch, Python reported $pyMismatchVersion, " +
+            f"IDE expected ${Compiler.kExpectedProtoVersion}.\n" +
+            f"If you get unexpected errors or results, consider updating the Python library or the IDE.\n",
+          ConsoleViewContentType.ERROR_OUTPUT
+        )
+        Thread.sleep(CompilerServerMain.kHdlVersionMismatchDelayMs)
+      }
 
       EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
         // compared to the single design compiler the debug info is a lot sparser here
