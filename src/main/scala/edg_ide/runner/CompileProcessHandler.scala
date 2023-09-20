@@ -302,9 +302,8 @@ class CompileProcessHandler(
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     BlockVisualizerService(project).setDesignStale()
 
-    // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
-    // in which case pythonInterface is not a valid reference
-    var pythonInterface: Option[LoggingPythonInterface] = None
+    // A maybe Python interface is needed at this level so on an error it can be shut down if it exists
+    var pythonInterfaceOpt: Option[LoggingPythonInterface] = None
     var exitCode: Int = -1
 
     try {
@@ -321,9 +320,24 @@ class CompileProcessHandler(
       hdlServerOption.foreach { _ =>
         console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
       }
-      pythonInterface = Some(new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console))
+      val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console)
+      pythonInterfaceOpt = Some(pythonInterface)
 
-      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface.get) {
+      (pythonInterface.getProtoVersion() match {
+        case Errorable.Success(pyVersion) if pyVersion == Compiler.kExpectedProtoVersion => None
+        case Errorable.Success(pyMismatchVersion) => Some(pyMismatchVersion.toString)
+        case Errorable.Error(errMsg) => Some(s"error $errMsg")
+      }).foreach { pyMismatchVersion =>
+        console.print(
+          f"WARNING: Python HDL version mismatch, Python reported $pyMismatchVersion, " +
+            f"IDE expected ${Compiler.kExpectedProtoVersion}.\n" +
+            f"If you get unexpected errors or results, consider updating the Python library or the IDE.\n",
+          ConsoleViewContentType.ERROR_OUTPUT
+        )
+        Thread.sleep(CompilerServerMain.kHdlVersionMismatchDelayMs)
+      }
+
+      EdgCompilerService(project).pyLib.withPythonInterface(pythonInterface) {
         runFailableStageUnit("discard stale", indicator) {
           val discarded = EdgCompilerService(project).discardStale()
           if (discarded.nonEmpty) {
@@ -367,13 +381,11 @@ class CompileProcessHandler(
         }
 
         runFailableStageUnit("refdes", indicator) {
-          val refdes = pythonInterface.get
-            .runRefinementPass(
-              ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
-              compiled,
-              compiler.getAllSolved
-            )
-            .mapErr(msg => s"while refdesing: $msg")
+          val refdes = pythonInterface.runRefinementPass(
+            ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
+            compiled,
+            compiler.getAllSolved
+          ).mapErr(msg => s"while refdesing: $msg")
             .get
           compiler.addAssignValues(refdes, "refdes")
           f"${refdes.size} components"
@@ -387,14 +399,12 @@ class CompileProcessHandler(
 
         if (options.netlistFile.nonEmpty) {
           runFailableStageUnit("generate netlist", indicator) {
-            val netlist = pythonInterface.get
-              .runBackend(
-                ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
-                compiled,
-                compiler.getAllSolved,
-                Map("RefdesMode" -> options.toggle.toString)
-              )
-              .mapErr(msg => s"while netlisting: $msg")
+            val netlist = pythonInterface.runBackend(
+              ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
+              compiled,
+              compiler.getAllSolved,
+              Map("RefdesMode" -> options.toggle.toString)
+            ).mapErr(msg => s"while netlisting: $msg")
               .get
             require(netlist.size == 1)
 
@@ -413,14 +423,12 @@ class CompileProcessHandler(
 
         if (options.bomFile.nonEmpty) {
           runFailableStageUnit("generate BOM", indicator) {
-            val bom = pythonInterface.get
-              .runBackend(
-                ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
-                compiled,
-                compiler.getAllSolved,
-                Map()
-              )
-              .mapErr(msg => s"while generating bom: $msg")
+            val bom = pythonInterface.runBackend(
+              ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
+              compiled,
+              compiler.getAllSolved,
+              Map()
+            ).mapErr(msg => s"while generating bom: $msg")
               .get
             require(bom.size == 1)
 
@@ -449,11 +457,11 @@ class CompileProcessHandler(
           }
         }
       }
-      exitCode = pythonInterface.get.shutdown()
-      pythonInterface.get.forwardProcessOutput() // dump remaining process output (shouldn't happen)
+      exitCode = pythonInterface.shutdown()
+      pythonInterface.forwardProcessOutput() // dump remaining process output (shouldn't happen)
     } catch { // this generally shouldn't happen but is an overall catch-all and clean-up
       case e: Throwable =>
-        pythonInterface.foreach { pyIf =>
+        pythonInterfaceOpt.foreach { pyIf =>
           exitCode = pyIf.shutdown()
           pyIf.forwardProcessOutput() // dump remaining process output before the final error message
         }
