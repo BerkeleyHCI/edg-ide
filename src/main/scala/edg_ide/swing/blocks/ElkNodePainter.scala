@@ -156,7 +156,7 @@ class ElkNodePainter(
     }
   }
 
-  // Render a node, including its labels, but not its ports
+  // Render a node, including its labels and its ports' labels (since they are spatially in the node)
   // Returns its fill color, which can be used for the background of inner nodes
   protected def paintNode(g: Graphics2D, node: ElkNode): Color = {
     val nodeX = node.getX.toInt
@@ -176,6 +176,26 @@ class ElkNodePainter(
         (labelY + nodeY).toInt
       )
     }
+
+    node.getPorts.asScala.foreach { port =>
+      val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
+        case PortSide.NORTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP)
+        case PortSide.SOUTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM)
+        case PortSide.WEST => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
+        case PortSide.EAST => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
+        case _ => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
+      }
+
+      port.getLabels.asScala.foreach { label =>
+        val (labelX, labelY) = transformLabelCoords(g, label, labelPlacement)
+        textGraphics(g, port).drawString(
+          label.getText,
+          (labelX + port.getX + node.getX).toInt, // ports in node's coordinates
+          (labelY + port.getY + node.getY).toInt
+        )
+      }
+    }
+
     nodeFillGraphics.getColor
   }
 
@@ -187,29 +207,10 @@ class ElkNodePainter(
     outlineGraphics(g, port).foreach { g => g.drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt) }
     fillGraphics(g, port).fillRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
     strokeGraphics(g, port).drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
-
-    val labelPlacement = port.getProperty(CoreOptions.PORT_SIDE) match {
-      case PortSide.NORTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_TOP)
-      case PortSide.SOUTH => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_BOTTOM)
-      case PortSide.WEST => Set(NodeLabelPlacement.H_LEFT, NodeLabelPlacement.V_CENTER)
-      case PortSide.EAST => Set(NodeLabelPlacement.H_RIGHT, NodeLabelPlacement.V_CENTER)
-      case _ => Set(NodeLabelPlacement.H_CENTER, NodeLabelPlacement.V_CENTER)
-    }
-
-    port.getLabels.asScala.foreach { label =>
-      val (labelX, labelY) = transformLabelCoords(g, label, labelPlacement)
-      textGraphics(g, port).drawString(
-        label.getText,
-        (labelX + port.getX).toInt,
-        (labelY + port.getY).toInt
-      )
-    }
   }
 
   // paints the block and its contents
   protected def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
-    val nodeBackground = paintNode(containingG, node)
-
     val nodeG = containingG.create().asInstanceOf[Graphics2D]
     nodeG.translate(node.getX, node.getY)
 
@@ -217,6 +218,7 @@ class ElkNodePainter(
       paintPort(nodeG, port)
     }
 
+    val nodeBackground = paintNode(containingG, node)
     nodeG.setBackground(nodeBackground)
     paintBlockContents(containingG, nodeG, node)
   }
