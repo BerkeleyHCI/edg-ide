@@ -24,11 +24,15 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     with Zoomable {
   private var zoomLevel: Float = 1.0f
   private var mouseOverElts: Seq[ElkGraphElement] = Seq() // elements that are moused over, maintained internally
-  private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
   private var unselectable: Set[ElkGraphElement] = Set() // elements that are greyed and unselectable, set externally
+
+  // these are considered transient selection properties
+  private var haloed: Set[ElkGraphElement] = Set() // mouseover outline effect, set externally
+  private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
   // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
   private var portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
+
   private var errorElts: Set[ElkGraphElement] = Set()
   private var staleElts: Set[ElkGraphElement] = Set()
   private val elementToolTips = mutable.Map[ElkGraphElement, String]()
@@ -53,6 +57,12 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
   def setHighlighted(elts: Option[Set[ElkGraphElement]]): Unit = {
     highlighted = elts
+    validate()
+    repaint()
+  }
+
+  def setHaloed(elts: Set[ElkGraphElement]): Unit = {
+    haloed = elts
     validate()
     repaint()
   }
@@ -91,6 +101,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   }
 
   def resetTransientSelections(): Unit = {
+    haloed = Set()
     highlighted = None
     portInserts = Set()
     selected = Set()
@@ -206,7 +217,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   )
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
+    val elementGraphics = haloed.toSeq.map { elt => elt -> mouseoverModifier } ++
       errorElts.map { elt => elt -> errorModifier } ++
       selected.map { elt => elt -> selectedModifier } ++
       staleElts.map { elt => elt -> staleModifier }
@@ -258,6 +269,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     private def mouseoverUpdated(newElts: Seq[ElkGraphElement]): Unit = {
       if (mouseOverElts != newElts) {
         mouseOverElts = newElts
+        onMouseoverUpdated(newElts)
         validate()
         repaint()
       }
@@ -284,6 +296,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
   // User hooks - can be overridden
   def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {}
+  def onMouseoverUpdated(elts: Seq[ElkGraphElement]): Unit = {}
 
   // Tooltip operations
   //
