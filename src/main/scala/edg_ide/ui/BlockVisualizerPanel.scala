@@ -314,7 +314,6 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           case node: HierarchyBlockNode => Some(node.path)
           case _ => None // any other type ignored
         }
-      println(mousedPathOpt)
       haloedPath(mousedPathOpt)
     }
   })
