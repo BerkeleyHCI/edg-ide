@@ -4,6 +4,7 @@ import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
 import edg_ide.swing.blocks.ElementGraphicsModifier.withColorBlendBackground
 import edg_ide.swing.{ColorUtil, DrawAnchored}
+import org.eclipse.elk.core.options.{CoreOptions, PortSide}
 import org.eclipse.elk.graph._
 
 import java.awt._
@@ -20,7 +21,8 @@ class EdgElkNodePainter(
     showTop: Boolean = false,
     zoomLevel: Float = 1.0f,
     defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
-    elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq()
+    elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq(),
+    portInsert: Set[ElkPort] = Set() // ports to draw insert indicators for
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
   override protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
     super.paintEdge(parentG, blockG, edge)
@@ -66,7 +68,48 @@ class EdgElkNodePainter(
     }
   }
 
+  // get the polygon points for the array insertion arrow, structured to be passed into g.drawPolygon
+  protected def insertArrowPoints(port: ElkPort): (Array[Int], Array[Int]) = {
+    val portCenterX = port.getX.toInt + port.getWidth.toInt / 2
+    val portCenterY = port.getY.toInt + port.getHeight.toInt / 2
+    val arrowLength = math.max(port.getWidth, port.getHeight).toInt
+    val arrowHalfWidth = math.min(port.getWidth, port.getHeight).toInt / 2
+
+    // points ordered as center, base1, base2
+    port.getProperty(CoreOptions.PORT_SIDE) match {
+      case PortSide.NORTH =>
+        val portEdgeY = portCenterY - port.getHeight.toInt / 2
+        (
+          Array(portCenterX, portCenterX - arrowHalfWidth, portCenterX + arrowHalfWidth),
+          Array(portEdgeY, portEdgeY - arrowLength, portEdgeY - arrowLength)
+        )
+      case PortSide.SOUTH =>
+        val portEdgeY = portCenterY + port.getHeight.toInt / 2
+        (
+          Array(portCenterX, portCenterX - arrowHalfWidth, portCenterX + arrowHalfWidth),
+          Array(portEdgeY, portEdgeY + arrowLength, portEdgeY + arrowLength)
+        )
+      case PortSide.EAST =>
+        val portEdgeX = portCenterX + port.getWidth.toInt / 2
+        (
+          Array(portEdgeX, portEdgeX + arrowLength, portEdgeX + arrowLength),
+          Array(portCenterY, portCenterY - arrowHalfWidth, portCenterY + arrowHalfWidth)
+        )
+      case PortSide.WEST | _ =>
+        val portEdgeX = portCenterX - port.getWidth.toInt / 2
+        (
+          Array(portEdgeX, portEdgeX - arrowLength, portEdgeX - arrowLength),
+          Array(portCenterY, portCenterY - arrowHalfWidth, portCenterY + arrowHalfWidth)
+        )
+    }
+  }
+
   override protected def paintPort(g: Graphics2D, port: ElkPort): Unit = {
+    if (portInsert.contains(port)) { // if insert is specified, draw the arrow outline
+      val (xPts, yPts) = insertArrowPoints(port)
+      outlineGraphics(g, port).foreach { g => g.drawPolygon(xPts, yPts, 3) }
+    }
+
     // if an array, render the array ports under it
     if (port.getProperty(ElkEdgirGraphUtils.PortArrayMapper.property)) {
       val portX = port.getX.toInt
@@ -81,5 +124,10 @@ class EdgElkNodePainter(
         .drawRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
     }
     super.paintPort(g, port)
+
+    if (portInsert.contains(port)) { // if insert is specified, draw the arrow
+      val (xPts, yPts) = insertArrowPoints(port)
+      strokeGraphics(g, port).fillPolygon(xPts, yPts, 3)
+    }
   }
 }

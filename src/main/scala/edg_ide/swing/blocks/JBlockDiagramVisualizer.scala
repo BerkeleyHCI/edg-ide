@@ -186,7 +186,9 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   )
 
   private val mouseoverModifier = ElementGraphicsModifier(
-    outlineGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(9 / zoomLevel)).compose(
+    outlineGraphics = Some(ElementGraphicsModifier.withStroke(
+      new BasicStroke(9 / zoomLevel, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+    ).compose(
       ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127))
     ))
   )
