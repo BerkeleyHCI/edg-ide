@@ -22,7 +22,7 @@ class EdgElkNodePainter(
     zoomLevel: Float = 1.0f,
     defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq(),
-    portInsert: Set[ElkPort] = Set() // ports to draw insert indicators for
+    portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
   override protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
     super.paintEdge(parentG, blockG, edge)
@@ -105,7 +105,7 @@ class EdgElkNodePainter(
   }
 
   override protected def paintPort(g: Graphics2D, port: ElkPort): Unit = {
-    if (portInsert.contains(port)) { // if insert is specified, draw the arrow outline
+    if (portInserts.contains(port)) { // if insert is specified, draw the arrow outline
       val (xPts, yPts) = insertArrowPoints(port)
       outlineGraphics(g, port).foreach { g => g.drawPolygon(xPts, yPts, 3) }
     }
@@ -125,7 +125,7 @@ class EdgElkNodePainter(
     }
     super.paintPort(g, port)
 
-    if (portInsert.contains(port)) { // if insert is specified, draw the arrow
+    if (portInserts.contains(port)) { // if insert is specified, draw the arrow
       val (xPts, yPts) = insertArrowPoints(port)
       strokeGraphics(g, port).fillPolygon(xPts, yPts, 3)
     }

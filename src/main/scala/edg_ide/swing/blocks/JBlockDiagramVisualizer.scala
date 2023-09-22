@@ -3,7 +3,7 @@ package edg_ide.swing.blocks
 import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, Zoomable}
 import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
-import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter}
 import java.awt.geom.Rectangle2D
@@ -28,6 +28,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private var unselectable: Set[ElkGraphElement] = Set() // elements that are greyed and unselectable, set externally
   // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
+  private var portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
   private var errorElts: Set[ElkGraphElement] = Set()
   private var staleElts: Set[ElkGraphElement] = Set()
   private val elementToolTips = mutable.Map[ElkGraphElement, String]()
@@ -56,6 +57,12 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     repaint()
   }
 
+  def setPortInserts(elts: Set[ElkGraphElement]): Unit = {
+    portInserts = elts
+    validate()
+    repaint()
+  }
+
   def setError(elts: Set[ElkGraphElement]): Unit = {
     errorElts = elts
     validate()
@@ -76,12 +83,17 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     errorElts = Set()
     staleElts = Set()
     elementToolTips.clear()
-    highlighted = None
-    selected = Set()
     unselectable = Set()
+    resetTransientSelections()
     rootNode = newGraph
     revalidate()
     repaint()
+  }
+
+  def resetTransientSelections(): Unit = {
+    highlighted = None
+    portInserts = Set()
+    selected = Set()
   }
 
   val EDGE_CLICK_WIDTH = 5.0f // how thick edges are for click detection purposes
@@ -206,7 +218,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       case None => // normal rendering
         val innerElementGraphics = elementGraphics ++
           unselectable.map { elt => elt -> dimGraphics }
-        new EdgElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = innerElementGraphics)
+        new EdgElkNodePainter(
+          rootNode,
+          showTop,
+          zoomLevel,
+          elementGraphics = innerElementGraphics,
+          portInserts = portInserts
+        )
       case Some(highlighted) => // default dim rendering
         val highlightedElementGraphics = (highlighted -- unselectable).toSeq.map { elt =>
           elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
@@ -219,7 +237,8 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
           showTop,
           zoomLevel,
           defaultGraphics = dimGraphics,
-          elementGraphics = highlightedElementGraphics
+          elementGraphics = highlightedElementGraphics,
+          portInserts = portInserts
         )
     }
     painter.paintComponent(backgroundPaintGraphics)

@@ -107,6 +107,10 @@ class ConnectTool(
     // mark all current selections
     val connectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
     interface.setGraphSelections(connectedPorts.toSet)
+    val requestedPorts = currentConnectBuilder.connected.filter(
+      _._1.connect.isInstanceOf[PortConnects.BlockVectorSliceBase]
+    ).map(containingBlockPath ++ _._1.connect.topPortRef)
+    interface.setGraphPortInserts(requestedPorts.toSet)
 
     // try all connections to determine additional possible connects
     // note, vector slices may overlap and appear in multiple connect groups (and a new connection),

@@ -109,6 +109,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       }
     }
 
+    override def setGraphPortInserts(paths: Set[DesignPath]): Unit = {
+      graph.setPortInserts(pathsToGraphNodes(paths))
+    }
+
+    override def resetGraphTransientSelections(): Unit = {
+      graph.resetTransientSelections()
+    }
+
     override def setFocus(path: DesignPath): Unit = {
       setContext(path)
     }
