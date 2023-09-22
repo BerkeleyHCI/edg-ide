@@ -2,6 +2,7 @@ package edg_ide.swing.blocks
 
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
+import edg_ide.swing.blocks.ElementGraphicsModifier.withColorBlendBackground
 import edg_ide.swing.{ColorUtil, DrawAnchored}
 import org.eclipse.elk.graph._
 
@@ -10,15 +11,18 @@ import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
 import scala.jdk.CollectionConverters.ListHasAsScala
 
-// ELK h-block graph painter that draws labels for stub edges (edges to self), to emulate tunnels in schematics
-class StubEdgeElkNodePainter(
+// ELK h-block graph painter with modifications for EDG graphs:
+// - support stub edges (edges to self), to emulate tunnels in schematics
+// - support array ports, drawn as stacked ports
+// - support array port request / insert indicator, drawn as arrow into the port
+class EdgElkNodePainter(
     rootNode: ElkNode,
     showTop: Boolean = false,
     zoomLevel: Float = 1.0f,
     defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq()
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
-  override def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
+  override protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
     super.paintEdge(parentG, blockG, edge)
 
     val thisG = if (edge.getSources == edge.getTargets) {
@@ -60,5 +64,22 @@ class StubEdgeElkNodePainter(
         case None =>
       }
     }
+  }
+
+  override protected def paintPort(g: Graphics2D, port: ElkPort): Unit = {
+    // if an array, render the array ports under it
+    if (port.getProperty(ElkEdgirGraphUtils.PortArrayMapper.property)) {
+      val portX = port.getX.toInt
+      val portY = port.getY.toInt
+
+      fillGraphics(g, port).fillRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
+      withColorBlendBackground(0.5)(strokeGraphics(g, port))
+        .drawRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
+
+      fillGraphics(g, port).fillRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
+      withColorBlendBackground(0.75)(strokeGraphics(g, port))
+        .drawRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
+    }
+    super.paintPort(g, port)
   }
 }

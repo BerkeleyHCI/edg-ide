@@ -7,7 +7,7 @@ import edg.wir.DesignPath
 import edg.wir.ProtoUtil.BlockProtoToSeqMap
 import edg_ide.edgir_graph.HierarchyGraphElk.PropertyMapper
 import edg_ide.edgir_graph.{EdgeWrapper, HierarchyGraphElk, NodeDataWrapper, PortWrapper}
-import edg_ide.swing.blocks.{ElkNodePainter, StubEdgeElkNodePainter}
+import edg_ide.swing.blocks.{ElkNodePainter, EdgElkNodePainter}
 import edgir.elem.elem.{BlockLike, HierarchyBlock}
 import edgir.ref.ref.LibraryPath
 import org.eclipse.elk.graph.ElkNode
@@ -111,7 +111,7 @@ object PDFGeneratorUtil {
       val cb = writer.getDirectContent
       val graphics = cb.createGraphics(width, height)
       graphics.setBackground(Color.white)
-      val painter = new StubEdgeElkNodePainter(node)
+      val painter = new EdgElkNodePainter(node)
       painter.paintComponent(graphics)
       graphics.dispose()
 

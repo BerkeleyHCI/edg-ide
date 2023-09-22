@@ -204,7 +204,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       case None => // normal rendering
         val innerElementGraphics = elementGraphics ++
           unselectable.map { elt => elt -> dimGraphics }
-        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = innerElementGraphics)
+        new EdgElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = innerElementGraphics)
       case Some(highlighted) => // default dim rendering
         val highlightedElementGraphics = (highlighted -- unselectable).toSeq.map { elt =>
           elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
@@ -212,7 +212,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
             textGraphics = ElementGraphicsModifier.withColor(getForeground)
           )
         } ++ elementGraphics
-        new StubEdgeElkNodePainter(
+        new EdgElkNodePainter(
           rootNode,
           showTop,
           zoomLevel,

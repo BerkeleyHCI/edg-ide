@@ -180,7 +180,7 @@ class ElkNodePainter(
   }
 
   // Render a port, including its labels
-  def paintPort(g: Graphics2D, port: ElkPort): Unit = {
+  protected def paintPort(g: Graphics2D, port: ElkPort): Unit = {
     val portX = port.getX.toInt
     val portY = port.getY.toInt
 

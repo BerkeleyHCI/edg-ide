@@ -450,7 +450,11 @@ class CompileProcessHandler(
             Files.createDirectories(Paths.get(options.pdfFile).getParent)
             PDFGeneratorUtil.generate(
               compiled.getContents,
-              mappers = Seq(new ElkEdgirGraphUtils.TitleMapper(compiler), ElkEdgirGraphUtils.DesignPathMapper),
+              mappers = Seq(
+                new ElkEdgirGraphUtils.TitleMapper(compiler),
+                ElkEdgirGraphUtils.DesignPathMapper,
+                ElkEdgirGraphUtils.PortArrayMapper
+              ),
               options.pdfFile
             )
             f"wrote ${options.pdfFile}"

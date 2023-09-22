@@ -476,7 +476,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           blockPath,
           1,
           // note, adding port side constraints with hierarchy seems to break ELK
-          Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler), ElkEdgirGraphUtils.DesignPathMapper)
+          Seq(
+            new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
+            ElkEdgirGraphUtils.DesignPathMapper,
+            ElkEdgirGraphUtils.PortArrayMapper
+          )
         )
 
         val refinementOnlyMap = new RefinementOnlyPathsMap()
