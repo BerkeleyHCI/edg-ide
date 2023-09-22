@@ -88,6 +88,9 @@ class ConnectTool(
   // corresponding to selectedPorts, may have more ports from net joins
   var currentConnectBuilder = baseConnectBuilder
 
+  // transient GUI-related state
+  var mouseoverPortInsert: Option[DesignPath] = None // if mouseover on a port insert, to display the arrow
+
   def getCurrentName(): String = {
     if (selectedConnects.nonEmpty) {
       val connectedPortNames = selectedConnects.map(_.connect.topPortRef.mkString("."))
@@ -107,10 +110,7 @@ class ConnectTool(
     // mark all current selections
     val connectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
     interface.setGraphSelections(connectedPorts.toSet)
-    val requestedPorts = currentConnectBuilder.connected.filter(
-      _._1.connect.isInstanceOf[PortConnects.BlockVectorSliceBase]
-    ).map(containingBlockPath ++ _._1.connect.topPortRef)
-    interface.setGraphPortInserts(requestedPorts.toSet)
+    updatePortInserts()
 
     // try all connections to determine additional possible connects
     // note, vector slices may overlap and appear in multiple connect groups (and a new connection),
@@ -134,6 +134,14 @@ class ConnectTool(
     interface.setGraphHighlights(
       Some((Seq(containingBlockPath) ++ connectedPorts ++ connectablePorts ++ connectableBlocks).toSet)
     )
+  }
+
+  def updatePortInserts(): Unit = { // updates port appends
+    val requestedPorts = currentConnectBuilder.connected.filter(
+      _._1.connect.isInstanceOf[PortConnects.BlockVectorSliceBase]
+    ).map(containingBlockPath ++ _._1.connect.topPortRef)
+
+    interface.setGraphPortInserts(requestedPorts.toSet ++ mouseoverPortInsert)
   }
 
   override def init(): Unit = {
@@ -249,6 +257,29 @@ class ConnectTool(
     } else if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 2) { // double-click finish shortcut
       completeConnect(e.getComponent)
     }
+  }
+
+  override def onPathMouseoverUpdated(path: Option[DesignPath]): Unit = {
+    super.onPathMouseoverUpdated(path)
+
+    mouseoverPortInsert = path.flatMap { path =>
+      val newConnectedNet = analysis.connectedGroups.filter { case (linkNameOpt, connecteds, constrs) =>
+        connecteds.exists(connected =>
+          containingBlockPath ++ connected.connect.topPortRef == path &&
+            !((connected.connect.isInstanceOf[PortConnects.BlockVectorSlicePort] ||
+              connected.connect.isInstanceOf[PortConnects.BlockVectorSliceVector]) &&
+              connecteds.length > 1) // only keep individual BlockVectorSlice, TODO should not be hardcoded
+        )
+      }.flatMap(_._2)
+      val newConnected = // get single connected of this port
+        newConnectedNet.filter(containingBlockPath ++ _.connect.topPortRef == path)
+      newConnected.headOption.map(_.connect) match {
+        case Some(_: PortConnects.BlockVectorSliceBase) => Some(path)
+        case _ => None
+      }
+    }
+
+    updatePortInserts()
   }
 
   override def onKeyPress(e: KeyEvent): Unit = {
