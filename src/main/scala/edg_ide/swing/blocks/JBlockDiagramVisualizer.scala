@@ -3,7 +3,7 @@ package edg_ide.swing.blocks
 import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, Zoomable}
 import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
-import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter}
 import java.awt.geom.Rectangle2D
@@ -24,10 +24,15 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     with Zoomable {
   private var zoomLevel: Float = 1.0f
   private var mouseOverElts: Seq[ElkGraphElement] = Seq() // elements that are moused over, maintained internally
-  private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
   private var unselectable: Set[ElkGraphElement] = Set() // elements that are greyed and unselectable, set externally
+
+  // these are considered transient selection properties
+  private var haloed: Set[ElkGraphElement] = Set() // mouseover outline effect, set externally
+  private var selected: Set[ElkGraphElement] = Set() // elements that are selected, set externally
   // if highlight is present, everything else is dimmed, non-selectable, and non-hoverable
   private var highlighted: Option[Set[ElkGraphElement]] = None
+  private var portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
+
   private var errorElts: Set[ElkGraphElement] = Set()
   private var staleElts: Set[ElkGraphElement] = Set()
   private val elementToolTips = mutable.Map[ElkGraphElement, String]()
@@ -56,6 +61,18 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     repaint()
   }
 
+  def setHaloed(elts: Set[ElkGraphElement]): Unit = {
+    haloed = elts
+    validate()
+    repaint()
+  }
+
+  def setPortInserts(elts: Set[ElkGraphElement]): Unit = {
+    portInserts = elts
+    validate()
+    repaint()
+  }
+
   def setError(elts: Set[ElkGraphElement]): Unit = {
     errorElts = elts
     validate()
@@ -76,12 +93,18 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     errorElts = Set()
     staleElts = Set()
     elementToolTips.clear()
-    highlighted = None
-    selected = Set()
     unselectable = Set()
+    resetTransientSelections()
     rootNode = newGraph
     revalidate()
     repaint()
+  }
+
+  def resetTransientSelections(): Unit = {
+    haloed = Set()
+    highlighted = None
+    portInserts = Set()
+    selected = Set()
   }
 
   val EDGE_CLICK_WIDTH = 5.0f // how thick edges are for click detection purposes
@@ -186,13 +209,15 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   )
 
   private val mouseoverModifier = ElementGraphicsModifier(
-    outlineGraphics = Some(ElementGraphicsModifier.withStroke(new BasicStroke(9 / zoomLevel)).compose(
+    outlineGraphics = Some(ElementGraphicsModifier.withStroke(
+      new BasicStroke(9 / zoomLevel, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+    ).compose(
       ElementGraphicsModifier.withColor(ColorUtil.withAlpha(JBColor.BLUE, 127))
     ))
   )
 
   override def paintComponent(paintGraphics: Graphics): Unit = {
-    val elementGraphics = mouseOverElts.map { elt => elt -> mouseoverModifier } ++
+    val elementGraphics = haloed.toSeq.map { elt => elt -> mouseoverModifier } ++
       errorElts.map { elt => elt -> errorModifier } ++
       selected.map { elt => elt -> selectedModifier } ++
       staleElts.map { elt => elt -> staleModifier }
@@ -204,7 +229,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
       case None => // normal rendering
         val innerElementGraphics = elementGraphics ++
           unselectable.map { elt => elt -> dimGraphics }
-        new StubEdgeElkNodePainter(rootNode, showTop, zoomLevel, elementGraphics = innerElementGraphics)
+        new EdgElkNodePainter(
+          rootNode,
+          showTop,
+          zoomLevel,
+          elementGraphics = innerElementGraphics,
+          portInserts = portInserts
+        )
       case Some(highlighted) => // default dim rendering
         val highlightedElementGraphics = (highlighted -- unselectable).toSeq.map { elt =>
           elt -> ElementGraphicsModifier( // undo the dim rendering for highlighted
@@ -212,12 +243,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
             textGraphics = ElementGraphicsModifier.withColor(getForeground)
           )
         } ++ elementGraphics
-        new StubEdgeElkNodePainter(
+        new EdgElkNodePainter(
           rootNode,
           showTop,
           zoomLevel,
           defaultGraphics = dimGraphics,
-          elementGraphics = highlightedElementGraphics
+          elementGraphics = highlightedElementGraphics,
+          portInserts = portInserts
         )
     }
     painter.paintComponent(backgroundPaintGraphics)
@@ -237,6 +269,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
     private def mouseoverUpdated(newElts: Seq[ElkGraphElement]): Unit = {
       if (mouseOverElts != newElts) {
         mouseOverElts = newElts
+        onMouseoverUpdated(newElts)
         validate()
         repaint()
       }
@@ -263,6 +296,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
   // User hooks - can be overridden
   def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {}
+  def onMouseoverUpdated(elts: Seq[ElkGraphElement]): Unit = {}
 
   // Tooltip operations
   //

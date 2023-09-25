@@ -25,9 +25,13 @@ trait ToolInterface {
   def setGraphSelections(paths: Set[DesignPath]): Unit
   // Sets the highlighted items on the graph, or None to disable highlighting.
   def setGraphHighlights(paths: Option[Set[DesignPath]]): Unit
+  // Sets port insert items (draws the arrow)
+  def setGraphPortInserts(paths: Set[DesignPath]): Unit
+  def resetGraphTransientSelections(): Unit
 
   // Sets the selected design tree and detail view element
   def setSelection(path: DesignPath): Unit
+  def setHaloed(path: Seq[DesignPath]): Unit
   def setFocus(path: DesignPath): Unit
   def setStatus(status: String): Unit
 }
@@ -41,12 +45,14 @@ trait BaseTool {
   //
   // Initialization function that runs when the tool is made active. By default clears state.
   def init(): Unit = {
-    interface.setGraphSelections(Set())
-    interface.setGraphHighlights(None)
+    interface.resetGraphTransientSelections()
   }
 
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
   def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {}
+  def onPathMouseoverUpdated(path: Option[DesignPath]): Unit = {
+    interface.setHaloed(path.toSeq)
+  }
 
   // Keyboard event generated on any key even in the graph layout
   def onKeyPress(e: KeyEvent): Unit = {}

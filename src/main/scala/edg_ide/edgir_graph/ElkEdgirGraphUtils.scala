@@ -5,6 +5,7 @@ import edg.compiler.{Compiler, TextValue}
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
 import edg_ide.util.EdgirAnalysisUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
+import edgir.elem.elem
 
 import scala.jdk.CollectionConverters._
 
@@ -139,6 +140,27 @@ object ElkEdgirGraphUtils {
     override def nodeConv(node: NodeDataWrapper): Option[PortConstraints] = Some(PortConstraints.FIXED_SIDE)
     override def portConv(port: PortWrapper): Option[PortConstraints] = None
     override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
+  }
+
+  // Adds a port array-ness property
+  object PortArrayMapper extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    type PropertyType = Boolean
+
+    object PortArrayProperty extends IProperty[Boolean] {
+      override def getDefault: Boolean = false
+      override def getId: String = "PortArray"
+      override def getLowerBound: Comparable[_ >: Boolean] = null
+      override def getUpperBound: Comparable[_ >: Boolean] = null
+    }
+
+    override val property: IProperty[Boolean] = PortArrayProperty
+
+    override def nodeConv(node: NodeDataWrapper): Option[Boolean] = None
+    override def portConv(port: PortWrapper): Option[Boolean] = port.portLike.is match {
+      case elem.PortLike.Is.Array(_) => Some(true)
+      case _ => None
+    }
+    override def edgeConv(edge: EdgeWrapper): Option[Boolean] = None
   }
 
   /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath. Returns target

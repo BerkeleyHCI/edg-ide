@@ -7,6 +7,7 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.components.{JBScrollPane, JBTabbedPane}
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import com.intellij.ui.{JBSplitter, TreeTableSpeedSearch}
+import com.intellij.util.EditSourceOnDoubleClickHandler.TreeMouseListener
 import com.intellij.util.concurrency.AppExecutorUtil
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.ElemModifier
@@ -27,7 +28,15 @@ import edgrpc.hdl.{hdl => edgrpc}
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 
 import java.awt.datatransfer.DataFlavor
-import java.awt.event.{ComponentAdapter, ComponentEvent, KeyAdapter, KeyEvent, MouseAdapter, MouseEvent}
+import java.awt.event.{
+  ComponentAdapter,
+  ComponentEvent,
+  KeyAdapter,
+  KeyEvent,
+  MouseAdapter,
+  MouseEvent,
+  MouseMotionListener
+}
 import java.awt.{BorderLayout, GridBagConstraints, GridBagLayout}
 import java.io.{File, FileInputStream}
 import java.util.concurrent.{Callable, TimeUnit}
@@ -109,12 +118,24 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       }
     }
 
+    override def setGraphPortInserts(paths: Set[DesignPath]): Unit = {
+      graph.setPortInserts(pathsToGraphNodes(paths))
+    }
+
+    override def resetGraphTransientSelections(): Unit = {
+      graph.resetTransientSelections()
+    }
+
     override def setFocus(path: DesignPath): Unit = {
       setContext(path)
     }
 
     override def setSelection(path: DesignPath): Unit = {
       BlockVisualizerPanel.this.selectPath(path)
+    }
+
+    override def setHaloed(path: Seq[DesignPath]): Unit = {
+      BlockVisualizerPanel.this.haloedPaths(path)
     }
 
     override def setStatus(statusText: String): Unit = {
@@ -205,14 +226,14 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   private val graph = new JBlockDiagramVisualizer(emptyHGraph) {
     override def onClick(e: MouseEvent, elts: Seq[ElkGraphElement]): Unit = {
-      elts.headOption match { // TODO disambiguate
-        case Some(clicked) =>
-          clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
-            case path: DesignPath => activeTool.onPathMouse(e, path)
-            case null => // TODO should this error out?
-          }
-        case None => // ignored
-      }
+      elts.headOption.flatMap(clicked => Option(clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)))
+        .foreach(activeTool.onPathMouse(e, _))
+    }
+
+    override def onMouseoverUpdated(elts: Seq[ElkGraphElement]): Unit = {
+      activeTool.onPathMouseoverUpdated(
+        elts.headOption.flatMap(clicked => Option(clicked.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property)))
+      )
     }
   }
   graph.addKeyListener(new KeyAdapter {
@@ -284,6 +305,18 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
   private var designTreeModel = new BlockTreeTableModel(project, edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel) with ProvenTreeTableMixin
   new TreeTableSpeedSearch(designTree)
+  designTree.addMouseMotionListener(new MouseMotionListener {
+    override def mouseDragged(e: MouseEvent): Unit = {} // ignored
+    override def mouseMoved(e: MouseEvent): Unit = {
+      val mousedPathOpt = TreeTableUtils.getPathForRowLocation(designTree, e.getX, e.getY)
+        .map(_.getLastPathComponent)
+        .flatMap {
+          case node: HierarchyBlockNode => Some(node.path)
+          case _ => None // any other type ignored
+        }
+      haloedPaths(mousedPathOpt.toSeq)
+    }
+  })
   private val designTreeListener =
     new TreeSelectionListener { // an object so it can be re-used since a model change wipes everything out
       override def valueChanged(e: TreeSelectionEvent): Unit = {
@@ -390,6 +423,10 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     ignoreSelect = false
   }
 
+  def haloedPaths(path: Seq[DesignPath]): Unit = {
+    graph.setHaloed(pathsToGraphNodes(path.toSet))
+  }
+
   def setDetailView(path: DesignPath): Unit = {
     tabbedPane.setTitleAt(TAB_INDEX_DETAIL, s"Detail (${path.lastString})")
     detailPanel.setLoaded(path, design, refinements, compiler)
@@ -435,9 +472,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     ApplicationManager.getApplication.invokeLater(() => {
       designTreeModel = new BlockTreeTableModel(project, design.contents.getOrElse(elem.HierarchyBlock()))
       TreeTableUtils.updateModel(designTree, designTreeModel)
-      designTree.getTree.addTreeSelectionListener(
-        designTreeListener
-      ) // this seems to get overridden when the model is updated
+      designTree.getTree.addTreeSelectionListener(designTreeListener) // overridden when the model is updated
       designTree.setTreeCellRenderer(designTreeTreeRenderer)
       designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
     })
@@ -476,7 +511,11 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           blockPath,
           1,
           // note, adding port side constraints with hierarchy seems to break ELK
-          Seq(new ElkEdgirGraphUtils.TitleMapper(currentCompiler), ElkEdgirGraphUtils.DesignPathMapper)
+          Seq(
+            new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
+            ElkEdgirGraphUtils.DesignPathMapper,
+            ElkEdgirGraphUtils.PortArrayMapper
+          )
         )
 
         val refinementOnlyMap = new RefinementOnlyPathsMap()
