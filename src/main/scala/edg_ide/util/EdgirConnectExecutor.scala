@@ -22,10 +22,8 @@ object EdgirConnectExecutor {
       throw new IllegalArgumentException("TODO IMPLEMENT ME new direct export connect")
     } else { // everything else is a link
       val allConnecteds = allConnects.flatMap { connected =>
-        analysis.connectedGroups.findLast(_._2.exists(_.connect == connected.connect))
-          .map { case (linkNameOpt, connecteds, _) =>
-            (linkNameOpt, connecteds.find(_.connect == connected.connect).get)
-          }
+        analysis.findConnectConnectedGroupFor(connected.connect.topPortRef)
+          .map { case (linkNameOpt, connecteds, constrs, connected) => (linkNameOpt, connected) }
       }
       val nonLinked = allConnecteds.collect {
         case (None, connected) => connected

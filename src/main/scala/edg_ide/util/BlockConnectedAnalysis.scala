@@ -120,4 +120,23 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
     } ++ (disconnectedBoundaryPortConnections ++ disconnectedBlockPortConnections).map { connected =>
       (None, Seq(connected), Seq())
     }
+
+  // returns the link name, connectedgroup, constrs, and port given a port ref
+  // where multiple connectedgroups exist (for arrays), returns the one preferred when making a new connection
+  // (new allocation)
+  // TODO: support user-specified disambiguation of connect-as-array and connect-as-slice
+  def findConnectConnectedGroupFor(portRef: Seq[String]): Option[(
+      Option[String],
+      Seq[PortConnectTyped[PortConnects.ConstraintBase]],
+      Seq[expr.ValueExpr],
+      PortConnectTyped[PortConnects.ConstraintBase]
+  )] = {
+    connectedGroups.findLast { case (linkNameOpt, connecteds, constrs) =>
+      connecteds.exists(connected => connected.connect.topPortRef == portRef)
+    }.map { case (linkNameOpt, connecteds, constrs) =>
+      val portConnected = connecteds.filter(connected => connected.connect.topPortRef == portRef)
+      require(portConnected.length == 1)
+      (linkNameOpt, connecteds, constrs, portConnected.head)
+    }
+  }
 }

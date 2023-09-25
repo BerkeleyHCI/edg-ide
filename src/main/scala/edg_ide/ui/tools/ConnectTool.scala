@@ -52,11 +52,9 @@ object ConnectTool {
     }
 
     val analysis = new BlockConnectedAnalysis(focusBlock)
-    val (portConnectName, portConnecteds, portConstrs) = {
+    val (_, portConnecteds, portConstrs, _) = {
       // TODO findLast is a hack to prioritize the new vector slice (as opposed to prior connected ones)
-      analysis.connectedGroups.findLast { case (linkNameOpt, connecteds, constrs) =>
-        connecteds.exists(_.connect.topPortRef == portRef)
-      }.exceptNone("no connection")
+      analysis.findConnectConnectedGroupFor(portRef).exceptNone("no connection")
     }
     val portConnected = portConnecteds.filter(_.connect.topPortRef == portRef)
       .onlyExcept("multiple connections")
@@ -118,15 +116,14 @@ class ConnectTool(
     val connectablePorts = mutable.ArrayBuffer[DesignPath]()
     val connectableBlocks = mutable.ArrayBuffer[DesignPath]()
     analysis.connectedGroups.foreach { case (linkNameOpt, connecteds, constrs) =>
-      currentConnectBuilder.append(connecteds) match {
-        case Some(_) => connecteds.foreach { connected =>
-            connected.connect.topPortRef match { // add containing block, if a block port
-              case Seq(blockName, portName) => connectableBlocks.append(containingBlockPath + blockName)
-              case _ => // ignored
-            }
-            connectablePorts.append(containingBlockPath ++ connected.connect.topPortRef)
+      if (currentConnectBuilder.append(connecteds).isDefined) {
+        connecteds.foreach { connected =>
+          connected.connect.topPortRef match { // add containing block, if a block port
+            case Seq(blockName, portName) => connectableBlocks.append(containingBlockPath + blockName)
+            case _ => // ignored
           }
-        case None => Seq()
+          connectablePorts.append(containingBlockPath ++ connected.connect.topPortRef)
+        }
       }
     }
 
@@ -153,14 +150,9 @@ class ConnectTool(
     selectedConnects.filterInPlace(containingBlockPath ++ _.connect.topPortRef != portPath)
     val selectedConnectConnects = selectedConnects.map(_.connect)
     // recompute from scratch on removal, for simplicity
-    val allConnected = analysis.connectedGroups.filter { case (linkNameOpt, connecteds, constrs) =>
-      connecteds.exists(connected =>
-        selectedConnectConnects.contains(connected.connect) &&
-          !((connected.connect.isInstanceOf[PortConnects.BlockVectorSlicePort] ||
-            connected.connect.isInstanceOf[PortConnects.BlockVectorSliceVector]) &&
-            connecteds.length > 1) // only keep individual BlockVectorSlice, TODO should not be hardcoded
-      )
-    }.flatMap(_._2)
+    val allConnected = selectedConnects.map(_.connect).flatMap { connect =>
+      analysis.findConnectConnectedGroupFor(connect.topPortRef)
+    }.flatMap(_._2).toSeq
     // update state
     baseConnectBuilder.append(allConnected) match {
       case Some(newConnectBuilder) =>
@@ -174,19 +166,12 @@ class ConnectTool(
   }
 
   def addConnect(portPath: DesignPath): Unit = {
-    val newConnectedNet = analysis.connectedGroups.filter { case (linkNameOpt, connecteds, constrs) =>
-      connecteds.exists(connected =>
-        containingBlockPath ++ connected.connect.topPortRef == portPath &&
-          !((connected.connect.isInstanceOf[PortConnects.BlockVectorSlicePort] ||
-            connected.connect.isInstanceOf[PortConnects.BlockVectorSliceVector]) &&
-            connecteds.length > 1) // only keep individual BlockVectorSlice, TODO should not be hardcoded
-      )
-    }.flatMap(_._2)
-    val newConnected = // get single connected of this port
-      newConnectedNet.filter(containingBlockPath ++ _.connect.topPortRef == portPath)
-    val newConnectBuilder = currentConnectBuilder.append(newConnectedNet)
-    (newConnected, newConnectBuilder) match {
-      case (Seq(newConnected), Some(newConnectBuilder)) => // valid connect, commit and update UI
+    val newConnectedNetPort = portPath.refFromOption(containingBlockPath)
+      .flatMap(analysis.findConnectConnectedGroupFor(_))
+      .map { case (linkNameOpt, connecteds, constrs, connected) => (connecteds, connected) }
+    val newConnectBuilder = newConnectedNetPort.flatMap(x => currentConnectBuilder.append(x._1))
+    (newConnectedNetPort, newConnectBuilder) match {
+      case (Some((_, newConnected)), Some(newConnectBuilder)) => // valid connect, commit and update UI
         selectedConnects.append(newConnected)
         currentConnectBuilder = newConnectBuilder
         updateSelected()
@@ -263,17 +248,10 @@ class ConnectTool(
     super.onPathMouseoverUpdated(path)
 
     mouseoverPortInsert = path.flatMap { path =>
-      val newConnectedNet = analysis.connectedGroups.filter { case (linkNameOpt, connecteds, constrs) =>
-        connecteds.exists(connected =>
-          containingBlockPath ++ connected.connect.topPortRef == path &&
-            !((connected.connect.isInstanceOf[PortConnects.BlockVectorSlicePort] ||
-              connected.connect.isInstanceOf[PortConnects.BlockVectorSliceVector]) &&
-              connecteds.length > 1) // only keep individual BlockVectorSlice, TODO should not be hardcoded
-        )
-      }.flatMap(_._2)
-      val newConnected = // get single connected of this port
-        newConnectedNet.filter(containingBlockPath ++ _.connect.topPortRef == path)
-      newConnected.headOption.map(_.connect) match {
+      val newConnected = path.refFromOption(containingBlockPath)
+        .flatMap(analysis.findConnectConnectedGroupFor(_))
+        .map { case (linkNameOpt, connecteds, constrs, connected) => connected }
+      newConnected.map(_.connect) match {
         case Some(_: PortConnects.BlockVectorSliceBase) => Some(path)
         case _ => None
       }
