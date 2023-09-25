@@ -1,5 +1,6 @@
 package edg_ide.edgir_graph
 
+import com.intellij.ui.JBColor
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, TextValue}
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
@@ -20,7 +21,7 @@ object ElkEdgirGraphUtils {
 
     object DesignPathProperty extends IProperty[DesignPath] {
       override def getDefault: DesignPath = null
-      override def getId: String = "DesignPath"
+      override def getId: String = this.getClass.getSimpleName
       override def getLowerBound: Comparable[_ >: DesignPath] = null
       override def getUpperBound: Comparable[_ >: DesignPath] = null
     }
@@ -34,7 +35,7 @@ object ElkEdgirGraphUtils {
 
   object TitleProperty extends IProperty[String] {
     override def getDefault: String = null
-    override def getId: String = "Title"
+    override def getId: String = this.getClass.getSimpleName
     override def getLowerBound: Comparable[_ >: String] = null
     override def getUpperBound: Comparable[_ >: String] = null
   }
@@ -148,7 +149,7 @@ object ElkEdgirGraphUtils {
 
     object PortArrayProperty extends IProperty[Boolean] {
       override def getDefault: Boolean = false
-      override def getId: String = "PortArray"
+      override def getId: String = this.getClass.getSimpleName
       override def getLowerBound: Comparable[_ >: Boolean] = null
       override def getUpperBound: Comparable[_ >: Boolean] = null
     }
@@ -161,6 +162,52 @@ object ElkEdgirGraphUtils {
       case _ => None
     }
     override def edgeConv(edge: EdgeWrapper): Option[Boolean] = None
+  }
+
+  // Adds wire colors for common voltage rails, based on ATX wire colors
+  object WireColorMapper {
+    object WireColorProperty extends IProperty[Option[JBColor]] {
+      override def getDefault: Option[JBColor] = None
+      override def getId: String = this.getClass.getSimpleName
+      override def getLowerBound: Comparable[_ >: Option[JBColor]] = null
+      override def getUpperBound: Comparable[_ >: Option[JBColor]] = null
+    }
+  }
+
+  class WireColorMapper(compiler: Compiler)
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    type PropertyType = Option[JBColor]
+
+    override val property: IProperty[Option[JBColor]] = WireColorMapper.WireColorProperty
+
+    override def nodeConv(node: NodeDataWrapper): Option[Option[JBColor]] = None
+
+    override def portConv(port: PortWrapper): Option[Option[JBColor]] = {
+      val portType = BlockConnectivityAnalysis.typeOfPortLike(port.portLike)
+      portType.toSimpleString match {
+        case "VoltageSource" =>
+          val voltage = compiler.getParamValue(port.path.asIndirect + "output_voltage")
+          Some(Some(JBColor.BLUE))
+        case _ => None
+      }
+    }
+
+    override def edgeConv(edge: EdgeWrapper): Option[Option[JBColor]] = {
+      val linkTypeOpt = edge match {
+        case EdgeLinkWrapper(path, linkLike) => linkLike.`type` match {
+            case elem.LinkLike.Type.Link(link) => link.selfClass
+            case elem.LinkLike.Type.LibElem(lib) => Some(lib)
+            case elem.LinkLike.Type.Array(link) => link.selfClass
+          }
+        case _ => None
+      }
+      linkTypeOpt.map(_.toSimpleString) match {
+        case Some("VoltageLink") =>
+          val voltage = compiler.getParamValue(edge.path.asIndirect + "voltage")
+          Some(Some(JBColor.RED))
+        case _ => None
+      }
+    }
   }
 
   /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath. Returns target

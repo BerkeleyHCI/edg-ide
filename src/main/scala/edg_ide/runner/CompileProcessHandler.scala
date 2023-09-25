@@ -453,7 +453,8 @@ class CompileProcessHandler(
               mappers = Seq(
                 new ElkEdgirGraphUtils.TitleMapper(compiler),
                 ElkEdgirGraphUtils.DesignPathMapper,
-                ElkEdgirGraphUtils.PortArrayMapper
+                ElkEdgirGraphUtils.PortArrayMapper,
+                new ElkEdgirGraphUtils.WireColorMapper(compiler),
               ),
               options.pdfFile
             )

@@ -514,7 +514,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           Seq(
             new ElkEdgirGraphUtils.TitleMapper(currentCompiler),
             ElkEdgirGraphUtils.DesignPathMapper,
-            ElkEdgirGraphUtils.PortArrayMapper
+            ElkEdgirGraphUtils.PortArrayMapper,
+            new ElkEdgirGraphUtils.WireColorMapper(compiler),
           )
         )
 
