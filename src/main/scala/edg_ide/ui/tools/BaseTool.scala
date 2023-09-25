@@ -31,7 +31,7 @@ trait ToolInterface {
 
   // Sets the selected design tree and detail view element
   def setSelection(path: DesignPath): Unit
-  def setHaloed(path: Option[DesignPath]): Unit
+  def setHaloed(path: Seq[DesignPath]): Unit
   def setFocus(path: DesignPath): Unit
   def setStatus(status: String): Unit
 }
@@ -51,7 +51,7 @@ trait BaseTool {
   // Mouse event that is generated on any mouse event in either the design tree or graph layout
   def onPathMouse(e: MouseEvent, path: DesignPath): Unit = {}
   def onPathMouseoverUpdated(path: Option[DesignPath]): Unit = {
-    interface.setHaloed(path)
+    interface.setHaloed(path.toSeq)
   }
 
   // Keyboard event generated on any key even in the graph layout

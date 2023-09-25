@@ -134,8 +134,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       BlockVisualizerPanel.this.selectPath(path)
     }
 
-    override def setHaloed(path: Option[DesignPath]): Unit = {
-      BlockVisualizerPanel.this.haloedPath(path)
+    override def setHaloed(path: Seq[DesignPath]): Unit = {
+      BlockVisualizerPanel.this.haloedPaths(path)
     }
 
     override def setStatus(statusText: String): Unit = {
@@ -314,7 +314,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
           case node: HierarchyBlockNode => Some(node.path)
           case _ => None // any other type ignored
         }
-      haloedPath(mousedPathOpt)
+      haloedPaths(mousedPathOpt.toSeq)
     }
   })
   private val designTreeListener =
@@ -423,7 +423,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
     ignoreSelect = false
   }
 
-  def haloedPath(path: Option[DesignPath]): Unit = {
+  def haloedPaths(path: Seq[DesignPath]): Unit = {
     graph.setHaloed(pathsToGraphNodes(path.toSet))
   }
 

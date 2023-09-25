@@ -245,7 +245,9 @@ class ConnectTool(
   }
 
   override def onPathMouseoverUpdated(path: Option[DesignPath]): Unit = {
-    super.onPathMouseoverUpdated(path)
+    // mark the user selected ports differently from the ports in the net
+    interface.setHaloed(Seq(containingBlockPath ++ startingPort.connect.topPortRef) ++
+      selectedConnects.map(containingBlockPath ++ _.connect.topPortRef).toSeq ++ path.toSeq)
 
     mouseoverPortInsert = path.flatMap { path =>
       val newConnected = path.refFromOption(containingBlockPath)
