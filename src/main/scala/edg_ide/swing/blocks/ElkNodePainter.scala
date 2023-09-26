@@ -1,7 +1,6 @@
 package edg_ide.swing.blocks
 
 import edg_ide.swing.ColorUtil
-import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.graph._
 
@@ -27,29 +26,30 @@ object ElementGraphicsModifier {
     fillGraphics = ElementGraphicsModifier.withColorBlendBackground(ElementGraphicsModifier.kDefaultFillBlend)
   )
 
-  def makeInplaceTransformer(fn: Graphics2D => Unit): Graphics2D => Graphics2D = {
+  def makeTransformer(fn: Graphics2D => Unit): Graphics2D => Graphics2D = {
     def transform(g: Graphics2D): Graphics2D = {
-      fn(g)
-      g
+      val newG = g.create().asInstanceOf[Graphics2D]
+      fn(newG)
+      newG
     }
     transform
   }
 
   // utility functions for creating graphics transformers
-  def withColorBlendBackground(color: Color, factor: Double): Graphics2D => Graphics2D = makeInplaceTransformer { g =>
+  def withColorBlendBackground(color: Color, factor: Double): Graphics2D => Graphics2D = makeTransformer { g =>
     g.setColor(ColorUtil.blendColor(g.getBackground, color, factor))
   }
 
-  def withColorBlendBackground(factor: Double): Graphics2D => Graphics2D =
-    makeInplaceTransformer { g => // blends the foreground color
-      g.setColor(ColorUtil.blendColor(g.getBackground, g.getColor, factor))
-    }
-
-  def withColor(color: Color): Graphics2D => Graphics2D = makeInplaceTransformer { g => // blends the foreground color
-    g.setColor(color)
+  def withColorBlendBackground(factor: Double): Graphics2D => Graphics2D = makeTransformer { g =>
+    g.setColor(ColorUtil.blendColor(g.getBackground, g.getColor, factor))
   }
 
-  def withStroke(stroke: Stroke): Graphics2D => Graphics2D = makeInplaceTransformer { g =>
+  // blends the foreground color
+  def withColor(color: Color, factor: Double = 1.0): Graphics2D => Graphics2D = makeTransformer { g =>
+    g.setColor(ColorUtil.blendColor(g.getColor, color, factor))
+  }
+
+  def withStroke(stroke: Stroke): Graphics2D => Graphics2D = makeTransformer { g =>
     g.setStroke(stroke)
   }
 }
@@ -131,12 +131,11 @@ class ElkNodePainter(
     }
   }
 
-  // Render an edge, including all its sections
-  protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
-    // HACK PATCH around a (probable?) ELK bug
-    // If a self-edge between parent's ports, use parent's transforms
-    // TODO: is this generally correct? it's good enough for what we need though
-    val thisG = if (edge.getSources == edge.getTargets) {
+  // HACK PATCH around a (probable?) ELK bug
+  // If a self-edge between parent's ports, use parent's transforms
+  // TODO: is this generally correct? it's good enough for what we need though
+  protected def getFixedEdgeBaseG(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Graphics2D = {
+    if (edge.getSources == edge.getTargets) {
       val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect { case sourcePort: ElkPort =>
         sourcePort.getParent
       }
@@ -148,11 +147,30 @@ class ElkNodePainter(
     } else {
       blockG
     }
+  }
+
+  // Render an edge, including all its sections
+  // containing is passed in here as a hack around Elk not using container coordinates for self edges
+  protected def paintEdge(
+      parentG: Graphics2D,
+      blockG: Graphics2D,
+      edge: ElkEdge,
+      isOutline: Boolean,
+      strokeModifier: Graphics2D => Graphics2D = identity
+  ): Unit = {
+    val modifierG: Graphics2D => Graphics2D = g =>
+      if (isOutline) {
+        outlineGraphics(g, edge).getOrElse {
+          return
+        }
+      } else {
+        strokeGraphics(g, edge)
+      }
+    val thisG = strokeModifier(modifierG(getFixedEdgeBaseG(parentG, blockG, edge)))
 
     edge.getSections.asScala.foreach { section =>
-      edgeSectionPairs(section).foreach { case (line1, line2) =>
-        thisG.drawLine(line1._1.toInt, line1._2.toInt, line2._1.toInt, line2._2.toInt)
-      }
+      val (pointsX, pointsY) = ElkNodeUtil.allPoints(section).unzip
+      thisG.drawPolyline(pointsX.map(_.toInt).toArray, pointsY.map(_.toInt).toArray, pointsX.length)
     }
   }
 
@@ -200,13 +218,13 @@ class ElkNodePainter(
   }
 
   // Render a port, including its labels
-  protected def paintPort(g: Graphics2D, port: ElkPort): Unit = {
+  protected def paintPort(g: Graphics2D, port: ElkPort, strokeModifier: Graphics2D => Graphics2D = identity): Unit = {
     val portX = port.getX.toInt
     val portY = port.getY.toInt
 
     outlineGraphics(g, port).foreach { g => g.drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt) }
     fillGraphics(g, port).fillRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
-    strokeGraphics(g, port).drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
+    strokeGraphics(strokeModifier(g), port).drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
   }
 
   // paints the block and its contents
@@ -227,24 +245,10 @@ class ElkNodePainter(
   protected def paintBlockContents(containingG: Graphics2D, nodeG: Graphics2D, node: ElkNode): Unit = {
     // paint all mouseover outlines below the main layer
     node.getContainedEdges.asScala.foreach { edge =>
-      (outlineGraphics(containingG, edge), outlineGraphics(nodeG, edge)) match {
-        case (Some(containingG), Some(nodeG)) =>
-          paintEdge(
-            strokeGraphics(containingG, edge),
-            strokeGraphics(nodeG, edge),
-            edge
-          )
-        case _ =>
-      }
+      paintEdge(containingG, nodeG, edge, true)
     }
-
     node.getContainedEdges.asScala.foreach { edge =>
-      // containing is passed in here as a hack around Elk not using container coordinates for self edges
-      paintEdge(
-        strokeGraphics(containingG, edge),
-        strokeGraphics(nodeG, edge),
-        edge
-      )
+      paintEdge(containingG, nodeG, edge, false)
     }
 
     node.getChildren.asScala.foreach { childNode =>

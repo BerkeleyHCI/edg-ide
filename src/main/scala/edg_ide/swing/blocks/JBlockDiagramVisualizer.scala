@@ -2,7 +2,7 @@ package edg_ide.swing.blocks
 
 import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, Zoomable}
-import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
+import edg_ide.swing.blocks.ElkNodeUtil
 import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter}
@@ -133,7 +133,13 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
 
     def edgeClosestDistance(edge: ElkEdge, point: (Double, Double)): Double = {
       edge.getSections.asScala.map { section =>
-        edgeSectionPairs(section).map { case (line1, line2) =>
+        val segments = ElkNodeUtil.allPoints(section)
+          .sliding(2)
+          .map { case point1 :: point2 :: Nil =>
+            (point1, point2)
+          }
+
+        segments.map { case (line1, line2) =>
           lineClosestDist(line1, line2, point)
         }.min
       }.min
@@ -178,7 +184,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private val kDimBlend = 0.25
 
   private val errorModifier = ElementGraphicsModifier(
-    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.67)
   )
   private val selectedModifier = ElementGraphicsModifier(
     strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))

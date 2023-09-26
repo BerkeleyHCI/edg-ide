@@ -1,5 +1,6 @@
 package edg_ide.swing.blocks
 
+import com.intellij.ui.JBColor
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
 import edg_ide.swing.blocks.ElementGraphicsModifier.withColorBlendBackground
@@ -24,22 +25,23 @@ class EdgElkNodePainter(
     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq(),
     portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
-  override protected def paintEdge(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Unit = {
-    super.paintEdge(parentG, blockG, edge)
+  protected val kWireColorBlendFactor = 0.67
 
-    val thisG = if (edge.getSources == edge.getTargets) {
-      val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect { case sourcePort: ElkPort =>
-        sourcePort.getParent
-      }
-      if (edgeTargetBlockOption == Some(edge.getContainingNode)) {
-        parentG
-      } else {
-        blockG
-      }
-    } else {
-      blockG
+  override protected def paintEdge(
+      parentG: Graphics2D,
+      blockG: Graphics2D,
+      edge: ElkEdge,
+      isOutline: Boolean,
+      strokeModifier: Graphics2D => Graphics2D = identity
+  ): Unit = {
+    val colorStrokeModifier = edge.getProperty(ElkEdgirGraphUtils.WireColorMapper.WireColorProperty) match {
+      case Some(color) => ElementGraphicsModifier.withColor(color, kWireColorBlendFactor).andThen(strokeModifier)
+      case None => strokeModifier
     }
+    super.paintEdge(parentG, blockG, edge, isOutline, colorStrokeModifier)
 
+    if (isOutline) return
+    val baseG = getFixedEdgeBaseG(parentG, blockG, edge)
     if (edge.getSources == edge.getTargets) { // degenerate, "tunnel" (by heuristic / transform) edge
       val label = edge.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
         case DesignPath(steps) => steps.lastOption.getOrElse("")
@@ -51,7 +53,7 @@ class EdgElkNodePainter(
         (bend.getX, bend.getY, section.getStartX, section.getStartY)
       }
 
-      val textG = textGraphics(thisG, edge)
+      val textG = textGraphics(baseG, edge)
       targetPointOpt match {
         case Some((x, y, x1, y1)) if (x1 == x) && (y > y1) =>
           DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Top)
@@ -104,10 +106,19 @@ class EdgElkNodePainter(
     }
   }
 
-  override protected def paintPort(g: Graphics2D, port: ElkPort): Unit = {
+  override protected def paintPort(
+      g: Graphics2D,
+      port: ElkPort,
+      strokeModifier: Graphics2D => Graphics2D = identity
+  ): Unit = {
     if (portInserts.contains(port)) { // if insert is specified, draw the arrow outline
       val (xPts, yPts) = insertArrowPoints(port)
       outlineGraphics(g, port).foreach { g => g.drawPolygon(xPts, yPts, 3) }
+    }
+
+    val colorStrokeModifier = port.getProperty(ElkEdgirGraphUtils.WireColorMapper.WireColorProperty) match {
+      case Some(color) => ElementGraphicsModifier.withColor(color, kWireColorBlendFactor).andThen(strokeModifier)
+      case None => strokeModifier
     }
 
     // if an array, render the array ports under it
@@ -116,14 +127,14 @@ class EdgElkNodePainter(
       val portY = port.getY.toInt
 
       fillGraphics(g, port).fillRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
-      withColorBlendBackground(0.5)(strokeGraphics(g, port))
+      withColorBlendBackground(0.5)(strokeGraphics(colorStrokeModifier(g), port))
         .drawRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
 
       fillGraphics(g, port).fillRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
-      withColorBlendBackground(0.75)(strokeGraphics(g, port))
+      withColorBlendBackground(0.75)(strokeGraphics(colorStrokeModifier(g), port))
         .drawRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
     }
-    super.paintPort(g, port)
+    super.paintPort(g, port, colorStrokeModifier)
 
     if (portInserts.contains(port)) { // if insert is specified, draw the arrow
       val (xPts, yPts) = insertArrowPoints(port)

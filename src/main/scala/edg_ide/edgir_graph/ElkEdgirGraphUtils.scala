@@ -1,12 +1,14 @@
 package edg_ide.edgir_graph
 
+import com.intellij.ui.JBColor
 import edg.EdgirUtils.SimpleLibraryPath
-import edg.compiler.{Compiler, TextValue}
+import edg.compiler.{Compiler, RangeValue, TextValue}
 import edg.wir.{BlockConnectivityAnalysis, DesignPath}
 import edg_ide.util.EdgirAnalysisUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 import edgir.elem.elem
 
+import java.awt.Color
 import scala.jdk.CollectionConverters._
 
 object ElkEdgirGraphUtils {
@@ -20,7 +22,7 @@ object ElkEdgirGraphUtils {
 
     object DesignPathProperty extends IProperty[DesignPath] {
       override def getDefault: DesignPath = null
-      override def getId: String = "DesignPath"
+      override def getId: String = this.getClass.getSimpleName
       override def getLowerBound: Comparable[_ >: DesignPath] = null
       override def getUpperBound: Comparable[_ >: DesignPath] = null
     }
@@ -34,7 +36,7 @@ object ElkEdgirGraphUtils {
 
   object TitleProperty extends IProperty[String] {
     override def getDefault: String = null
-    override def getId: String = "Title"
+    override def getId: String = this.getClass.getSimpleName
     override def getLowerBound: Comparable[_ >: String] = null
     override def getUpperBound: Comparable[_ >: String] = null
   }
@@ -148,7 +150,7 @@ object ElkEdgirGraphUtils {
 
     object PortArrayProperty extends IProperty[Boolean] {
       override def getDefault: Boolean = false
-      override def getId: String = "PortArray"
+      override def getId: String = this.getClass.getSimpleName
       override def getLowerBound: Comparable[_ >: Boolean] = null
       override def getUpperBound: Comparable[_ >: Boolean] = null
     }
@@ -161,6 +163,76 @@ object ElkEdgirGraphUtils {
       case _ => None
     }
     override def edgeConv(edge: EdgeWrapper): Option[Boolean] = None
+  }
+
+  // Adds wire colors for common voltage rails, based on ATX wire colors
+  object WireColorMapper {
+    object WireColorProperty extends IProperty[Option[Color]] {
+      override def getDefault: Option[Color] = None
+      override def getId: String = this.getClass.getSimpleName
+      override def getLowerBound: Comparable[_ >: Option[Color]] = null
+      override def getUpperBound: Comparable[_ >: Option[Color]] = null
+    }
+  }
+
+  class WireColorMapper(compiler: Compiler)
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    type PropertyType = Option[Color]
+
+    override val property: IProperty[Option[Color]] = WireColorMapper.WireColorProperty
+
+    override def nodeConv(node: NodeDataWrapper): Option[Option[Color]] = None
+
+    // roughly ATX power supply conventions
+    protected def outputVoltageRangeToColor(range: RangeValue): Option[Option[Color]] = range match {
+      case RangeValue(min, max) if min >= 3.0 && max <= 3.6 => Some(Some(JBColor.ORANGE))
+      case RangeValue(min, max) if min >= 4.5 && max <= 5.5 => Some(Some(JBColor.RED))
+      case RangeValue(min, max) if min >= 10.5 && max <= 14.5 => Some(Some(JBColor.YELLOW))
+      case RangeValue(0, 0) => Some(Some(JBColor.BLUE))
+      case _ => None
+    }
+
+    protected def limitVoltageRangeToColor(range: RangeValue): Option[Option[Color]] = range match {
+      case RangeValue(min, max) if min >= 3.0 && max <= 3.6 => Some(Some(JBColor.ORANGE))
+      case RangeValue(min, max) if min >= 4.5 && max <= 5.5 => Some(Some(JBColor.RED))
+      case RangeValue(min, max) if min >= 10.5 && max <= 14.5 => Some(Some(JBColor.YELLOW))
+      case RangeValue(0, 0) => Some(Some(JBColor.BLUE))
+      case _ => None
+    }
+
+    override def portConv(port: PortWrapper): Option[Option[Color]] = {
+      val portType = BlockConnectivityAnalysis.typeOfPortLike(port.portLike)
+      portType.toSimpleString match {
+        case "VoltageSource" => compiler.getParamValue(port.path.asIndirect + "voltage_out") match {
+            case Some(range: RangeValue) => outputVoltageRangeToColor(range)
+            case _ => None
+          }
+        case "VoltageSink" => compiler.getParamValue(port.path.asIndirect + "voltage_limits") match {
+            case Some(range: RangeValue) => limitVoltageRangeToColor(range)
+            case _ => None
+          }
+        case _ => None
+      }
+    }
+
+    override def edgeConv(edge: EdgeWrapper): Option[Option[Color]] = {
+      val linkTypeOpt = edge match {
+        case EdgeLinkWrapper(path, linkLike) => linkLike.`type` match {
+            case elem.LinkLike.Type.Link(link) => link.selfClass
+            case elem.LinkLike.Type.LibElem(lib) => Some(lib)
+            case elem.LinkLike.Type.Array(link) => link.selfClass
+            case _ => None
+          }
+        case _ => None
+      }
+      linkTypeOpt.map(_.toSimpleString) match {
+        case Some("VoltageLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+            case Some(range: RangeValue) => outputVoltageRangeToColor(range)
+            case _ => None
+          }
+        case _ => None
+      }
+    }
   }
 
   /** From a root ElkNode structured with the DesignPathMapper property, tries to follow the DesignPath. Returns target
