@@ -25,7 +25,7 @@ class EdgElkNodePainter(
     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq(),
     portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
-  protected val kWireColorBlendFactor = 0.67
+  protected val kWireColorBlendFactor = 0.75
 
   override protected def paintEdge(
       parentG: Graphics2D,
