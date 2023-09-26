@@ -8,7 +8,7 @@ object ColorUtil {
       (baseColor.getRed * (1 - factor) + topColor.getRed * factor).toInt,
       (baseColor.getGreen * (1 - factor) + topColor.getGreen * factor).toInt,
       (baseColor.getBlue * (1 - factor) + topColor.getBlue * factor).toInt,
-      baseColor.getAlpha
+      (baseColor.getAlpha * (1 - factor) + topColor.getAlpha * factor).toInt,
     )
   }
 
