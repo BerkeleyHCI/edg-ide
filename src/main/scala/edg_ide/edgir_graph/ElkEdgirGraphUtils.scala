@@ -198,6 +198,7 @@ object ElkEdgirGraphUtils {
             case elem.LinkLike.Type.Link(link) => link.selfClass
             case elem.LinkLike.Type.LibElem(lib) => Some(lib)
             case elem.LinkLike.Type.Array(link) => link.selfClass
+            case _ => None
           }
         case _ => None
       }

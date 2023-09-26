@@ -6,19 +6,10 @@ import scala.jdk.CollectionConverters.ListHasAsScala
 
 object ElkNodeUtil {
   // Utility functions
-  def edgeSectionPairs[T](section: ElkEdgeSection): Seq[((Double, Double), (Double, Double))] = {
+  def allPoints(section: ElkEdgeSection): Seq[(Double, Double)] = {
+    val bendPoints = section.getBendPoints.asScala.map { bend => (bend.getX, bend.getY) }
     val start = (section.getStartX, section.getStartY)
     val end = (section.getEndX, section.getEndY)
-    val bends = section.getBendPoints.asScala.map { elkBendPoint =>
-      (elkBendPoint.getX, elkBendPoint.getY)
-    }
-    val allPoints = Seq(start) ++ bends ++ Seq(end)
-
-    allPoints
-      .sliding(2)
-      .map { case point1 :: point2 :: Nil =>
-        (point1, point2)
-      }
-      .toSeq
+    Seq(start) ++ bendPoints ++ Seq(end)
   }
 }

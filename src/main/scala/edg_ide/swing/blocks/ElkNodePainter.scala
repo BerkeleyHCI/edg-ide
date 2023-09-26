@@ -1,7 +1,6 @@
 package edg_ide.swing.blocks
 
 import edg_ide.swing.ColorUtil
-import edg_ide.swing.blocks.ElkNodeUtil.edgeSectionPairs
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.graph._
 
@@ -163,9 +162,8 @@ class ElkNodePainter(
     val thisG = modifierG(getFixedEdgeBaseG(parentG, blockG, edge))
 
     edge.getSections.asScala.foreach { section =>
-      edgeSectionPairs(section).foreach { case (line1, line2) =>
-        thisG.drawLine(line1._1.toInt, line1._2.toInt, line2._1.toInt, line2._2.toInt)
-      }
+      val (pointsX, pointsY) = ElkNodeUtil.allPoints(section).unzip
+      thisG.drawPolyline(pointsX.map(_.toInt).toArray, pointsY.map(_.toInt).toArray, pointsX.length)
     }
   }
 
