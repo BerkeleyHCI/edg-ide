@@ -108,17 +108,11 @@ class EdgElkNodePainter(
 
   override protected def paintPort(
       g: Graphics2D,
-      port: ElkPort,
-      strokeModifier: Graphics2D => Graphics2D = identity
+      port: ElkPort
   ): Unit = {
     if (portInserts.contains(port)) { // if insert is specified, draw the arrow outline
       val (xPts, yPts) = insertArrowPoints(port)
       outlineGraphics(g, port).foreach { g => g.drawPolygon(xPts, yPts, 3) }
-    }
-
-    val colorStrokeModifier = port.getProperty(ElkEdgirGraphUtils.WireColorMapper.WireColorProperty) match {
-      case Some(color) => ElementGraphicsModifier.withColor(color, kWireColorBlendFactor).andThen(strokeModifier)
-      case None => strokeModifier
     }
 
     // if an array, render the array ports under it
@@ -127,14 +121,14 @@ class EdgElkNodePainter(
       val portY = port.getY.toInt
 
       fillGraphics(g, port).fillRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
-      withColorBlendBackground(0.5)(strokeGraphics(colorStrokeModifier(g), port))
+      withColorBlendBackground(0.5)(strokeGraphics(g, port))
         .drawRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
 
       fillGraphics(g, port).fillRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
-      withColorBlendBackground(0.75)(strokeGraphics(colorStrokeModifier(g), port))
+      withColorBlendBackground(0.75)(strokeGraphics(g, port))
         .drawRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
     }
-    super.paintPort(g, port, colorStrokeModifier)
+    super.paintPort(g, port)
 
     if (portInserts.contains(port)) { // if insert is specified, draw the arrow
       val (xPts, yPts) = insertArrowPoints(port)

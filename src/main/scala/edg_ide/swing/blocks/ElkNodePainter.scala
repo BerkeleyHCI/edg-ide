@@ -218,13 +218,13 @@ class ElkNodePainter(
   }
 
   // Render a port, including its labels
-  protected def paintPort(g: Graphics2D, port: ElkPort, strokeModifier: Graphics2D => Graphics2D = identity): Unit = {
+  protected def paintPort(g: Graphics2D, port: ElkPort): Unit = {
     val portX = port.getX.toInt
     val portY = port.getY.toInt
 
     outlineGraphics(g, port).foreach { g => g.drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt) }
     fillGraphics(g, port).fillRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
-    strokeGraphics(strokeModifier(g), port).drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
+    strokeGraphics(g, port).drawRect(portX, portY, port.getWidth.toInt, port.getHeight.toInt)
   }
 
   // paints the block and its contents
