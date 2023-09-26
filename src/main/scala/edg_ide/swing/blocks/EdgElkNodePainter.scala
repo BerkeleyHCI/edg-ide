@@ -53,7 +53,7 @@ class EdgElkNodePainter(
         (bend.getX, bend.getY, section.getStartX, section.getStartY)
       }
 
-      val textG = textGraphics(baseG, edge)
+      val textG = textGraphics(colorStrokeModifier(baseG), edge)
       targetPointOpt match {
         case Some((x, y, x1, y1)) if (x1 == x) && (y > y1) =>
           DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Top)
