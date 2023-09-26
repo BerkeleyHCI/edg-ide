@@ -184,7 +184,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private val kDimBlend = 0.25
 
   private val errorModifier = ElementGraphicsModifier(
-    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.5)
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.67)
   )
   private val selectedModifier = ElementGraphicsModifier(
     strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))
