@@ -450,12 +450,17 @@ class CompileProcessHandler(
             Files.createDirectories(Paths.get(options.pdfFile).getParent)
             PDFGeneratorUtil.generate(
               compiled.getContents,
-              mappers = Seq(
+              topMappers = Seq(
                 new ElkEdgirGraphUtils.TitleMapper(compiler),
                 ElkEdgirGraphUtils.DesignPathMapper,
                 ElkEdgirGraphUtils.PortArrayMapper,
                 new ElkEdgirGraphUtils.WireColorMapper(compiler),
                 new ElkEdgirGraphUtils.WireLabelMapper(compiler),
+              ),
+              childMappers = Seq( // because inner blocks are deduplicated, don't run instance-specific mappers
+                new ElkEdgirGraphUtils.TitleMapper(compiler),
+                ElkEdgirGraphUtils.DesignPathMapper,
+                ElkEdgirGraphUtils.PortArrayMapper,
               ),
               options.pdfFile
             )

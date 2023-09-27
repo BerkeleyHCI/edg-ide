@@ -148,28 +148,26 @@ class ElkNodePainter(
   }
 
   // HACK PATCH around a (probable?) ELK bug
-  // If a self-edge between parent's ports, use parent's transforms
-  // TODO: is this generally correct? it's good enough for what we need though
-  protected def getFixedEdgeBaseG(parentG: Graphics2D, blockG: Graphics2D, edge: ElkEdge): Graphics2D = {
+  // If a self-edge between parent's ports, it needs to be in its parents coordinate space
+  protected def getFixedEdgeOffset(edge: ElkEdge): (Double, Double) = {
     if (edge.getSources == edge.getTargets) {
       val edgeTargetBlockOption = edge.getSources.asScala.headOption.collect { case sourcePort: ElkPort =>
         sourcePort.getParent
       }
       if (edgeTargetBlockOption == Some(edge.getContainingNode)) {
-        parentG
+        (-edge.getContainingNode.getX, -edge.getContainingNode.getY)
       } else {
-        blockG
+        (0, 0)
       }
     } else {
-      blockG
+      (0, 0)
     }
   }
 
   // Render an edge, including all its sections
   // containing is passed in here as a hack around Elk not using container coordinates for self edges
   protected def paintEdge(
-      parentG: Graphics2D,
-      blockG: Graphics2D,
+      g: Graphics2D,
       edge: ElkEdge,
       isOutline: Boolean,
       strokeModifier: Graphics2D => Graphics2D = identity
@@ -182,24 +180,25 @@ class ElkNodePainter(
       } else {
         strokeGraphics(g, edge)
       }
-    val thisG = strokeModifier(modifierG(getFixedEdgeBaseG(parentG, blockG, edge)))
-
+    val edgeG = strokeModifier(modifierG(g))
+    val (edgeOffX, edgeOffY) = getFixedEdgeOffset(edge)
     edge.getSections.asScala.foreach { section =>
       val (pointsX, pointsY) = ElkNodeUtil.allPoints(section).unzip
-      thisG.drawPolyline(pointsX.map(_.toInt).toArray, pointsY.map(_.toInt).toArray, pointsX.length)
+      edgeG.drawPolyline(
+        pointsX.map(x => (x + edgeOffX).toInt).toArray,
+        pointsY.map(y => (y + edgeOffY).toInt).toArray,
+        pointsX.length
+      )
     }
   }
 
   // Render a node, including its labels and its ports' labels (since they are spatially in the node)
   // Returns its fill color, which can be used for the background of inner nodes
   protected def paintNode(g: Graphics2D, node: ElkNode): Color = {
-    val nodeX = node.getX.toInt
-    val nodeY = node.getY.toInt
-
-    outlineGraphics(g, node).foreach { g => g.drawRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt) }
+    outlineGraphics(g, node).foreach { g => g.drawRect(0, 0, node.getWidth.toInt, node.getHeight.toInt) }
     val nodeFillGraphics = fillGraphics(g, node)
-    nodeFillGraphics.fillRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
-    strokeGraphics(g, node).drawRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
+    nodeFillGraphics.fillRect(0, 0, node.getWidth.toInt, node.getHeight.toInt)
+    strokeGraphics(g, node).drawRect(0, 0, node.getWidth.toInt, node.getHeight.toInt)
 
     node.getLabels.asScala.zipWithIndex.foreach { case (label, i) =>
       val (labelX, labelY) =
@@ -209,11 +208,7 @@ class ElkNodePainter(
       } else {
         detailLabelModifier(textGraphics(g, node))
       }
-      textG.drawString(
-        label.getText,
-        (labelX + nodeX).toInt,
-        (labelY + nodeY).toInt
-      )
+      textG.drawString(label.getText, labelX.toInt, labelY.toInt)
     }
 
     node.getPorts.asScala.foreach { port =>
@@ -229,8 +224,8 @@ class ElkNodePainter(
         val (labelX, labelY) = transformLabelCoords(g, label, labelPlacement)
         detailLabelModifier(textGraphics(g, port)).drawString(
           label.getText,
-          (labelX + port.getX + node.getX).toInt, // ports in node's coordinates
-          (labelY + port.getY + node.getY).toInt
+          (labelX + port.getX).toInt, // ports in node's coordinates
+          (labelY + port.getY).toInt
         )
       }
     }
@@ -252,28 +247,27 @@ class ElkNodePainter(
   protected def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
     val nodeG = containingG.create().asInstanceOf[Graphics2D]
     nodeG.translate(node.getX, node.getY)
-
     node.getPorts.asScala.foreach { port =>
       paintPort(nodeG, port)
     }
 
-    val nodeBackground = paintNode(containingG, node)
+    val nodeBackground = paintNode(nodeG, node)
     nodeG.setBackground(nodeBackground)
-    paintBlockContents(containingG, nodeG, node)
+    paintBlockContents(nodeG, node)
   }
 
   // paints the block's contents only
-  protected def paintBlockContents(containingG: Graphics2D, nodeG: Graphics2D, node: ElkNode): Unit = {
+  protected def paintBlockContents(g: Graphics2D, node: ElkNode): Unit = {
     // paint all mouseover outlines below the main layer
     node.getContainedEdges.asScala.foreach { edge =>
-      paintEdge(containingG, nodeG, edge, true)
+      paintEdge(g, edge, true)
     }
     node.getContainedEdges.asScala.foreach { edge =>
-      paintEdge(containingG, nodeG, edge, false)
+      paintEdge(g, edge, false)
     }
 
     node.getChildren.asScala.foreach { childNode =>
-      paintBlock(nodeG, childNode)
+      paintBlock(g, childNode)
     }
   }
 
@@ -293,7 +287,7 @@ class ElkNodePainter(
     if (showTop) {
       paintBlock(scaledG, rootNode)
     } else {
-      paintBlockContents(scaledG, scaledG, rootNode)
+      paintBlockContents(scaledG, rootNode)
     }
   }
 }

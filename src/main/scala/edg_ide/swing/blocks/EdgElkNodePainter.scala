@@ -58,8 +58,7 @@ class EdgElkNodePainter(
   }
 
   override protected def paintEdge(
-      parentG: Graphics2D,
-      blockG: Graphics2D,
+      g: Graphics2D,
       edge: ElkEdge,
       isOutline: Boolean,
       strokeModifier: Graphics2D => Graphics2D = identity
@@ -68,17 +67,17 @@ class EdgElkNodePainter(
       case Some(color) => ElementGraphicsModifier.withColor(color, kWireColorBlendFactor).andThen(strokeModifier)
       case None => strokeModifier
     }
-    super.paintEdge(parentG, blockG, edge, isOutline, colorStrokeModifier)
+    super.paintEdge(g, edge, isOutline, colorStrokeModifier)
 
     if (isOutline) return
-    val baseG = getFixedEdgeBaseG(parentG, blockG, edge)
+
     if (edge.getSources == edge.getTargets) { // degenerate, "tunnel" (by heuristic / transform) edge
       val targetPointOpt = edge.getSections.asScala.headOption.map { section =>
         val bend = section.getBendPoints.asScala.head
         (bend.getX, bend.getY, section.getStartX, section.getStartY)
       }
 
-      val textG = textGraphics(colorStrokeModifier(baseG), edge)
+      val textG = textGraphics(colorStrokeModifier(g), edge)
       val anchorXYSizeOpt = targetPointOpt.collect {
         case (x, y, x1, y1) if (x1 == x) && (y >= y1) => (DrawAnchored.Top, x, y, y - y1)
         case (x, y, x1, y1) if (x1 == x) && (y < y1) => (DrawAnchored.Bottom, x, y, y1 - y)
@@ -87,6 +86,10 @@ class EdgElkNodePainter(
       }
 
       anchorXYSizeOpt.foreach { case (anchor, x, y, size) =>
+        val (edgeOffX, edgeOffY) = getFixedEdgeOffset(edge)
+        val correctedX = (x + edgeOffX).toInt
+        val correctedY = (y + edgeOffY).toInt
+
         val lastPath = edge.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
           case DesignPath(steps) => steps.lastOption.getOrElse("")
           case _ => ""
@@ -94,29 +97,29 @@ class EdgElkNodePainter(
         val propLabel = edge.getProperty(ElkEdgirGraphUtils.WireLabelMapper.WireLabelProperty)
         val label = if (lastPath.isEmpty || lastPath.startsWith("_") && propLabel.nonEmpty) {
           if (propLabel != "GND") {
-            drawRail(textG, x.toInt, y.toInt, anchor, size.toInt)
+            drawRail(textG, correctedX, correctedY, anchor, size.toInt)
             propLabel // use mapper-defined labels for anon / unnamed
           } else {
-            drawGround(textG, x.toInt, y.toInt, anchor, size.toInt)
+            drawGround(textG, correctedX, correctedY, anchor, size.toInt)
             "" // don't draw GND, which is handled by the symbol
           }
         } else {
           lastPath
         }
-        DrawAnchored.drawLabel(detailLabelModifier(textG), label, (x, y), anchor)
+        DrawAnchored.drawLabel(detailLabelModifier(textG), label, (correctedX, correctedY), anchor)
       }
     }
   }
 
   // get the polygon points for the array insertion arrow, structured to be passed into g.drawPolygon
   protected def insertArrowPoints(port: ElkPort): (Array[Int], Array[Int]) = {
-    val portCenterX = port.getX.toInt + port.getWidth.toInt / 2
-    val portCenterY = port.getY.toInt + port.getHeight.toInt / 2
-    val arrowLength = math.max(port.getWidth, port.getHeight).toInt
-    val arrowHalfWidth = math.min(port.getWidth, port.getHeight).toInt / 2
+    val portCenterX = port.getX + port.getWidth / 2
+    val portCenterY = port.getY + port.getHeight / 2
+    val arrowLength = math.max(port.getWidth, port.getHeight)
+    val arrowHalfWidth = math.min(port.getWidth, port.getHeight) / 2
 
     // points ordered as center, base1, base2
-    port.getProperty(CoreOptions.PORT_SIDE) match {
+    val (xs, ys) = port.getProperty(CoreOptions.PORT_SIDE) match {
       case PortSide.NORTH =>
         val portEdgeY = portCenterY - port.getHeight.toInt / 2
         (
@@ -142,6 +145,7 @@ class EdgElkNodePainter(
           Array(portCenterY, portCenterY - arrowHalfWidth, portCenterY + arrowHalfWidth)
         )
     }
+    (xs.map(_.toInt), ys.map(_.toInt))
   }
 
   override protected def paintPort(
