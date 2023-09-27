@@ -158,7 +158,7 @@ class EdgElkNodePainter(
       val portX = port.getX.toInt
       val portY = port.getY.toInt
       val (dx, dy) = port.getProperty(CoreOptions.PORT_SIDE) match { // have array extending inwards
-        case PortSide.NORTH => (2, -2)
+        case PortSide.NORTH => (2, 2)
         case PortSide.SOUTH => (2, -2)
         case PortSide.EAST => (-2, 2)
         case PortSide.WEST | _ => (2, 2)
