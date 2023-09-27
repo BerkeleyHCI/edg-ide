@@ -455,6 +455,7 @@ class CompileProcessHandler(
                 ElkEdgirGraphUtils.DesignPathMapper,
                 ElkEdgirGraphUtils.PortArrayMapper,
                 new ElkEdgirGraphUtils.WireColorMapper(compiler),
+                new ElkEdgirGraphUtils.WireLabelMapper(compiler),
               ),
               options.pdfFile
             )

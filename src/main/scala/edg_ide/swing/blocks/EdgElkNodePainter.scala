@@ -54,19 +54,16 @@ class EdgElkNodePainter(
       }
 
       val textG = textGraphics(colorStrokeModifier(baseG), edge)
-      targetPointOpt match {
-        case Some((x, y, x1, y1)) if (x1 == x) && (y > y1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Top)
-        case Some((x, y, x1, y1)) if (x1 == x) && (y < y1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Bottom)
-        case Some((x, y, x1, y1)) if (y1 == y) && (x > x1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Left)
-        case Some((x, y, x1, y1)) if (y1 == y) && (x < x1) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Right)
-        case Some((x, y, _, _)) =>
-          DrawAnchored.drawLabel(textG, label, (x, y), DrawAnchored.Center)
-        case None =>
+      val anchorXYOpt = targetPointOpt.collect {
+        case (x, y, x1, y1) if (x1 == x) && (y >= y1) => (DrawAnchored.Top, x, y)
+        case (x, y, x1, y1) if (x1 == x) && (y < y1) => (DrawAnchored.Bottom, x, y)
+        case (x, y, x1, y1) if (y1 == y) && (x >= x1) => (DrawAnchored.Left, x, y)
+        case (x, y, x1, y1) if (y1 == y) && (x < x1) => (DrawAnchored.Right, x, y)
       }
+      anchorXYOpt.foreach { case (anchor, x, y) =>
+        DrawAnchored.drawLabel(textG, label, (x, y), anchor)
+      }
+
     }
   }
 
@@ -119,14 +116,20 @@ class EdgElkNodePainter(
     if (port.getProperty(ElkEdgirGraphUtils.PortArrayMapper.property)) {
       val portX = port.getX.toInt
       val portY = port.getY.toInt
+      val (dx, dy) = port.getProperty(CoreOptions.PORT_SIDE) match { // have array extending inwards
+        case PortSide.NORTH => (2, -2)
+        case PortSide.SOUTH => (2, -2)
+        case PortSide.EAST => (-2, 2)
+        case PortSide.WEST | _ => (2, 2)
+      }
 
-      fillGraphics(g, port).fillRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
+      fillGraphics(g, port).fillRect(portX + dx * 2, portY + dy * 2, port.getWidth.toInt, port.getHeight.toInt)
       withColorBlendBackground(0.5)(strokeGraphics(g, port))
-        .drawRect(portX + 4, portY + 4, port.getWidth.toInt, port.getHeight.toInt)
+        .drawRect(portX + dx * 2, portY + dy * 2, port.getWidth.toInt, port.getHeight.toInt)
 
-      fillGraphics(g, port).fillRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
+      fillGraphics(g, port).fillRect(portX + dx, portY + dy, port.getWidth.toInt, port.getHeight.toInt)
       withColorBlendBackground(0.75)(strokeGraphics(g, port))
-        .drawRect(portX + 2, portY + 2, port.getWidth.toInt, port.getHeight.toInt)
+        .drawRect(portX + dx, portY + dy, port.getWidth.toInt, port.getHeight.toInt)
     }
     super.paintPort(g, port)
 
