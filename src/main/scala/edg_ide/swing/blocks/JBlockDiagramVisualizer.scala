@@ -2,13 +2,12 @@ package edg_ide.swing.blocks
 
 import com.intellij.ui.JBColor
 import edg_ide.swing.{ColorUtil, Zoomable}
-import edg_ide.swing.blocks.ElkNodeUtil
-import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkPort, ElkShape}
+import org.eclipse.elk.graph.{ElkEdge, ElkGraphElement, ElkNode, ElkShape}
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseMotionAdapter}
 import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
-import java.awt.{BasicStroke, Color, Dimension, Graphics, Graphics2D, Rectangle, TexturePaint}
+import java.awt._
 import javax.swing.{JComponent, Scrollable}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ListHasAsScala
@@ -184,7 +183,7 @@ class JBlockDiagramVisualizer(var rootNode: ElkNode, var showTop: Boolean = fals
   private val kDimBlend = 0.25
 
   private val errorModifier = ElementGraphicsModifier(
-    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.67)
+    fillGraphics = ElementGraphicsModifier.withColorBlendBackground(JBColor.RED, 0.45)
   )
   private val selectedModifier = ElementGraphicsModifier(
     strokeGraphics = ElementGraphicsModifier.withStroke(new BasicStroke(3 / zoomLevel))

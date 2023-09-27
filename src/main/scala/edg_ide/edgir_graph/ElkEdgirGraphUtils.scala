@@ -173,6 +173,17 @@ object ElkEdgirGraphUtils {
       override def getLowerBound: Comparable[_ >: Option[Color]] = null
       override def getUpperBound: Comparable[_ >: Option[Color]] = null
     }
+
+    // roughly ATX power supply conventions
+    protected def voltageRangeToColor(range: RangeValue): Option[Option[Color]] = range match {
+      case RangeValue(min, max) if min >= 3.0 && max <= 3.6 =>
+        Some(Some(new JBColor(new Color(255, 153, 51), new Color(255, 153, 51))))
+      case RangeValue(min, max) if min >= 4.5 && max <= 5.5 => Some(Some(JBColor.RED))
+      case RangeValue(min, max) if min >= 10.5 && max <= 14.5 =>
+        Some(Some(new JBColor(new Color(204, 204, 0), new Color(255, 255, 51))))
+      case RangeValue(0, 0) => Some(Some(JBColor.BLUE))
+      case _ => None
+    }
   }
 
   class WireColorMapper(compiler: Compiler)
@@ -183,37 +194,7 @@ object ElkEdgirGraphUtils {
 
     override def nodeConv(node: NodeDataWrapper): Option[Option[Color]] = None
 
-    // roughly ATX power supply conventions
-    protected def outputVoltageRangeToColor(range: RangeValue): Option[Option[Color]] = range match {
-      case RangeValue(min, max) if min >= 3.0 && max <= 3.6 => Some(Some(JBColor.ORANGE))
-      case RangeValue(min, max) if min >= 4.5 && max <= 5.5 => Some(Some(JBColor.RED))
-      case RangeValue(min, max) if min >= 10.5 && max <= 14.5 => Some(Some(JBColor.YELLOW))
-      case RangeValue(0, 0) => Some(Some(JBColor.BLUE))
-      case _ => None
-    }
-
-    protected def limitVoltageRangeToColor(range: RangeValue): Option[Option[Color]] = range match {
-      case RangeValue(min, max) if min >= 3.0 && max <= 3.6 => Some(Some(JBColor.ORANGE))
-      case RangeValue(min, max) if min >= 4.5 && max <= 5.5 => Some(Some(JBColor.RED))
-      case RangeValue(min, max) if min >= 10.5 && max <= 14.5 => Some(Some(JBColor.YELLOW))
-      case RangeValue(0, 0) => Some(Some(JBColor.BLUE))
-      case _ => None
-    }
-
-    override def portConv(port: PortWrapper): Option[Option[Color]] = {
-      val portType = BlockConnectivityAnalysis.typeOfPortLike(port.portLike)
-      portType.toSimpleString match {
-        case "VoltageSource" => compiler.getParamValue(port.path.asIndirect + "voltage_out") match {
-            case Some(range: RangeValue) => outputVoltageRangeToColor(range)
-            case _ => None
-          }
-        case "VoltageSink" => compiler.getParamValue(port.path.asIndirect + "voltage_limits") match {
-            case Some(range: RangeValue) => limitVoltageRangeToColor(range)
-            case _ => None
-          }
-        case _ => None
-      }
-    }
+    override def portConv(port: PortWrapper): Option[Option[Color]] = None
 
     override def edgeConv(edge: EdgeWrapper): Option[Option[Color]] = {
       val linkTypeOpt = edge match {
@@ -227,7 +208,52 @@ object ElkEdgirGraphUtils {
       }
       linkTypeOpt.map(_.toSimpleString) match {
         case Some("VoltageLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
-            case Some(range: RangeValue) => outputVoltageRangeToColor(range)
+            case Some(range: RangeValue) => WireColorMapper.voltageRangeToColor(range)
+            case _ => None
+          }
+        case _ => None
+      }
+    }
+  }
+
+  object WireLabelMapper {
+    object WireLabelProperty extends IProperty[String] {
+      override def getDefault: String = ""
+      override def getId: String = this.getClass.getSimpleName
+      override def getLowerBound: Comparable[_ >: String] = null
+      override def getUpperBound: Comparable[_ >: String] = null
+    }
+
+    protected def voltageRangeToString(range: RangeValue): Option[String] = range match {
+      case RangeValue(0, 0) => Some("GND")
+      case RangeValue(min, max) if (max - min) / ((min + max) / 2) <= 0.25 => Some(f"${(min + max) / 2}%.02gv")
+      case _ => None
+    }
+  }
+
+  class WireLabelMapper(compiler: Compiler)
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    type PropertyType = String
+
+    override val property: IProperty[String] = WireLabelMapper.WireLabelProperty
+
+    override def nodeConv(node: NodeDataWrapper): Option[String] = None
+
+    override def portConv(port: PortWrapper): Option[String] = None
+
+    override def edgeConv(edge: EdgeWrapper): Option[String] = {
+      val linkTypeOpt = edge match {
+        case EdgeLinkWrapper(path, linkLike) => linkLike.`type` match {
+            case elem.LinkLike.Type.Link(link) => link.selfClass
+            case elem.LinkLike.Type.LibElem(lib) => Some(lib)
+            case elem.LinkLike.Type.Array(link) => link.selfClass
+            case _ => None
+          }
+        case _ => None
+      }
+      linkTypeOpt.map(_.toSimpleString) match {
+        case Some("VoltageLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+            case Some(range: RangeValue) => WireLabelMapper.voltageRangeToString(range)
             case _ => None
           }
         case _ => None
