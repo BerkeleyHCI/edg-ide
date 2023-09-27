@@ -201,10 +201,10 @@ class ElkNodePainter(
     nodeFillGraphics.fillRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
     strokeGraphics(g, node).drawRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
 
-    node.getLabels.asScala.zipWithIndex.foreach { case (label, i) => // first label is important, rest are detail
+    node.getLabels.asScala.zipWithIndex.foreach { case (label, i) =>
       val (labelX, labelY) =
         transformLabelCoords(g, label, label.getProperty(CoreOptions.NODE_LABELS_PLACEMENT).asScala.toSet)
-      val textG = if (i == 0) {
+      val textG = if (i == 0) { // first label is important, rest are detail
         textGraphics(g, node)
       } else {
         detailLabelModifier(textGraphics(g, node))
