@@ -22,7 +22,7 @@ class EdgElkNodePainter(
     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq(),
     portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
-  protected val kWireColorBlendFactor = 0.67
+  protected val kWireColorBlendFactor = 0.75
 
   protected def drawGround(g: Graphics2D, x: Int, y: Int, anchor: DrawAnchored, size: Int): Unit = {
     val halfsize = size / 2

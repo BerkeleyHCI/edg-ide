@@ -176,9 +176,11 @@ object ElkEdgirGraphUtils {
 
     // roughly ATX power supply conventions
     protected def voltageRangeToColor(range: RangeValue): Option[Option[Color]] = range match {
-      case RangeValue(min, max) if min >= 3.0 && max <= 3.6 => Some(Some(JBColor.ORANGE))
+      case RangeValue(min, max) if min >= 3.0 && max <= 3.6 =>
+        Some(Some(new JBColor(new Color(255, 153, 51), new Color(255, 153, 51))))
       case RangeValue(min, max) if min >= 4.5 && max <= 5.5 => Some(Some(JBColor.RED))
-      case RangeValue(min, max) if min >= 10.5 && max <= 14.5 => Some(Some(JBColor.YELLOW))
+      case RangeValue(min, max) if min >= 10.5 && max <= 14.5 =>
+        Some(Some(new JBColor(new Color(204, 204, 0), new Color(255, 255, 51))))
       case RangeValue(0, 0) => Some(Some(JBColor.BLUE))
       case _ => None
     }
