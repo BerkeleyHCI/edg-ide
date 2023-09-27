@@ -250,6 +250,8 @@ class ElkNodePainter(
 
   // paints the block and its contents
   protected def paintBlock(containingG: Graphics2D, node: ElkNode): Unit = {
+    val nodeBackground = paintNode(containingG, node)
+
     val nodeG = containingG.create().asInstanceOf[Graphics2D]
     nodeG.translate(node.getX, node.getY)
 
@@ -257,7 +259,6 @@ class ElkNodePainter(
       paintPort(nodeG, port)
     }
 
-    val nodeBackground = paintNode(containingG, node)
     nodeG.setBackground(nodeBackground)
     paintBlockContents(containingG, nodeG, node)
   }
