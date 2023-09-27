@@ -10,7 +10,7 @@ object DrawAnchored {
   object Right extends DrawAnchored
   object Center extends DrawAnchored
 
-  def drawLabel(g: Graphics, text: String, point: (Double, Double), anchor: DrawAnchored): Unit = {
+  def drawLabel(g: Graphics, text: String, point: (Int, Int), anchor: DrawAnchored): Unit = {
     val fontMetrics = g.getFontMetrics(g.getFont)
 
     val textWidth = fontMetrics.stringWidth(text)
@@ -24,6 +24,6 @@ object DrawAnchored {
       case Right => (pointX - textWidth, pointY + textHeight / 2)
       case Center => (pointX - textWidth / 2, pointY + textHeight / 2)
     }
-    g.drawString(text, drawX.toInt, drawY.toInt)
+    g.drawString(text, drawX, drawY)
   }
 }

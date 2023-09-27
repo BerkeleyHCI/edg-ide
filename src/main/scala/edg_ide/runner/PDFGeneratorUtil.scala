@@ -69,7 +69,8 @@ object PDFGeneratorUtil {
 
   def generate(
       content: HierarchyBlock,
-      mappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
+      topMappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
+      childMappers: Seq[PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper]] = Seq(),
       fileName: String
   ): Unit = {
 
@@ -160,6 +161,11 @@ object PDFGeneratorUtil {
     }
 
     def printNextHierarchyLevel(block: HierarchyBlock, path: DesignPath = DesignPath()): Unit = {
+      val mappers = if (path == DesignPath()) {
+        topMappers
+      } else {
+        childMappers
+      }
       val node = HierarchyGraphElk.HBlockToElkNode(block, path, mappers = mappers)
       printNode(node, block.getSelfClass, path)
 
