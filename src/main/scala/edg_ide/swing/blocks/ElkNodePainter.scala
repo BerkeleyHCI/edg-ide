@@ -65,6 +65,22 @@ class ElkNodePainter(
     defaultGraphics: ElementGraphicsModifier = ElementGraphicsModifier.default,
     elementGraphics: Seq[(ElkGraphElement, ElementGraphicsModifier)] = Seq()
 ) {
+  // label transparency by zoom scaling apply only to ports names and block types
+  protected val kLabelDimStartZoom = 0.9f // zoom level at which labels start to become transparent
+  protected val kLabelDimEndZoom = 0.5f // zoom level at which labels are at full transparency
+  protected val kLabelDimTransparency = 32 // transparency at labelDimEndZoom
+  protected val detailLabelModifier = {
+    val factor =
+      math.min(math.max((zoomLevel - kLabelDimEndZoom) / (kLabelDimStartZoom - kLabelDimEndZoom), 0), 1)
+
+    ElementGraphicsModifier.makeTransformer(g =>
+      g.setColor(ColorUtil.withAlpha(
+        g.getColor,
+        (factor * g.getColor.getAlpha + (1 - factor) * kLabelDimTransparency).toInt
+      ))
+    )
+  }
+
   protected val modifiersByElement = elementGraphics.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
 
   // Modify the base graphics for filling some element, eg by highlighted status
@@ -185,10 +201,15 @@ class ElkNodePainter(
     nodeFillGraphics.fillRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
     strokeGraphics(g, node).drawRect(nodeX, nodeY, node.getWidth.toInt, node.getHeight.toInt)
 
-    node.getLabels.asScala.foreach { label =>
+    node.getLabels.asScala.zipWithIndex.foreach { case (label, i) => // first label is important, rest are detail
       val (labelX, labelY) =
         transformLabelCoords(g, label, label.getProperty(CoreOptions.NODE_LABELS_PLACEMENT).asScala.toSet)
-      textGraphics(g, node).drawString(
+      val textG = if (i == 0) {
+        textGraphics(g, node)
+      } else {
+        detailLabelModifier(textGraphics(g, node))
+      }
+      textG.drawString(
         label.getText,
         (labelX + nodeX).toInt,
         (labelY + nodeY).toInt
@@ -206,7 +227,7 @@ class ElkNodePainter(
 
       port.getLabels.asScala.foreach { label =>
         val (labelX, labelY) = transformLabelCoords(g, label, labelPlacement)
-        textGraphics(g, port).drawString(
+        detailLabelModifier(textGraphics(g, port)).drawString(
           label.getText,
           (labelX + port.getX + node.getX).toInt, // ports in node's coordinates
           (labelY + port.getY + node.getY).toInt

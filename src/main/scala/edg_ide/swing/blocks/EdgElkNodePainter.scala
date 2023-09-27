@@ -103,7 +103,7 @@ class EdgElkNodePainter(
         } else {
           lastPath
         }
-        DrawAnchored.drawLabel(textG, label, (x, y), anchor)
+        DrawAnchored.drawLabel(detailLabelModifier(textG), label, (x, y), anchor)
       }
     }
   }
