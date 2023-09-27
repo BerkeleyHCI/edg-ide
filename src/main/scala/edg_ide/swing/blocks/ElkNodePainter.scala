@@ -165,22 +165,19 @@ class ElkNodePainter(
   }
 
   // Render an edge, including all its sections
-  // containing is passed in here as a hack around Elk not using container coordinates for self edges
   protected def paintEdge(
       g: Graphics2D,
       edge: ElkEdge,
       isOutline: Boolean,
       strokeModifier: Graphics2D => Graphics2D = identity
   ): Unit = {
-    val modifierG: Graphics2D => Graphics2D = g =>
-      if (isOutline) {
-        outlineGraphics(g, edge).getOrElse {
-          return
-        }
-      } else {
-        strokeGraphics(g, edge)
+    val edgeG = if (isOutline) {
+      outlineGraphics(strokeModifier(g), edge).getOrElse {
+        return
       }
-    val edgeG = strokeModifier(modifierG(g))
+    } else {
+      strokeGraphics(strokeModifier(g), edge)
+    }
     val (edgeOffX, edgeOffY) = getFixedEdgeOffset(edge)
     edge.getSections.asScala.foreach { section =>
       val (pointsX, pointsY) = ElkNodeUtil.allPoints(section).unzip
