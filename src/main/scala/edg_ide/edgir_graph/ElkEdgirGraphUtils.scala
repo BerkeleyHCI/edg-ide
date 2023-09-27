@@ -224,13 +224,13 @@ object ElkEdgirGraphUtils {
 
     protected def voltageRangeToString(range: RangeValue): Option[String] = range match {
       case RangeValue(0, 0) => Some("GND")
-      case RangeValue(min, max) if (max - min) / ((min + max) / 2) <= 0.25 => Some(f"${(min + max) / 2}%.1f")
+      case RangeValue(min, max) if (max - min) / ((min + max) / 2) <= 0.25 => Some(f"${(min + max) / 2}%.02gv")
       case _ => None
     }
   }
 
   class WireLabelMapper(compiler: Compiler)
-    extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+      extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
     type PropertyType = String
 
     override val property: IProperty[String] = WireLabelMapper.WireLabelProperty
@@ -242,18 +242,18 @@ object ElkEdgirGraphUtils {
     override def edgeConv(edge: EdgeWrapper): Option[String] = {
       val linkTypeOpt = edge match {
         case EdgeLinkWrapper(path, linkLike) => linkLike.`type` match {
-          case elem.LinkLike.Type.Link(link) => link.selfClass
-          case elem.LinkLike.Type.LibElem(lib) => Some(lib)
-          case elem.LinkLike.Type.Array(link) => link.selfClass
-          case _ => None
-        }
+            case elem.LinkLike.Type.Link(link) => link.selfClass
+            case elem.LinkLike.Type.LibElem(lib) => Some(lib)
+            case elem.LinkLike.Type.Array(link) => link.selfClass
+            case _ => None
+          }
         case _ => None
       }
       linkTypeOpt.map(_.toSimpleString) match {
         case Some("VoltageLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
-          case Some(range: RangeValue) => WireLabelMapper.voltageRangeToString(range)
-          case _ => None
-        }
+            case Some(range: RangeValue) => WireLabelMapper.voltageRangeToString(range)
+            case _ => None
+          }
         case _ => None
       }
     }

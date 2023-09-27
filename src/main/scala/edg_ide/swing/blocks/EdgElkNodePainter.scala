@@ -1,16 +1,13 @@
 package edg_ide.swing.blocks
 
-import com.intellij.ui.JBColor
 import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
+import edg_ide.swing.DrawAnchored
 import edg_ide.swing.blocks.ElementGraphicsModifier.withColorBlendBackground
-import edg_ide.swing.{ColorUtil, DrawAnchored}
 import org.eclipse.elk.core.options.{CoreOptions, PortSide}
 import org.eclipse.elk.graph._
 
 import java.awt._
-import java.awt.geom.Rectangle2D
-import java.awt.image.BufferedImage
 import scala.jdk.CollectionConverters.ListHasAsScala
 
 // ELK h-block graph painter with modifications for EDG graphs:
@@ -26,6 +23,39 @@ class EdgElkNodePainter(
     portInserts: Set[ElkGraphElement] = Set() // ports to draw insert indicators for
 ) extends ElkNodePainter(rootNode, showTop, zoomLevel, defaultGraphics, elementGraphics) {
   protected val kWireColorBlendFactor = 0.67
+
+  protected def drawGround(g: Graphics2D, x: Int, y: Int, anchor: DrawAnchored, size: Int): Unit = {
+    val halfsize = size / 2
+    require(halfsize > 0)
+    anchor match {
+      case DrawAnchored.Top | DrawAnchored.Bottom =>
+        val dy = anchor match {
+          case DrawAnchored.Bottom => -halfsize / 2
+          case DrawAnchored.Top | _ => halfsize / 2
+        }
+        g.drawLine(x - halfsize, y, x + halfsize, y)
+        g.drawLine(x - halfsize / 2, y + dy, x + halfsize / 2, y + dy)
+        g.drawLine(x - halfsize / 3, y + dy * 2, x + halfsize / 3, y + dy * 2)
+      case DrawAnchored.Left | DrawAnchored.Right =>
+        val dx = anchor match {
+          case DrawAnchored.Right => -halfsize / 2
+          case DrawAnchored.Left | _ => halfsize / 2
+        }
+        g.drawLine(x, y - halfsize, x, y + halfsize)
+        g.drawLine(x + dx, y - halfsize / 2, x + dx, y + halfsize / 2)
+        g.drawLine(x + dx * 2, y - halfsize / 3, x + dx * 2, y + halfsize / 3)
+      case _ => // ignored, invalid
+    }
+  }
+
+  protected def drawRail(g: Graphics2D, x: Int, y: Int, anchor: DrawAnchored, size: Int): Unit = {
+    val halfsize = size / 2
+    anchor match {
+      case DrawAnchored.Top | DrawAnchored.Bottom => g.drawLine(x - halfsize, y, x + halfsize, y)
+      case DrawAnchored.Left | DrawAnchored.Right => g.drawLine(x, y - halfsize, x, y + halfsize)
+      case _ => // ignored, invalid
+    }
+  }
 
   override protected def paintEdge(
       parentG: Graphics2D,
@@ -43,27 +73,38 @@ class EdgElkNodePainter(
     if (isOutline) return
     val baseG = getFixedEdgeBaseG(parentG, blockG, edge)
     if (edge.getSources == edge.getTargets) { // degenerate, "tunnel" (by heuristic / transform) edge
-      val label = edge.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
-        case DesignPath(steps) => steps.lastOption.getOrElse("")
-        case _ => ""
-      }
-
       val targetPointOpt = edge.getSections.asScala.headOption.map { section =>
         val bend = section.getBendPoints.asScala.head
         (bend.getX, bend.getY, section.getStartX, section.getStartY)
       }
 
       val textG = textGraphics(colorStrokeModifier(baseG), edge)
-      val anchorXYOpt = targetPointOpt.collect {
-        case (x, y, x1, y1) if (x1 == x) && (y >= y1) => (DrawAnchored.Top, x, y)
-        case (x, y, x1, y1) if (x1 == x) && (y < y1) => (DrawAnchored.Bottom, x, y)
-        case (x, y, x1, y1) if (y1 == y) && (x >= x1) => (DrawAnchored.Left, x, y)
-        case (x, y, x1, y1) if (y1 == y) && (x < x1) => (DrawAnchored.Right, x, y)
-      }
-      anchorXYOpt.foreach { case (anchor, x, y) =>
-        DrawAnchored.drawLabel(textG, label, (x, y), anchor)
+      val anchorXYSizeOpt = targetPointOpt.collect {
+        case (x, y, x1, y1) if (x1 == x) && (y >= y1) => (DrawAnchored.Top, x, y, y - y1)
+        case (x, y, x1, y1) if (x1 == x) && (y < y1) => (DrawAnchored.Bottom, x, y, y1 - y)
+        case (x, y, x1, y1) if (y1 == y) && (x >= x1) => (DrawAnchored.Left, x, y, x - x1)
+        case (x, y, x1, y1) if (y1 == y) && (x < x1) => (DrawAnchored.Right, x, y, x1 - x)
       }
 
+      anchorXYSizeOpt.foreach { case (anchor, x, y, size) =>
+        val lastPath = edge.getProperty(ElkEdgirGraphUtils.DesignPathMapper.property) match {
+          case DesignPath(steps) => steps.lastOption.getOrElse("")
+          case _ => ""
+        }
+        val propLabel = edge.getProperty(ElkEdgirGraphUtils.WireLabelMapper.WireLabelProperty)
+        val label = if (lastPath.isEmpty || lastPath.startsWith("_") && propLabel.nonEmpty) {
+          if (propLabel != "GND") {
+            drawRail(textG, x.toInt, y.toInt, anchor, size.toInt)
+            propLabel // use mapper-defined labels for anon / unnamed
+          } else {
+            drawGround(textG, x.toInt, y.toInt, anchor, size.toInt)
+            "" // don't draw GND, which is handled by the symbol
+          }
+        } else {
+          lastPath
+        }
+        DrawAnchored.drawLabel(textG, label, (x, y), anchor)
+      }
     }
   }
 
