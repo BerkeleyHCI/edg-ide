@@ -52,20 +52,6 @@ class DetailParamPopupMenu(
     )
   )
 
-  // Determine the user-defined (pre-refinement) class for class-based refinements
-  private val blockClassPostfix = exceptable {
-    val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct param")
-    val (blockPath, block) = EdgirUtils.resolveDeepestBlock(directPath, design)
-    val blockClass = block.getPrerefineClass
-    val postfix = directPath.postfixFromOption(blockPath).get
-    val paramName = postfix.steps.onlyExcept("not a block param").getName
-    requireExcept(
-      block.params.get(paramName).isDefined,
-      f"${blockClass.toSimpleString} does not have $paramName"
-    )
-    (blockClass, postfix)
-  }
-
   // Determine the param-defining class for class-based refinements
   private val paramDefiningClassPostfix = exceptable {
     val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct param")
