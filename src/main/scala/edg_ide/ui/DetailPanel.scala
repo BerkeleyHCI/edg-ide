@@ -17,8 +17,9 @@ import edg_ide.{EdgirUtils, swing}
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
-import java.awt.BorderLayout
-import java.awt.event.{MouseAdapter, MouseEvent}
+import java.awt.datatransfer.StringSelection
+import java.awt.{BorderLayout, Toolkit}
+import java.awt.event.{KeyAdapter, KeyEvent, MouseAdapter, MouseEvent}
 import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
 
 class DetailParamPopupMenu(
@@ -164,11 +165,12 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   private val treeScrollPane = new JBScrollPane(tree)
   private val treeTreeRenderer = tree.getTree.getCellRenderer
   private val treeTableRenderer = tree.getDefaultRenderer(classOf[Object])
+  private var compiler = initCompiler
 
   setLayout(new BorderLayout())
   add(treeScrollPane)
 
-  private val treeMouseListener = new MouseAdapter {
+  tree.addMouseListener(new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
       val selectedTreePath = TreeTableUtils
         .getPathForRowLocation(tree, e.getX, e.getY)
@@ -185,8 +187,34 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
         case _ => // any other type ignored
       }
     }
-  }
-  tree.addMouseListener(treeMouseListener)
+  })
+
+  tree.addKeyListener(new KeyAdapter {
+    override def keyPressed(e: KeyEvent): Unit = {
+      if (e.getKeyCode == KeyEvent.VK_C) {
+        e.consume()
+
+        val copyString = tree.getTree.getLastSelectedPathComponent match {
+          case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
+            compiler.getParamValue(selected.path) match {
+              case Some(value) => Some(value.toStringValue)
+              case _ => None
+            }
+          case selected: swing.ElementDetailNodes#ParamEltNode =>
+            Some(selected.value.toStringValue)
+          case _ => None
+        }
+        copyString match {
+          case Some(copyString) =>
+            val clipboard = Toolkit.getDefaultToolkit.getSystemClipboard
+            clipboard.setContents(new StringSelection(copyString), null)
+            PopupUtils.createPopupAtMouse(f"copied '$copyString'", tree)
+          case None =>
+            PopupUtils.createErrorPopupAtMouse("no value to copy", tree)
+        }
+      }
+    }
+  })
 
   // Actions
   //
@@ -194,10 +222,11 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
       path: DesignPath,
       root: schema.Design,
       refinements: edgrpc.Refinements,
-      compiler: Compiler
+      newCompiler: Compiler
   ): Unit = {
     ApplicationManager.getApplication.invokeLater(() => {
-      TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
+      TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, newCompiler))
+      compiler = newCompiler
     })
   }
 
