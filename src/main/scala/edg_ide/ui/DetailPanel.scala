@@ -6,6 +6,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, ExprToString}
+import edg.util.Errorable
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
 import edg_ide.dse.{DseClassParameterSearch, DseFeature, DseObjectiveParameter, DsePathParameterSearch}
@@ -20,10 +21,11 @@ import edgrpc.hdl.{hdl => edgrpc}
 import java.awt.datatransfer.StringSelection
 import java.awt.{BorderLayout, Toolkit}
 import java.awt.event.{KeyAdapter, KeyEvent, MouseAdapter, MouseEvent}
-import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
+import javax.swing.{JPanel, JPopupMenu, KeyStroke, SwingUtilities}
 
 class DetailParamPopupMenu(
     path: IndirectDesignPath,
+    copyAction: Errorable[() => Unit],
     design: schema.Design,
     compiler: Compiler,
     project: Project
@@ -155,6 +157,12 @@ class DetailParamPopupMenu(
       )
     )
   }
+
+  addSeparator()
+  val kHotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
+  val copyValueItem = add(ContextMenuUtils.MenuItemFromErrorable(copyAction, s"Copy value"))
+  copyValueItem.setMnemonic(KeyEvent.VK_C)
+  copyValueItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, kHotkeyModifier))
 }
 
 // TODO: remove initCompiler, it's counterintuitive
@@ -170,6 +178,26 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   setLayout(new BorderLayout())
   add(treeScrollPane)
 
+  // given a selected table row returns a copy action, if it makes sense
+  protected def copyActionFromItem(node: AnyRef): Errorable[() => Unit] = {
+    val copyString = node match {
+      case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
+        compiler.getParamValue(selected.path) match {
+          case Some(value) => Errorable.Success(value.toStringValue)
+          case _ => Errorable.Error("param has no value")
+        }
+      case selected: swing.ElementDetailNodes#ParamEltNode =>
+        Errorable.Success(selected.value.toStringValue)
+      case _ => Errorable.Error("not a param")
+    }
+    copyString.map(copyValue =>
+      () => {
+        val clipboard = Toolkit.getDefaultToolkit.getSystemClipboard
+        clipboard.setContents(new StringSelection(copyValue), null)
+      }
+    )
+  }
+
   tree.addMouseListener(new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
       val selectedTreePath = TreeTableUtils
@@ -180,7 +208,13 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
       selectedTreePath.getLastPathComponent match {
         case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click context menu
-            new DetailParamPopupMenu(selected.path, selected.outer.root, selected.outer.compiler, project)
+            new DetailParamPopupMenu(
+              selected.path,
+              copyActionFromItem(selected),
+              selected.outer.root,
+              selected.outer.compiler,
+              project
+            )
               .show(e.getComponent, e.getX, e.getY)
           }
 
@@ -190,27 +224,17 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   })
 
   tree.addKeyListener(new KeyAdapter {
+    val kHotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
     override def keyPressed(e: KeyEvent): Unit = {
-      if (e.getKeyCode == KeyEvent.VK_C) {
+      if (e.getModifiersEx == kHotkeyModifier && e.getKeyCode == KeyEvent.VK_C) {
         e.consume()
 
-        val copyString = tree.getTree.getLastSelectedPathComponent match {
-          case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
-            compiler.getParamValue(selected.path) match {
-              case Some(value) => Some(value.toStringValue)
-              case _ => None
-            }
-          case selected: swing.ElementDetailNodes#ParamEltNode =>
-            Some(selected.value.toStringValue)
-          case _ => None
-        }
-        copyString match {
-          case Some(copyString) =>
-            val clipboard = Toolkit.getDefaultToolkit.getSystemClipboard
-            clipboard.setContents(new StringSelection(copyString), null)
-            PopupUtils.createPopupAtMouse(f"copied '$copyString'", tree)
-          case None =>
-            PopupUtils.createErrorPopupAtMouse("no value to copy", tree)
+        copyActionFromItem(tree.getTree.getLastSelectedPathComponent) match {
+          case Errorable.Error(message) =>
+            PopupUtils.createErrorPopupAtMouse(message, tree)
+          case Errorable.Success(copyAction) =>
+            copyAction()
+            PopupUtils.createPopupAtMouse("copied", tree)
         }
       }
     }
