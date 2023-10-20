@@ -6,23 +6,25 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, ExprToString}
-import edg.wir.ProtoUtil.ParamProtoToSeqMap
+import edg.util.Errorable
 import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
 import edg_ide.dse.{DseClassParameterSearch, DseFeature, DseObjectiveParameter, DsePathParameterSearch}
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.swing.{ElementDetailTreeModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, LibraryUtils, exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, LibraryUtils, exceptable}
 import edg_ide.{EdgirUtils, swing}
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
-import java.awt.BorderLayout
-import java.awt.event.{MouseAdapter, MouseEvent}
-import javax.swing.{JPanel, JPopupMenu, SwingUtilities}
+import java.awt.datatransfer.StringSelection
+import java.awt.event.{KeyAdapter, KeyEvent, MouseAdapter, MouseEvent}
+import java.awt.{BorderLayout, Toolkit}
+import javax.swing.{JPanel, JPopupMenu, KeyStroke, SwingUtilities}
 
 class DetailParamPopupMenu(
     path: IndirectDesignPath,
+    copyAction: Errorable[() => Unit],
     design: schema.Design,
     compiler: Compiler,
     project: Project
@@ -51,20 +53,6 @@ class DetailParamPopupMenu(
       s"Insert refinement"
     )
   )
-
-  // Determine the user-defined (pre-refinement) class for class-based refinements
-  private val blockClassPostfix = exceptable {
-    val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct param")
-    val (blockPath, block) = EdgirUtils.resolveDeepestBlock(directPath, design)
-    val blockClass = block.getPrerefineClass
-    val postfix = directPath.postfixFromOption(blockPath).get
-    val paramName = postfix.steps.onlyExcept("not a block param").getName
-    requireExcept(
-      block.params.get(paramName).isDefined,
-      f"${blockClass.toSimpleString} does not have $paramName"
-    )
-    (blockClass, postfix)
-  }
 
   // Determine the param-defining class for class-based refinements
   private val paramDefiningClassPostfix = exceptable {
@@ -168,6 +156,12 @@ class DetailParamPopupMenu(
       )
     )
   }
+
+  addSeparator()
+  val hotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
+  val copyValueItem = add(ContextMenuUtils.MenuItemFromErrorable(copyAction, s"Copy value"))
+  copyValueItem.setMnemonic(KeyEvent.VK_C)
+  copyValueItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, hotkeyModifier))
 }
 
 // TODO: remove initCompiler, it's counterintuitive
@@ -178,11 +172,32 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   private val treeScrollPane = new JBScrollPane(tree)
   private val treeTreeRenderer = tree.getTree.getCellRenderer
   private val treeTableRenderer = tree.getDefaultRenderer(classOf[Object])
+  private var compiler = initCompiler
 
   setLayout(new BorderLayout())
   add(treeScrollPane)
 
-  private val treeMouseListener = new MouseAdapter {
+  // given a selected table row returns a copy action, if it makes sense
+  protected def copyActionFromItem(node: AnyRef): Errorable[() => Unit] = {
+    val copyString = node match {
+      case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
+        compiler.getParamValue(selected.path) match {
+          case Some(value) => Errorable.Success(value.toStringValue)
+          case _ => Errorable.Error("param has no value")
+        }
+      case selected: swing.ElementDetailNodes#ParamEltNode =>
+        Errorable.Success(selected.value.toStringValue)
+      case _ => Errorable.Error("not a param")
+    }
+    copyString.map(copyValue =>
+      () => {
+        val clipboard = Toolkit.getDefaultToolkit.getSystemClipboard
+        clipboard.setContents(new StringSelection(copyValue), null)
+      }
+    )
+  }
+
+  tree.addMouseListener(new MouseAdapter {
     override def mousePressed(e: MouseEvent): Unit = {
       val selectedTreePath = TreeTableUtils
         .getPathForRowLocation(tree, e.getX, e.getY)
@@ -192,15 +207,37 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
       selectedTreePath.getLastPathComponent match {
         case selected: swing.ElementDetailNodes#ParamNode => // insert actions / menu for blocks
           if (SwingUtilities.isRightMouseButton(e) && e.getClickCount == 1) { // right click context menu
-            new DetailParamPopupMenu(selected.path, selected.outer.root, selected.outer.compiler, project)
+            new DetailParamPopupMenu(
+              selected.path,
+              copyActionFromItem(selected),
+              selected.outer.root,
+              selected.outer.compiler,
+              project
+            )
               .show(e.getComponent, e.getX, e.getY)
           }
 
         case _ => // any other type ignored
       }
     }
-  }
-  tree.addMouseListener(treeMouseListener)
+  })
+
+  tree.addKeyListener(new KeyAdapter {
+    val hotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
+    override def keyPressed(e: KeyEvent): Unit = {
+      if (e.getModifiersEx == hotkeyModifier && e.getKeyCode == KeyEvent.VK_C) {
+        e.consume()
+
+        copyActionFromItem(tree.getTree.getLastSelectedPathComponent) match {
+          case Errorable.Error(message) =>
+            PopupUtils.createErrorPopupAtMouse(message, tree)
+          case Errorable.Success(copyAction) =>
+            copyAction()
+            PopupUtils.createPopupAtMouse("copied", tree)
+        }
+      }
+    }
+  })
 
   // Actions
   //
@@ -208,10 +245,11 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
       path: DesignPath,
       root: schema.Design,
       refinements: edgrpc.Refinements,
-      compiler: Compiler
+      newCompiler: Compiler
   ): Unit = {
     ApplicationManager.getApplication.invokeLater(() => {
-      TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, compiler))
+      TreeTableUtils.updateModel(tree, new ElementDetailTreeModel(path, root, refinements, newCompiler))
+      compiler = newCompiler
     })
   }
 

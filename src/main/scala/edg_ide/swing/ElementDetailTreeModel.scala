@@ -300,7 +300,7 @@ class ElementDetailNodes(
     }
   }
 
-  class ParamEltNode(index: Int, value: ExprValue) extends ElementDetailNode {
+  class ParamEltNode(index: Int, val value: ExprValue) extends ElementDetailNode {
     override lazy val children: Seq[ElementDetailNode] = Seq()
 
     override def toString: String = index.toString
