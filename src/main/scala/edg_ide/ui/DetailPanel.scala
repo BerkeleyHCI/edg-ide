@@ -7,20 +7,19 @@ import com.intellij.ui.treeStructure.treetable.TreeTable
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, ExprToString}
 import edg.util.Errorable
-import edg.wir.ProtoUtil.ParamProtoToSeqMap
 import edg.wir.{DesignPath, IndirectDesignPath, Refinements}
 import edg_ide.dse.{DseClassParameterSearch, DseFeature, DseObjectiveParameter, DsePathParameterSearch}
 import edg_ide.psi_edits.{InsertAction, InsertRefinementAction}
 import edg_ide.swing.{ElementDetailTreeModel, TreeTableUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptOption, ExceptSeq}
-import edg_ide.util.{DesignAnalysisUtils, LibraryUtils, exceptable, requireExcept}
+import edg_ide.util.{DesignAnalysisUtils, LibraryUtils, exceptable}
 import edg_ide.{EdgirUtils, swing}
 import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
 import java.awt.datatransfer.StringSelection
-import java.awt.{BorderLayout, Toolkit}
 import java.awt.event.{KeyAdapter, KeyEvent, MouseAdapter, MouseEvent}
+import java.awt.{BorderLayout, Toolkit}
 import javax.swing.{JPanel, JPopupMenu, KeyStroke, SwingUtilities}
 
 class DetailParamPopupMenu(
@@ -159,10 +158,10 @@ class DetailParamPopupMenu(
   }
 
   addSeparator()
-  val kHotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
+  val hotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
   val copyValueItem = add(ContextMenuUtils.MenuItemFromErrorable(copyAction, s"Copy value"))
   copyValueItem.setMnemonic(KeyEvent.VK_C)
-  copyValueItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, kHotkeyModifier))
+  copyValueItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, hotkeyModifier))
 }
 
 // TODO: remove initCompiler, it's counterintuitive
@@ -224,9 +223,9 @@ class DetailPanel(initPath: DesignPath, initCompiler: Compiler, project: Project
   })
 
   tree.addKeyListener(new KeyAdapter {
-    val kHotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
+    val hotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
     override def keyPressed(e: KeyEvent): Unit = {
-      if (e.getModifiersEx == kHotkeyModifier && e.getKeyCode == KeyEvent.VK_C) {
+      if (e.getModifiersEx == hotkeyModifier && e.getKeyCode == KeyEvent.VK_C) {
         e.consume()
 
         copyActionFromItem(tree.getTree.getLastSelectedPathComponent) match {
