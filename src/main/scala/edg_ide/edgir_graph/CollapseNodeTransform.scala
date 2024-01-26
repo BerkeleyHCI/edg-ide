@@ -34,18 +34,15 @@ trait CollapseNodeTransform {
     val collapsedEdgesData = (collapsedBlockSources ++ collapsedBlockTargets)
       .map { case (_, data) => data }
 
-    // If there are no sources or sinks, give up and do an all-to-all connect
-    // TODO maybe be smarter about this?
-
-    val fixedSources = if (collapsedBlockSources.isEmpty) {
-      collapsedBlockTargets
+    // If there are no sources or sinks, arbitrarily designate the first as the source
+    val (fixedSources, fixedTargets) = if (collapsedBlockSources.isEmpty && collapsedBlockSources.isEmpty) {
+      (Seq(), Seq())
+    } else if (collapsedBlockSources.isEmpty) {
+      (Seq(collapsedBlockTargets.head), collapsedBlockTargets.tail)
+    } else if (collapsedBlockTargets.isEmpty) {
+      (Seq(collapsedBlockSources.head), collapsedBlockSources.tail)
     } else {
-      collapsedBlockSources
-    }
-    val fixedTargets = if (collapsedBlockTargets.isEmpty) {
-      collapsedBlockSources
-    } else {
-      collapsedBlockTargets
+      (collapsedBlockSources, collapsedBlockTargets)
     }
 
     val crossSourceTarget =
