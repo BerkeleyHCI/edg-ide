@@ -387,8 +387,10 @@ class DsePanel(project: Project) extends JPanel {
       val nodePath = new TreePath(treeRoot).pathByAddingChild(treeRoot.searchConfigNode)
       configTree.getTree.expandPath(nodePath)
       if (scrollToLast) {
-        val lastNodePath = nodePath.pathByAddingChild(treeRoot.searchConfigNode.children.last)
-        configTree.scrollRectToVisible(configTree.getTree.getPathBounds(lastNodePath))
+        treeRoot.searchConfigNode.children.lastOption.foreach { last =>
+          val lastNodePath = nodePath.pathByAddingChild(last)
+          configTree.scrollRectToVisible(configTree.getTree.getPathBounds(lastNodePath))
+        }
       }
       tabbedPane.setSelectedIndex(kTabConfig)
     })
