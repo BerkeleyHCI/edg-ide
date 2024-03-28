@@ -306,7 +306,7 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
             case edgir.init.init.ValInit.Val.Integer(_) => classOf[edg.compiler.IntValue]
             case edgir.init.init.ValInit.Val.Boolean(_) => classOf[edg.compiler.BooleanValue]
             case edgir.init.init.ValInit.Val.Text(_) => classOf[edg.compiler.TextValue]
-            case edgir.init.init.ValInit.Val.Range(_) => classOf[edg.compiler.RangeValue]
+            case edgir.init.init.ValInit.Val.Range(_) => classOf[edg.compiler.RangeType]
             case _ => exceptable.fail(f"unknown parameter type")
           }
           val objective = DseObjectiveParameter(path.asIndirect + paramName, paramType)
