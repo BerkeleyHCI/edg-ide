@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.EdgirUtils.SimpleLibraryPath
+import edg.compiler.FloatValue
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
@@ -289,6 +290,38 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   addGotoDefinitionItem(portClass, project)
   addGotoConnectItems(path, interface.getDesign, project)
 
+  if (DseFeature.kEnabled) {
+    addSeparator()
+
+    val params = port match {
+      case port: elem.Port => port.params
+      case bundle: elem.Bundle => bundle.params
+      case other => Seq() // including arrays, not supported
+    }
+    params.toSeqMap.foreach { case (paramName, paramValue) =>
+      add(ContextMenuUtils.MenuItemFromErrorable(
+        exceptable {
+          val paramType = paramValue.`val` match {
+            case edgir.init.init.ValInit.Val.Floating(_) => classOf[edg.compiler.FloatValue]
+            case edgir.init.init.ValInit.Val.Integer(_) => classOf[edg.compiler.IntValue]
+            case edgir.init.init.ValInit.Val.Boolean(_) => classOf[edg.compiler.BooleanValue]
+            case edgir.init.init.ValInit.Val.Text(_) => classOf[edg.compiler.TextValue]
+            case edgir.init.init.ValInit.Val.Range(_) => classOf[edg.compiler.RangeValue]
+            case _ => exceptable.fail(f"unknown parameter type")
+          }
+          val objective = DseObjectiveParameter(path.asIndirect + paramName, paramType)
+
+          () => {
+            val config =
+              DseService(project).getOrCreateRunConfiguration(interface.getDesign.getContents.getSelfClass, this)
+            config.options.objectives = config.options.objectives :+ objective
+            DseService(project).onObjectiveConfigChanged(config, true)
+          }
+        },
+        f"Add objective $paramName"
+      ))
+    }
+  }
 }
 
 class DefaultTool(val interface: ToolInterface) extends BaseTool {
