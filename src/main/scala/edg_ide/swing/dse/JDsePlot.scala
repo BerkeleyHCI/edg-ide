@@ -1,6 +1,7 @@
 package edg_ide.swing.dse
 
 import com.intellij.ui.JBColor
+import edg_ide.util.SiPrefixUtil
 
 import java.awt.Color
 import scala.collection.mutable
@@ -86,7 +87,7 @@ object JDsePlot {
     var tickPos = (math.floor(range._1 / tickSpacing) * tickSpacing).toFloat
     val ticksBuilder = mutable.ArrayBuffer[(Float, String)]()
     while (tickPos <= range._2) {
-      ticksBuilder.append((tickPos, f"$tickPos%.02g"))
+      ticksBuilder.append((tickPos, SiPrefixUtil.unitsToString(tickPos, "")))
       tickPos = (tickPos + tickSpacing).toFloat
     }
     ticksBuilder.toSeq

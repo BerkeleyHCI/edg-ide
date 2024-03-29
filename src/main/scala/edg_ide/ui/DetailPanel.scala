@@ -20,7 +20,7 @@ import edgrpc.hdl.{hdl => edgrpc}
 import java.awt.datatransfer.StringSelection
 import java.awt.event.{KeyAdapter, KeyEvent, MouseAdapter, MouseEvent}
 import java.awt.{BorderLayout, Toolkit}
-import javax.swing.{JPanel, JPopupMenu, KeyStroke, SwingUtilities}
+import javax.swing.{JMenu, JPanel, JPopupMenu, KeyStroke, SwingUtilities}
 
 class DetailParamPopupMenu(
     path: IndirectDesignPath,
@@ -92,9 +92,16 @@ class DetailParamPopupMenu(
     )
   )
 
+  addSeparator()
+  val hotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
+  val copyValueItem = add(ContextMenuUtils.MenuItemFromErrorable(copyAction, s"Copy value"))
+  copyValueItem.setMnemonic(KeyEvent.VK_C)
+  copyValueItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, hotkeyModifier))
+
   if (DseFeature.kEnabled) {
-    addSeparator()
-    add(
+    val dseMenu = new JMenu("Design Space Exploration")
+
+    dseMenu.add(
       ContextMenuUtils.MenuItemFromErrorable(
         exceptable {
           val directPath = DesignPath.fromIndirectOption(path).exceptNone("not a direct param")
@@ -114,7 +121,7 @@ class DetailParamPopupMenu(
       )
     )
 
-    add(
+    dseMenu.add(
       ContextMenuUtils.MenuItemNamedFromErrorable(
         exceptable {
           val (paramDefiningClass, postfix) = paramDefiningClassPostfix.exceptError
@@ -137,8 +144,8 @@ class DetailParamPopupMenu(
       )
     )
 
-    addSeparator()
-    add(
+    dseMenu.addSeparator()
+    dseMenu.add(
       ContextMenuUtils.MenuItemFromErrorable(
         exceptable {
           val objective = compiler.getParamType(path) match {
@@ -155,13 +162,10 @@ class DetailParamPopupMenu(
         "Add objective"
       )
     )
-  }
 
-  addSeparator()
-  val hotkeyModifier = Toolkit.getDefaultToolkit.getMenuShortcutKeyMaskEx
-  val copyValueItem = add(ContextMenuUtils.MenuItemFromErrorable(copyAction, s"Copy value"))
-  copyValueItem.setMnemonic(KeyEvent.VK_C)
-  copyValueItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, hotkeyModifier))
+    addSeparator()
+    add(dseMenu)
+  }
 }
 
 // TODO: remove initCompiler, it's counterintuitive

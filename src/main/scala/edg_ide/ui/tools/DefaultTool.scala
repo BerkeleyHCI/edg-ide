@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
 import edg.EdgirUtils.SimpleLibraryPath
+import edg.compiler.FloatValue
 import edg.util.Errorable
 import edg.wir.DesignPath
 import edg.wir.ProtoUtil.ParamProtoToSeqMap
@@ -19,7 +20,7 @@ import edgir.schema.schema
 
 import java.awt.event.MouseEvent
 import java.util.concurrent.Callable
-import javax.swing.{JLabel, JPopupMenu, SwingUtilities}
+import javax.swing.{JLabel, JMenu, JPopupMenu, SwingUtilities}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 trait NavigationPopupMenu extends JPopupMenu {
@@ -119,14 +120,14 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
   addGotoDefinitionItem(blockClass, project)
 
   if (DseFeature.kEnabled) {
-    addSeparator()
+    val dseMenu = new JMenu("Design Space Exploration")
 
     val rootClass = interface.getDesign.getContents.getSelfClass
     val refinementClass = block.prerefineClass.getOrElse(block.getSelfClass)
-    add(
+    dseMenu.add(
       ContextMenuUtils.MenuItemFromErrorable(
         exceptable {
-          val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).get
+          val blockPyClass = DesignAnalysisUtils.pyClassOf(refinementClass, project).exceptError
           () => {
             ReadAction
               .nonBlocking((() => {
@@ -162,7 +163,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         f"Search subclasses of ${refinementClass.toSimpleString}"
       )
     )
-    add(
+    dseMenu.add(
       ContextMenuUtils.MenuItemFromErrorable(
         exceptable {
           requireExcept(block.params.toSeqMap.contains("matching_parts"), "block must have matching_parts")
@@ -176,7 +177,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       )
     )
 
-    add(
+    dseMenu.add(
       ContextMenuUtils.MenuItem(
         () => {
           val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
@@ -186,7 +187,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         s"Add objective area"
       )
     )
-    add(
+    dseMenu.add(
       ContextMenuUtils.MenuItem(
         () => {
           val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
@@ -197,7 +198,7 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
       )
     )
     if (path == DesignPath()) { // price only supported at top level for now
-      add(
+      dseMenu.add(
         ContextMenuUtils.MenuItem(
           () => {
             val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
@@ -208,16 +209,21 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         )
       )
     }
-    add(
-      ContextMenuUtils.MenuItem(
-        () => {
-          val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-          config.options.objectives = config.options.objectives ++ Seq(DseObjectiveUnprovenCount(path))
-          DseService(project).onObjectiveConfigChanged(config, true)
-        },
-        "Add unproven count"
+    if (EdgSettingsState.getInstance().showProvenStatus) {
+      dseMenu.add(
+        ContextMenuUtils.MenuItem(
+          () => {
+            val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+            config.options.objectives = config.options.objectives ++ Seq(DseObjectiveUnprovenCount(path))
+            DseService(project).onObjectiveConfigChanged(config, true)
+          },
+          "Add unproven count"
+        )
       )
-    )
+    }
+
+    addSeparator()
+    add(dseMenu)
   }
 }
 
@@ -289,6 +295,33 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   addGotoDefinitionItem(portClass, project)
   addGotoConnectItems(path, interface.getDesign, project)
 
+  if (DseFeature.kEnabled) {
+    val dseMenu = new JMenu("Design Space Exploration")
+
+    val params = port match {
+      case port: elem.Port => port.params
+      case bundle: elem.Bundle => bundle.params
+      case _ => Seq() // including arrays, not supported
+    }
+    params.toSeqMap.foreach { case (paramName, paramValue) =>
+      dseMenu.add(ContextMenuUtils.MenuItemFromErrorable(
+        exceptable {
+          val objective =
+            DseObjectiveParameter(path.asIndirect + paramName, edg.compiler.ExprValue.classFromValInit(paramValue))
+          () => {
+            val config =
+              DseService(project).getOrCreateRunConfiguration(interface.getDesign.getContents.getSelfClass, this)
+            config.options.objectives = config.options.objectives :+ objective
+            DseService(project).onObjectiveConfigChanged(config, true)
+          }
+        },
+        f"Add objective $paramName"
+      ))
+    }
+
+    addSeparator()
+    add(dseMenu)
+  }
 }
 
 class DefaultTool(val interface: ToolInterface) extends BaseTool {
