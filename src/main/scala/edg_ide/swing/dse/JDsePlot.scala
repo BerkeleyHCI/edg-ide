@@ -14,12 +14,12 @@ object JDsePlot {
   val kBackgroundBlend: Float = 0.25f
   val kBackgroundAlpha: Int = 127
 
-  val kPointSizePx: Int = 6 // diameter in px
-  val kSnapDistancePx: Int = 9 // distance (radius) to snap for a click
-  val kPointSelectedSizePx: Int = 9 // diameter in px
-  val kPointHoverOutlinePx: Int = 14 // diameter in px
-  val kLineHoverBackgroundPx: Int = 24 // width in px
-  val kLineHoverOutlinePx: Int = 14 // width in px
+  val kPointSizePx: Int = 4 // diameter in px
+  val kSnapDistancePx: Int = 6 // distance (radius) to snap for a click
+  val kPointSelectedSizePx: Int = 6 // diameter in px
+  val kPointHoverOutlinePx: Int = 12 // diameter in px
+  val kLineHoverBackgroundPx: Int = 19 // width in px
+  val kLineHoverOutlinePx: Int = 9 // width in px
   val kHoverOutlineColor: Color = JBColor.BLUE
   val kHoverOutlineBlend: Float = 0.5f
 
