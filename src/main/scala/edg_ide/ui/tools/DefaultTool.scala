@@ -209,16 +209,18 @@ class DesignBlockPopupMenu(path: DesignPath, interface: ToolInterface)
         )
       )
     }
-    dseMenu.add(
-      ContextMenuUtils.MenuItem(
-        () => {
-          val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
-          config.options.objectives = config.options.objectives ++ Seq(DseObjectiveUnprovenCount(path))
-          DseService(project).onObjectiveConfigChanged(config, true)
-        },
-        "Add unproven count"
+    if (EdgSettingsState.getInstance().showProvenStatus) {
+      dseMenu.add(
+        ContextMenuUtils.MenuItem(
+          () => {
+            val config = DseService(project).getOrCreateRunConfiguration(rootClass, this)
+            config.options.objectives = config.options.objectives ++ Seq(DseObjectiveUnprovenCount(path))
+            DseService(project).onObjectiveConfigChanged(config, true)
+          },
+          "Add unproven count"
+        )
       )
-    )
+    }
 
     addSeparator()
     add(dseMenu)
@@ -304,16 +306,8 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
     params.toSeqMap.foreach { case (paramName, paramValue) =>
       dseMenu.add(ContextMenuUtils.MenuItemFromErrorable(
         exceptable {
-          val paramType = paramValue.`val` match {
-            case edgir.init.init.ValInit.Val.Floating(_) => classOf[edg.compiler.FloatValue]
-            case edgir.init.init.ValInit.Val.Integer(_) => classOf[edg.compiler.IntValue]
-            case edgir.init.init.ValInit.Val.Boolean(_) => classOf[edg.compiler.BooleanValue]
-            case edgir.init.init.ValInit.Val.Text(_) => classOf[edg.compiler.TextValue]
-            case edgir.init.init.ValInit.Val.Range(_) => classOf[edg.compiler.RangeType]
-            case _ => exceptable.fail(f"unknown parameter type")
-          }
-          val objective = DseObjectiveParameter(path.asIndirect + paramName, paramType)
-
+          val objective =
+            DseObjectiveParameter(path.asIndirect + paramName, edg.compiler.ExprValue.classFromValInit(paramValue))
           () => {
             val config =
               DseService(project).getOrCreateRunConfiguration(interface.getDesign.getContents.getSelfClass, this)
