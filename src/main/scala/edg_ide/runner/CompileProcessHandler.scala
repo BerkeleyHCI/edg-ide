@@ -276,9 +276,18 @@ class CompileProcessHandler(
 ) extends ProcessHandler
     with HasConsoleStages {
   var runThread: Option[Thread] = None
+  var pythonInterfaceOpt: Option[LoggingPythonInterface] = None
 
   override def destroyProcessImpl(): Unit = {
+    pythonInterfaceOpt.foreach { pythonInterface =>
+      pythonInterface.destroy()
+      pythonInterface.forwardProcessOutput()
+      console.print(f"Python subprocess terminated.\n", ConsoleViewContentType.ERROR_OUTPUT)
+      pythonInterfaceOpt = None
+    }
     runThread.foreach(_.interrupt())
+    console.print(f"Compilation terminated.\n", ConsoleViewContentType.ERROR_OUTPUT)
+    terminatedNotify(-1)
   }
   override def detachProcessImpl(): Unit = {
     throw new NotImplementedError()
@@ -302,8 +311,7 @@ class CompileProcessHandler(
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     BlockVisualizerService(project).setDesignStale()
 
-    // A maybe Python interface is needed at this level so on an error it can be shut down if it exists
-    var pythonInterfaceOpt: Option[LoggingPythonInterface] = None
+    require(pythonInterfaceOpt.isEmpty)
     var exitCode: Int = -1
 
     try {
