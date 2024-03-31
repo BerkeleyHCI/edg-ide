@@ -311,7 +311,6 @@ class CompileProcessHandler(
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     BlockVisualizerService(project).setDesignStale()
 
-    // A maybe Python interface is needed at this level so on an error it can be shut down if it exists
     require(pythonInterfaceOpt.isEmpty)
     var exitCode: Int = -1
 
