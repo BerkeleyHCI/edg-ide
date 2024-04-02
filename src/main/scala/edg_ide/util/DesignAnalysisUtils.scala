@@ -15,6 +15,7 @@ import edg.ElemBuilder.LibraryPath
 import edg_ide.EdgirUtils
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 
+import java.nio.file.Paths
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala}
 import scala.collection.mutable
 
@@ -32,15 +33,33 @@ object DesignAnalysisUtils {
   /** Returns the PyClass of a LibraryPath
     */
   def pyClassOf(path: ref.LibraryPath, project: Project): Errorable[PyClass] = {
-    pyClassOf(path.getTarget.getName, project)
+    pyClassOf(path.getTarget.getName, project, false)
   }
 
-  def pyClassOf(className: String, project: Project): Errorable[PyClass] = {
+  def pyClassPrefix(project: Project): String = {
+    val projectPath = Paths.get(project.getBasePath)
+    if (
+      projectPath.toFile.getName == "PolymorphicBlocks" &&
+      projectPath.resolve("edg_hdl_server").toFile.exists()
+    ) {
+      "" // developing on the repo itself
+    } else if (
+      projectPath.resolve("PolymorphicBlocks").toFile.exists() &&
+      projectPath.resolve("PolymorphicBlocks").resolve("edg_hdl_server").toFile.exists()
+    ) {
+      "PolymorphicBlocks." // developing with the repo as a submodule
+    } else {
+      "" // using pip-installed version
+    }
+  }
+
+  def pyClassOf(className: String, project: Project, prependPrefix: Boolean = true): Errorable[PyClass] = {
     val pyPsi = PyPsiFacade.getInstance(project)
     val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
+    val prefixedClassName = if (prependPrefix) pyClassPrefix(project) + className else className
     SlowOperations.allowSlowOperations(() => {
       // this is often used to build responsive UI elements, so hopefully is also fast enough to run in EDT
-      Errorable(pyPsi.createClassByQName(className, anchor), s"no class $className")
+      Errorable(pyPsi.createClassByQName(prefixedClassName, anchor), s"no class $className")
     })
   }
 

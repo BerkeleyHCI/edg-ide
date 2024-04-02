@@ -76,11 +76,11 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 
 // a PythonInterface that uses the on-event hooks to log to the console
 class LoggingPythonInterface(
-    serverFile: Option[File],
+    packageNameDir: Option[(String, File)],
     pythonPaths: Seq[String],
     pythonInterpreter: String,
     console: ConsoleView
-) extends PythonInterface(serverFile, pythonPaths, pythonInterpreter) {
+) extends PythonInterface(packageNameDir, pythonPaths, pythonInterpreter) {
   def forwardProcessOutput(): Unit = {
     StreamUtils.forAvailable(processOutputStream) { data =>
       console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
@@ -324,9 +324,9 @@ class CompileProcessHandler(
         s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
-      val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
-      hdlServerOption.foreach { _ =>
-        console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+      val hdlServerOption = PythonInterface.serverPackageOption(Some(Paths.get(project.getBasePath).toFile))
+      hdlServerOption.foreach { hdlServer =>
+        console.print(s"Using local ${hdlServer._1}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
       }
       val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console)
       pythonInterfaceOpt = Some(pythonInterface)
