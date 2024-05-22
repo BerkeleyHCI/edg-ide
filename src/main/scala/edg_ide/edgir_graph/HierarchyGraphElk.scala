@@ -210,7 +210,7 @@ object HierarchyGraphElk {
     val edgirGraph = EdgirGraph.blockToNode(blockPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
       4,
-      Set(LibraryPath("electronics_model.VoltagePorts.VoltageLink"))
+      Set(LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"))
     )
     val transformedGraph = highFanoutTransform(
       CollapseLinkTransform(
