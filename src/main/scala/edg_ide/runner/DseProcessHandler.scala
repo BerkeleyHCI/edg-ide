@@ -176,7 +176,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
 
-      val pythonInterface = new LoggingPythonInterface(pythonPaths, pythonCommand, console)
+      val pythonInterface = new LoggingPythonInterface(console, pythonCommand, pythonPaths)
       pythonInterfaceOption = Some(pythonInterface)
 
       (pythonInterface.getProtoVersion() match {
