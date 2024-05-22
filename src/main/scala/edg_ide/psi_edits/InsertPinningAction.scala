@@ -50,7 +50,7 @@ object InsertPinningAction {
   ): Seq[ref.LocalPath] = {
     // TODO refactor into CircuitBlock? doesn't really belong in VoltagePorts
     val circuitPortType =
-      ElemBuilder.LibraryPath("electronics_model.VoltagePorts.CircuitPort") // TODO belongs in shared place?
+      ElemBuilder.LibraryPath("edg.electronics_model.VoltagePorts.CircuitPort") // TODO belongs in shared place?
     val circuitPortClass = DesignAnalysisUtils.pyClassOf(circuitPortType, project).get
 
     recursivePortPathsAndTypes(path, port)

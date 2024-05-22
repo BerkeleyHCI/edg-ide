@@ -176,11 +176,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
 
-      val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
-      hdlServerOption.foreach { _ =>
-        console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-      }
-      val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console)
+      val pythonInterface = new LoggingPythonInterface(console, pythonCommand, pythonPaths)
       pythonInterfaceOption = Some(pythonInterface)
 
       (pythonInterface.getProtoVersion() match {

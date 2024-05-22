@@ -14,8 +14,8 @@ class ObjectSerializerTest extends AnyFlatSpec with Matchers {
       DseSubclassSearch(
         DesignPath() + "reg_5v",
         Seq(
-          "electronics_lib.BuckConverter_TexasInstruments.Tps561201",
-          "electronics_lib.BuckConverter_TexasInstruments.Tps54202h",
+          "edg.parts.BuckConverter_TexasInstruments.Tps561201",
+          "edg.parts.BuckConverter_TexasInstruments.Tps54202h",
         ).map(value => ElemBuilder.LibraryPath(value))
       ),
       DsePathParameterSearch(

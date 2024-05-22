@@ -76,11 +76,10 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 
 // a PythonInterface that uses the on-event hooks to log to the console
 class LoggingPythonInterface(
-    serverFile: Option[File],
-    pythonPaths: Seq[String],
-    pythonInterpreter: String,
-    console: ConsoleView
-) extends PythonInterface(serverFile, pythonPaths, pythonInterpreter) {
+    console: ConsoleView,
+    interpreter: String,
+    pythonPaths: Seq[String] = Seq(),
+) extends PythonInterface(interpreter = interpreter, pythonPaths = pythonPaths) {
   def forwardProcessOutput(): Unit = {
     StreamUtils.forAvailable(processOutputStream) { data =>
       console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
@@ -324,11 +323,9 @@ class CompileProcessHandler(
         s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
-      val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
-      hdlServerOption.foreach { _ =>
-        console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-      }
-      val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console)
+      println(pythonPaths)
+      val pythonInterface =
+        new LoggingPythonInterface(console, pythonCommand, pythonPaths)
       pythonInterfaceOpt = Some(pythonInterface)
 
       (pythonInterface.getProtoVersion() match {
@@ -390,7 +387,7 @@ class CompileProcessHandler(
 
         runFailableStageUnit("refdes", indicator) {
           val refdes = pythonInterface.runRefinementPass(
-            ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
+            ElemBuilder.LibraryPath("edg.electronics_model.RefdesRefinementPass"),
             compiled,
             compiler.getAllSolved
           ).mapErr(msg => s"while refdesing: $msg")
@@ -408,7 +405,7 @@ class CompileProcessHandler(
         if (options.netlistFile.nonEmpty) {
           runFailableStageUnit("generate netlist", indicator) {
             val netlist = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
+              ElemBuilder.LibraryPath("edg.electronics_model.NetlistBackend"),
               compiled,
               compiler.getAllSolved,
               Map("RefdesMode" -> options.toggle.toString)
@@ -432,7 +429,7 @@ class CompileProcessHandler(
         if (options.bomFile.nonEmpty) {
           runFailableStageUnit("generate BOM", indicator) {
             val bom = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
+              ElemBuilder.LibraryPath("edg.electronics_model.BomBackend.GenerateBom"),
               compiled,
               compiler.getAllSolved,
               Map()

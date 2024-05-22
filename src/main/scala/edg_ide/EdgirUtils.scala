@@ -17,7 +17,7 @@ object EdgirUtils {
   }
 
   def isInternal(blockType: ref.LibraryPath): Boolean = {
-    blockType == LibraryPath("edg_core.Categories.InternalBlock")
+    blockType == LibraryPath("edg.core.Categories.InternalBlock")
   }
 
   // TODO refactor into common utils elsewhere
