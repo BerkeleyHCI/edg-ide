@@ -76,11 +76,10 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 
 // a PythonInterface that uses the on-event hooks to log to the console
 class LoggingPythonInterface(
-    serverFile: Option[File],
-    pythonPaths: Seq[String],
-    pythonInterpreter: String,
-    console: ConsoleView
-) extends PythonInterface(serverFile, pythonPaths, pythonInterpreter) {
+    console: ConsoleView,
+    interpreter: String,
+    pythonPaths: Seq[String] = Seq(),
+) extends PythonInterface(interpreter = interpreter, pythonPaths = pythonPaths) {
   def forwardProcessOutput(): Unit = {
     StreamUtils.forAvailable(processOutputStream) { data =>
       console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
@@ -389,7 +388,7 @@ class CompileProcessHandler(
 
         runFailableStageUnit("refdes", indicator) {
           val refdes = pythonInterface.runRefinementPass(
-            ElemBuilder.LibraryPath("electronics_model.RefdesRefinementPass"),
+            ElemBuilder.LibraryPath("edg.electronics_model.RefdesRefinementPass"),
             compiled,
             compiler.getAllSolved
           ).mapErr(msg => s"while refdesing: $msg")
@@ -407,7 +406,7 @@ class CompileProcessHandler(
         if (options.netlistFile.nonEmpty) {
           runFailableStageUnit("generate netlist", indicator) {
             val netlist = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath("electronics_model.NetlistBackend"),
+              ElemBuilder.LibraryPath("edg.electronics_model.NetlistBackend"),
               compiled,
               compiler.getAllSolved,
               Map("RefdesMode" -> options.toggle.toString)
@@ -431,7 +430,7 @@ class CompileProcessHandler(
         if (options.bomFile.nonEmpty) {
           runFailableStageUnit("generate BOM", indicator) {
             val bom = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath("electronics_model.BomBackend.GenerateBom"),
+              ElemBuilder.LibraryPath("edg.electronics_model.BomBackend.GenerateBom"),
               compiled,
               compiler.getAllSolved,
               Map()

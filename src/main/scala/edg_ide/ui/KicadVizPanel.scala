@@ -298,7 +298,7 @@ class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
     val footprintFile = KicadFootprintUtil.getFootprintFile(footprintName).exceptError
     val footprintBlockType =
       ElemBuilder.LibraryPath(
-        "electronics_model.CircuitBlock.FootprintBlock"
+        "edg.electronics_model.CircuitBlock.FootprintBlock"
       ) // TODO belongs in shared place?
     val footprintBlockClass = DesignAnalysisUtils.pyClassOf(footprintBlockType, project).get
     requireExcept(

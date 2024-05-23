@@ -137,7 +137,7 @@ case class DseObjectivePrice() extends DseFloatObjective with Serializable {
   ): Float = {
     pythonInterface
       .runBackend(
-        ElemBuilder.LibraryPath("electronics_lib.PriceGetter.GeneratePrice"),
+        ElemBuilder.LibraryPath("edg.parts.PriceGetter.GeneratePrice"),
         design,
         compiler.getAllSolved,
         Map()

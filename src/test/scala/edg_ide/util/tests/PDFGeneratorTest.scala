@@ -43,7 +43,7 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
                 ))
               ),
             ).toPb,
-            selfClass = Some(LibraryPath("electronics_lib.GenericResistor.GenericAxialResistor")),
+            selfClass = Some(LibraryPath("edg.parts.GenericResistor.GenericAxialResistor")),
           ))
         ),
         "R2" -> elem.BlockLike(`type` =
@@ -69,7 +69,7 @@ class PDFGeneratorTest extends AnyFlatSpec with Matchers {
                 ))
               ),
             ).toPb,
-            selfClass = Some(LibraryPath("electronics_lib.GenericResistor.GenericAxialResistor")),
+            selfClass = Some(LibraryPath("edg.parts.GenericResistor.GenericAxialResistor")),
           ))
         ),
       ).toPb,
