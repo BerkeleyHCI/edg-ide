@@ -43,7 +43,7 @@ object CompilerErrorNodeBase {
     }
 
     private lazy val all: (String, String, Seq[CompilerErrorNodeBase]) = err match {
-      case CompilerError.Unelaborated(ElaborateRecord.Block(path), deps) =>
+      case CompilerError.Unelaborated(ElaborateRecord.Block(path, _), deps) =>
         ("Unelaborated Block", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))
       case CompilerError.Unelaborated(ElaborateRecord.Link(path), deps) =>
         ("Unelaborated Link", path.toString, deps.toSeq.map(elaborateRecordToDetailNode))

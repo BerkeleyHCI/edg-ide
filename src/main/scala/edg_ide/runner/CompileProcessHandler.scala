@@ -324,11 +324,7 @@ class CompileProcessHandler(
         s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
-      val hdlServerOption = PythonInterface.serverFileOption(Some(Paths.get(project.getBasePath).toFile))
-      hdlServerOption.foreach { _ =>
-        console.print(s"Using local HDL server\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-      }
-      val pythonInterface = new LoggingPythonInterface(hdlServerOption, pythonPaths, pythonCommand, console)
+      val pythonInterface = new LoggingPythonInterface(console, pythonCommand, pythonPaths)
       pythonInterfaceOpt = Some(pythonInterface)
 
       (pythonInterface.getProtoVersion() match {
@@ -360,8 +356,7 @@ class CompileProcessHandler(
         // this can be skipped - library elements can be built dynamically as they are used during compile
         runFailableStageUnit("rebuild libraries", indicator, Some(0.0f)) {
           def rebuildProgressFn(library: ref.LibraryPath, index: Int, total: Int): Unit = {
-            // this also includes requests that hit cache
-            indicator.setFraction(index.toFloat / total)
+            indicator.setFraction(index.toFloat / total) // this also includes requests that hit cache
           }
 
           val designModule = options.designName.split('.').init.mkString(".")
@@ -370,9 +365,13 @@ class CompileProcessHandler(
           f"${indexed.size} elements"
         }
 
-        val (compiled, compiler, refinements) = runRequiredStage("compile", indicator) {
+        val (compiled, compiler, refinements) = runRequiredStage("compile", indicator, Some(0.0f)) {
+          def compileProgressFn(progress: Float): Unit = {
+            indicator.setFraction(progress)
+          }
+
           val designType = ElemBuilder.LibraryPath(options.designName)
-          val output = EdgCompilerService(project).compile(designType)
+          val output = EdgCompilerService(project).compile(designType, Some(compileProgressFn))
           (output, "")
         }
 

@@ -139,7 +139,10 @@ class EdgCompilerService(project: Project)
 
   // Compiles a top level design
   // progressFn is called (by compiler hook) for each compiler elaborate record
-  def compile(designType: ref.LibraryPath): (schema.Design, Compiler, edgrpc.Refinements) = {
+  def compile(
+      designType: ref.LibraryPath,
+      progressFn: Option[Float => Unit] = None
+  ): (schema.Design, Compiler, edgrpc.Refinements) = {
     val (block, refinements) = EdgCompilerService(project).pyLib
       .getDesignTop(designType)
       .mapErr(msg => s"invalid top-level design: $msg")
@@ -147,7 +150,12 @@ class EdgCompilerService(project: Project)
     val design = schema.Design(contents = Some(block))
 
     val compiler =
-      new Compiler(design, EdgCompilerService(project).pyLib, refinements = Refinements(refinements))
+      new Compiler(
+        design,
+        EdgCompilerService(project).pyLib,
+        refinements = Refinements(refinements),
+        progressFn = progressFn
+      )
     (compiler.compile(), compiler, refinements)
   }
 
