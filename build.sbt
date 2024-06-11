@@ -14,7 +14,7 @@ lazy val root = (project in file("."))
   .dependsOn(edgCompiler % "compile->compile; test->test")
   .enablePlugins(SbtIdeaPlugin)
   .settings(
-    scalaVersion := "2.13.8",
+    scalaVersion := "2.13.14",
     scalacOptions += "-deprecation",
     javacOptions ++= "--release" :: "11" :: Nil,
 
