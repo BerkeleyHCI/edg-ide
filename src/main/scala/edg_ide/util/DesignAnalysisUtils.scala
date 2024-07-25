@@ -19,16 +19,6 @@ import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala}
 import scala.collection.mutable
 
 object DesignAnalysisUtils {
-  // Returns whether subclass is a subclass of superclass, using the PSI.
-  // If anything can't be found, returns false.
-  def isSubclassOfPsi(subclass: ref.LibraryPath, superclass: ref.LibraryPath, project: Project): Boolean = {
-    (pyClassOf(subclass, project).toOption, pyClassOf(superclass, project).toOption) match {
-      case (Some(subclass), Some(superclass)) =>
-        subclass.isSubclass(superclass, TypeEvalContext.codeAnalysis(project, null))
-      case _ => false
-    }
-  }
-
   /** Returns the PyClass of a LibraryPath
     */
   def pyClassOf(path: ref.LibraryPath, project: Project): Errorable[PyClass] = {
