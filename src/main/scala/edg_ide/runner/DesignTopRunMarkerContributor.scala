@@ -20,7 +20,7 @@ class DesignTopRunMarkerContributor extends RunLineMarkerContributor {
       case parent: PyClass =>
         val project = element.getProject
         // shouldn't fail, and if it does it should fail noisily
-        val designTopClass = DesignAnalysisUtils.pyClassOf("edg.core.DesignTop.DesignTop", project).get
+        val designTopClass = DesignAnalysisUtils.corePyClassOf(DesignAnalysisUtils.kDesignTopClassName, project).get
         if (parent.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
           new Info(AllIcons.RunConfigurations.TestState.Run, ExecutorAction.getActions(), null)
         } else {
