@@ -310,11 +310,6 @@ class CompileProcessHandler(
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     BlockVisualizerService(project).setDesignStale()
 
-    val corePrefix = ReadAction.compute(() => { DesignAnalysisUtils.resolveCorePrefix(project) }).get
-    if (corePrefix.nonEmpty) {
-      console.print(s"Using core prefix ${corePrefix.mkString(".")}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
-    }
-
     require(pythonInterfaceOpt.isEmpty)
     var exitCode: Int = -1
 
@@ -330,6 +325,11 @@ class CompileProcessHandler(
       )
       val pythonInterface = new LoggingPythonInterface(console, pythonCommand, pythonPaths)
       pythonInterfaceOpt = Some(pythonInterface)
+
+      val packagePrefix = pythonInterface.packagePrefix
+      if (packagePrefix.nonEmpty) {
+        console.print(s"Using core prefix ${packagePrefix}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+      }
 
       (pythonInterface.getProtoVersion() match {
         case Errorable.Success(pyVersion) if pyVersion == Compiler.kExpectedProtoVersion => None
@@ -393,7 +393,7 @@ class CompileProcessHandler(
 
         runFailableStageUnit("refdes", indicator) {
           val refdes = pythonInterface.runRefinementPass(
-            ElemBuilder.LibraryPath((corePrefix :+ "edg.electronics_model.RefdesRefinementPass").mkString(".")),
+            ElemBuilder.LibraryPath(packagePrefix + "edg.electronics_model.RefdesRefinementPass"),
             compiled,
             compiler.getAllSolved
           ).mapErr(msg => s"while refdesing: $msg")
@@ -411,7 +411,7 @@ class CompileProcessHandler(
         if (options.netlistFile.nonEmpty) {
           runFailableStageUnit("generate netlist", indicator) {
             val netlist = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath((corePrefix :+ "edg.electronics_model.NetlistBackend").mkString(".")),
+              ElemBuilder.LibraryPath(packagePrefix + "edg.electronics_model.NetlistBackend"),
               compiled,
               compiler.getAllSolved,
               Map("RefdesMode" -> options.toggle.toString)
@@ -435,7 +435,7 @@ class CompileProcessHandler(
         if (options.bomFile.nonEmpty) {
           runFailableStageUnit("generate BOM", indicator) {
             val bom = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath((corePrefix :+ "edg.electronics_model.BomBackend.GenerateBom").mkString(".")),
+              ElemBuilder.LibraryPath(packagePrefix + "edg.electronics_model.BomBackend.GenerateBom"),
               compiled,
               compiler.getAllSolved,
               Map()

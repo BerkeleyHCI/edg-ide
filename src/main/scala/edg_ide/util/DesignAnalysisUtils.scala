@@ -36,13 +36,13 @@ object DesignAnalysisUtils {
   }
 
   // List of prefixes to try for corePyClassOf, in order (submodule is preferred over top-level)
-  val kCorePrefixes = Seq(Seq("PolymorphicBlocks"), Seq())
+  val kCorePrefixes = Seq("PolymorphicBlocks.", "")
   val kDesignTopClassName = "edg.core.DesignTop.DesignTop"
   val kBlockClassName = "edg.core.HierarchyBlock.Block"
 
-  def resolveCorePrefix(project: Project): Errorable[Seq[String]] = {
+  def resolveCorePrefix(project: Project): Errorable[String] = {
     kCorePrefixes
-      .map(prefix => (prefix, pyClassOf((prefix :+ kDesignTopClassName).mkString("."), project)))
+      .map(prefix => (prefix, pyClassOf(prefix + kDesignTopClassName, project)))
       .collectFirst { case (prefix, Errorable.Success(_)) => Errorable.Success(prefix) }
       .getOrElse(Errorable.Error(s"unable to resolve edg core prefix, tried ${kCorePrefixes}"))
   }
@@ -52,7 +52,7 @@ object DesignAnalysisUtils {
     */
   def corePyClassOf(className: String, project: Project): Errorable[PyClass] = exceptable {
     val prefix = resolveCorePrefix(project).exceptError
-    return pyClassOf((prefix :+ className).mkString("."), project)
+    return pyClassOf(prefix + className, project)
   }
 
   def typeOf(pyClass: PyClass): ref.LibraryPath = {
