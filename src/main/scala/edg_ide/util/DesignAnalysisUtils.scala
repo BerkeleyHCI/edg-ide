@@ -19,15 +19,6 @@ import scala.jdk.CollectionConverters.{CollectionHasAsScala, ListHasAsScala}
 import scala.collection.mutable
 
 object DesignAnalysisUtils {
-  // Returns whether subclass is a subclass of superclass, using the PSI.
-  // If anything can't be found, returns false.
-  def isSubclassOfPsi(subclass: ref.LibraryPath, superclass: ref.LibraryPath, project: Project): Boolean = {
-    (pyClassOf(subclass, project).toOption, pyClassOf(superclass, project).toOption) match {
-      case (Some(subclass), Some(superclass)) =>
-        subclass.isSubclass(superclass, TypeEvalContext.codeAnalysis(project, null))
-      case _ => false
-    }
-  }
 
   /** Returns the PyClass of a LibraryPath
     */
@@ -37,11 +28,31 @@ object DesignAnalysisUtils {
 
   def pyClassOf(className: String, project: Project): Errorable[PyClass] = {
     val pyPsi = PyPsiFacade.getInstance(project)
-    val anchor = PsiManager.getInstance(project).findFile(project.getProjectFile)
+    val anchor = PsiManager.getInstance(project).findDirectory(project.getBaseDir)
     SlowOperations.allowSlowOperations(() => {
       // this is often used to build responsive UI elements, so hopefully is also fast enough to run in EDT
       Errorable(pyPsi.createClassByQName(className, anchor), s"no class $className")
     })
+  }
+
+  // List of prefixes to try for corePyClassOf, in order (submodule is preferred over top-level)
+  val kCorePrefixes = Seq("PolymorphicBlocks.", "")
+  val kDesignTopClassName = "edg.core.DesignTop.DesignTop"
+  val kBlockClassName = "edg.core.HierarchyBlock.Block"
+
+  def resolveCorePrefix(project: Project): Errorable[String] = {
+    kCorePrefixes
+      .map(prefix => (prefix, pyClassOf(prefix + kDesignTopClassName, project)))
+      .collectFirst { case (prefix, Errorable.Success(_)) => Errorable.Success(prefix) }
+      .getOrElse(Errorable.Error(s"unable to resolve edg core prefix, tried ${kCorePrefixes}"))
+  }
+
+  /** Returns the PyClass of a core library LibraryPath, trying prefixes to account for different project setups (eg
+    * submodules)
+    */
+  def corePyClassOf(className: String, project: Project): Errorable[PyClass] = exceptable {
+    val prefix = resolveCorePrefix(project).exceptError
+    return pyClassOf(prefix + className, project)
   }
 
   def typeOf(pyClass: PyClass): ref.LibraryPath = {

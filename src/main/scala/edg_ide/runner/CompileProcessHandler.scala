@@ -16,10 +16,10 @@ import edg.ElemBuilder
 import edg.compiler._
 import edg.util.{Errorable, StreamUtils, timeExec}
 import edg.wir.DesignPath
-import edg_ide.edgir_graph.{ElkEdgirGraphUtils, HierarchyGraphElk}
+import edg_ide.edgir_graph.ElkEdgirGraphUtils
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService, EdgSettingsState}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
-import edg_ide.util.exceptable
+import edg_ide.util.{DesignAnalysisUtils, exceptable}
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -326,6 +326,11 @@ class CompileProcessHandler(
       val pythonInterface = new LoggingPythonInterface(console, pythonCommand, pythonPaths)
       pythonInterfaceOpt = Some(pythonInterface)
 
+      val packagePrefix = pythonInterface.packagePrefix
+      if (packagePrefix.nonEmpty) {
+        console.print(s"Using core prefix ${packagePrefix}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
+      }
+
       (pythonInterface.getProtoVersion() match {
         case Errorable.Success(pyVersion) if pyVersion == Compiler.kExpectedProtoVersion => None
         case Errorable.Success(pyMismatchVersion) => Some(pyMismatchVersion.toString)
@@ -388,7 +393,7 @@ class CompileProcessHandler(
 
         runFailableStageUnit("refdes", indicator) {
           val refdes = pythonInterface.runRefinementPass(
-            ElemBuilder.LibraryPath("edg.electronics_model.RefdesRefinementPass"),
+            ElemBuilder.LibraryPath(packagePrefix + "edg.electronics_model.RefdesRefinementPass"),
             compiled,
             compiler.getAllSolved
           ).mapErr(msg => s"while refdesing: $msg")
@@ -406,7 +411,7 @@ class CompileProcessHandler(
         if (options.netlistFile.nonEmpty) {
           runFailableStageUnit("generate netlist", indicator) {
             val netlist = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath("edg.electronics_model.NetlistBackend"),
+              ElemBuilder.LibraryPath(packagePrefix + "edg.electronics_model.NetlistBackend"),
               compiled,
               compiler.getAllSolved,
               Map("RefdesMode" -> options.toggle.toString)
@@ -430,7 +435,7 @@ class CompileProcessHandler(
         if (options.bomFile.nonEmpty) {
           runFailableStageUnit("generate BOM", indicator) {
             val bom = pythonInterface.runBackend(
-              ElemBuilder.LibraryPath("edg.electronics_model.BomBackend.GenerateBom"),
+              ElemBuilder.LibraryPath(packagePrefix + "edg.electronics_model.BomBackend.GenerateBom"),
               compiled,
               compiler.getAllSolved,
               Map()

@@ -25,7 +25,7 @@ class DesignTopRunConfigurationProducer extends LazyRunConfigurationProducer[Des
       case Some(psiPyClass) =>
         val project = psiPyClass.getProject
         // shouldn't fail, and if it does it should fail noisily
-        val designTopClass = DesignAnalysisUtils.pyClassOf("edg.core.DesignTop.DesignTop", project).get
+        val designTopClass = DesignAnalysisUtils.corePyClassOf(DesignAnalysisUtils.kDesignTopClassName, project).get
         if (psiPyClass.isSubclass(designTopClass, TypeEvalContext.codeAnalysis(project, null))) {
           configuration.setName(psiPyClass.getQualifiedName)
           configuration.options.designName = psiPyClass.getQualifiedName
