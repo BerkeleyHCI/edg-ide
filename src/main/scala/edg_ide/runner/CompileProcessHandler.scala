@@ -75,20 +75,20 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 }
 
 // a PythonInterface that uses the on-event hooks to log to the console
-class LoggingPythonInterface(
-    console: ConsoleView,
-    interpreter: String,
-    pythonPaths: Seq[String] = Seq(),
-) extends PythonInterface(interpreter = interpreter, pythonPaths = pythonPaths) {
+class LoggingPythonInterface(interpreter: String, pythonPaths: Seq[String], console: ConsoleView)
+    extends ProtobufStdioSubprocess(interpreter = interpreter, pythonPaths = pythonPaths) {
   def forwardProcessOutput(): Unit = {
-    StreamUtils.forAvailable(processOutputStream) { data =>
+    StreamUtils.forAvailable(outputStream) { data =>
       console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
     }
-    StreamUtils.forAvailable(processErrorStream) { data =>
+    StreamUtils.forAvailable(errorStream) { data =>
       console.print(new String(data), ConsoleViewContentType.ERROR_OUTPUT)
     }
   }
+}
 
+class LoggingCompilerInterface(interface: LoggingPythonInterface, console: ConsoleView)
+    extends PythonInterface(interface) {
   override def onLibraryRequest(element: ref.LibraryPath): Unit = {
     // this needs to be here to only print on requests that made it to Python (instead of just hit cache)
     console.print(s"Compile ${element.toSimpleString}\n", ConsoleViewContentType.LOG_DEBUG_OUTPUT)
@@ -98,7 +98,7 @@ class LoggingPythonInterface(
       element: ref.LibraryPath,
       result: Errorable[(schema.Library.NS.Val, Option[edgrpc.Refinements])]
   ): Unit = {
-    forwardProcessOutput()
+    interface.forwardProcessOutput()
     result match {
       case Errorable.Error(msg) =>
         console.print(
@@ -127,7 +127,7 @@ class LoggingPythonInterface(
       values: Map[ref.LocalPath, ExprValue],
       result: Errorable[elem.HierarchyBlock]
   ): Unit = {
-    forwardProcessOutput()
+    interface.forwardProcessOutput()
     result match {
       case Errorable.Error(msg) =>
         console.print(
@@ -142,7 +142,7 @@ class LoggingPythonInterface(
       refinementPass: ref.LibraryPath,
       result: Errorable[Map[DesignPath, ExprValue]]
   ): Unit = {
-    forwardProcessOutput()
+    interface.forwardProcessOutput()
     result match {
       case Errorable.Error(msg) =>
         console.print(
@@ -157,7 +157,7 @@ class LoggingPythonInterface(
       backend: ref.LibraryPath,
       result: Errorable[Map[DesignPath, String]]
   ): Unit = {
-    forwardProcessOutput()
+    interface.forwardProcessOutput()
     result match {
       case Errorable.Error(msg) =>
         console.print(
@@ -275,14 +275,14 @@ class CompileProcessHandler(
 ) extends ProcessHandler
     with HasConsoleStages {
   var runThread: Option[Thread] = None
-  var pythonInterfaceOpt: Option[LoggingPythonInterface] = None
+  var pythonProcessOpt: Option[LoggingPythonInterface] = None
 
   override def destroyProcessImpl(): Unit = {
-    pythonInterfaceOpt.foreach { pythonInterface =>
+    pythonProcessOpt.foreach { pythonInterface =>
       pythonInterface.destroy()
       pythonInterface.forwardProcessOutput()
       console.print(f"Python subprocess terminated.\n", ConsoleViewContentType.ERROR_OUTPUT)
-      pythonInterfaceOpt = None
+      pythonProcessOpt = None
     }
     runThread.foreach(_.interrupt())
     console.print(f"Compilation terminated.\n", ConsoleViewContentType.ERROR_OUTPUT)
@@ -310,7 +310,7 @@ class CompileProcessHandler(
     console.print(s"Starting compilation of ${options.designName}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
     BlockVisualizerService(project).setDesignStale()
 
-    require(pythonInterfaceOpt.isEmpty)
+    require(pythonProcessOpt.isEmpty)
     var exitCode: Int = -1
 
     try {
@@ -323,10 +323,11 @@ class CompileProcessHandler(
         s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
-      val pythonInterface = new LoggingPythonInterface(console, pythonCommand, pythonPaths)
-      pythonInterfaceOpt = Some(pythonInterface)
+      val pythonProcess = new LoggingPythonInterface(pythonCommand, pythonPaths, console)
+      val pythonInterface = new LoggingCompilerInterface(pythonProcess, console)
+      pythonProcessOpt = Some(pythonProcess)
 
-      val packagePrefix = pythonInterface.packagePrefix
+      val packagePrefix = pythonProcess.packagePrefix
       if (packagePrefix.nonEmpty) {
         console.print(s"Using core prefix ${packagePrefix}\n", ConsoleViewContentType.LOG_INFO_OUTPUT)
       }
@@ -479,11 +480,11 @@ class CompileProcessHandler(
           }
         }
       }
-      exitCode = pythonInterface.shutdown()
-      pythonInterface.forwardProcessOutput() // dump remaining process output (shouldn't happen)
+      exitCode = pythonProcess.shutdown()
+      pythonProcess.forwardProcessOutput() // dump remaining process output (shouldn't happen)
     } catch { // this generally shouldn't happen but is an overall catch-all and clean-up
       case e: Throwable =>
-        pythonInterfaceOpt.foreach { pyIf =>
+        pythonProcessOpt.foreach { pyIf =>
           exitCode = pyIf.shutdown()
           pyIf.forwardProcessOutput() // dump remaining process output before the final error message
         }
