@@ -149,21 +149,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
 
     // This structure is quite nasty, but is needed to give a stream handle in case something crashes,
     // in which case pythonInterface is not a valid reference
-    var pythonInterfaceOption: Option[PythonInterface] = None
+    var pythonProcessOpt: Option[LoggingPythonInterface] = None
 
     var exitCode: Int = -1
-    def forwardProcessOutput(): Unit = {
-      pythonInterfaceOption.foreach { pyIf =>
-        StreamUtils.forAvailable(pyIf.processOutputStream) { data =>
-          console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
-        }
-      }
-      pythonInterfaceOption.foreach { pyIf =>
-        StreamUtils.forAvailable(pyIf.processErrorStream) { data =>
-          console.print(new String(data), ConsoleViewContentType.ERROR_OUTPUT)
-        }
-      }
-    }
 
     try {
       val (pythonCommand, pythonPaths, sdkName) =
@@ -176,8 +164,9 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
 
-      val pythonInterface = new LoggingPythonInterface(console, pythonCommand, pythonPaths)
-      pythonInterfaceOption = Some(pythonInterface)
+      val pythonProcess = new LoggingPythonInterface(pythonCommand, pythonPaths, console)
+      val pythonInterface = new LoggingCompilerInterface(pythonProcess, console)
+      pythonProcessOpt = Some(pythonProcess)
 
       (pythonInterface.getProtoVersion() match {
         case Errorable.Success(pyVersion) if pyVersion == Compiler.kExpectedProtoVersion => None
@@ -345,12 +334,14 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
       }
     } catch {
       case e: Throwable =>
-        pythonInterfaceOption.foreach { pyIf => exitCode = pyIf.shutdown() }
-        forwardProcessOutput() // dump remaining process output first
+        pythonProcessOpt.foreach { pyIf =>
+          exitCode = pyIf.shutdown()
+          pyIf.forwardProcessOutput() // dump remaining process output before the final error message
+        }
 
-        console.print(s"Compiler internal error: ${e.toString}\n", ConsoleViewContentType.ERROR_OUTPUT)
         val stackWriter = new StringWriter()
         e.printStackTrace(new PrintWriter(stackWriter))
+        console.print(s"Compiler internal error: ${e.toString}\n", ConsoleViewContentType.ERROR_OUTPUT)
         console.print(stackWriter.toString, ConsoleViewContentType.ERROR_OUTPUT)
     }
 
