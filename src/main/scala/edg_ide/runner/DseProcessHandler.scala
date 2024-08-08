@@ -154,7 +154,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
     var exitCode: Int = -1
 
     try {
-      val (pythonCommand, pythonPaths, sdkName) =
+      val (pythonCommand, workingDir, pythonPaths, sdkName) =
         CompileProcessHandler
           .getPythonInterpreter(project, options.designName)
           .mapErr(msg => s"while getting Python interpreter path: $msg")
@@ -164,7 +164,7 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
 
-      val pythonProcess = new LoggingPythonInterface(pythonCommand, pythonPaths, console)
+      val pythonProcess = new LoggingPythonInterface(pythonCommand, Some(new File(workingDir)), pythonPaths, console)
       val pythonInterface = new LoggingCompilerInterface(pythonProcess, console)
       pythonProcessOpt = Some(pythonProcess)
 

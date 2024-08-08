@@ -19,7 +19,7 @@ import edg.wir.DesignPath
 import edg_ide.edgir_graph.ElkEdgirGraphUtils
 import edg_ide.ui.{BlockVisualizerService, EdgCompilerService, EdgSettingsState}
 import edg_ide.util.ExceptionNotifyImplicits.ExceptNotify
-import edg_ide.util.{DesignAnalysisUtils, exceptable}
+import edg_ide.util.exceptable
 import edgir.elem.elem
 import edgir.ref.ref
 import edgir.schema.schema
@@ -75,8 +75,8 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
 }
 
 // a PythonInterface that uses the on-event hooks to log to the console
-class LoggingPythonInterface(interpreter: String, pythonPaths: Seq[String], console: ConsoleView)
-    extends ProtobufStdioSubprocess(interpreter = interpreter, pythonPaths = pythonPaths) {
+class LoggingPythonInterface(interpreter: String, cwd: Option[File], pythonPaths: Seq[String], console: ConsoleView)
+    extends ProtobufStdioSubprocess(interpreter = interpreter, cwd = cwd, pythonPaths = pythonPaths) {
   def forwardProcessOutput(): Unit = {
     StreamUtils.forAvailable(outputStream) { data =>
       console.print(new String(data), ConsoleViewContentType.NORMAL_OUTPUT)
@@ -170,9 +170,9 @@ class LoggingCompilerInterface(interface: LoggingPythonInterface, console: Conso
 }
 
 object CompileProcessHandler {
-  // Returns the interpreter executable from the SDK, Python paths, and the SDK name,
+  // Returns the interpreter executable from the SDK, working directory, Python paths, and the SDK name,
   // for the Python class associated with the design
-  def getPythonInterpreter(project: Project, designName: String): Errorable[(String, Seq[String], String)] =
+  def getPythonInterpreter(project: Project, designName: String): Errorable[(String, String, Seq[String], String)] =
     exceptable {
       ReadAction.compute(() => {
         val pyPsi = PyPsiFacade.getInstance(project)
@@ -183,8 +183,9 @@ object CompileProcessHandler {
         val module = ModuleUtilCore.findModuleForPsiElement(pyClass).exceptNull("can't find project module")
         val sdk = PythonSdkUtil.findPythonSdk(module).exceptNull("can't find Python SDK")
 
+        val workingDir = pyClass.getContainingFile.getContainingDirectory.getVirtualFile.getPath
         val runParams = new DesignTopRunParams(
-          pyClass.getContainingFile.getVirtualFile.getPath,
+          workingDir,
           sdk.getHomePath,
           module.getName
         )
@@ -192,7 +193,7 @@ object CompileProcessHandler {
           .getInterpreterPath(project, runParams)
           .exceptNull("can't get interpreter path")
         val pythonPaths = PythonCommandLineState.collectPythonPath(module)
-        (pythonCommand, pythonPaths.asScala.toSeq, sdk.getName)
+        (pythonCommand, workingDir, pythonPaths.asScala.toSeq, sdk.getName)
       })
     }
 }
@@ -314,7 +315,7 @@ class CompileProcessHandler(
     var exitCode: Int = -1
 
     try {
-      val (pythonCommand, pythonPaths, sdkName) =
+      val (pythonCommand, workingDir, pythonPaths, sdkName) =
         CompileProcessHandler
           .getPythonInterpreter(project, options.designName)
           .mapErr(msg => s"while getting Python interpreter path: $msg")
@@ -323,7 +324,7 @@ class CompileProcessHandler(
         s"Using interpreter from configured SDK '$sdkName': $pythonCommand\n",
         ConsoleViewContentType.LOG_INFO_OUTPUT
       )
-      val pythonProcess = new LoggingPythonInterface(pythonCommand, pythonPaths, console)
+      val pythonProcess = new LoggingPythonInterface(pythonCommand, Some(new File(workingDir)), pythonPaths, console)
       val pythonInterface = new LoggingCompilerInterface(pythonProcess, console)
       pythonProcessOpt = Some(pythonProcess)
 
