@@ -238,11 +238,16 @@ class DseProcessHandler(project: Project, options: DseRunConfigurationOptions, v
                   partial = partialCompile
                 )
               case None =>
+                def compileProgressFn(progress: Float): Unit = {
+                  if (Thread.interrupted()) throw new InterruptedException // must poll this regularly
+                }
+
                 new Compiler(
                   design,
                   EdgCompilerService(project).pyLib,
                   refinements = refinements ++ incrRefinements,
-                  partial = partialCompile
+                  partial = partialCompile,
+                  progressFn = Some(compileProgressFn)
                 )
             }
 

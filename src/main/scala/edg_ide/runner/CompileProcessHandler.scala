@@ -211,7 +211,7 @@ trait HasConsoleStages {
       indicator: ProgressIndicator,
       progressFrac: Option[Float] = None
   )(fn: => (ReturnType, String)): ReturnType = {
-    if (Thread.interrupted()) throw new InterruptedException // TODO cleaner way to stop compile process?
+    if (Thread.interrupted()) throw new InterruptedException // must poll this regularly
     indicator.setText(f"EDG compiling: $name")
     progressFrac match {
       case None => indicator.setIndeterminate(true)
@@ -279,14 +279,19 @@ class CompileProcessHandler(
   var pythonProcessOpt: Option[LoggingPythonInterface] = None
 
   override def destroyProcessImpl(): Unit = {
+    console.print(f"Stopping compilation...\n", ConsoleViewContentType.ERROR_OUTPUT)
+
     pythonProcessOpt.foreach { pythonInterface =>
       pythonInterface.destroy()
       pythonInterface.forwardProcessOutput()
       console.print(f"Python subprocess terminated.\n", ConsoleViewContentType.ERROR_OUTPUT)
       pythonProcessOpt = None
     }
-    runThread.foreach(_.interrupt())
-    console.print(f"Compilation terminated.\n", ConsoleViewContentType.ERROR_OUTPUT)
+    runThread.foreach { runThread =>
+      runThread.interrupt()
+      console.print(f"Compilation thread interrupted.\n", ConsoleViewContentType.ERROR_OUTPUT)
+    }
+
     terminatedNotify(-1)
   }
   override def detachProcessImpl(): Unit = {
@@ -373,6 +378,7 @@ class CompileProcessHandler(
 
         val (compiled, compiler, refinements) = runRequiredStage("compile", indicator, Some(0.0f)) {
           def compileProgressFn(progress: Float): Unit = {
+            if (Thread.interrupted()) throw new InterruptedException // must poll this regularly
             indicator.setFraction(progress)
           }
 
