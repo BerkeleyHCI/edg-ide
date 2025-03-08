@@ -22,5 +22,16 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
     transformed.edges should equal(Seq())
   }
 
-  it should "group nodes and convert inter-group edges to degenerate edges" in {}
+  it should "group nodes and convert inter-group edges to degenerate edges" in {
+    val grouper = new GrouperTransform {}
+    val transformed = grouper.group(
+      InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
+      SeqMap("src_group" -> Seq("source"), "snk_group" -> Seq("sink"))
+    )
+
+    transformed.members("src_group").members.keys.toSeq should equal(Seq("source"))
+    transformed.members("snk_group").members.keys.toSeq should equal(Seq("sink"))
+    print(transformed.members("snk_group").edges) // TODO add reference degenerate edges
+    transformed.edges should equal(Seq()) // should be no top edges
+  }
 }
