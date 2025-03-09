@@ -27,5 +27,11 @@ class GroupingTransform {
     }.groupBy(_._1)
 
 //    val newContainerMembers =
+
+    EdgirGraph.EdgirNode(
+      data = container.data,
+      members = ???,
+      edges = ???
+    )
   }
 }
