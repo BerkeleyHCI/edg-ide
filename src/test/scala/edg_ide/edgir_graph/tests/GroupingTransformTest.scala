@@ -1,6 +1,6 @@
 package edg_ide.edgir_graph.tests
 
-import edg_ide.edgir_graph.{GroupingTransform, InferEdgeDirectionTransform}
+import edg_ide.edgir_graph.{EdgirGraph, GroupingTransform, InferEdgeDirectionTransform}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -8,6 +8,16 @@ import scala.collection.SeqMap
 
 class GroupingTransformTest extends AnyFlatSpec with Matchers {
   behavior.of("GroupingTransform")
+
+  it should "no-op" in {
+    val grouper = new GroupingTransform {}
+    val transformed = grouper(
+      InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
+      SeqMap()
+    )
+
+    transformed should equal(InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph))
+  }
 
   it should "group nodes including internal edges" in {
     val grouper = new GroupingTransform {}
@@ -17,7 +27,7 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
     )
 
     transformed.members should equal(
-      SeqMap("group" -> InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph))
+      SeqMap(Seq("group") -> InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph))
     )
     transformed.edges should equal(Seq())
   }
@@ -29,9 +39,15 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
       SeqMap("src_group" -> Seq("source"), "snk_group" -> Seq("sink"))
     )
 
-    transformed.members(Seq("src_group")).members.keys.toSeq should equal(Seq("source"))
-    transformed.members(Seq("snk_group")).members.keys.toSeq should equal(Seq("sink"))
-    print(transformed.members(Seq("snk_group")).edges) // TODO add reference degenerate edges
+    transformed.members(Seq("src_group")).asInstanceOf[EdgirGraph.EdgirNode].members.keys.toSeq should equal(
+      Seq("source")
+    )
+    transformed.members(Seq("snk_group")).asInstanceOf[EdgirGraph.EdgirNode].members.keys.toSeq should equal(
+      Seq("sink")
+    )
+    print(
+      transformed.members(Seq("snk_group")).asInstanceOf[EdgirGraph.EdgirNode].edges
+    ) // TODO add reference degenerate edges
     transformed.edges should equal(Seq()) // should be no top edges
   }
 }
