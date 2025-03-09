@@ -209,7 +209,7 @@ object HierarchyGraphElk {
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(blockPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-      4,
+      6,
       Set(
         LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"),
         LibraryPath("edg.electronics_model.GroundPort.GroundLink")
