@@ -210,7 +210,10 @@ object HierarchyGraphElk {
     val edgirGraph = EdgirGraph.blockToNode(blockPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
       4,
-      Set(LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"))
+      Set(
+        LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"),
+        LibraryPath("edg.electronics_model.GroundPort.GroundLink")
+      )
     )
     val blockGroupings = block.meta match {
       case Some(meta) => meta.meta.members.get.node.get("block_group") match {
