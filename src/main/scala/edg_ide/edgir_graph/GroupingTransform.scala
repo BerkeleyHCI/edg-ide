@@ -6,7 +6,7 @@ import scala.collection.SeqMap
   * group into that node. Edges between nodes of the same group are moved into the group node, while edges between nodes
   * are transformed into tunnels (implemented as degenerate edges)
   */
-class GroupingTransform {
+object GroupingTransform {
   def apply(container: EdgirGraph.EdgirNode, groups: SeqMap[String, Seq[String]]): EdgirGraph.EdgirNode = {
     val nodeToGroup = groups.flatMap { case (groupName, members) =>
       members.map(Seq(_) -> groupName) // convert to pathname

@@ -212,15 +212,27 @@ object HierarchyGraphElk {
       4,
       Set(LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"))
     )
+    val blockGroupings = block.meta match {
+      case Some(meta) => meta.meta.members.get.node.get("block_group") match {
+          case Some(meta) => meta.meta.members.get.node.map { case (name, group) =>
+              name -> group.meta.textLeaf.get.split(',').map(_.strip()).toSeq
+            }
+          case None => Seq()
+        }
+      case None => Seq()
+    }
     val transformedGraph = highFanoutTransform(
-      CollapseLinkTransform(
-        CollapseBridgeTransform(
-          InferEdgeDirectionTransform(
-            SimplifyPortTransform(
-              PruneDepthTransform(edgirGraph, depth)
+      GroupingTransform(
+        CollapseLinkTransform(
+          CollapseBridgeTransform(
+            InferEdgeDirectionTransform(
+              SimplifyPortTransform(
+                PruneDepthTransform(edgirGraph, depth)
+              )
             )
           )
-        )
+        ),
+        blockGroupings.to(SeqMap)
       )
     )
 

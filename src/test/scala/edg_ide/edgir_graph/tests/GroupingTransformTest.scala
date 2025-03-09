@@ -10,8 +10,7 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
   behavior.of("GroupingTransform")
 
   it should "no-op" in {
-    val grouper = new GroupingTransform {}
-    val transformed = grouper(
+    val transformed = GroupingTransform(
       InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
       SeqMap()
     )
@@ -20,8 +19,7 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
   }
 
   it should "group nodes including internal edges" in {
-    val grouper = new GroupingTransform {}
-    val transformed = grouper(
+    val transformed = GroupingTransform(
       InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
       SeqMap("group" -> Seq("source", "sink", "link"))
     )
@@ -33,8 +31,7 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
   }
 
   it should "group nodes and convert inter-group edges to degenerate edges" in {
-    val grouper = new GroupingTransform {}
-    val transformed = grouper(
+    val transformed = GroupingTransform(
       InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
       SeqMap("src_group" -> Seq("source", "link"), "snk_group" -> Seq("sink"))
     )

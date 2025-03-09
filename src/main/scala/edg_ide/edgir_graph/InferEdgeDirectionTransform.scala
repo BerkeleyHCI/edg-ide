@@ -22,8 +22,9 @@ object InferEdgeDirectionTransform {
   def sourcePorts(link: LinkWrapper, ports: Map[String, Set[Seq[String]]]): Set[Seq[String]] = {
     // TODO these should be in the IR, perhaps as metadata, instead of hardcoded in the viz code
     val sources = Set(
+      "ref", // gnd
       "source",
-      "single_sources",
+      "sources",
       "driver",
       "host",
       "master",
@@ -31,6 +32,7 @@ object InferEdgeDirectionTransform {
       "controller" // CAN logic
     )
     val sinks = Set(
+      "gnds",
       "sink",
       "sinks",
       "crystal",
@@ -38,7 +40,8 @@ object InferEdgeDirectionTransform {
       "devices", // SWD, USB
       "targets", // I2C
       "peripherals", // SPI
-      "transceiver" // CAN logic
+      "transceiver", // CAN logic
+      "target_receiver", // I2S
     )
     val bidirs = Set(
       "bidirs",
@@ -46,7 +49,8 @@ object InferEdgeDirectionTransform {
       "passives",
       "a",
       "b", // UART
-      "nodes" // CAN diff
+      "nodes", // CAN diff
+      "pad", // touch
     )
     val allKnownPorts = sources ++ sinks ++ bidirs
 
