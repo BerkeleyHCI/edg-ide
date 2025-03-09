@@ -16,8 +16,8 @@ class GroupingTransform {
     }.groupBy(_._1).view.mapValues(_.map(_._2).to(SeqMap))
 
     val groupedEdges = container.edges.flatMap { edge =>
-      val srcGroup = nodeToGroup.getOrElse(edge.source, None)
-      val dstGroup = nodeToGroup.getOrElse(edge.target, None)
+      val srcGroup = nodeToGroup.getOrElse(Seq(edge.source.head), None)
+      val dstGroup = nodeToGroup.getOrElse(Seq(edge.target.head), None)
       if (srcGroup == dstGroup) { // if in same group, move to group
         Seq(srcGroup -> edge)
       } else { // else create degenerate edge / tunnel

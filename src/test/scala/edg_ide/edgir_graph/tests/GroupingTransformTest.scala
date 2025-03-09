@@ -23,7 +23,7 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
     val grouper = new GroupingTransform {}
     val transformed = grouper(
       InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
-      SeqMap("group" -> Seq("source", "sink"))
+      SeqMap("group" -> Seq("source", "sink", "link"))
     )
 
     transformed.members should equal(
@@ -36,18 +36,34 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
     val grouper = new GroupingTransform {}
     val transformed = grouper(
       InferEdgeDirectionTransform(EdgirTestUtils.TestGraphs.flatGraph),
-      SeqMap("src_group" -> Seq("source"), "snk_group" -> Seq("sink"))
+      SeqMap("src_group" -> Seq("source", "link"), "snk_group" -> Seq("sink"))
     )
 
     transformed.members(Seq("src_group")).asInstanceOf[EdgirGraph.EdgirNode].members.keys.toSeq should equal(
-      Seq("source")
+      Seq(Seq("source"), Seq("link"))
     )
     transformed.members(Seq("snk_group")).asInstanceOf[EdgirGraph.EdgirNode].members.keys.toSeq should equal(
-      Seq("sink")
+      Seq(Seq("sink"))
     )
-    print(
-      transformed.members(Seq("snk_group")).asInstanceOf[EdgirGraph.EdgirNode].edges
-    ) // TODO add reference degenerate edges
-    transformed.edges should equal(Seq()) // should be no top edges
+    transformed.members(Seq("src_group")).asInstanceOf[EdgirGraph.EdgirNode].edges should equal(Seq(
+      EdgirGraph.EdgirEdge(
+        data = EdgirTestUtils.TestGraphs.flatGraph.edges(0).data, // internal link for two blocks within group
+        source = Seq("source", "port"),
+        target = Seq("link", "source")
+      ),
+      EdgirGraph.EdgirEdge(
+        data = EdgirTestUtils.TestGraphs.flatGraph.edges(1).data, // degenerate edge for connection to other group
+        source = Seq("link", "sinks", "0"),
+        target = Seq("link", "sinks", "0")
+      )
+    ))
+    transformed.members(Seq("snk_group")).asInstanceOf[EdgirGraph.EdgirNode].edges should equal(Seq(
+      EdgirGraph.EdgirEdge(
+        data = EdgirTestUtils.TestGraphs.flatGraph.edges(1).data,
+        source = Seq("sink", "port"),
+        target = Seq("sink", "port")
+      )
+    ))
+    transformed.edges should equal(Seq()) // no edges left at top level
   }
 }
