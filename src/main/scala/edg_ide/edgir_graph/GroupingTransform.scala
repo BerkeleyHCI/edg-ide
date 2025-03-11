@@ -30,7 +30,7 @@ object GroupingTransform {
 
     val groupsMembers = groups.keys.map { groupName =>
       Seq(groupName) -> EdgirGraph.EdgirNode(
-        data = container.data,
+        data = GroupWrapper(container.data.path, groupName),
         members = groupedNodes.getOrElse(groupName, SeqMap()),
         edges = groupedEdges.getOrElse(groupName, Seq())
       )

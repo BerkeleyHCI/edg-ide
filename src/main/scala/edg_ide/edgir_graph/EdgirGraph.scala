@@ -14,6 +14,10 @@ sealed trait NodeDataWrapper {
   def path: DesignPath
 }
 
+case class GroupWrapper(path: DesignPath, name: String) extends NodeDataWrapper {
+  override def toString: String = "" // no type name for groups
+}
+
 case class BlockWrapper(path: DesignPath, blockLike: elem.BlockLike) extends NodeDataWrapper {
   override def toString: String = blockLike.`type` match {
     case elem.BlockLike.Type.Hierarchy(block) =>

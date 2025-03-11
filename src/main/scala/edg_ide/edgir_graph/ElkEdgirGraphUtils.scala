@@ -60,6 +60,7 @@ object ElkEdgirGraphUtils {
           case _ => None
         }
         Some(refdesStringMaybe.getOrElse(node.path.lastString))
+      case GroupWrapper(path, name) => Some(name)
       case _ => None // use default for non-blocks
     }
 
