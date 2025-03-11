@@ -8,7 +8,7 @@ import edgir.elem.elem.HierarchyBlock
 import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
 import org.eclipse.elk.core.RecursiveGraphLayoutEngine
 import org.eclipse.elk.core.data.LayoutMetaDataService
-import org.eclipse.elk.core.math.KVector
+import org.eclipse.elk.core.math.{ElkPadding, KVector}
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.graph._
@@ -64,7 +64,7 @@ object HierarchyGraphElk {
       )
     )
     node.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
-    node.setProperty(CoreOptions.NODE_SIZE_MINIMUM, new KVector(200, 20))
+    node.setProperty(CoreOptions.NODE_SIZE_MINIMUM, new KVector(200, 30))
 
     node
   }
@@ -118,6 +118,7 @@ object HierarchyGraphElk {
         elkNode.setProperty(mapper.property, mapperResult)
       }
     }
+    elkNode.setProperty(CoreOptions.NODE_LABELS_PADDING, new ElkPadding(15))
 
     val title = Option(elkNode.getProperty(TitleProperty)).getOrElse(name)
     ElkGraphUtil

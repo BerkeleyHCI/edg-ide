@@ -1,13 +1,13 @@
 package edg_ide.edgir_graph
 
-import scala.collection.SeqMap
+import edg.EdgirUtils.SimpleLibraryPath
+import edg.util.MapUtils
+import edg.wir.DesignPath
+import edg.wir.ProtoUtil._
 import edgir.elem.elem
 import edgir.expr.expr
-import edg.wir.DesignPath
-import edg.EdgirUtils.SimpleLibraryPath
-import edg.ExprBuilder.Ref
-import edg.util.MapUtils
-import edg.wir.ProtoUtil._
+
+import scala.collection.SeqMap
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(
 sealed trait NodeDataWrapper {
