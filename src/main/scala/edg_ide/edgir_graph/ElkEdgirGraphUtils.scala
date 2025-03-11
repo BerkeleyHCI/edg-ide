@@ -211,6 +211,10 @@ object ElkEdgirGraphUtils {
             case Some(range: RangeValue) => WireColorMapper.voltageRangeToColor(range)
             case _ => None
           }
+        case Some("GroundLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+            case Some(range: RangeValue) => WireColorMapper.voltageRangeToColor(range)
+            case _ => None
+          }
         case _ => None
       }
     }
@@ -253,6 +257,10 @@ object ElkEdgirGraphUtils {
       }
       linkTypeOpt.map(_.toSimpleString) match {
         case Some("VoltageLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+            case Some(range: RangeValue) => WireLabelMapper.voltageRangeToString(range)
+            case _ => None
+          }
+        case Some("GroundLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
             case Some(range: RangeValue) => WireLabelMapper.voltageRangeToString(range)
             case _ => None
           }

@@ -209,18 +209,33 @@ object HierarchyGraphElk {
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(blockPath, block)
     val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-      4,
-      Set(LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"))
+      6,
+      Set(
+        LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"),
+        LibraryPath("edg.electronics_model.GroundPort.GroundLink")
+      )
     )
+    val blockGroupings = block.meta match {
+      case Some(meta) => meta.meta.members.get.node.get("_block_diagram_grouping") match {
+          case Some(meta) => meta.meta.members.get.node.map { case (name, group) =>
+              name -> group.meta.textLeaf.get.split(',').map(_.strip()).toSeq
+            }
+          case None => Seq()
+        }
+      case None => Seq()
+    }
     val transformedGraph = highFanoutTransform(
-      CollapseLinkTransform(
-        CollapseBridgeTransform(
-          InferEdgeDirectionTransform(
-            SimplifyPortTransform(
-              PruneDepthTransform(edgirGraph, depth)
+      GroupingTransform(
+        CollapseLinkTransform(
+          CollapseBridgeTransform(
+            InferEdgeDirectionTransform(
+              SimplifyPortTransform(
+                PruneDepthTransform(edgirGraph, depth)
+              )
             )
           )
-        )
+        ),
+        blockGroupings.to(SeqMap)
       )
     )
 

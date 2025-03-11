@@ -20,6 +20,8 @@ jobs:
       with:
         distribution: temurin
         java-version: 17
+    - name: Setup sbt launcher
+      uses: sbt/setup-sbt@v1
 
     - name: sbt test
       run: sbt -v +test

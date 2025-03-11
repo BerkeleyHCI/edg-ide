@@ -35,7 +35,7 @@ trait CollapseNodeTransform {
       .map { case (_, data) => data }
 
     // If there are no sources or sinks, arbitrarily designate the first as the source
-    val (fixedSources, fixedTargets) = if (collapsedBlockSources.isEmpty && collapsedBlockSources.isEmpty) {
+    val (fixedSources, fixedTargets) = if (collapsedBlockSources.isEmpty && collapsedBlockTargets.isEmpty) {
       (Seq(), Seq())
     } else if (collapsedBlockSources.isEmpty) {
       (Seq(collapsedBlockTargets.head), collapsedBlockTargets.tail)
