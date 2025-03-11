@@ -216,7 +216,7 @@ object HierarchyGraphElk {
       )
     )
     val blockGroupings = block.meta match {
-      case Some(meta) => meta.meta.members.get.node.get("block_group") match {
+      case Some(meta) => meta.meta.members.get.node.get("_block_diagram_grouping") match {
           case Some(meta) => meta.meta.members.get.node.map { case (name, group) =>
               name -> group.meta.textLeaf.get.split(',').map(_.strip()).toSeq
             }
