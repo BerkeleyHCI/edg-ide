@@ -137,7 +137,7 @@ object EdgirGraph {
         val allMembers = MapUtils
           .mergeSeqMapSafe( // arrays not collapse
             block.ports.toSeqMap.flatMap { case (name, port) =>
-              expandPortsWithNames(path + name, Seq(name), port, true)
+              expandPortsWithNames(path + name, Seq(name), port)
             },
             block.blocks.toSeqMap.map { case (name, subblock) =>
               Seq(name) -> blockLikeToNode(path + name, subblock)
@@ -168,7 +168,7 @@ object EdgirGraph {
         val allMembers = MapUtils
           .mergeSeqMapSafe(
             link.ports.toSeqMap.flatMap { case (name, port) =>
-              expandPortsWithNames(path + name, Seq(name), port, false)
+              expandPortsWithNames(path + name, Seq(name), port)
             }, // arrays collapsed
             link.links.toSeqMap.map { case (name, sublink) =>
               Seq(name) -> linkLikeToNode(path + name, sublink)
@@ -185,7 +185,7 @@ object EdgirGraph {
         val allMembers = MapUtils
           .mergeSeqMapSafe(
             link.ports.toSeqMap.flatMap { case (name, port) =>
-              expandPortsWithNames(path + name, Seq(name), port, false)
+              expandPortsWithNames(path + name, Seq(name), port)
             }, // arrays collapsed
             link.links.toSeqMap.map { case (name, sublink) =>
               Seq(name) -> linkLikeToNode(path + name, sublink)
@@ -214,18 +214,16 @@ object EdgirGraph {
   def expandPortsWithNames(
       path: DesignPath,
       name: Seq[String],
-      portLike: elem.PortLike,
-      expandArrays: Boolean
+      portLike: elem.PortLike
   ): Seq[(Seq[String], EdgirPort)] = portLike.is match {
     case elem.PortLike.Is.Port(port) => Seq(name -> portLikeToPort(path, portLike))
     case elem.PortLike.Is.Bundle(port) => Seq(name -> portLikeToPort(path, portLike))
     case elem.PortLike.Is.LibElem(port) => Seq(name -> portLikeToPort(path, portLike))
-    case elem.PortLike.Is.Array(array) if expandArrays =>
+    case elem.PortLike.Is.Array(array) =>
       Seq(name -> portLikeToPort(path, portLike))
       array.getPorts.ports.toSeqMap.toSeq.flatMap { case (subname, subport) =>
-        expandPortsWithNames(path + subname, name :+ subname, subport, expandArrays)
+        expandPortsWithNames(path + subname, name :+ subname, subport)
       }
-    case elem.PortLike.Is.Array(array) => Seq(name -> portLikeToPort(path, portLike)) // for links
     case port => throw new NotImplementedError()
   }
 }
