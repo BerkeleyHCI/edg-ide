@@ -106,8 +106,8 @@ object EdgirGraph {
     case Seq() => Seq( // in the loading pass, the source is the block side and the target is the link side
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = connected.getBlockPort.getRef.steps.slice(0, 2).map(_.getName), // only block and port, ignore arrays
-          target = connected.getLinkPort.getRef.steps.slice(0, 2).map(_.getName)
+          source = connected.getBlockPort.getRef.steps.map(_.getName), // only block and port, ignore arrays
+          target = connected.getLinkPort.getRef.steps.map(_.getName)
         ))
     case Seq(expanded) => connectedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")
@@ -123,8 +123,8 @@ object EdgirGraph {
       Seq( // in the loading pass, the source is the block side and the target is the external port
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = exported.getInternalBlockPort.getRef.steps.slice(0, 2).map(_.getName),
-          target = exported.getExteriorPort.getRef.steps.slice(0, 1).map(_.getName)
+          source = exported.getInternalBlockPort.getRef.steps.map(_.getName),
+          target = exported.getExteriorPort.getRef.steps.map(_.getName)
         ))
     case Seq(expanded) => exportedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")
@@ -137,7 +137,7 @@ object EdgirGraph {
         val allMembers = MapUtils
           .mergeSeqMapSafe( // arrays not collapse
             block.ports.toSeqMap.flatMap { case (name, port) =>
-              expandPortsWithNames(path + name, Seq(name), port)
+              expandPortsWithNames(path + name, Seq(name), port, true)
             },
             block.blocks.toSeqMap.map { case (name, subblock) =>
               Seq(name) -> blockLikeToNode(path + name, subblock)
@@ -168,7 +168,7 @@ object EdgirGraph {
         val allMembers = MapUtils
           .mergeSeqMapSafe(
             link.ports.toSeqMap.flatMap { case (name, port) =>
-              expandPortsWithNames(path + name, Seq(name), port)
+              expandPortsWithNames(path + name, Seq(name), port, false)
             }, // arrays collapsed
             link.links.toSeqMap.map { case (name, sublink) =>
               Seq(name) -> linkLikeToNode(path + name, sublink)
@@ -185,7 +185,7 @@ object EdgirGraph {
         val allMembers = MapUtils
           .mergeSeqMapSafe(
             link.ports.toSeqMap.flatMap { case (name, port) =>
-              expandPortsWithNames(path + name, Seq(name), port)
+              expandPortsWithNames(path + name, Seq(name), port, false)
             }, // arrays collapsed
             link.links.toSeqMap.map { case (name, sublink) =>
               Seq(name) -> linkLikeToNode(path + name, sublink)
@@ -214,8 +214,18 @@ object EdgirGraph {
   def expandPortsWithNames(
       path: DesignPath,
       name: Seq[String],
-      portLike: elem.PortLike
-  ): Seq[(Seq[String], EdgirPort)] = { // including in the array case, just generate one visual port
-    Seq(name -> portLikeToPort(path, portLike))
+      portLike: elem.PortLike,
+      expandArrays: Boolean
+  ): Seq[(Seq[String], EdgirPort)] = portLike.is match {
+    case elem.PortLike.Is.Port(port) => Seq(name -> portLikeToPort(path, portLike))
+    case elem.PortLike.Is.Bundle(port) => Seq(name -> portLikeToPort(path, portLike))
+    case elem.PortLike.Is.LibElem(port) => Seq(name -> portLikeToPort(path, portLike))
+    case elem.PortLike.Is.Array(array) if expandArrays =>
+      Seq(name -> portLikeToPort(path, portLike))
+      array.getPorts.ports.toSeqMap.toSeq.flatMap { case (subname, subport) =>
+        expandPortsWithNames(path + subname, name :+ subname, subport, expandArrays)
+      }
+    case elem.PortLike.Is.Array(array) => Seq(name -> portLikeToPort(path, portLike)) // for links
+    case port => throw new NotImplementedError()
   }
 }
