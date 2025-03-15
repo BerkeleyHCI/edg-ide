@@ -1,5 +1,6 @@
 package edg_ide.edgir_graph
 
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ui.JBColor
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, RangeValue, TextValue}
@@ -74,6 +75,8 @@ object ElkEdgirGraphUtils {
 
   import org.eclipse.elk.core.options.PortSide
   object PortSideMapper extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    private val logger = Logger.getInstance(this.getClass)
+
     import org.eclipse.elk.core.options.CoreOptions.PORT_SIDE
     type PropertyType = PortSide
 
@@ -135,7 +138,7 @@ object ElkEdgirGraphUtils {
         case "Passive" => Some(PortSide.EAST) // un-directioned
 
         case port =>
-          println(s"Unknown port type $port")
+          logger.warn(s"Unknown port type $port")
           Some(PortSide.EAST)
       }
     }
