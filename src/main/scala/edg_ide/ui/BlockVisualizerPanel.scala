@@ -517,6 +517,8 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
             ElkEdgirGraphUtils.PortArrayMapper,
             new ElkEdgirGraphUtils.WireColorMapper(compiler),
             new ElkEdgirGraphUtils.WireLabelMapper(compiler),
+            ElkEdgirGraphUtils.PortSideMapper,
+            ElkEdgirGraphUtils.PortConstraintMapper,
           )
         )
 

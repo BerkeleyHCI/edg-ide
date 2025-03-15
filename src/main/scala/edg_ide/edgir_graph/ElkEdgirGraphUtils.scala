@@ -85,48 +85,58 @@ object ElkEdgirGraphUtils {
       val portName = port.path.steps.last
 
       portType.toSimpleString match {
+        case "Ground" => Some(PortSide.SOUTH)
+        case "GroundReference" => Some(PortSide.SOUTH)
+
         case "VoltageSource" => Some(PortSide.EAST)
-        case "VoltageSink" =>
-          portName match {
-            case "gnd" | "vss" => Some(PortSide.SOUTH)
-            case _ => Some(PortSide.NORTH)
-          }
+        case "VoltageSink" => Some(PortSide.NORTH)
 
         case "DigitalSource" => Some(PortSide.EAST)
-        case "DigitalSingleSource" => Some(PortSide.EAST)
         case "DigitalSink" => Some(PortSide.WEST)
-        case "DigitalBidir" => None
+        case "DigitalBidir" => Some(PortSide.EAST) // bidirectional
 
         case "AnalogSource" => Some(PortSide.EAST)
         case "AnalogSink" => Some(PortSide.WEST)
 
         case "CanControllerPort" => Some(PortSide.EAST)
         case "CanTransceiverPort" => Some(PortSide.WEST)
-        case "CanDiffPort" => None
+        case "CanDiffPort" => Some(PortSide.EAST) // un-directioned
 
         case "CrystalDriver" => Some(PortSide.EAST)
         case "CrystalPort" => Some(PortSide.WEST)
 
-        case "I2cMaster" => Some(PortSide.EAST)
+        case "I2cController" => Some(PortSide.EAST)
         case "I2cPullupPort" => Some(PortSide.EAST)
-        case "I2cSlave" => Some(PortSide.WEST)
+        case "I2cTarget" => Some(PortSide.WEST)
 
         case "SpeakerDriverPort" => Some(PortSide.EAST)
         case "SpeakerPort" => Some(PortSide.WEST)
 
-        case "SpiMaster" => Some(PortSide.EAST)
-        case "SpiSlave" => Some(PortSide.WEST)
+        case "SpiController" => Some(PortSide.EAST)
+        case "SpiPeripheral" => Some(PortSide.WEST)
 
         case "SwdHostPort" => Some(PortSide.EAST)
         case "SwdTargetPort" => Some(PortSide.WEST)
 
-        case "UartPrt" => None
+        case "UartPort" => Some(PortSide.EAST) // un-directioned
 
         case "UsbHostPort" => Some(PortSide.EAST)
         case "UsbDevicePort" => Some(PortSide.WEST)
-        case "UsbPassivePort" => None
+        case "UsbPassivePort" => Some(PortSide.WEST)
 
-        case _ => None
+        case "I2sController" => Some(PortSide.EAST)
+        case "I2sTargetReceiver" => Some(PortSide.WEST)
+
+        case "TouchDriver" => Some(PortSide.EAST)
+        case "TouchPadPort" => Some(PortSide.WEST)
+
+        case "UsbCcPort" => Some(PortSide.EAST) // un-directioned
+
+        case "Passive" => Some(PortSide.EAST) // un-directioned
+
+        case port =>
+          println(s"Unknown port type $port")
+          Some(PortSide.EAST)
       }
     }
     override def edgeConv(edge: EdgeWrapper): Option[PortSide] = None
