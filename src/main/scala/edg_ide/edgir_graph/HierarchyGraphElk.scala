@@ -162,6 +162,14 @@ object HierarchyGraphElk {
     val myElkElements =
       myElkPorts ++ myElkChildren // unify namespace, data structure should prevent conflicts
     node.edges.foreach { edge =>
+      (edge.source, edge.target) match {
+        case (None, None) => logger.warn(s"empty edge")
+        case (None, Some(target)) =>
+        case (Some(source), None) =>
+        case (Some(source), Some(target))
+
+      }
+
       (myElkElements.get(edge.source), myElkElements.get(edge.target)) match {
         case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
         case (None, _) => logger.warn(s"edge with invalid source ${edge.source}")

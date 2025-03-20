@@ -16,14 +16,14 @@ object GroupingTransform {
     }.groupBy(_._1).view.mapValues(_.map(_._2).to(SeqMap))
 
     val groupedEdges = container.edges.flatMap { edge =>
-      val srcGroup = nodeToGroup.getOrElse(Seq(edge.source.head), None)
-      val dstGroup = nodeToGroup.getOrElse(Seq(edge.target.head), None)
-      if (srcGroup == dstGroup) { // if in same group, move to group
-        Seq(srcGroup -> edge)
-      } else { // else create degenerate edge / tunnel
+      val srcGroup = edge.source.map(source => nodeToGroup.getOrElse(Seq(source.head), None))
+      val dstGroup = edge.target.map(target => nodeToGroup.getOrElse(Seq(target.head), None))
+      if (srcGroup == dstGroup || srcGroup.isEmpty || dstGroup.isEmpty) { // if in same group, move to group
+        Seq(srcGroup.getOrElse(dstGroup) -> edge)
+      } else { // else create tunnel
         Seq(
-          srcGroup -> EdgirGraph.EdgirEdge(data = edge.data, source = edge.source, target = edge.source),
-          dstGroup -> EdgirGraph.EdgirEdge(data = edge.data, source = edge.target, target = edge.target),
+          srcGroup -> EdgirGraph.EdgirEdge(data = edge.data, source = edge.source, target = None),
+          dstGroup -> EdgirGraph.EdgirEdge(data = edge.data, source = None, target = edge.target),
         )
       }
     }.groupBy(_._1).view.mapValues(_.map(_._2))

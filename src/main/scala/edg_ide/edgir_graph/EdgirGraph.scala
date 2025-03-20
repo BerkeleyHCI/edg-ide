@@ -70,8 +70,8 @@ object EdgirGraph {
 
   case class EdgirEdge(
       override val data: EdgeWrapper,
-      override val source: Seq[String],
-      override val target: Seq[String]
+      override val source: Option[Seq[String]],
+      override val target: Option[Seq[String]]
   ) extends HGraphEdge[EdgeWrapper]
 
   /** Simple wrapper around blockLikeToNode that provides the blockLike wrapper around the block
@@ -110,8 +110,8 @@ object EdgirGraph {
     case Seq() => Seq( // in the loading pass, the source is the block side and the target is the link side
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = connected.getBlockPort.getRef.steps.map(_.getName), // only block and port, ignore arrays
-          target = connected.getLinkPort.getRef.steps.map(_.getName)
+          source = Some(connected.getBlockPort.getRef.steps.map(_.getName)), // only block and port, ignore arrays
+          target = Some(connected.getLinkPort.getRef.steps.map(_.getName))
         ))
     case Seq(expanded) => connectedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")
@@ -127,8 +127,8 @@ object EdgirGraph {
       Seq( // in the loading pass, the source is the block side and the target is the external port
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = exported.getInternalBlockPort.getRef.steps.map(_.getName),
-          target = exported.getExteriorPort.getRef.steps.map(_.getName)
+          source = Some(exported.getInternalBlockPort.getRef.steps.map(_.getName)),
+          target = Some(exported.getExteriorPort.getRef.steps.map(_.getName))
         ))
     case Seq(expanded) => exportedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")

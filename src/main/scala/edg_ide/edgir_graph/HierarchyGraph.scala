@@ -8,13 +8,11 @@ import scala.collection.SeqMap
 // this is where we are
 trait HGraphNodeMember[+NodeType, +PortType, +EdgeType] {}
 
-// TODO support undirected edges?
+// directed edge, if only one of source or target is present, it is a tunnel
 trait HGraphEdge[EdgeType] {
   val data: EdgeType
-  val source: Seq[String]
-  val target: Seq[String]
-
-  def ports: Seq[String] = source ++ target
+  val source: Option[Seq[String]]
+  val target: Option[Seq[String]]
 }
 
 trait HGraphPort[PortType] extends HGraphNodeMember[Nothing, PortType, Nothing] {
