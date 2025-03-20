@@ -284,8 +284,11 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         Seq("block") -> EdgirGraph.EdgirNode(
           data = BlockWrapper(DesignPath() + "block", designIr.blocks("block")),
           members = SeqMap(
-            Seq("ports") -> EdgirGraph.EdgirPort(
-              data = PortWrapper(DesignPath() + "block" + "ports", blockIr.ports("ports"))
+            Seq("ports", "0") -> EdgirGraph.EdgirPort(
+              data = PortWrapper(DesignPath() + "block" + "ports" + "0", blockIr.ports("ports").getArray.getPorts.ports.head.getValue)
+            ),
+            Seq("ports", "test") -> EdgirGraph.EdgirPort(
+              data = PortWrapper(DesignPath() + "block" + "ports" + "test", blockIr.ports("ports").getArray.getPorts.ports.last.getValue)
             ),
           ),
           edges = Seq()
@@ -295,8 +298,8 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
     )
 
     // These checks allow better error localization
-    edgirGraph.members(Seq("block")).asInstanceOf[EdgirNode].members(Seq("ports")) should equal(
-      refGraph.members(Seq("block")).asInstanceOf[EdgirNode].members(Seq("ports"))
+    edgirGraph.members(Seq("block")).asInstanceOf[EdgirNode].members(Seq("ports", "0")) should equal(
+      refGraph.members(Seq("block")).asInstanceOf[EdgirNode].members(Seq("ports", "0"))
     )
 
     // The final catch-all check
