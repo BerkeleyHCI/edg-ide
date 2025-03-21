@@ -78,8 +78,10 @@ object HierarchyGraphElk {
     port
   }
 
-  protected def addEdge(
+  protected def addEdge[NodeType, PortType, EdgeType](
       parent: ElkNode,
+      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]],
+      edgeData: EdgeType,
       source: ElkConnectableShape,
       target: ElkConnectableShape
   ): ElkEdge = {
@@ -87,6 +89,12 @@ object HierarchyGraphElk {
     val edge = ElkGraphUtil.createEdge(parent)
     edge.getSources.add(source)
     edge.getTargets.add(target)
+
+    mappers.foreach { mapper =>
+      mapper.edgeConv(edgeData).foreach { mapperResult =>
+        edge.setProperty(mapper.property, mapperResult)
+      }
+    }
 
     edge
   }
@@ -164,23 +172,20 @@ object HierarchyGraphElk {
     node.edges.foreach { edge =>
       (edge.source, edge.target) match {
         case (None, None) => logger.warn(s"empty edge")
-        case (None, Some(target)) =>
-        case (Some(source), None) =>
-        case (Some(source), Some(target))
-
-      }
-
-      (myElkElements.get(edge.source), myElkElements.get(edge.target)) match {
-        case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
-        case (None, _) => logger.warn(s"edge with invalid source ${edge.source}")
-        case (_, None) => logger.warn(s"edge with invalid target ${edge.target}")
-        case (Some(elkSource), Some(elkTarget)) =>
-          val childEdge = addEdge(elkNode, elkSource, elkTarget)
-          mappers.foreach { mapper =>
-            mapper.edgeConv(edge.data).foreach { mapperResult =>
-              childEdge.setProperty(mapper.property, mapperResult)
-            }
-          }
+        case (None, Some(target)) => myElkElements.get(target) match {
+          case Some(target) => addEdge(elkNode, mappers, edge.data, target, target)
+          case _ => logger.warn(s"tunnel edge with invalid target $target")
+        }
+        case (Some(source), None) => myElkElements.get(source) match {
+          case Some(source) => addEdge(elkNode, mappers, edge.data, source, source)
+          case _ => logger.warn(s"edge with invalid source $source")
+        }
+        case (Some(source), Some(target)) => (myElkElements.get(source), myElkElements.get(target)) match {
+          case (None, None) => logger.warn(s"edge with invalid source $source and target $target")
+          case (None, _) => logger.warn(s"edge with invalid source $source")
+          case (_, None) => logger.warn(s"edge with invalid target $target")
+          case (Some(source), Some(target)) => addEdge(elkNode, mappers, edge.data, source, target)
+        }
       }
     }
 

@@ -34,12 +34,12 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
     val allNodeEdges: Map[Seq[String], Seq[(Seq[String], DesignPath, EdgirEdge)]] = node.edges
       .collect { edge =>
         val sourceEdge = edge.source match {
-          case sourceNode :: sourceTail =>
+          case Some(sourceNode :: sourceTail) =>
             Seq((Seq(sourceNode), (sourceTail, node.data.path ++ edge.target, edge)))
           case _ => Seq()
         }
         val targetEdge = edge.target match {
-          case targetNode :: targetTail =>
+          case Some(targetNode :: targetTail) =>
             Seq((Seq(targetNode), (targetTail, node.data.path ++ edge.source, edge)))
           case _ => Seq()
         }
@@ -60,15 +60,15 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
       .toMap
 
     val filteredEdges = node.edges.map {
-      // Transform to degenerate edges
+      // Transform to tunnels
       case EdgirEdge(data, Seq(sourceNode, _*), target)
         if highFanoutLinkNameWraps.contains(Seq(sourceNode)) =>
         val linkWrap = highFanoutLinkNameWraps(Seq(sourceNode))
-        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), target, target)
+        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), None, target)
       case EdgirEdge(data, source, Seq(targetNode, _*))
         if highFanoutLinkNameWraps.contains(Seq(targetNode)) =>
         val linkWrap = highFanoutLinkNameWraps(Seq(targetNode))
-        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), source, source)
+        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), source, None)
       case edge => edge
     }
 
