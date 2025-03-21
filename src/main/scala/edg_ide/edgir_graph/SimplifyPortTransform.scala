@@ -31,12 +31,12 @@ object SimplifyPortTransform {
 
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
     val newEdges = node.edges.flatMap { edge =>
-      val sourceSimplified = simplify(edge.source, Seq(), node)
-      val targetSimplified = simplify(edge.target, Seq(), node)
+      val sourceSimplified = edge.source.flatMap(simplify(_, Seq(), node))
+      val targetSimplified = edge.target.flatMap(simplify(_, Seq(), node))
       (sourceSimplified, targetSimplified) match {
         case (Some(sourceSimplified), Some(targetSimplified)) =>
           Some(
-            EdgirGraph.EdgirEdge(edge.data, sourceSimplified, targetSimplified)
+            EdgirGraph.EdgirEdge(edge.data, Some(sourceSimplified), Some(targetSimplified))
           )
         case (None, None) =>
           logger.warn(s"unknown source ${edge.source} and target ${edge.target}, discarding edge")

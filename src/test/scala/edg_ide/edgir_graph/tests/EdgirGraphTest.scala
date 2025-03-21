@@ -123,13 +123,13 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
       edges = Seq(
         EdgirGraph.EdgirEdge(
           data = ConnectWrapper(DesignPath() + "connect_source", blockIr.constraints("connect_source")),
-          source = Seq("source", "port"),
-          target = Seq("link", "source")
+          source = Some(Seq("source", "port")),
+          target = Some(Seq("link", "source"))
         ),
         EdgirGraph.EdgirEdge(
           data = ConnectWrapper(DesignPath() + "connect_sink", blockIr.constraints("connect_sink")),
-          source = Seq("sink", "port"),
-          target = Seq("link", "sink")
+          source = Some(Seq("sink", "port")),
+          target = Some(Seq("link", "sink"))
         ),
       )
     )
@@ -217,8 +217,8 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           edges = Seq(
             EdgirGraph.EdgirEdge(
               data = ConnectWrapper(DesignPath() + "outer" + "export", outerBlockIr.constraints("export")),
-              source = Seq("inner", "port"),
-              target = Seq("port")
+              source = Some(Seq("inner", "port")),
+              target = Some(Seq("port"))
             ),
           )
         ),

@@ -31,16 +31,16 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
     // edges associated with a node, structured as node -> (port name within node, path of other port, edge)
     // this can generate multiple entries per edge, if both ends are nodes
     // TODO it is assumed that the source node is the first component of the path (multicomponent node paths forbidden)
-    val allNodeEdges: Map[Seq[String], Seq[(Seq[String], DesignPath, EdgirEdge)]] = node.edges
+    val allNodeEdges: Map[Seq[String], Seq[(Seq[String], EdgirEdge)]] = node.edges
       .collect { edge =>
         val sourceEdge = edge.source match {
           case Some(sourceNode :: sourceTail) =>
-            Seq((Seq(sourceNode), (sourceTail, node.data.path ++ edge.target, edge)))
+            Seq((Seq(sourceNode), (sourceTail, edge)))
           case _ => Seq()
         }
         val targetEdge = edge.target match {
           case Some(targetNode :: targetTail) =>
-            Seq((Seq(targetNode), (targetTail, node.data.path ++ edge.source, edge)))
+            Seq((Seq(targetNode), (targetTail, edge)))
           case _ => Seq()
         }
         sourceEdge ++ targetEdge
@@ -61,14 +61,14 @@ class RemoveHighFanoutLinkTransform(minConnects: Int, allowedLinkTypes: Set[Libr
 
     val filteredEdges = node.edges.map {
       // Transform to tunnels
-      case EdgirEdge(data, Seq(sourceNode, _*), target)
+      case EdgirEdge(data, Some(Seq(sourceNode, _*)), Some(target))
         if highFanoutLinkNameWraps.contains(Seq(sourceNode)) =>
         val linkWrap = highFanoutLinkNameWraps(Seq(sourceNode))
-        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), None, target)
-      case EdgirEdge(data, source, Seq(targetNode, _*))
+        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), None, Some(target))
+      case EdgirEdge(data, Some(source), Some(Seq(targetNode, _*)))
         if highFanoutLinkNameWraps.contains(Seq(targetNode)) =>
         val linkWrap = highFanoutLinkNameWraps(Seq(targetNode))
-        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), source, None)
+        EdgirEdge(EdgeLinkWrapper(linkWrap.path, linkWrap.linkLike), Some(source), None)
       case edge => edge
     }
 

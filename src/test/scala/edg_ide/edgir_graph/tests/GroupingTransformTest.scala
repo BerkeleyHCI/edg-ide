@@ -51,20 +51,20 @@ class GroupingTransformTest extends AnyFlatSpec with Matchers {
     transformed.members(Seq("src_group")).asInstanceOf[EdgirGraph.EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.TestGraphs.flatGraph.edges(0).data, // internal link for two blocks within group
-        source = Seq("source", "port"),
-        target = Seq("link", "source")
+        source = Some(Seq("source", "port")),
+        target = Some(Seq("link", "source"))
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.TestGraphs.flatGraph.edges(1).data, // degenerate edge for connection to other group
-        source = Seq("link", "sinks", "0"),
-        target = Seq("link", "sinks", "0")
+        source = Some(Seq("link", "sinks", "0")),
+        target = None
       )
     ))
     transformed.members(Seq("snk_group")).asInstanceOf[EdgirGraph.EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.TestGraphs.flatGraph.edges(1).data,
-        source = Seq("sink", "port"),
-        target = Seq("sink", "port")
+        source = None,
+        target = Some(Seq("sink", "port"))
       )
     ))
     transformed.edges should equal(Seq()) // no edges left at top level
