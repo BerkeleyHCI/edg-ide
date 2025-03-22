@@ -8,7 +8,7 @@ import edgir.elem.elem.HierarchyBlock
 import org.eclipse.elk.alg.layered.options.{LayeredMetaDataProvider, LayeredOptions}
 import org.eclipse.elk.core.RecursiveGraphLayoutEngine
 import org.eclipse.elk.core.data.LayoutMetaDataService
-import org.eclipse.elk.core.math.KVector
+import org.eclipse.elk.core.math.{ElkPadding, KVector}
 import org.eclipse.elk.core.options._
 import org.eclipse.elk.core.util.BasicProgressMonitor
 import org.eclipse.elk.graph._
@@ -64,7 +64,7 @@ object HierarchyGraphElk {
       )
     )
     node.setProperty(CoreOptions.NODE_SIZE_CONSTRAINTS, SizeConstraint.minimumSizeWithPorts)
-    node.setProperty(CoreOptions.NODE_SIZE_MINIMUM, new KVector(200, 20))
+    node.setProperty(CoreOptions.NODE_SIZE_MINIMUM, new KVector(200, 30))
 
     node
   }
@@ -78,17 +78,26 @@ object HierarchyGraphElk {
     port
   }
 
-  protected def addEdge(
+  protected def addEdge[NodeType, PortType, EdgeType](
       parent: ElkNode,
+      nodePath: Seq[String],
+      mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]],
+      edge: HGraphEdge[EdgeType],
       source: ElkConnectableShape,
       target: ElkConnectableShape
   ): ElkEdge = {
     // TODO some kind of naming?
-    val edge = ElkGraphUtil.createEdge(parent)
-    edge.getSources.add(source)
-    edge.getTargets.add(target)
+    val newEdge = ElkGraphUtil.createEdge(parent)
+    newEdge.getSources.add(source)
+    newEdge.getTargets.add(target)
 
-    edge
+    mappers.foreach { mapper =>
+      mapper.edgeConv(nodePath, edge).foreach { mapperResult =>
+        newEdge.setProperty(mapper.property, mapperResult)
+      }
+    }
+
+    newEdge
   }
 
   // Internal functions for converting HGraph* to ELK objects
@@ -96,28 +105,30 @@ object HierarchyGraphElk {
   trait PropertyMapper[NodeType, PortType, EdgeType] {
     type PropertyType
     val property: IProperty[PropertyType]
-    def nodeConv(node: NodeType): Option[PropertyType]
-    def portConv(port: PortType): Option[PropertyType]
-    def edgeConv(edge: EdgeType): Option[PropertyType]
+    def nodeConv(path: Seq[String], node: HGraphNode[NodeType, PortType, EdgeType]): Option[PropertyType]
+    def portConv(path: Seq[String], port: HGraphPort[PortType]): Option[PropertyType]
+    def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeType]): Option[PropertyType]
   }
 
   /** Converts a HGraphNode to a ELK node, returning a map of its ports
     */
   def HGraphNodeToElkNode[NodeType, PortType, EdgeType](
       node: HGraphNode[NodeType, PortType, EdgeType],
-      name: String,
+      path: Seq[String], // last component is the name, guaranteed nonempty
       parent: Option[ElkNode],
       mappers: Seq[PropertyMapper[NodeType, PortType, EdgeType]] = Seq()
   ): (ElkNode, SeqMap[Seq[String], ElkConnectableShape]) = {
+    val name = path.last
     val elkNode = parent match {
       case Some(parent) => addNode(parent, name)
       case None => makeGraphRoot()
     }
     mappers.foreach { mapper =>
-      mapper.nodeConv(node.data).foreach { mapperResult =>
+      mapper.nodeConv(path, node).foreach { mapperResult =>
         elkNode.setProperty(mapper.property, mapperResult)
       }
     }
+    elkNode.setProperty(CoreOptions.NODE_LABELS_PADDING, new ElkPadding(15))
 
     val title = Option(elkNode.getProperty(TitleProperty)).getOrElse(name)
     ElkGraphUtil
@@ -131,7 +142,7 @@ object HierarchyGraphElk {
     val myElkPorts = node.members.collect { case (childName, childElt: HGraphPort[PortType]) =>
       val childElkPort = addPort(elkNode, name)
       mappers.foreach { mapper =>
-        mapper.portConv(childElt.data).foreach { mapperResult =>
+        mapper.portConv(path ++ childName, childElt).foreach { mapperResult =>
           childElkPort.setProperty(mapper.property, mapperResult)
         }
       }
@@ -148,7 +159,7 @@ object HierarchyGraphElk {
         // really mapping values: HGraphMember => (path: Seq[String], ElkConnectableShape)
         case (childName, childElt: HGraphNode[NodeType, PortType, EdgeType]) =>
           val (childElkNode, childConnectables) =
-            HGraphNodeToElkNode(childElt, childName.mkString("."), Some(elkNode), mappers)
+            HGraphNodeToElkNode(childElt, path ++ childName, Some(elkNode), mappers)
           // Add the outer element into the inner namespace path
           childConnectables.map { case (childPath, childElk) =>
             childName ++ childPath -> childElk
@@ -161,16 +172,21 @@ object HierarchyGraphElk {
     val myElkElements =
       myElkPorts ++ myElkChildren // unify namespace, data structure should prevent conflicts
     node.edges.foreach { edge =>
-      (myElkElements.get(edge.source), myElkElements.get(edge.target)) match {
-        case (None, None) => logger.warn(s"edge with invalid source ${edge.source} and target ${edge.target}")
-        case (None, _) => logger.warn(s"edge with invalid source ${edge.source}")
-        case (_, None) => logger.warn(s"edge with invalid target ${edge.target}")
-        case (Some(elkSource), Some(elkTarget)) =>
-          val childEdge = addEdge(elkNode, elkSource, elkTarget)
-          mappers.foreach { mapper =>
-            mapper.edgeConv(edge.data).foreach { mapperResult =>
-              childEdge.setProperty(mapper.property, mapperResult)
-            }
+      (edge.source, edge.target) match {
+        case (None, None) => logger.warn(s"empty edge")
+        case (None, Some(target)) => myElkElements.get(target) match {
+            case Some(target) => addEdge(elkNode, path, mappers, edge, target, target)
+            case _ => logger.warn(s"tunnel edge with invalid target $target")
+          }
+        case (Some(source), None) => myElkElements.get(source) match {
+            case Some(source) => addEdge(elkNode, path, mappers, edge, source, source)
+            case _ => logger.warn(s"edge with invalid source $source")
+          }
+        case (Some(source), Some(target)) => (myElkElements.get(source), myElkElements.get(target)) match {
+            case (None, None) => logger.warn(s"edge with invalid source $source and target $target")
+            case (None, _) => logger.warn(s"edge with invalid source $source")
+            case (_, None) => logger.warn(s"edge with invalid target $target")
+            case (Some(source), Some(target)) => addEdge(elkNode, path, mappers, edge, source, target)
           }
       }
     }
@@ -188,10 +204,10 @@ object HierarchyGraphElk {
   ): ElkNode = {
     val root = if (makeRoot) {
       val root = makeGraphRoot()
-      HGraphNodeToElkNode(node, topName, Some(root), mappers)
+      HGraphNodeToElkNode(node, Seq(topName), Some(root), mappers)
       root
     } else {
-      val (root, rootConnectables) = HGraphNodeToElkNode(node, "design", None, mappers)
+      val (root, rootConnectables) = HGraphNodeToElkNode(node, Seq("design"), None, mappers)
       root
     }
 

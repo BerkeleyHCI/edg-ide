@@ -1,17 +1,21 @@
 package edg_ide.edgir_graph
 
-import scala.collection.SeqMap
+import edg.EdgirUtils.SimpleLibraryPath
+import edg.util.MapUtils
+import edg.wir.DesignPath
+import edg.wir.ProtoUtil._
 import edgir.elem.elem
 import edgir.expr.expr
-import edg.wir.DesignPath
-import edg.EdgirUtils.SimpleLibraryPath
-import edg.ExprBuilder.Ref
-import edg.util.MapUtils
-import edg.wir.ProtoUtil._
+
+import scala.collection.SeqMap
 
 // Should be an union type, but not supported in Scala, so here's wrappers =(
 sealed trait NodeDataWrapper {
   def path: DesignPath
+}
+
+case class GroupWrapper(path: DesignPath, name: String) extends NodeDataWrapper {
+  override def toString: String = "" // no type name for groups
 }
 
 case class BlockWrapper(path: DesignPath, blockLike: elem.BlockLike) extends NodeDataWrapper {
@@ -66,8 +70,8 @@ object EdgirGraph {
 
   case class EdgirEdge(
       override val data: EdgeWrapper,
-      override val source: Seq[String],
-      override val target: Seq[String]
+      override val source: Option[Seq[String]],
+      override val target: Option[Seq[String]]
   ) extends HGraphEdge[EdgeWrapper]
 
   /** Simple wrapper around blockLikeToNode that provides the blockLike wrapper around the block
@@ -106,8 +110,8 @@ object EdgirGraph {
     case Seq() => Seq( // in the loading pass, the source is the block side and the target is the link side
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = connected.getBlockPort.getRef.steps.slice(0, 2).map(_.getName), // only block and port, ignore arrays
-          target = connected.getLinkPort.getRef.steps.slice(0, 2).map(_.getName)
+          source = Some(connected.getBlockPort.getRef.steps.map(_.getName)), // only block and port, ignore arrays
+          target = Some(connected.getLinkPort.getRef.steps.map(_.getName))
         ))
     case Seq(expanded) => connectedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")
@@ -123,8 +127,8 @@ object EdgirGraph {
       Seq( // in the loading pass, the source is the block side and the target is the external port
         EdgirEdge(
           ConnectWrapper(path + constrName, constr),
-          source = exported.getInternalBlockPort.getRef.steps.slice(0, 2).map(_.getName),
-          target = exported.getExteriorPort.getRef.steps.slice(0, 1).map(_.getName)
+          source = Some(exported.getInternalBlockPort.getRef.steps.map(_.getName)),
+          target = Some(exported.getExteriorPort.getRef.steps.map(_.getName))
         ))
     case Seq(expanded) => exportedToEdge(path, constrName, constr, expanded)
     case _ => throw new IllegalArgumentException("unexpected multiple expanded")
@@ -215,7 +219,14 @@ object EdgirGraph {
       path: DesignPath,
       name: Seq[String],
       portLike: elem.PortLike
-  ): Seq[(Seq[String], EdgirPort)] = { // including in the array case, just generate one visual port
-    Seq(name -> portLikeToPort(path, portLike))
+  ): Seq[(Seq[String], EdgirPort)] = portLike.is match {
+    case elem.PortLike.Is.Port(port) => Seq(name -> portLikeToPort(path, portLike))
+    case elem.PortLike.Is.Bundle(port) => Seq(name -> portLikeToPort(path, portLike))
+    case elem.PortLike.Is.LibElem(port) => Seq(name -> portLikeToPort(path, portLike))
+    case elem.PortLike.Is.Array(array) =>
+      array.getPorts.ports.toSeqMap.toSeq.flatMap { case (subname, subport) =>
+        expandPortsWithNames(path + subname, name :+ subname, subport)
+      }
+    case port => throw new NotImplementedError()
   }
 }

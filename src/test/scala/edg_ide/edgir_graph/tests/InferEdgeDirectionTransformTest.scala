@@ -15,13 +15,13 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
-        source = Seq("source", "port"),
-        target = Seq("link", "source")
+        source = Some(Seq("source", "port")),
+        target = Some(Seq("link", "source"))
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-        source = Seq("link", "sinks", "0"),
-        target = Seq("sink", "port")
+        source = Some(Seq("link", "sinks", "0")),
+        target = Some(Seq("sink", "port"))
       ),
     ))
   }
@@ -32,28 +32,28 @@ class InferEdgeDirectionTransformTest extends AnyFlatSpec with Matchers {
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
-        source = Seq("source", "port"),
-        target = Seq("link", "source")
+        source = Some(Seq("source", "port")),
+        target = Some(Seq("link", "source"))
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-        source = Seq("link", "sinks", "0"),
-        target = Seq("sink", "port")
+        source = Some(Seq("link", "sinks", "0")),
+        target = Some(Seq("sink", "port"))
       ),
     ))
 
     transformed.members(Seq("source")).asInstanceOf[EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "source" + "export_inner"),
-        source = Seq("inner", "port"),
-        target = Seq("port")
+        source = Some(Seq("inner", "port")),
+        target = Some(Seq("port"))
       )
     ))
     transformed.members(Seq("sink")).asInstanceOf[EdgirNode].edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "sink" + "export_inner"),
-        source = Seq("port"),
-        target = Seq("inner", "port")
+        source = Some(Seq("port")),
+        target = Some(Seq("inner", "port"))
       )
     ))
   }

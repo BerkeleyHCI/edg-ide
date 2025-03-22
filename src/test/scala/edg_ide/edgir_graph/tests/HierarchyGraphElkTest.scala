@@ -23,8 +23,8 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
 
   case class SimpleEdge(
       override val data: String,
-      override val source: Seq[String],
-      override val target: Seq[String]
+      override val source: Option[Seq[String]],
+      override val target: Option[Seq[String]]
   ) extends HGraphEdge[String] {}
 
   behavior.of("HGraphNodeToElkNode")
@@ -51,11 +51,11 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
         )
       ),
       edges = Seq(
-        SimpleEdge("edge1", source = Seq("p1"), target = Seq("n1", "n1p1")),
-        SimpleEdge("edge2", source = Seq("n1", "n1p1"), target = Seq("n2", "n2p1")),
+        SimpleEdge("edge1", source = Some(Seq("p1")), target = Some(Seq("n1", "n1p1"))),
+        SimpleEdge("edge2", source = Some(Seq("n1", "n1p1")), target = Some(Seq("n2", "n2p1"))),
       )
     )
-    val (root, elkElementsMap) = HierarchyGraphElk.HGraphNodeToElkNode(simpleGraph, "", None)
+    val (root, elkElementsMap) = HierarchyGraphElk.HGraphNodeToElkNode(simpleGraph, Seq(""), None)
 
     (root, elkElementsMap)
   }

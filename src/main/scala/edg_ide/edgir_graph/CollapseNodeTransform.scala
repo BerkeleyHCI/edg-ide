@@ -1,5 +1,7 @@
 package edg_ide.edgir_graph
 
+import edg_ide.edgir_graph.EdgirGraph.EdgirEdge
+
 trait CollapseNodeTransform {
 
   /** In a containing node, collapses the target node, by removing edges pointing to that node and replacing them with
@@ -23,12 +25,12 @@ trait CollapseNodeTransform {
       edgeFn: Seq[EdgeWrapper] => EdgeWrapper
   ): EdgirGraph.EdgirNode = {
     val collapsedBlockSources = node.edges.collect {
-      case edge if edge.target.startsWith(collapseTarget) => // block is source
-        (edge.source, edge.data)
+      case EdgirEdge(data, Some(source), Some(target)) if target.startsWith(collapseTarget) => // block is source
+        (source, data)
     }
     val collapsedBlockTargets = node.edges.collect {
-      case edge if edge.source.startsWith(collapseTarget) => // block is target
-        (edge.target, edge.data)
+      case EdgirEdge(data, Some(source), Some(target)) if source.startsWith(collapseTarget) => // block is target
+        (target, data)
     }
 
     val collapsedEdgesData = (collapsedBlockSources ++ collapsedBlockTargets)
@@ -53,11 +55,13 @@ trait CollapseNodeTransform {
         }
       )
     val newEdges = crossSourceTarget.map { case ((sourcePath, _), (targetPath, _)) =>
-      EdgirGraph.EdgirEdge(edgeFn(collapsedEdgesData), source = sourcePath, target = targetPath)
+      EdgirGraph.EdgirEdge(edgeFn(collapsedEdgesData), source = Some(sourcePath), target = Some(targetPath))
     }
 
-    val filteredEdges = node.edges.filter { edge => // remove edges pointing to collapsed node
-      !edge.source.startsWith(collapseTarget) && !edge.target.startsWith(collapseTarget)
+    val filteredEdges = node.edges.filter { // remove edges pointing to collapsed node
+      case EdgirEdge(_, Some(source), _) if source.startsWith(collapseTarget) => false
+      case EdgirEdge(_, _, Some(target)) if target.startsWith(collapseTarget) => false
+      case _ => true
     }
     val combinedEdges = filteredEdges ++ newEdges
 

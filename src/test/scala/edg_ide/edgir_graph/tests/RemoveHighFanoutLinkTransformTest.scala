@@ -36,18 +36,18 @@ class RemoveHighFanoutLinkTransformTest extends AnyFlatSpec with Matchers {
     edges = Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "link" + "source"),
-        source = Seq("sourceBlock", "port"),
-        target = Seq("link", "source")
+        source = Some(Seq("sourceBlock", "port")),
+        target = Some(Seq("link", "source"))
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "link" + "source"),
-        source = Seq("sinkBlock1", "port"),
-        target = Seq("link", "sink", "0")
+        source = Some(Seq("sinkBlock1", "port")),
+        target = Some(Seq("link", "sink", "0"))
       ),
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "link" + "source"),
-        source = Seq("sinkBlock2", "port"),
-        target = Seq("link", "sink", "1")
+        source = Some(Seq("sinkBlock2", "port")),
+        target = Some(Seq("link", "sink", "1"))
       ),
     )
   )

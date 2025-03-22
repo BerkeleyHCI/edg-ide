@@ -85,12 +85,13 @@ object InferEdgeDirectionTransform {
   def apply(node: EdgirGraph.EdgirNode, mySourcePorts: Set[Seq[String]] = Set()): EdgirGraph.EdgirNode = {
     // Aggregate connected block ports by link and link port, as link name -> (link port -> Seq(block path))
     val linkConnectedPorts: Map[String, Map[String, Set[Seq[String]]]] = node.edges
+      .filter(edge => edge.source.isDefined && edge.target.isDefined)
       .flatMap { edge =>
-        val edgeTargetTop = edge.target.head
+        val edgeTargetTop = edge.target.get.head
         val targetMember = node.members.get(Seq(edgeTargetTop))
         targetMember match {
           case Some(targetTop: EdgirGraph.EdgirNode) if targetTop.data.isInstanceOf[LinkWrapper] =>
-            Some((edge.target.head, (edge.target.tail, edge.source)))
+            Some((edge.target.get.head, (edge.target.get.tail, edge.source.get)))
           case _ => None
         }
       }
@@ -120,20 +121,20 @@ object InferEdgeDirectionTransform {
     }.toSet
 
     val newEdges = node.edges.map { edge =>
-      if (allBlockPorts.contains(edge.source)) { // is a link port
-        if (blockSourcePorts.contains(edge.source)) {
-          edge // current order is correct, block is source
-        } else {
+      if (edge.source.isDefined && allBlockPorts.contains(edge.source.get)) { // is a link port
+        if (!blockSourcePorts.contains(edge.source.get)) {
           flipEdge(edge) // invert edge direction
+        } else {
+          edge // current order is correct, block is source
         }
       } else { // is (probably?) a hierarchy port
-        if (!node.members.contains(edge.target)) {
+        if (edge.target.isDefined && !node.members.contains(edge.target.get)) {
           logger.warn(s"non-block and non-boundary port referenced by edge ${edge.target}")
         }
-        if (mySourcePorts.contains(edge.target)) { // correct is (port is target from inside)
-          edge
-        } else {
+        if (edge.target.isDefined && !mySourcePorts.contains(edge.target.get)) {
           flipEdge(edge)
+        } else {
+          edge // correct is (port is target from inside)
         }
       }
     }

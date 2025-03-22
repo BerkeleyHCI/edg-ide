@@ -22,8 +22,8 @@ class CollapseNodeTransformTest extends AnyFlatSpec with Matchers {
     transformed.edges should equal(Seq(
       EdgirGraph.EdgirEdge(
         data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "merged"),
-        source = Seq("source", "port"),
-        target = Seq("sink", "port")
+        source = Some(Seq("source", "port")),
+        target = Some(Seq("sink", "port"))
       ),
     ))
     transformed.members.keys.toSeq should equal(Seq(Seq("source"), Seq("sink")))

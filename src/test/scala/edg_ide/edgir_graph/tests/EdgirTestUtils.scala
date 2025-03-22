@@ -83,13 +83,13 @@ object EdgirTestUtils {
       edges = Seq(
         EdgirGraph.EdgirEdge(
           data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
-          source = Seq("source", "port"),
-          target = Seq("link", "source")
+          source = Some(Seq("source", "port")),
+          target = Some(Seq("link", "source"))
         ),
         EdgirGraph.EdgirEdge(
           data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-          source = Seq("sink", "port"),
-          target = Seq("link", "sinks", "0")
+          source = Some(Seq("sink", "port")),
+          target = Some(Seq("link", "sinks", "0"))
         ),
       )
     )
@@ -119,8 +119,8 @@ object EdgirTestUtils {
           edges = Seq(
             EdgirGraph.EdgirEdge(
               data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "source" + "export_inner"),
-              source = Seq("inner", "port"),
-              target = Seq("port")
+              source = Some(Seq("inner", "port")),
+              target = Some(Seq("port"))
             )
           )
         ),
@@ -143,8 +143,8 @@ object EdgirTestUtils {
           edges = Seq(
             EdgirGraph.EdgirEdge(
               data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "sink" + "export_inner"),
-              source = Seq("inner", "port"),
-              target = Seq("port")
+              source = Some(Seq("inner", "port")),
+              target = Some(Seq("port"))
             )
           )
         ),
@@ -167,13 +167,13 @@ object EdgirTestUtils {
       edges = Seq(
         EdgirGraph.EdgirEdge(
           data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_source"),
-          source = Seq("source", "port"),
-          target = Seq("link", "source")
+          source = Some(Seq("source", "port")),
+          target = Some(Seq("link", "source"))
         ),
         EdgirGraph.EdgirEdge(
           data = EdgirTestUtils.Dummy.ConnectWrapper(DesignPath() + "connect_sink"),
-          source = Seq("sink", "port"),
-          target = Seq("link", "sinks", "0")
+          source = Some(Seq("sink", "port")),
+          target = Some(Seq("link", "sinks", "0"))
         ),
       )
     )
