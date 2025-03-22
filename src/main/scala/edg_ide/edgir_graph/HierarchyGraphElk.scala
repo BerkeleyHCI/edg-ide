@@ -224,13 +224,7 @@ object HierarchyGraphElk {
     // For now, this only updates the graph visualization, which can change with focus.
     // In the future, maybe this will also update or filter the design tree.
     val edgirGraph = EdgirGraph.blockToNode(blockPath, block)
-    val highFanoutTransform = new RemoveHighFanoutEdgeTransform(
-      6,
-      Set(
-        LibraryPath("edg.electronics_model.VoltagePorts.VoltageLink"),
-        LibraryPath("edg.electronics_model.GroundPort.GroundLink")
-      )
-    )
+    val highFanoutTransform = new RemoveHighFanoutEdgeTransform(5, Set("VoltageLink", "GroundLink"))
     val blockGroupings = block.meta match {
       case Some(meta) => meta.meta.members.get.node.get("_block_diagram_grouping") match {
           case Some(meta) => meta.meta.members.get.node.map { case (name, group) =>

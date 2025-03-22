@@ -1,5 +1,6 @@
 package edg_ide.edgir_graph
 
+import edg.EdgirUtils.SimpleLibraryPath
 import edgir.elem.elem
 import edgir.ref.ref.LibraryPath
 import edg.wir.DesignPath
@@ -8,7 +9,7 @@ import edg_ide.edgir_graph.EdgirGraph.EdgirEdge
 /** Removes links (as edges - must run AFTER collapse - prevents weird interactions with bridge removal) that are
   * "high-fanout", based on the link type allowlist and parameterized number of sink connections.
   */
-class RemoveHighFanoutEdgeTransform(minConnects: Int, allowedLinkTypes: Set[LibraryPath]) {
+class RemoveHighFanoutEdgeTransform(minConnects: Int, allowedLinkTypeSimple: Set[String]) {
   def apply(node: EdgirGraph.EdgirNode): EdgirGraph.EdgirNode = {
     val highFanoutLinks = node.edges
       .collect { case EdgirEdge(EdgeLinkWrapper(linkPath, linkLike), source, target) =>
@@ -24,7 +25,8 @@ class RemoveHighFanoutEdgeTransform(minConnects: Int, allowedLinkTypes: Set[Libr
         (linkPath, link, linkLike, source, target) // extract elaborated link
       }
       .collect {
-        case (linkPath, link, linkLike, source, target) if allowedLinkTypes.contains(link.getSelfClass) =>
+        case (linkPath, link, linkLike, source, target)
+          if allowedLinkTypeSimple.contains(link.getSelfClass.toSimpleString) =>
           (linkPath, linkLike, source, target) // filter by type
       }
       .groupBy(_._1)
