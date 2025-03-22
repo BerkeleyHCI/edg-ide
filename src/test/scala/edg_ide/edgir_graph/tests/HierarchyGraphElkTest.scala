@@ -55,7 +55,7 @@ class HierarchyGraphElkTest extends AnyFlatSpec with Matchers {
         SimpleEdge("edge2", source = Some(Seq("n1", "n1p1")), target = Some(Seq("n2", "n2p1"))),
       )
     )
-    val (root, elkElementsMap) = HierarchyGraphElk.HGraphNodeToElkNode(simpleGraph, "", None)
+    val (root, elkElementsMap) = HierarchyGraphElk.HGraphNodeToElkNode(simpleGraph, Seq(""), None)
 
     (root, elkElementsMap)
   }

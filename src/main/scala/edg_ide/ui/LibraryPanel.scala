@@ -279,7 +279,7 @@ class LibraryPreview(project: Project) extends JPanel {
           val blockGraph = HierarchyGraphElk.HGraphNodeToElk(
             transformedGraph,
             "", // no name, the class is already shown as the class name
-            Seq(ElkEdgirGraphUtils.PortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
+            Seq(ElkEdgirGraphUtils.SimplePortSideMapper, ElkEdgirGraphUtils.PortConstraintMapper),
             true
           ) // need to make a root so root doesn't have ports
 

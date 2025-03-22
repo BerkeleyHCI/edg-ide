@@ -10,6 +10,7 @@ import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 import edgir.elem.elem
 
 import java.awt.Color
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 object ElkEdgirGraphUtils {
@@ -30,9 +31,13 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[DesignPath] = DesignPathProperty
 
-    override def nodeConv(node: NodeDataWrapper): Option[DesignPath] = Some(node.path)
-    override def portConv(port: PortWrapper): Option[DesignPath] = Some(port.path)
-    override def edgeConv(edge: EdgeWrapper): Option[DesignPath] = Some(edge.path)
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[DesignPath] = Some(node.data.path)
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[DesignPath] = Some(port.data.path)
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[DesignPath] =
+      Some(edge.data.path)
   }
 
   object TitleProperty extends IProperty[String] {
@@ -48,44 +53,45 @@ object ElkEdgirGraphUtils {
     type PropertyType = String
     override val property: IProperty[String] = TitleProperty
 
-    override def nodeConv(node: NodeDataWrapper): Option[String] = node match {
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[String] = node.data match {
       case BlockWrapper(path, block) =>
         val refdesStringMaybe = block.`type`.hierarchy
           .flatMap { block =>
-            EdgirAnalysisUtils.getInnermostSubblock(node.path, block)
+            EdgirAnalysisUtils.getInnermostSubblock(node.data.path, block)
           }
           .flatMap { case (innerPath, innerBlock) =>
             compiler.getParamValue((innerPath + "fp_refdes").asIndirect)
           } match {
-          case Some(TextValue(refdes)) => Some(f"${node.path.lastString}, $refdes")
+          case Some(TextValue(refdes)) => Some(f"${node.data.path.lastString}, $refdes")
           case _ => None
         }
-        Some(refdesStringMaybe.getOrElse(node.path.lastString))
+        Some(refdesStringMaybe.getOrElse(node.data.path.lastString))
       case GroupWrapper(path, name) => Some(name)
       case _ => None // use default for non-blocks
     }
 
     // port name not supported, since ports are not hierarchical (can't just use the last path component)
     // and we don't have a link to the block (so can't do a path subtraction to get the port subpath)
-    override def portConv(port: PortWrapper): Option[String] = None
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[String] = None
 
     // edge labels don't currently exist
-    override def edgeConv(edge: EdgeWrapper): Option[String] = None
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[String] = None
   }
 
   import org.eclipse.elk.core.options.PortSide
-  object PortSideMapper extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+  // Generates port side based on the port type only, with a default fallback for bidirectional / unknown
+  object SimplePortSideMapper extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
     private val logger = Logger.getInstance(this.getClass)
 
     import org.eclipse.elk.core.options.CoreOptions.PORT_SIDE
     type PropertyType = PortSide
-
     override val property: IProperty[PortSide] = PORT_SIDE
 
-    override def nodeConv(node: NodeDataWrapper): Option[PortSide] = None
-    override def portConv(port: PortWrapper): Option[PortSide] = {
+    def getSimplePortSide(port: PortWrapper): Option[PortSide] = {
       val portType = BlockConnectivityAnalysis.typeOfPortLike(port.portLike)
-      val portName = port.path.steps.last
 
       portType.toSimpleString match {
         case "Ground" => Some(PortSide.SOUTH)
@@ -96,14 +102,14 @@ object ElkEdgirGraphUtils {
 
         case "DigitalSource" => Some(PortSide.EAST)
         case "DigitalSink" => Some(PortSide.WEST)
-        case "DigitalBidir" => Some(PortSide.EAST) // bidirectional
+        case "DigitalBidir" => None
 
         case "AnalogSource" => Some(PortSide.EAST)
         case "AnalogSink" => Some(PortSide.WEST)
 
         case "CanControllerPort" => Some(PortSide.EAST)
         case "CanTransceiverPort" => Some(PortSide.WEST)
-        case "CanDiffPort" => Some(PortSide.EAST) // un-directioned
+        case "CanDiffPort" => None
 
         case "CrystalDriver" => Some(PortSide.EAST)
         case "CrystalPort" => Some(PortSide.WEST)
@@ -121,7 +127,7 @@ object ElkEdgirGraphUtils {
         case "SwdHostPort" => Some(PortSide.EAST)
         case "SwdTargetPort" => Some(PortSide.WEST)
 
-        case "UartPort" => Some(PortSide.EAST) // un-directioned
+        case "UartPort" => None
 
         case "UsbHostPort" => Some(PortSide.EAST)
         case "UsbDevicePort" => Some(PortSide.WEST)
@@ -133,16 +139,54 @@ object ElkEdgirGraphUtils {
         case "TouchDriver" => Some(PortSide.EAST)
         case "TouchPadPort" => Some(PortSide.WEST)
 
-        case "UsbCcPort" => Some(PortSide.EAST) // un-directioned
+        case "UsbCcPort" => None
 
-        case "Passive" => Some(PortSide.EAST) // un-directioned
+        case "Passive" => None
 
         case port =>
           logger.warn(s"Unknown port type $port")
-          Some(PortSide.EAST)
+          None
       }
     }
-    override def edgeConv(edge: EdgeWrapper): Option[PortSide] = None
+
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[PortSide] = None
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[PortSide] = {
+      Some(getSimplePortSide(port.data).getOrElse(PortSide.EAST))
+    }
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[PortSide] = None
+  }
+
+  // Generates a port side based on the port type, then incoming edges if available
+  // Stores edges design-wide internally to be accessed when inferring port direction
+  class PortSideMapper extends HierarchyGraphElk.PropertyMapper[NodeDataWrapper, PortWrapper, EdgeWrapper] {
+    import org.eclipse.elk.core.options.CoreOptions.PORT_SIDE
+    type PropertyType = PortSide
+    override val property: IProperty[PortSide] = PORT_SIDE
+    val targetPorts = mutable.Set[Seq[String]]()
+
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[PortSide] = {
+      node.edges.foreach { edge =>
+        edge.target.foreach(target => targetPorts.add(path ++ target))
+      }
+      None
+    }
+
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[PortSide] = {
+      SimplePortSideMapper.getSimplePortSide(port.data) match {
+        case Some(side) => Some(side)
+        case None if targetPorts.contains(path) => Some(PortSide.WEST)
+        case None =>
+          Some(PortSide.EAST)
+
+      }
+    }
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[PortSide] = None
   }
 
   import org.eclipse.elk.core.options.PortConstraints
@@ -153,9 +197,13 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[PortConstraints] = PORT_CONSTRAINTS
 
-    override def nodeConv(node: NodeDataWrapper): Option[PortConstraints] = Some(PortConstraints.FIXED_SIDE)
-    override def portConv(port: PortWrapper): Option[PortConstraints] = None
-    override def edgeConv(edge: EdgeWrapper): Option[PortConstraints] = None
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[PortConstraints] =
+      Some(PortConstraints.FIXED_SIDE)
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[PortConstraints] = None
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[PortConstraints] = None
   }
 
   // Adds a port array-ness property
@@ -171,12 +219,16 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[Boolean] = PortArrayProperty
 
-    override def nodeConv(node: NodeDataWrapper): Option[Boolean] = None
-    override def portConv(port: PortWrapper): Option[Boolean] = port.portLike.is match {
-      case elem.PortLike.Is.Array(_) => Some(true)
-      case _ => None
-    }
-    override def edgeConv(edge: EdgeWrapper): Option[Boolean] = None
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[Boolean] = None
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[Boolean] =
+      port.data.portLike.is match {
+        case elem.PortLike.Is.Array(_) => Some(true)
+        case _ => None
+      }
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[Boolean] = None
   }
 
   // Adds wire colors for common voltage rails, based on ATX wire colors
@@ -206,12 +258,15 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[Option[Color]] = WireColorMapper.WireColorProperty
 
-    override def nodeConv(node: NodeDataWrapper): Option[Option[Color]] = None
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[Option[Color]] = None
 
-    override def portConv(port: PortWrapper): Option[Option[Color]] = None
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[Option[Color]] = None
 
-    override def edgeConv(edge: EdgeWrapper): Option[Option[Color]] = {
-      val linkTypeOpt = edge match {
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[Option[Color]] = {
+      val linkTypeOpt = edge.data match {
         case EdgeLinkWrapper(path, linkLike) => linkLike.`type` match {
             case elem.LinkLike.Type.Link(link) => link.selfClass
             case elem.LinkLike.Type.LibElem(lib) => Some(lib)
@@ -221,11 +276,11 @@ object ElkEdgirGraphUtils {
         case _ => None
       }
       linkTypeOpt.map(_.toSimpleString) match {
-        case Some("VoltageLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+        case Some("VoltageLink") => compiler.getParamValue(edge.data.path.asIndirect + "voltage") match {
             case Some(range: RangeValue) => WireColorMapper.voltageRangeToColor(range)
             case _ => None
           }
-        case Some("GroundLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+        case Some("GroundLink") => compiler.getParamValue(edge.data.path.asIndirect + "voltage") match {
             case Some(range: RangeValue) => WireColorMapper.voltageRangeToColor(range)
             case _ => None
           }
@@ -255,12 +310,15 @@ object ElkEdgirGraphUtils {
 
     override val property: IProperty[String] = WireLabelMapper.WireLabelProperty
 
-    override def nodeConv(node: NodeDataWrapper): Option[String] = None
+    override def nodeConv(
+        path: Seq[String],
+        node: HGraphNode[NodeDataWrapper, PortWrapper, EdgeWrapper]
+    ): Option[String] = None
 
-    override def portConv(port: PortWrapper): Option[String] = None
+    override def portConv(path: Seq[String], port: HGraphPort[PortWrapper]): Option[String] = None
 
-    override def edgeConv(edge: EdgeWrapper): Option[String] = {
-      val linkTypeOpt = edge match {
+    override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[String] = {
+      val linkTypeOpt = edge.data match {
         case EdgeLinkWrapper(path, linkLike) => linkLike.`type` match {
             case elem.LinkLike.Type.Link(link) => link.selfClass
             case elem.LinkLike.Type.LibElem(lib) => Some(lib)
@@ -270,11 +328,11 @@ object ElkEdgirGraphUtils {
         case _ => None
       }
       linkTypeOpt.map(_.toSimpleString) match {
-        case Some("VoltageLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+        case Some("VoltageLink") => compiler.getParamValue(edge.data.path.asIndirect + "voltage") match {
             case Some(range: RangeValue) => WireLabelMapper.voltageRangeToString(range)
             case _ => None
           }
-        case Some("GroundLink") => compiler.getParamValue(edge.path.asIndirect + "voltage") match {
+        case Some("GroundLink") => compiler.getParamValue(edge.data.path.asIndirect + "voltage") match {
             case Some(range: RangeValue) => WireLabelMapper.voltageRangeToString(range)
             case _ => None
           }
