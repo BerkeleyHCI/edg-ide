@@ -285,10 +285,16 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
           data = BlockWrapper(DesignPath() + "block", designIr.blocks("block")),
           members = SeqMap(
             Seq("ports", "0") -> EdgirGraph.EdgirPort(
-              data = PortWrapper(DesignPath() + "block" + "ports" + "0", blockIr.ports("ports").getArray.getPorts.ports.head.getValue)
+              data = PortWrapper(
+                DesignPath() + "block" + "ports" + "0",
+                blockIr.ports("ports").getArray.getPorts.ports.head.getValue
+              )
             ),
             Seq("ports", "test") -> EdgirGraph.EdgirPort(
-              data = PortWrapper(DesignPath() + "block" + "ports" + "test", blockIr.ports("ports").getArray.getPorts.ports.last.getValue)
+              data = PortWrapper(
+                DesignPath() + "block" + "ports" + "test",
+                blockIr.ports("ports").getArray.getPorts.ports.last.getValue
+              )
             ),
           ),
           edges = Seq()
