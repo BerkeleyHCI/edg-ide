@@ -475,11 +475,14 @@ class CompileProcessHandler(
                 ElkEdgirGraphUtils.PortArrayMapper,
                 new ElkEdgirGraphUtils.WireColorMapper(compiler),
                 new ElkEdgirGraphUtils.WireLabelMapper(compiler),
+                new ElkEdgirGraphUtils.PortSideMapper(),
+                ElkEdgirGraphUtils.PortConstraintMapper,
               ),
               childMappers = Seq( // because inner blocks are deduplicated, don't run instance-specific mappers
                 new ElkEdgirGraphUtils.TitleMapper(compiler),
                 ElkEdgirGraphUtils.DesignPathMapper,
                 ElkEdgirGraphUtils.PortArrayMapper,
+                // TODO add the port side mapper - it crashes the PDF generation
               ),
               options.pdfFile
             )
