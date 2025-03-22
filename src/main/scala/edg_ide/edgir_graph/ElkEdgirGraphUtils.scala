@@ -183,7 +183,6 @@ object ElkEdgirGraphUtils {
         case None if targetPorts.contains(path) => Some(PortSide.WEST)
         case None =>
           Some(PortSide.EAST)
-
       }
     }
     override def edgeConv(nodePath: Seq[String], edge: HGraphEdge[EdgeWrapper]): Option[PortSide] = None
