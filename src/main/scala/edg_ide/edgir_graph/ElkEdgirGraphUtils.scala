@@ -110,6 +110,7 @@ object ElkEdgirGraphUtils {
         case "CanControllerPort" => Some(PortSide.EAST)
         case "CanTransceiverPort" => Some(PortSide.WEST)
         case "CanDiffPort" => None
+        case "CanPassivePort" => Some(PortSide.EAST)
 
         case "CrystalDriver" => Some(PortSide.EAST)
         case "CrystalPort" => Some(PortSide.WEST)
