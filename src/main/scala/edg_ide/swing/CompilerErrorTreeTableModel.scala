@@ -91,16 +91,11 @@ object CompilerErrorNodeBase {
           Seq()
         )
 
-      case CompilerError.OverAssign(target, causes) =>
+      case CompilerError.ExprError(target, msg) =>
         (
-          "Conflicting assign",
+          "Expr error",
           target.toString,
-          causes.map {
-            case CompilerError.OverAssignCause.Assign(target, root, constrName, value) =>
-              new CompilerErrorDetailNode(s"$target ⇐ ${ExprToString(value)}", s"$root:$constrName")
-            case CompilerError.OverAssignCause.Equal(target, source) =>
-              new CompilerErrorDetailNode(s"$target ⇔ $source", s"(equality)")
-          }
+          Seq(new CompilerErrorDetailNode(msg, ""))
         )
       case CompilerError.AbstractBlock(path, blockType) =>
         (s"Abstract block, ${blockType.toSimpleString}", path.toString, Seq())
@@ -108,9 +103,7 @@ object CompilerErrorNodeBase {
         (
           s"Failed assertion",
           s"$root:$constrName",
-          Seq(
-            new CompilerErrorDetailNode(ExprVarToValue(value, compiler, root), result.toStringValue)
-          )
+          Seq(new CompilerErrorDetailNode(ExprVarToValue(value, compiler, root), result.toStringValue))
         )
       }
       case CompilerError.MissingAssertion(root, constrName, value, missing) =>
