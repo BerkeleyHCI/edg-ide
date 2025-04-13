@@ -245,6 +245,7 @@ class InsertRefinementAction(project: Project, insertIntoClass: PyClass) {
           inserted.addBefore(newline, inserted.getFirstChild)
         }
         listExpr
+      case ErrorValue(_) => exceptable.fail("can't create error expr")
     }
   }
 
