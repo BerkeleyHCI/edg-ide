@@ -422,7 +422,7 @@ class CompileProcessHandler(
               ElemBuilder.LibraryPath(packagePrefix + "edg.electronics_model.NetlistBackend"),
               compiled,
               compiler.getAllSolved,
-              Map("RefdesMode" -> options.toggle.toString)
+              Map()
             ).mapErr(msg => s"while netlisting: $msg")
               .get
             require(netlist.size == 1)

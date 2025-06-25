@@ -47,21 +47,9 @@ class DesignTopConfigurationFactory(confType: ConfigurationType) extends Configu
     classOf[DesignTopRunConfigurationOptions]
 }
 
-object RefdesMode extends Enumeration {
-  type selections = Value
-
-  val refdes = Value(0, "refdes")
-  val pathName = Value(1, "pathName")
-
-  def toEnum(s: String): Option[Value] = {
-    values.find(_.toString == s)
-  }
-}
-
 class DesignTopRunConfigurationOptions extends RunConfigurationOptions {
   var designName: String = ""
   var netlistFile: String = ""
-  var toggle: RefdesMode.selections = RefdesMode.refdes
   var bomFile: String = ""
   var pdfFile: String = ""
 }
@@ -95,7 +83,6 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
 
   val kFieldDesignName = "DESIGN_NAME"
   val kFieldNetlistName = "NETLIST_NAME"
-  val kFieldRefdesMode = "REFDESMODE_NAME"
   val kPdfFileName = "PDF_NAME"
   val kBomFileName = "BOM_NAME"
 
@@ -104,7 +91,6 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
     super.readExternal(element)
     options.designName = JDOMExternalizerUtil.readField(element, kFieldDesignName, "")
     options.netlistFile = JDOMExternalizerUtil.readField(element, kFieldNetlistName, "")
-    RefdesMode.toEnum(JDOMExternalizerUtil.readField(element, kFieldRefdesMode)).foreach(options.toggle = _)
     options.bomFile = JDOMExternalizerUtil.readField(element, kBomFileName, "")
     options.pdfFile = JDOMExternalizerUtil.readField(element, kPdfFileName, "")
   }
@@ -113,7 +99,6 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
     super.writeExternal(element)
     JDOMExternalizerUtil.writeField(element, kFieldDesignName, options.designName)
     JDOMExternalizerUtil.writeField(element, kFieldNetlistName, options.netlistFile)
-    JDOMExternalizerUtil.writeField(element, kFieldRefdesMode, options.toggle.toString)
     JDOMExternalizerUtil.writeField(element, kBomFileName, options.bomFile)
     JDOMExternalizerUtil.writeField(element, kPdfFileName, options.pdfFile)
   }
@@ -122,11 +107,6 @@ class DesignTopRunConfiguration(project: Project, factory: ConfigurationFactory,
 class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTopRunConfiguration] {
   protected val designName = new JTextField()
   protected val netlistFile = new JTextField() // no browse button b/c FileChooser can't create new files
-  protected val toggleRefdes = new JBRadioButton()
-  protected val togglePathname = new JBRadioButton()
-  protected val toggleButtons = new ButtonGroup()
-  toggleButtons.add(toggleRefdes)
-  toggleButtons.add(togglePathname)
   protected val bomFile = new JTextField()
   protected val pdfFile = new JTextField()
 
@@ -134,8 +114,6 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
     .createFormBuilder()
     .addLabeledComponent(new JBLabel("Design top name"), designName, false)
     .addLabeledComponent(new JBLabel("Netlist output file"), netlistFile, false)
-    .addLabeledComponent(new JBLabel("Select Netlist Refdes value"), toggleRefdes)
-    .addLabeledComponent(new JBLabel("Select Netlist Path Name"), togglePathname)
     .addLabeledComponent(new JBLabel("BOM output file"), bomFile, false)
     .addLabeledComponent(new JBLabel("PDF output file"), pdfFile, false)
     .addComponentFillVertically(new JPanel(), 0)
@@ -144,14 +122,6 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
   override def resetEditorFrom(s: DesignTopRunConfiguration): Unit = {
     designName.setText(s.options.designName)
     netlistFile.setText(s.options.netlistFile)
-    s.options.toggle match {
-      case RefdesMode.refdes =>
-        toggleRefdes.setSelected(true)
-        togglePathname.setSelected(false)
-      case RefdesMode.pathName =>
-        toggleRefdes.setSelected(false)
-        togglePathname.setSelected(true)
-    }
     bomFile.setText(s.options.bomFile)
     pdfFile.setText(s.options.pdfFile)
   }
@@ -159,13 +129,6 @@ class DesignTopSettingsEditor(project: Project) extends SettingsEditor[DesignTop
   override def applyEditorTo(s: DesignTopRunConfiguration): Unit = {
     s.options.designName = designName.getText
     s.options.netlistFile = netlistFile.getText
-    if (toggleRefdes.isSelected) {
-      s.options.toggle = RefdesMode.refdes
-    } else if (togglePathname.isSelected) {
-      s.options.toggle = RefdesMode.pathName
-    } else {
-      // Ignore invalid user selection
-    }
     s.options.bomFile = bomFile.getText
     s.options.pdfFile = pdfFile.getText
   }
