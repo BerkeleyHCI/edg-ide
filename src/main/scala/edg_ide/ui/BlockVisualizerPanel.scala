@@ -475,13 +475,12 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
       designTree.getTree.addTreeSelectionListener(designTreeListener) // overridden when the model is updated
       designTree.setTreeCellRenderer(designTreeTreeRenderer)
       designTree.setDefaultRenderer(classOf[Object], designTreeTableRenderer)
+
+      selectPath(selectionPath)
     })
 
-    // Also update the active detail panel
-    selectPath(selectionPath)
-    detailPanel.setStale(false)
-
     updateDisplay()
+    detailPanel.setStale(false)
   }
 
   /** Sets the entire design as stale, eg if a recompile is running. Cleared with any variation of setDesign.
