@@ -41,9 +41,9 @@ lazy val root = (project in file("."))
       xml.untilBuild        = "252.*"
     },
 
-    intellijVMOptions := intellijVMOptions.value.copy(
-      xmx = 4096,
-      xms = 1024
+    customIntellijVMOptions := customIntellijVMOptions.value.copy(
+      xmx = Some(4096),
+      xms = Some(1024)
     ),
   ).enablePlugins(BuildInfoPlugin)
   .settings(
