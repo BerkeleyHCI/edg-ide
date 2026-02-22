@@ -4,7 +4,8 @@ import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoOptions
 
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin
 ThisBuild / intellijPluginName := "edg-ide"
-ThisBuild / intellijBuild := "231.8109.175"
+// release build versions here: https://youtrack.jetbrains.com/articles/IDEA-A-21/IDEA-Latest-Builds-And-Release-Notes
+ThisBuild / intellijBuild := "243.28141.18"
 ThisBuild / intellijPlatform := IntelliJPlatform.IdeaCommunity
 
 lazy val edgCompiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
@@ -36,7 +37,7 @@ lazy val root = (project in file("."))
       xml.version           = version.value
       xml.pluginDescription = "EDG IDE Description"
       xml.sinceBuild        = (ThisBuild / intellijBuild).value
-      xml.untilBuild        = "223.*"
+      xml.untilBuild        = "243.*"
     },
 
     intellijVMOptions := intellijVMOptions.value.copy(

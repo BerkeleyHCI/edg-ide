@@ -27,7 +27,7 @@ import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io._
 import java.nio.file.{Files, Paths}
-import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava}
+import scala.jdk.CollectionConverters._
 
 // a dummy-ish provider for PythonRunParams to get the Python interpreter executable
 class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: String)
@@ -72,6 +72,10 @@ class DesignTopRunParams(workingDirectory: String, sdkHome: String, moduleName: 
   override def setAddContentRoots(b: Boolean): Unit = throw new NotImplementedError()
 
   override def setAddSourceRoots(b: Boolean): Unit = throw new NotImplementedError()
+
+  override def getEnvFilePaths: java.util.List[String] = List[String]().asJava
+
+  override def setEnvFilePaths(x: java.util.List[String]): Unit = throw new NotImplementedError()
 }
 
 // a PythonInterface that uses the on-event hooks to log to the console
