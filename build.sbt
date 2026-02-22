@@ -5,7 +5,8 @@ import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoOptions
 // IntelliJ plugin docs here: https://github.com/JetBrains/sbt-idea-plugin
 ThisBuild / intellijPluginName := "edg-ide"
 // release build versions here: https://youtrack.jetbrains.com/articles/IDEA-A-21/IDEA-Latest-Builds-And-Release-Notes
-ThisBuild / intellijBuild := "243.28141.18"
+// note, 2025.3 seemed to change the Python APIs which breaks a lot of stuff here
+ThisBuild / intellijBuild := "252.28539.33"  // 2025.2
 ThisBuild / intellijPlatform := IntelliJPlatform.IdeaCommunity
 
 lazy val edgCompiler = (project in file("PolymorphicBlocks/compiler"))  // proto imported transitively
@@ -36,8 +37,8 @@ lazy val root = (project in file("."))
     patchPluginXml := pluginXmlOptions { xml =>
       xml.version           = version.value
       xml.pluginDescription = "EDG IDE Description"
-      xml.sinceBuild        = (ThisBuild / intellijBuild).value
-      xml.untilBuild        = "243.*"
+      xml.sinceBuild        = "243.*"
+      xml.untilBuild        = "252.*"
     },
 
     intellijVMOptions := intellijVMOptions.value.copy(
