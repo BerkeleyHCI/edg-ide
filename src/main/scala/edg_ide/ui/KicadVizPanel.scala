@@ -1,6 +1,5 @@
 package edg_ide.ui
 
-import com.intellij.notification.NotificationGroup
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.ui.JBSplitter
@@ -30,8 +29,6 @@ import javax.swing.event.{DocumentEvent, DocumentListener}
 import javax.swing.tree.TreePath
 
 class KicadVizPanel(project: Project) extends JPanel with MouseWheelListener {
-  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.KicadVizPanel")
-
   // State
   //
   var currentBlockPathTypePin: Option[(DesignPath, ref.LibraryPath, elem.HierarchyBlock, Map[String, ref.LocalPath])] =

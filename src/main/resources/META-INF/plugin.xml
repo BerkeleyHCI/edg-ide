@@ -15,6 +15,9 @@
             instance="edg_ide.ui.EdgSettingsConfigurable"
             id="edg_ide.ui.EdgSettingsConfigurable"
             displayName="EDG IDE"/>
+    <notificationGroup id="EDG IDE Notifications"
+             displayType="BALLOON"
+             key="edg_ide.ui"/>
 
     <projectService serviceImplementation="edg_ide.ui.BlockVisualizerServiceWrapper"/>
     <projectService serviceImplementation="edg_ide.ui.DseServiceWrapper"/>

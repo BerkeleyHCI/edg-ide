@@ -1,6 +1,6 @@
 package edg_ide.ui
 
-import com.intellij.notification.NotificationGroup
+import com.intellij.notification.{NotificationGroup, NotificationGroupManager}
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.{ModalityState, ReadAction}
 import com.intellij.openapi.components.PersistentStateComponent
@@ -10,7 +10,7 @@ import com.intellij.psi.{PsiManager, PsiTreeChangeEvent, PsiTreeChangeListener}
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.python.psi.PyClass
 import com.jetbrains.python.psi.search.PyClassInheritorsSearch
-import edg.compiler.{Compiler, ElaborateRecord, PythonInterfaceLibrary}
+import edg.compiler.{Compiler, PythonInterfaceLibrary}
 import edg.util.{Errorable, timeExec}
 import edg.wir.Refinements
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
@@ -30,6 +30,9 @@ object EdgCompilerService {
   def apply(project: Project): EdgCompilerService = {
     project.getService(classOf[EdgCompilerServiceWrapper]).asInstanceOf[EdgCompilerService]
   }
+
+  def notificationGroup(): NotificationGroup =
+    NotificationGroupManager.getInstance().getNotificationGroup("EDG IDE Notifications")
 }
 
 /** A single shared interface to Python and for running EDG compilation jobs.
@@ -39,8 +42,6 @@ object EdgCompilerService {
 class EdgCompilerService(project: Project)
     extends PersistentStateComponent[EdgCompilerServiceState]
     with Disposable {
-  val notificationGroup: NotificationGroup = NotificationGroup.balloonGroup("edg_ide.ui.EdgCompilerService")
-
   val pyLib = new PythonInterfaceLibrary()
 
   // Tracks modified classes, so the appropriate library elements can be discarded on the next refresh.

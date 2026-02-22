@@ -378,7 +378,7 @@ class LibraryPanel(project: Project) extends JPanel {
 
   private var libraryTreeModel = new FilteredTreeTableModel(new EdgirLibraryTreeTableModel(project, library))
   private val libraryTree = new TreeTable(libraryTreeModel) with ProvenTreeTableMixin
-  new TreeTableSpeedSearch(libraryTree)
+  TreeTableSpeedSearch.installOn(libraryTree)
   private val libraryTreeListener =
     new TreeSelectionListener { // an object so it can be re-used since a model change wipes everything out
       override def valueChanged(e: TreeSelectionEvent): Unit = {

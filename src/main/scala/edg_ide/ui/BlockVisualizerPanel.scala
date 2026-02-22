@@ -304,7 +304,7 @@ class BlockVisualizerPanel(val project: Project, toolWindow: ToolWindow) extends
 
   private var designTreeModel = new BlockTreeTableModel(project, edgir.elem.elem.HierarchyBlock())
   private val designTree = new TreeTable(designTreeModel) with ProvenTreeTableMixin
-  new TreeTableSpeedSearch(designTree)
+  TreeTableSpeedSearch.installOn(designTree)
   designTree.addMouseMotionListener(new MouseMotionListener {
     override def mouseDragged(e: MouseEvent): Unit = {} // ignored
     override def mouseMoved(e: MouseEvent): Unit = {
