@@ -4,7 +4,7 @@ import com.intellij.notification.{NotificationGroup, NotificationType}
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import edg.util.Errorable
-import edg_ide.ui.PopupUtils
+import edg_ide.ui.{EdgCompilerService, PopupUtils}
 
 import java.awt.event.MouseEvent
 import scala.reflect.ClassTag
@@ -35,7 +35,7 @@ object exceptionNotify {
     * those fail, terminates execution and displays the failure message.
     */
   def apply(notificationId: String, project: Project)(fn: => Unit): Unit = {
-    apply(NotificationGroup.balloonGroup(notificationId), project)(fn)
+    apply(EdgCompilerService.notificationGroup(), project)(fn)
   }
 
   def apply(notificationGroup: NotificationGroup, project: Project)(fn: => Unit): Unit = {

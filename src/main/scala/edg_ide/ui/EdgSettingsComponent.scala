@@ -12,10 +12,9 @@ import javax.swing.{JCheckBox, JPanel}
 class EdgSettingsComponent {
   val kicadDirectoryText = new TextFieldWithBrowseButton()
   kicadDirectoryText.addBrowseFolderListener(
-    "Choose KiCad Footprint Directory",
-    "",
     null,
     FileChooserDescriptorFactory.createSingleFolderDescriptor()
+      .withTitle("Choose KiCad Footprint Directory")
   )
   val kicadDirectoryHelp = new JBLabel(
     "Multiple footprint directories can be separated by semicolons (;). " +

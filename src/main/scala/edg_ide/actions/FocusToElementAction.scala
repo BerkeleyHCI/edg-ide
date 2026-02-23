@@ -11,7 +11,7 @@ import edg.ElemBuilder
 import edg.wir.DesignPath
 import edg.wir.ProtoUtil._
 import edg_ide.{EdgirUtils, PsiUtils}
-import edg_ide.ui.{BlockVisualizerService, PopupUtils}
+import edg_ide.ui.{BlockVisualizerService, EdgCompilerService, PopupUtils}
 import edg_ide.util.ExceptionNotifyImplicits.{ExceptErrorable, ExceptNotify, ExceptOption, ExceptSeq}
 import edg_ide.util.{DesignFindBlockOfTypes, exceptionPopup}
 
@@ -34,9 +34,6 @@ object FocusToElementAction {
 }
 
 class FocusToElementAction() extends AnAction() {
-  val notificationGroup: NotificationGroup =
-    NotificationGroup.balloonGroup("edg_ide.actions.NavigateToBlockAction")
-
   case class NavigateNode(desc: String, action: () => Unit) {
     override def toString: String = desc
   }
@@ -44,7 +41,7 @@ class FocusToElementAction() extends AnAction() {
   override def actionPerformed(event: AnActionEvent): Unit = {
     val editor = event.getData(CommonDataKeys.EDITOR)
     if (editor == null) {
-      notificationGroup
+      EdgCompilerService.notificationGroup()
         .createNotification("No editor", NotificationType.WARNING)
         .notify(event.getProject)
     }

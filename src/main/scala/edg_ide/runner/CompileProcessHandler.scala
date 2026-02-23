@@ -26,6 +26,7 @@ import edgir.schema.schema
 import edgrpc.hdl.{hdl => edgrpc}
 
 import java.io._
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters._
 
@@ -432,7 +433,7 @@ class CompileProcessHandler(
             require(netlist.size == 1)
 
             Files.createDirectories(Paths.get(options.netlistFile).getParent)
-            val writer = new FileWriter(options.netlistFile)
+            val writer = new FileWriter(options.netlistFile, StandardCharsets.UTF_8)
             writer.write(netlist.head._2)
             writer.close()
             f"wrote ${options.netlistFile}"
@@ -456,7 +457,7 @@ class CompileProcessHandler(
             require(bom.size == 1)
 
             Files.createDirectories(Paths.get(options.bomFile).getParent)
-            val writer = new FileWriter(options.bomFile)
+            val writer = new FileWriter(options.bomFile, StandardCharsets.UTF_8)
             writer.write(bom.head._2)
             writer.close()
             f"wrote ${options.bomFile}"
