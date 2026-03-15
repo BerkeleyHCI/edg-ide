@@ -638,16 +638,12 @@ class DesignToolTipTextMap(compiler: Compiler) extends DesignMap[Unit, Unit, Uni
 
   def getTextMap: Map[DesignPath, String] = textMap.toMap
 
-  override def mapPort(path: DesignPath, port: elem.Port): Unit = {
+  override def mapPort(path: DesignPath, port: elem.Port, ports: SeqMap[String, Unit]): Unit = {
     val classString = port.getSelfClass.toSimpleString
     textMap.put(path, s"<b>$classString</b> at $path")
   }
   override def mapPortArray(path: DesignPath, port: elem.PortArray, ports: SeqMap[String, Unit]): Unit = {
     val classString = s"Array[${port.getSelfClass.toSimpleString}]"
-    textMap.put(path, s"<b>$classString</b> at $path")
-  }
-  override def mapBundle(path: DesignPath, port: elem.Bundle, ports: SeqMap[String, Unit]): Unit = {
-    val classString = port.getSelfClass.toSimpleString
     textMap.put(path, s"<b>$classString</b> at $path")
   }
   override def mapPortLibrary(path: DesignPath, port: ref.LibraryPath): Unit = {

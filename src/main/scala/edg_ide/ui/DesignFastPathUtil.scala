@@ -3,7 +3,7 @@ import edg.ExprBuilder.Ref
 import edg.util.Errorable
 import edg.wir.LibraryConnectivityAnalysis
 import edg.wir.ProtoUtil._
-import edg.{IrPort, wir}
+import edg.wir
 import edg_ide.util.ExceptionNotifyImplicits.ExceptErrorable
 import edg_ide.util.exceptable
 import edgir.elem.elem
@@ -15,20 +15,11 @@ class DesignFastPathUtil(library: wir.Library) {
   lazy val libraryAnalysis = new LibraryConnectivityAnalysis(library)
 
   def instantiatePortLike(portType: ref.LibraryPath): Errorable[elem.PortLike] = exceptable {
-    library.getPort(portType).exceptError match {
-      case IrPort.Port(port) =>
-        elem
-          .PortLike()
-          .update(
-            _.port := port
-          )
-      case IrPort.Bundle(bundle) =>
-        elem
-          .PortLike()
-          .update(
-            _.bundle := bundle
-          )
-    }
+    elem
+      .PortLike()
+      .update(
+        _.port := library.getPort(portType).exceptError
+      )
   }
 
   private def recursiveExpandPort(portLike: elem.PortLike): Errorable[elem.PortLike] = exceptable {

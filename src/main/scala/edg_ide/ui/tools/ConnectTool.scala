@@ -28,7 +28,6 @@ object ConnectTool {
       val port = EdgirUtils.resolveExact(portPath, interface.getDesign).exceptNone("no port")
       val portType = port match {
         case port: elem.Port => port.getSelfClass
-        case port: elem.Bundle => port.getSelfClass
         case array: elem.PortArray => array.getSelfClass
         case _ => exceptable.fail("invalid port type")
       }
@@ -231,7 +230,7 @@ class ConnectTool(
     if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount == 1) { // toggle selected port
       val currentSelectedPorts = currentConnectBuilder.connected.map(containingBlockPath ++ _._1.connect.topPortRef)
       resolved match {
-        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) => // toggle port
+        case Some(_: elem.Port | _: elem.PortArray) => // toggle port
           if (selectedConnects.exists(containingBlockPath ++ _.connect.topPortRef == path)) { // toggle de-select
             removeConnect(path)
           } else if (!currentSelectedPorts.contains(path) && path != startingPortPath) { // toggle select

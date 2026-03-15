@@ -29,7 +29,6 @@ object PortConnects { // types of connections a port attached to a connection ca
   protected def typeOfSinglePort(portLike: elem.PortLike): Option[ref.LibraryPath] = portLike.is match {
     case elem.PortLike.Is.LibElem(lib) => Some(lib)
     case elem.PortLike.Is.Port(port) => port.selfClass
-    case elem.PortLike.Is.Bundle(port) => port.selfClass
     case _ => None
   }
 

@@ -29,8 +29,7 @@ object InsertPinningAction {
       path: ref.LocalPath,
       port: elem.PortLike
   ): Seq[(ref.LocalPath, ref.LibraryPath)] = port.is match {
-    case elem.PortLike.Is.Port(port) => Seq((path, port.getSelfClass))
-    case elem.PortLike.Is.Bundle(port) =>
+    case elem.PortLike.Is.Port(port) =>
       Seq((path, port.getSelfClass)) ++
         port.ports.asPairs.flatMap { case (name, subport) =>
           val subpath = path.update(

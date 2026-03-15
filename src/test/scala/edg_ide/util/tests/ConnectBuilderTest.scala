@@ -16,7 +16,7 @@ class ConnectBuilderTest extends AnyFlatSpec {
     "topDesign",
     ports = SeqMap(
       "port" -> Port.Port("sourcePort", params = SeqMap("param" -> ValInit.Integer)),
-      "bundle" -> Port.Bundle(
+      "bundle" -> Port.Port(
         "sourceBundle",
         ports = SeqMap(
           "port" -> Port.Port("sourcePort", params = SeqMap("param" -> ValInit.Integer)),
