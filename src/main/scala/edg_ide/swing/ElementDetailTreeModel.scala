@@ -79,21 +79,6 @@ class ElementDetailNodes(
         linkNode,
         Some(new SuperclassesNode(port.superclasses)),
         Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
-        port.params.asPairs.map { case (name, param) =>
-          new ParamNode(path.asIndirect + name, param)
-        }
-      ).flatten
-    }
-
-    override def getColumns(index: Int): String = port.getSelfClass.toSimpleString
-  }
-
-  class BundleNode(val path: DesignPath, port: elem.Bundle, val fromLink: Boolean = false)
-      extends BasePortNode {
-    override lazy val children = {
-      Seq(
-        Some(new SuperclassesNode(port.superclasses)),
-        Some(new ParamNode(path.asIndirect + IndirectStep.IsConnected, ExprBuilder.ValInit.Boolean)),
         port.ports.asPairs.map { case (name, subport) =>
           PortLikeNode(path + name, subport, fromLink)
         },
@@ -131,7 +116,6 @@ class ElementDetailNodes(
   def PortLikeNode(path: DesignPath, port: elem.PortLike, fromLink: Boolean = false): ElementDetailNode = {
     port.is match {
       case elem.PortLike.Is.Port(port) => new PortNode(path, port, fromLink)
-      case elem.PortLike.Is.Bundle(port) => new BundleNode(path, port, fromLink)
       case elem.PortLike.Is.Array(port) => new PortArrayNode(path, port, fromLink)
       case elem.PortLike.Is.LibElem(port) =>
         new UnelaboratedNode(path, s"unelaborated ${port.toSimpleString}")

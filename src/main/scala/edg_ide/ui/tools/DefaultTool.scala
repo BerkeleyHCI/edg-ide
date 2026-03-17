@@ -274,7 +274,6 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
   }
   private val portClass = port match {
     case port: elem.Port => port.getSelfClass
-    case bundle: elem.Bundle => bundle.getSelfClass
     case array: elem.PortArray => array.getSelfClass
     case other =>
       PopupUtils.createErrorPopupAtMouse(f"internal error: unknown ${other.getClass} at $path", this)
@@ -300,7 +299,6 @@ class DesignPortPopupMenu(path: DesignPath, interface: ToolInterface)
 
     val params = port match {
       case port: elem.Port => port.params
-      case bundle: elem.Bundle => bundle.params
       case _ => Seq() // including arrays, not supported
     }
     params.toSeqMap.foreach { case (paramName, paramValue) =>
@@ -342,7 +340,7 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
           exceptionPopup(e) {
             new DesignBlockPopupMenu(path, interface).setFocusAction.exceptError()
           }
-        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) => // ports: start connect
+        case Some(_: elem.Port | _: elem.PortArray) => // ports: start connect
           exceptionPopup(e) {
             new DesignPortPopupMenu(path, interface).startConnectAction.exceptError()
           }
@@ -353,7 +351,7 @@ class DefaultTool(val interface: ToolInterface) extends BaseTool {
       resolved match {
         case Some(_: elem.HierarchyBlock) =>
           new DesignBlockPopupMenu(path, interface).show(e.getComponent, e.getX, e.getY)
-        case Some(_: elem.Port | _: elem.Bundle | _: elem.PortArray) =>
+        case Some(_: elem.Port | _: elem.PortArray) =>
           new DesignPortPopupMenu(path, interface).show(e.getComponent, e.getX, e.getY)
         case _ => // TODO support other element types
       }

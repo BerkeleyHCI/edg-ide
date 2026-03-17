@@ -29,7 +29,6 @@ object EdgirUtils {
 
   def typeOfPortLike(portLike: elem.PortLike): Option[ref.LibraryPath] = portLike.is match {
     case elem.PortLike.Is.Port(port) => Some(port.getSelfClass)
-    case elem.PortLike.Is.Bundle(port) => Some(port.getSelfClass)
     case elem.PortLike.Is.Array(port) => Some(port.getSelfClass)
     case elem.PortLike.Is.LibElem(lib) => Some(lib)
     case _ => None
@@ -180,8 +179,18 @@ object EdgirUtils {
       portLike.is match {
         case elem.PortLike.Is.Port(port) =>
           (postfix, target) match {
-            case (_, ResolveTarget.Any | ResolveTarget.Port) =>
-              Some((prefix, port.asInstanceOf[T])) // deepest along path
+            case (Seq(), ResolveTarget.Any | ResolveTarget.Port) => Some((prefix, port.asInstanceOf[T]))
+            case (Seq(), _) => None // target isn't the right type, but nowhere to continue
+            case (Seq(head, tail @ _*), target) =>
+              if (port.ports.toSeqMap.contains(head) && target == ResolveTarget.Port) {
+                fromPortLike(prefix :+ head, tail, port.ports(head), target)
+              } else if (target == ResolveTarget.Port) { // deepest possible target along path
+                Some((prefix, port.asInstanceOf[T]))
+              } else if (target == ResolveTarget.Any) { // deepest possible target along path
+                Some((prefix, port.asInstanceOf[T]))
+              } else {
+                None
+              }
             case _ => None
           }
         case elem.PortLike.Is.Array(port) =>
@@ -200,23 +209,6 @@ object EdgirUtils {
                   ) && target == ResolveTarget.Port
               ) {
                 fromPortLike(prefix :+ head, tail, port.getPorts.ports(head), target)
-              } else if (target == ResolveTarget.Port) { // deepest possible target along path
-                ??? // TODO return non-Port PortType
-              } else if (target == ResolveTarget.Any) { // deepest possible target along path
-                Some((prefix, port.asInstanceOf[T]))
-              } else {
-                None
-              }
-            case _ => None
-          }
-        case elem.PortLike.Is.Bundle(port) =>
-          (postfix, target) match {
-            case (Seq(), ResolveTarget.Any) => Some((prefix, port.asInstanceOf[T]))
-            case (Seq(), ResolveTarget.Port) => ??? // TODO return non-Port PortType
-            case (Seq(), _) => None // target isn't the right type, but nowhere to continue
-            case (Seq(head, tail @ _*), target) =>
-              if (port.ports.toSeqMap.contains(head) && target == ResolveTarget.Port) {
-                fromPortLike(prefix :+ head, tail, port.ports(head), target)
               } else if (target == ResolveTarget.Port) { // deepest possible target along path
                 ??? // TODO return non-Port PortType
               } else if (target == ResolveTarget.Any) { // deepest possible target along path

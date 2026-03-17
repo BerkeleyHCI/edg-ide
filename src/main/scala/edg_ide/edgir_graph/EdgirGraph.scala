@@ -221,7 +221,6 @@ object EdgirGraph {
       portLike: elem.PortLike
   ): Seq[(Seq[String], EdgirPort)] = portLike.is match {
     case elem.PortLike.Is.Port(port) => Seq(name -> portLikeToPort(path, portLike))
-    case elem.PortLike.Is.Bundle(port) => Seq(name -> portLikeToPort(path, portLike))
     case elem.PortLike.Is.LibElem(port) => Seq(name -> portLikeToPort(path, portLike))
     case elem.PortLike.Is.Array(array) =>
       array.getPorts.ports.toSeqMap.toSeq.flatMap { case (subname, subport) =>

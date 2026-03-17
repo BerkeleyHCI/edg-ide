@@ -66,8 +66,6 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
 //      val connectTypedOpt = port.is match {
 //        case elem.PortLike.Is.Port(port) =>
 //          Some(PortConnectTyped(PortConnects.BoundaryPort(portName, Seq()), port.getSelfClass))
-//        case elem.PortLike.Is.Bundle(port) =>
-//          Some(PortConnectTyped(PortConnects.BoundaryPort(portName, Seq()), port.getSelfClass))
 //        case elem.PortLike.Is.Array(array) =>
 //          Some(PortConnectTyped(PortConnects.BoundaryPortVectorUnit(portName), array.getSelfClass))
 //        case _ => None
@@ -84,8 +82,6 @@ class BlockConnectedAnalysis(val block: elem.HierarchyBlock) {
       subBlock.ports.toSeqMap.foreach { case (subBlockPortName, port) =>
         val disconnectedConnectOpt = port.is match {
           case elem.PortLike.Is.Port(port) if !connectedsByPortRef.contains(Seq(subBlockName, subBlockPortName)) =>
-            Some(PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass))
-          case elem.PortLike.Is.Bundle(port) if !connectedsByPortRef.contains(Seq(subBlockName, subBlockPortName)) =>
             Some(PortConnectTyped(PortConnects.BlockPort(subBlockName, subBlockPortName), port.getSelfClass))
           case elem.PortLike.Is.Array(array) => // arrays can have multiple connections
             val connectOpt = connectedsByPortRef.get(Seq(subBlockName, subBlockPortName)) match {
