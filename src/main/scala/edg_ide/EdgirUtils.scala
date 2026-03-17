@@ -185,7 +185,7 @@ object EdgirUtils {
               if (port.ports.toSeqMap.contains(head) && target == ResolveTarget.Port) {
                 fromPortLike(prefix :+ head, tail, port.ports(head), target)
               } else if (target == ResolveTarget.Port) { // deepest possible target along path
-                ??? // TODO return non-Port PortType
+                Some((prefix, port.asInstanceOf[T]))
               } else if (target == ResolveTarget.Any) { // deepest possible target along path
                 Some((prefix, port.asInstanceOf[T]))
               } else {
