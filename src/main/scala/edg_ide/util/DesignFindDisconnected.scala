@@ -40,7 +40,7 @@ object DesignFindDisconnected extends DesignBlockMap[(Seq[DesignPath], Seq[Strin
       .collect { // extract block side expr
         case expr.ValueExpr.Expr.Connected(expr.ConnectedExpr(Some(blockExpr), Some(linkExpr), _, _)) =>
           blockExpr.expr
-        case expr.ValueExpr.Expr.Exported(expr.ExportedExpr(Some(exteriorExpr), Some(interiorExpr), _, _)) =>
+        case expr.ValueExpr.Expr.Exported(expr.ExportedExpr(Some(exteriorExpr), Some(interiorExpr), false, _, _)) =>
           interiorExpr.expr
       }
       .collect { // extract steps
