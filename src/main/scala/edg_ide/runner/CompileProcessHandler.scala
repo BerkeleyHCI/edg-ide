@@ -432,7 +432,7 @@ class CompileProcessHandler(
               .get
 
             Files.createDirectories(Paths.get(options.netlistFile).getParent)
-            val writtenFiles = netlist.map { case (path, netlist) =>
+            val writtenFiles = netlist.map { case (path, netlistData) =>
               val filename = if (path == DesignPath()) {
                 options.netlistFile
               } else {
@@ -443,7 +443,7 @@ class CompileProcessHandler(
                 }
               }
               val writer = new FileWriter(filename, StandardCharsets.UTF_8)
-              writer.write(netlist)
+              writer.write(netlistData)
               writer.close()
               filename
             }

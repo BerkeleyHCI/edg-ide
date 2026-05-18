@@ -5,6 +5,7 @@ import com.intellij.ui.JBColor
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, RangeValue, TextValue}
 import edg.wir.DesignPath
+import edg_ide.EdgirUtils.typeOfPortLike
 import edg_ide.util.EdgirAnalysisUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 import edgir.elem.elem
@@ -91,15 +92,8 @@ object ElkEdgirGraphUtils {
     type PropertyType = PortSide
     override val property: IProperty[PortSide] = PORT_SIDE
 
-    def typeOfPortLike(portLike: elem.PortLike): ref.LibraryPath = portLike.is match {
-      case elem.PortLike.Is.LibElem(lib) => lib
-      case elem.PortLike.Is.Port(port) => port.getSelfClass
-      case elem.PortLike.Is.Array(port) => port.getSelfClass
-      case other => throw new IllegalArgumentException(s"Unexpected PortLike ${other.getClass}")
-    }
-
     def getSimplePortSide(port: PortWrapper): Option[PortSide] = {
-      val portType = typeOfPortLike(port.portLike)
+      val portType = typeOfPortLike(port.portLike).get
 
       portType.toSimpleString match {
         case "Ground" => Some(PortSide.SOUTH)
