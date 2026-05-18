@@ -4,10 +4,12 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ui.JBColor
 import edg.EdgirUtils.SimpleLibraryPath
 import edg.compiler.{Compiler, RangeValue, TextValue}
-import edg.wir.{BlockConnectivityAnalysis, DesignPath}
+import edg.wir.DesignPath
+import edg_ide.EdgirUtils.typeOfPortLike
 import edg_ide.util.EdgirAnalysisUtils
 import org.eclipse.elk.graph.{ElkGraphElement, ElkNode}
 import edgir.elem.elem
+import edgir.ref.ref
 
 import java.awt.Color
 import scala.collection.mutable
@@ -91,7 +93,7 @@ object ElkEdgirGraphUtils {
     override val property: IProperty[PortSide] = PORT_SIDE
 
     def getSimplePortSide(port: PortWrapper): Option[PortSide] = {
-      val portType = BlockConnectivityAnalysis.typeOfPortLike(port.portLike)
+      val portType = typeOfPortLike(port.portLike).get
 
       portType.toSimpleString match {
         case "Ground" => Some(PortSide.SOUTH)

@@ -430,13 +430,24 @@ class CompileProcessHandler(
               Map()
             ).mapErr(msg => s"while netlisting: $msg")
               .get
-            require(netlist.size == 1)
 
             Files.createDirectories(Paths.get(options.netlistFile).getParent)
-            val writer = new FileWriter(options.netlistFile, StandardCharsets.UTF_8)
-            writer.write(netlist.head._2)
-            writer.close()
-            f"wrote ${options.netlistFile}"
+            val writtenFiles = netlist.map { case (path, netlistData) =>
+              val filename = if (path == DesignPath()) {
+                options.netlistFile
+              } else {
+                if (options.netlistFile.endsWith(".net")) {
+                  options.netlistFile.stripSuffix(".net") + "_" + path.toString.replace(',', '_') + ".net"
+                } else {
+                  options.netlistFile + "_" + path.toString.replace(',', '_')
+                }
+              }
+              val writer = new FileWriter(filename, StandardCharsets.UTF_8)
+              writer.write(netlistData)
+              writer.close()
+              filename
+            }
+            f"wrote ${writtenFiles.mkString(", ")}"
           }
         } else {
           console.print(
