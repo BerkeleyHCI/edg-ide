@@ -43,17 +43,9 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
     override def toString: String = path.toSimpleString
   }
 
-  class BlockUnreachableRootNode(paths: Seq[ref.LibraryPath], root: BlockRootNode)
-      extends EdgirLibraryNodeBase {
-    override def toString: String = "(unreachable from root)"
-
-    override lazy val children: Seq[EdgirLibraryNodeBase] = {
-      paths
         .map { childPath => new BlockNode(childPath, library.allBlocks(childPath), root) }
         .sortBy(_.toString)
     }
-  }
-
   class BlockNode(val path: ref.LibraryPath, val block: elem.HierarchyBlock, root: BlockRootNode)
       extends LibraryElementNode(path) {
     override val traits = {
@@ -85,20 +77,9 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
     }
   }
 
-  // Returns the reachable set from a node, including the starting if it is present in the graph
-  def graphReachable[T](graph: Map[T, Seq[T]], from: T): Seq[T] = {
-    if (graph.contains(from)) {
-      val reachable = graph.getOrElse(from, Seq()).flatMap { childElt =>
-        graphReachable(graph, childElt)
-      }
-      Seq(from) ++ reachable
-    } else {
-      Seq()
-    }
-  }
-
   private val rootPath = ref.LibraryPath(target = None)
   val childMap: Map[ref.LibraryPath, Seq[ref.LibraryPath]] = library.allBlocks.toSeq
+    .filter { case (path, block) => !block.isMixin } // filter out mixins blocks
     .flatMap { case (path, block) =>
       block.superclasses match { // for each block, generate all pairs (superclass path, path)
         case Seq() => Seq((rootPath, path))
@@ -128,17 +109,7 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
           }
         }
 
-      // display blocks that are unreachable from the root (eg, if superclasses are missing, because of bad compile)
-      val rootReachable = graphReachable(childMap, rootPath)
-      val unreachableBlocks = library.allBlocks.keys.toSet -- rootReachable
-      val allSubclasses = childMap.values.flatten // prune these to only show the top-level superclasses
-      val unreachableSuperclasses = (unreachableBlocks -- allSubclasses).toSeq
-
-      rootChildren ++
-        (if (unreachableSuperclasses.isEmpty)
-           Seq()
-         else
-           Seq(new BlockUnreachableRootNode(unreachableSuperclasses, this)))
+      rootChildren // unreachable nodes ignored
     }
   }
 
