@@ -284,6 +284,12 @@ class EdgirGraphTest extends AnyFlatSpec with Matchers {
         Seq("block") -> EdgirGraph.EdgirNode(
           data = BlockWrapper(DesignPath() + "block", designIr.blocks("block")),
           members = SeqMap(
+            Seq("ports") -> EdgirGraph.EdgirPort(
+              data = PortWrapper(
+                DesignPath() + "block" + "ports",
+                blockIr.ports("ports")
+              )
+            ),
             Seq("ports", "0") -> EdgirGraph.EdgirPort(
               data = PortWrapper(
                 DesignPath() + "block" + "ports" + "0",

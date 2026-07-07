@@ -223,9 +223,10 @@ object EdgirGraph {
     case elem.PortLike.Is.Port(port) => Seq(name -> portLikeToPort(path, portLike))
     case elem.PortLike.Is.LibElem(port) => Seq(name -> portLikeToPort(path, portLike))
     case elem.PortLike.Is.Array(array) =>
-      array.getPorts.ports.toSeqMap.toSeq.flatMap { case (subname, subport) =>
-        expandPortsWithNames(path + subname, name :+ subname, subport)
-      }
+      Seq(name -> portLikeToPort(path, portLike)) ++
+        array.getPorts.ports.toSeqMap.toSeq.flatMap { case (subname, subport) =>
+          expandPortsWithNames(path + subname, name :+ subname, subport)
+        }
     case port => throw new NotImplementedError()
   }
 }
