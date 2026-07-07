@@ -43,9 +43,6 @@ class EdgirLibraryNode(project: Project, library: edg.wir.Library) extends Edgir
     override def toString: String = path.toSimpleString
   }
 
-        .map { childPath => new BlockNode(childPath, library.allBlocks(childPath), root) }
-        .sortBy(_.toString)
-    }
   class BlockNode(val path: ref.LibraryPath, val block: elem.HierarchyBlock, root: BlockRootNode)
       extends LibraryElementNode(path) {
     override val traits = {
